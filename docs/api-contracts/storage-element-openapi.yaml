@@ -31,8 +31,12 @@ info:
     | `ro` | нет | да | нет | нет | да |
     | `ar` | нет | нет | нет | нет | да |
 
-    Переход между режимами — однонаправленный жизненный цикл:
-    `edit` → `rw` → `ro` → `ar`
+    Два жизненных цикла:
+    - `edit` — изолированный режим (temporary storage), переходы невозможны
+    - `rw` → `ro` → `ar` — жизненный цикл permanent storage
+
+    Откат `ro` → `rw` разрешён с подтверждением (`confirm: true`).
+    Все остальные обратные переходы запрещены.
 
     ### Retention Policy
     - `temporary` — файлы с TTL, автоматически удаляются встроенным GC по истечении срока
@@ -494,12 +498,24 @@ paths:
         Переключает Storage Element в указанный режим работы (runtime,
         без restart). Вызывается Admin Module.
 
-        Допустимые переходы (однонаправленный жизненный цикл):
-        - `edit` → `rw`
-        - `rw` → `ro`
-        - `ro` → `ar`
+        Два жизненных цикла SE:
 
-        Обратные переходы и пропуск шагов не допускаются.
+        **Temporary storage:** режим `edit` изолирован — переходы из `edit`
+        в другие режимы и обратно запрещены.
+
+        **Permanent storage:** допустимые переходы:
+        - `rw` → `ro` (штатный)
+        - `ro` → `ar` (штатный)
+        - `ro` → `rw` (откат, требует `confirm: true`)
+
+        Запрещённые переходы:
+        - `edit` → любой другой режим
+        - Любой режим → `edit`
+        - `ar` → `ro`, `ar` → `rw` (из архива возврат невозможен)
+        - `rw` → `ar` (пропуск шага)
+
+        При попытке отката `ro` → `rw` без `confirm: true` возвращается
+        `409 Conflict` с кодом `CONFIRMATION_REQUIRED`.
       operationId: transitionMode
       security:
         - bearerAuth: [storage:write]
@@ -527,15 +543,28 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
         "409":
-          description: Переход невозможен (недопустимый переход между режимами)
+          description: |
+            Переход невозможен. Возможные коды ошибок:
+            - `INVALID_TRANSITION` — недопустимый переход между режимами
+            - `CONFIRMATION_REQUIRED` — обратный переход `ro` → `rw`
+              требует подтверждения (`confirm: true`)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              example:
-                error:
-                  code: INVALID_TRANSITION
-                  message: "Переход из 'ro' в 'edit' не допускается"
+              examples:
+                invalidTransition:
+                  summary: Недопустимый переход
+                  value:
+                    error:
+                      code: INVALID_TRANSITION
+                      message: "Переход из 'edit' в 'rw' не допускается (edit — изолированный режим)"
+                confirmationRequired:
+                  summary: Требуется подтверждение отката
+                  value:
+                    error:
+                      code: CONFIRMATION_REQUIRED
+                      message: "Откат из 'ro' в 'rw' требует подтверждения (confirm: true)"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -650,6 +679,9 @@ paths:
         - Информация о режиме работы
         - Статус и результаты GC
         - Статус и результаты reconciliation
+        - Метрики зависимостей topologymetrics (app_dependency_health,
+          app_dependency_latency_seconds, app_dependency_status,
+          app_dependency_status_detail)
       operationId: getMetrics
       security: []
       responses:
@@ -939,12 +971,26 @@ components:
           example: 1.0.0
         capacity:
           $ref: "#/components/schemas/CapacityInfo"
+        replica_mode:
+          type: string
+          enum: [standalone, replicated]
+          description: Режим развёртывания
+          example: standalone
+        role:
+          type: string
+          enum: [standalone, leader, follower]
+          description: |
+            Роль экземпляра:
+            - `standalone` — единственный экземпляр (replica_mode=standalone)
+            - `leader` — лидер в replicated-режиме (обрабатывает запись)
+            - `follower` — follower в replicated-режиме (только чтение)
+          example: standalone
         allowed_operations:
           type: array
           items:
             type: string
             enum: [upload, download, update, delete, list]
-          description: Список операций, доступных в текущем режиме
+          description: Список операций, доступных в текущем режиме и роли
           example: [upload, download, update, list]
 
     CapacityInfo:
@@ -983,11 +1029,23 @@ components:
       properties:
         target_mode:
           type: string
-          enum: [edit, rw, ro, ar]
+          enum: [rw, ro, ar]
           description: |
             Целевой режим. Допустимые переходы:
-            `edit` → `rw` → `ro` → `ar`
+            - `rw` → `ro` (штатный)
+            - `ro` → `ar` (штатный)
+            - `ro` → `rw` (откат, требует `confirm: true`)
+
+            Режим `edit` изолирован — переходы в/из `edit` невозможны.
           example: ro
+        confirm:
+          type: boolean
+          description: |
+            Подтверждение обратного перехода. Обязательно для отката
+            `ro` → `rw`. Без `confirm: true` откат возвращает 409
+            с кодом `CONFIRMATION_REQUIRED`.
+          default: false
+          example: false
 
     ModeTransitionResponse:
       type: object
@@ -1227,6 +1285,7 @@ components:
                 - `FORBIDDEN` — недостаточно прав
                 - `MODE_NOT_ALLOWED` — операция недоступна в текущем режиме
                 - `INVALID_TRANSITION` — недопустимый переход между режимами
+                - `CONFIRMATION_REQUIRED` — обратный переход требует подтверждения
                 - `INVALID_RANGE` — некорректный Range header
                 - `FILE_TOO_LARGE` — файл превышает лимит
                 - `STORAGE_FULL` — нет свободного места

@@ -1383,7 +1383,10 @@ paths:
       summary: Prometheus metrics
       description: |
         Метрики в формате Prometheus: количество SA, admin users,
-        SE, файлов, счётчики аутентификаций, латентность запросов.
+        SE, файлов, счётчики аутентификаций, латентность запросов,
+        метрики зависимостей topologymetrics (app_dependency_health,
+        app_dependency_latency_seconds, app_dependency_status,
+        app_dependency_status_detail).
       operationId: getMetrics
       security: []
       responses:
