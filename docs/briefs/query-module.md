@@ -376,6 +376,7 @@ Credentials SA передаются через env-переменные. Query M
 
 | Переменная | Обязательная | По умолчанию | Описание |
 |------------|:------------:|--------------|----------|
+| `QM_DEPHEALTH_CHECK_INTERVAL` | нет | `15s` | Интервал проверки зависимостей topologymetrics (Go duration) |
 | `QM_ADMIN_TIMEOUT` | нет | `10s` | Таймаут запросов к Admin Module (Go duration) |
 | `QM_SE_DOWNLOAD_TIMEOUT` | нет | `5m` | Таймаут proxy download от SE (Go duration) |
 
@@ -487,7 +488,58 @@ helm install query-module ./query-module/chart \
 
 ---
 
-## 12. Порты
+## 12. Мониторинг зависимостей (topologymetrics)
+
+Query Module интегрируется с SDK
+[topologymetrics](https://github.com/BigKAA/topologymetrics)
+для мониторинга здоровья внешних зависимостей через Prometheus-метрики.
+
+### 12.1. Отслеживаемые зависимости
+
+| Зависимость | Тип проверки | Критичность |
+|-------------|-------------|:-----------:|
+| PostgreSQL | SQL (`SELECT 1` через пул) | да |
+| Admin Module | HTTP (GET) | да |
+
+### 12.2. Экспортируемые метрики
+
+| Метрика | Тип | Описание |
+|---------|-----|----------|
+| `app_dependency_health` | Gauge | 1 = доступен, 0 = недоступен |
+| `app_dependency_latency_seconds` | Histogram | Время проверки |
+| `app_dependency_status` | Gauge | Категория результата (ok, timeout, error...) |
+| `app_dependency_status_detail` | Gauge | Детальная причина |
+
+Метрики доступны на endpoint `/metrics` вместе с остальными
+Prometheus-метриками Query Module.
+
+### 12.3. Интеграция в коде
+
+```go
+import (
+    "github.com/BigKAA/topologymetrics/sdk-go/dephealth"
+    "github.com/BigKAA/topologymetrics/sdk-go/dephealth/contrib/sqldb"
+    _ "github.com/BigKAA/topologymetrics/sdk-go/dephealth/checks"
+)
+
+dh, err := dephealth.New("query-module", "artsore",
+    dephealth.WithCheckInterval(cfg.DephealthCheckInterval),
+    sqldb.FromDB("postgresql", db,
+        dephealth.FromURL(cfg.DatabaseURL),
+        dephealth.Critical(true),
+    ),
+    dephealth.HTTP("admin-module",
+        dephealth.FromURL(cfg.AdminURL + "/health/live"),
+        dephealth.Critical(true),
+    ),
+)
+dh.Start(ctx)
+defer dh.Stop()
+```
+
+---
+
+## 13. Порты
 
 | Порт | Назначение |
 |------|------------|

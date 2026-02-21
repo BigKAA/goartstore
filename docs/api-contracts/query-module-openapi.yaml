@@ -352,6 +352,9 @@ paths:
         - LRU cache hit/miss ratio
         - Количество активных соединений к SE
         - Счётчик ленивых очисток реестра (lazy cleanup при 404 от SE)
+        - Метрики зависимостей topologymetrics (app_dependency_health,
+          app_dependency_latency_seconds, app_dependency_status,
+          app_dependency_status_detail)
       operationId: getMetrics
       security: []
       responses:

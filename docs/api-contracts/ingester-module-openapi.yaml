@@ -286,6 +286,9 @@ paths:
         - Гистограммы размеров файлов
         - Счётчики ошибок по типу (SE unavailable, storage full, и т.д.)
         - Gauge текущих активных загрузок
+        - Метрики зависимостей topologymetrics (app_dependency_health,
+          app_dependency_latency_seconds, app_dependency_status,
+          app_dependency_status_detail)
       operationId: getMetrics
       security: []
       responses:

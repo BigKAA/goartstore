@@ -338,6 +338,7 @@ Admin Module запускает фоновую задачу, которая с �
 
 | Переменная | Обязательная | По умолчанию | Описание |
 |------------|:------------:|--------------|----------|
+| `AM_DEPHEALTH_CHECK_INTERVAL` | нет | `15s` | Интервал проверки зависимостей topologymetrics (Go duration) |
 | `AM_SYNC_INTERVAL` | нет | `1h` | Интервал периодической синхронизации SE (Go duration) |
 | `AM_SYNC_PAGE_SIZE` | нет | `1000` | Размер страницы при sync файлов с SE |
 | `AM_SE_CA_CERT_PATH` | нет | — | Путь к CA-сертификату для TLS-соединений с SE |
@@ -479,7 +480,53 @@ helm install admin-module ./admin-module/chart \
 
 ---
 
-## 12. Порты
+## 12. Мониторинг зависимостей (topologymetrics)
+
+Admin Module интегрируется с SDK
+[topologymetrics](https://github.com/BigKAA/topologymetrics)
+для мониторинга здоровья внешних зависимостей через Prometheus-метрики.
+
+### 12.1. Отслеживаемые зависимости
+
+| Зависимость | Тип проверки | Критичность |
+|-------------|-------------|:-----------:|
+| PostgreSQL | SQL (`SELECT 1` через пул) | да |
+
+### 12.2. Экспортируемые метрики
+
+| Метрика | Тип | Описание |
+|---------|-----|----------|
+| `app_dependency_health` | Gauge | 1 = доступен, 0 = недоступен |
+| `app_dependency_latency_seconds` | Histogram | Время проверки |
+| `app_dependency_status` | Gauge | Категория результата (ok, timeout, error...) |
+| `app_dependency_status_detail` | Gauge | Детальная причина |
+
+Метрики доступны на endpoint `/metrics` вместе с остальными
+Prometheus-метриками Admin Module.
+
+### 12.3. Интеграция в коде
+
+```go
+import (
+    "github.com/BigKAA/topologymetrics/sdk-go/dephealth"
+    "github.com/BigKAA/topologymetrics/sdk-go/dephealth/contrib/sqldb"
+    _ "github.com/BigKAA/topologymetrics/sdk-go/dephealth/checks"
+)
+
+dh, err := dephealth.New("admin-module", "artsore",
+    dephealth.WithCheckInterval(cfg.DephealthCheckInterval),
+    sqldb.FromDB("postgresql", db,
+        dephealth.FromURL(cfg.DatabaseURL),
+        dephealth.Critical(true),
+    ),
+)
+dh.Start(ctx)
+defer dh.Stop()
+```
+
+---
+
+## 13. Порты
 
 | Порт | Назначение |
 |------|------------|

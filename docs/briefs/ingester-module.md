@@ -298,6 +298,7 @@ Ingester получает JWT token при старте и обновляет е
 
 | Переменная | Обязательная | По умолчанию | Описание |
 |------------|:------------:|--------------|----------|
+| `IG_DEPHEALTH_CHECK_INTERVAL` | нет | `15s` | Интервал проверки зависимостей topologymetrics (Go duration) |
 | `IG_ADMIN_TIMEOUT` | нет | `10s` | Таймаут запросов к Admin Module (Go duration) |
 | `IG_SE_UPLOAD_TIMEOUT` | нет | `5m` | Таймаут загрузки файла в SE (Go duration) |
 
@@ -352,7 +353,52 @@ helm install ingester ./ingester-module/chart \
 
 ---
 
-## 10. Порты
+## 10. Мониторинг зависимостей (topologymetrics)
+
+Ingester Module интегрируется с SDK
+[topologymetrics](https://github.com/BigKAA/topologymetrics)
+для мониторинга здоровья внешних зависимостей через Prometheus-метрики.
+
+### 10.1. Отслеживаемые зависимости
+
+| Зависимость | Тип проверки | Критичность |
+|-------------|-------------|:-----------:|
+| Admin Module | HTTP (GET) | да |
+
+### 10.2. Экспортируемые метрики
+
+| Метрика | Тип | Описание |
+|---------|-----|----------|
+| `app_dependency_health` | Gauge | 1 = доступен, 0 = недоступен |
+| `app_dependency_latency_seconds` | Histogram | Время проверки |
+| `app_dependency_status` | Gauge | Категория результата (ok, timeout, error...) |
+| `app_dependency_status_detail` | Gauge | Детальная причина |
+
+Метрики доступны на endpoint `/metrics` вместе с остальными
+Prometheus-метриками Ingester Module.
+
+### 10.3. Интеграция в коде
+
+```go
+import (
+    "github.com/BigKAA/topologymetrics/sdk-go/dephealth"
+    _ "github.com/BigKAA/topologymetrics/sdk-go/dephealth/checks"
+)
+
+dh, err := dephealth.New("ingester-module", "artsore",
+    dephealth.WithCheckInterval(cfg.DephealthCheckInterval),
+    dephealth.HTTP("admin-module",
+        dephealth.FromURL(cfg.AdminURL + "/health/live"),
+        dephealth.Critical(true),
+    ),
+)
+dh.Start(ctx)
+defer dh.Stop()
+```
+
+---
+
+## 11. Порты
 
 | Порт | Назначение |
 |------|------------|
