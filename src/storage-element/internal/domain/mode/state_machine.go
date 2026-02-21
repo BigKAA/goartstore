@@ -209,6 +209,15 @@ func (sm *StateMachine) CanPerform(op Operation) bool {
 	return ops[op]
 }
 
+// ForceMode устанавливает режим напрямую без валидации переходов.
+// Используется follower в replicated mode для синхронизации режима из mode.json.
+// Потокобезопасен (под мьютексом).
+func (sm *StateMachine) ForceMode(target StorageMode) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	sm.current = target
+}
+
 // History возвращает историю переходов (копия).
 func (sm *StateMachine) History() []TransitionRecord {
 	sm.mu.RLock()

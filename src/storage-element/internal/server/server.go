@@ -21,12 +21,18 @@ import (
 	"github.com/arturkryukov/artsore/storage-element/internal/config"
 )
 
+// ProxyMiddleware — интерфейс для middleware проксирования запросов (replicated mode).
+type ProxyMiddleware interface {
+	Middleware(next http.Handler) http.Handler
+}
+
 // Server — HTTP-сервер Storage Element.
 type Server struct {
 	httpServer *http.Server
 	logger     *slog.Logger
 	cfg        *config.Config
 	jwtAuth    JWTAuthProvider
+	proxy      ProxyMiddleware
 }
 
 // JWTAuthProvider — интерфейс для JWT middleware.
@@ -37,12 +43,19 @@ type JWTAuthProvider interface {
 // New создаёт новый HTTP-сервер с настроенными routes и middleware.
 // handler — реализация generated.ServerInterface с реальными handlers.
 // jwtAuth — JWT middleware (nil для режима без аутентификации).
-func New(cfg *config.Config, logger *slog.Logger, handler generated.ServerInterface, jwtAuth JWTAuthProvider) *Server {
+// proxy — middleware проксирования (nil для standalone mode).
+func New(cfg *config.Config, logger *slog.Logger, handler generated.ServerInterface, jwtAuth JWTAuthProvider, proxy ProxyMiddleware) *Server {
 	router := chi.NewRouter()
 
 	// Глобальные middleware
 	router.Use(middleware.MetricsMiddleware())
 	router.Use(middleware.RequestLogger(logger))
+
+	// Proxy middleware (replicated mode: follower → leader для write-запросов).
+	// Ставится после logging/metrics, перед маршрутами.
+	if proxy != nil {
+		router.Use(proxy.Middleware)
+	}
 
 	// Определяем маршруты с JWT-аутентификацией.
 	// Публичные endpoints (без auth): health, metrics, info.
@@ -123,6 +136,7 @@ func New(cfg *config.Config, logger *slog.Logger, handler generated.ServerInterf
 		logger:     logger,
 		cfg:        cfg,
 		jwtAuth:    jwtAuth,
+		proxy:      proxy,
 	}
 }
 

@@ -12,32 +12,39 @@ import (
 	"github.com/arturkryukov/artsore/storage-element/internal/storage/index"
 )
 
-// DiskUsageProvider — интерфейс для получения информации об ёмкости диска.
-type DiskUsageProvider interface {
-	DiskUsage() (total, used, available int64, err error)
+// RoleProvider — интерфейс для получения текущей роли экземпляра SE.
+// Используется в system и health handlers для динамического определения роли.
+type RoleProvider interface {
+	CurrentRole() string
+	IsLeader() bool
+	LeaderAddr() string
 }
 
 // SystemHandler — обработчик системных endpoints.
 type SystemHandler struct {
-	cfg    *config.Config
-	sm     *mode.StateMachine
-	idx    *index.Index
-	diskFn func() (total, used, available int64, err error)
+	cfg          *config.Config
+	sm           *mode.StateMachine
+	idx          *index.Index
+	diskFn       func() (total, used, available int64, err error)
+	roleProvider RoleProvider
 }
 
 // NewSystemHandler создаёт обработчик системных endpoints.
 // diskUsageFn — функция для получения дискового пространства (nil для заглушки).
+// roleProvider — провайдер роли (nil для standalone).
 func NewSystemHandler(
 	cfg *config.Config,
 	sm *mode.StateMachine,
 	idx *index.Index,
 	diskUsageFn func() (total, used, available int64, err error),
+	roleProvider RoleProvider,
 ) *SystemHandler {
 	return &SystemHandler{
-		cfg:    cfg,
-		sm:     sm,
-		idx:    idx,
-		diskFn: diskUsageFn,
+		cfg:          cfg,
+		sm:           sm,
+		idx:          idx,
+		diskFn:       diskUsageFn,
+		roleProvider: roleProvider,
 	}
 }
 
@@ -78,8 +85,11 @@ func (h *SystemHandler) GetStorageInfo(w http.ResponseWriter, r *http.Request) {
 		replicaMode = generated.StorageInfoReplicaModeReplicated
 	}
 
-	// Роль (Phase 5: Leader/Follower, пока standalone)
+	// Роль — определяется через RoleProvider (dynamic в replicated mode)
 	role := generated.StorageInfoRoleStandalone
+	if h.roleProvider != nil {
+		role = generated.StorageInfoRole(h.roleProvider.CurrentRole())
+	}
 
 	resp := generated.StorageInfo{
 		StorageId:         h.cfg.StorageID,
