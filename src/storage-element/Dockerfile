@@ -1,6 +1,6 @@
 # Multi-stage сборка Storage Element
 # Этап 1: Сборка бинарника
-FROM golang:1.24-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 ARG VERSION=dev
 
