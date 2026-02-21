@@ -29,6 +29,8 @@ func TestNewDephealthService_ValidURL(t *testing.T) {
 
 	ds, err := NewDephealthServiceWithRegisterer(
 		"test-se-01",
+		"storage-element",
+		"admin-jwks",
 		mockServer.URL,
 		5*time.Second,
 		logger,
@@ -58,6 +60,8 @@ func TestDephealthService_StartStop(t *testing.T) {
 
 	ds, err := NewDephealthServiceWithRegisterer(
 		"test-se-02",
+		"storage-element",
+		"admin-jwks",
 		mockServer.URL,
 		1*time.Second,
 		logger,
@@ -116,6 +120,8 @@ func TestDephealthService_UnhealthyDependency(t *testing.T) {
 
 	ds, err := NewDephealthServiceWithRegisterer(
 		"test-se-03",
+		"storage-element",
+		"admin-jwks",
 		mockServer.URL,
 		1*time.Second,
 		logger,

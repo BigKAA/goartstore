@@ -36,6 +36,18 @@ func main() {
 		slog.String("replica_mode", cfg.ReplicaMode),
 	)
 
+	// Предупреждения о параметрах topologymetrics с дефолтными значениями
+	if os.Getenv("SE_DEPHEALTH_GROUP") == "" {
+		logger.Warn("SE_DEPHEALTH_GROUP не задана, используется значение по умолчанию",
+			slog.String("default", cfg.DephealthGroup),
+		)
+	}
+	if os.Getenv("SE_DEPHEALTH_DEP_NAME") == "" {
+		logger.Warn("SE_DEPHEALTH_DEP_NAME не задана, используется значение по умолчанию",
+			slog.String("default", cfg.DephealthDepName),
+		)
+	}
+
 	// --- Инициализация компонентов ---
 
 	// 1. Конечный автомат режимов
@@ -113,6 +125,8 @@ func main() {
 	// 6.3 topologymetrics — мониторинг зависимостей
 	dephealthSvc, dephealthErr := service.NewDephealthService(
 		cfg.StorageID,
+		cfg.DephealthGroup,
+		cfg.DephealthDepName,
 		cfg.JWKSUrl,
 		cfg.DephealthCheckInterval,
 		logger,
@@ -128,6 +142,8 @@ func main() {
 			)
 		} else {
 			logger.Info("topologymetrics запущен",
+				slog.String("group", cfg.DephealthGroup),
+				slog.String("dep_name", cfg.DephealthDepName),
 				slog.String("jwks_url", cfg.JWKSUrl),
 				slog.String("check_interval", cfg.DephealthCheckInterval.String()),
 			)

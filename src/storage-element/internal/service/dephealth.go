@@ -9,95 +9,18 @@
 //   - app_dependency_status — категория статуса
 //   - app_dependency_status_detail — детальный статус
 //
-// Используется кастомный HTTP checker вместо dephealth/checks,
-// чтобы избежать тяжёлых transitive зависимостей (PostgreSQL, Redis, gRPC и др.).
+// Используется встроенный HTTP checker из dephealth SDK.
 package service
 
 import (
 	"context"
-	"crypto/tls"
-	"fmt"
 	"log/slog"
-	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/BigKAA/topologymetrics/sdk-go/dephealth"
+	_ "github.com/BigKAA/topologymetrics/sdk-go/dephealth/checks" // Регистрация фабрик checker-ов (HTTP и др.)
 	"github.com/prometheus/client_golang/prometheus"
 )
-
-// httpChecker — кастомный HTTP health checker для topologymetrics.
-// Выполняет HTTP GET к endpoint и проверяет код ответа (2xx = ok).
-type httpChecker struct {
-	client *http.Client
-	path   string // URL path для проверки
-}
-
-// newHTTPChecker создаёт HTTP health checker.
-func newHTTPChecker(timeout time.Duration, path string, skipTLSVerify bool) *httpChecker {
-	transport := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: skipTLSVerify, //nolint:gosec // Dev-среда: self-signed сертификаты
-		},
-	}
-
-	return &httpChecker{
-		client: &http.Client{
-			Timeout:   timeout,
-			Transport: transport,
-		},
-		path: path,
-	}
-}
-
-// Check выполняет HTTP GET к endpoint и проверяет ответ.
-func (c *httpChecker) Check(ctx context.Context, ep dephealth.Endpoint) error {
-	scheme := "http"
-	if ep.Port == "443" || ep.Port == "8443" {
-		scheme = "https"
-	}
-
-	// Если в labels есть scheme — используем его
-	if s, ok := ep.Labels["scheme"]; ok {
-		scheme = s
-	}
-
-	targetURL := fmt.Sprintf("%s://%s:%s%s", scheme, ep.Host, ep.Port, c.path)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, targetURL, nil)
-	if err != nil {
-		return &dephealth.ClassifiedCheckError{
-			Category: dephealth.StatusError,
-			Detail:   "request_creation_failed",
-			Cause:    err,
-		}
-	}
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return &dephealth.ClassifiedCheckError{
-			Category: dephealth.StatusConnectionError,
-			Detail:   "connection_failed",
-			Cause:    err,
-		}
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return &dephealth.ClassifiedCheckError{
-			Category: dephealth.StatusUnhealthy,
-			Detail:   fmt.Sprintf("http_%d", resp.StatusCode),
-			Cause:    fmt.Errorf("HTTP %d", resp.StatusCode),
-		}
-	}
-
-	return nil
-}
-
-// Type возвращает тип зависимости.
-func (c *httpChecker) Type() string {
-	return "http"
-}
 
 // DephealthService — сервис мониторинга зависимостей через topologymetrics.
 type DephealthService struct {
@@ -107,74 +30,63 @@ type DephealthService struct {
 
 // NewDephealthService создаёт сервис мониторинга зависимостей.
 // Метрики регистрируются в глобальном Prometheus registry.
+//
+// Параметры:
+//   - storageID — имя вершины графа текущего приложения (SE_STORAGE_ID)
+//   - group — имя группы в метриках (SE_DEPHEALTH_GROUP)
+//   - depName — имя зависимости / целевого сервиса (SE_DEPHEALTH_DEP_NAME)
+//   - jwksURL — URL зависимости для проверки (SE_JWKS_URL)
+//   - checkInterval — интервал проверки (SE_DEPHEALTH_CHECK_INTERVAL)
 func NewDephealthService(
 	storageID string,
+	group string,
+	depName string,
 	jwksURL string,
 	checkInterval time.Duration,
 	logger *slog.Logger,
 ) (*DephealthService, error) {
-	return newDephealthService(storageID, jwksURL, checkInterval, logger)
+	return newDephealthService(storageID, group, depName, jwksURL, checkInterval, logger)
 }
 
 // NewDephealthServiceWithRegisterer создаёт сервис с указанным Prometheus registerer.
 // Используется в тестах для изоляции метрик.
 func NewDephealthServiceWithRegisterer(
 	storageID string,
+	group string,
+	depName string,
 	jwksURL string,
 	checkInterval time.Duration,
 	logger *slog.Logger,
 	registerer prometheus.Registerer,
 ) (*DephealthService, error) {
-	return newDephealthService(storageID, jwksURL, checkInterval, logger, dephealth.WithRegisterer(registerer))
+	return newDephealthService(storageID, group, depName, jwksURL, checkInterval, logger, dephealth.WithRegisterer(registerer))
 }
 
 // newDephealthService — внутренний конструктор.
 func newDephealthService(
 	storageID string,
+	group string,
+	depName string,
 	jwksURL string,
 	checkInterval time.Duration,
 	logger *slog.Logger,
 	extraOpts ...dephealth.Option,
 ) (*DephealthService, error) {
-	// Парсим JWKS URL для получения host, port, path
-	parsedURL, err := url.Parse(jwksURL)
-	if err != nil {
-		return nil, fmt.Errorf("некорректный JWKS URL %q: %w", jwksURL, err)
-	}
-
-	host := parsedURL.Hostname()
-	port := parsedURL.Port()
-	if port == "" {
-		if parsedURL.Scheme == "https" {
-			port = "443"
-		} else {
-			port = "80"
-		}
-	}
-	path := parsedURL.Path
-	if path == "" {
-		path = "/"
-	}
-
-	// Создаём HTTP checker
-	checker := newHTTPChecker(5*time.Second, path, true)
-
-	// Собираем опции
+	// Собираем опции: встроенный HTTP checker с per-dependency интервалом
 	opts := []dephealth.Option{
-		dephealth.WithCheckInterval(checkInterval),
 		dephealth.WithLogger(logger),
-		// Зависимость: Admin Module JWKS (HTTP, critical)
-		dephealth.AddDependency("admin-jwks", dephealth.TypeHTTP, checker,
-			dephealth.FromParams(host, port),
+		dephealth.HTTP(depName,
+			dephealth.FromURL(jwksURL),
+			dephealth.CheckInterval(checkInterval),
 			dephealth.Critical(true),
-			dephealth.WithLabel("scheme", parsedURL.Scheme),
+			dephealth.WithHTTPTLSSkipVerify(true), // Dev-среда: self-signed сертификаты
 		),
 	}
 	opts = append(opts, extraOpts...)
 
 	dh, err := dephealth.New(
 		storageID,
-		"storage-element",
+		group,
 		opts...,
 	)
 	if err != nil {
