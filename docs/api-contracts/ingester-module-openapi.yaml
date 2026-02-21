@@ -1,0 +1,573 @@
+# OpenAPI спецификация для Ingester Module
+# Модуль: Ingester Module (загрузка файлов)
+# Версия API: v1
+# Дата фиксации: 2026-02-21
+
+openapi: 3.0.3
+
+info:
+  title: Ingester Module API
+  description: |
+    Ingester Module — точка входа для загрузки файлов в систему Artsore.
+
+    ## Workflow загрузки
+
+    ```
+    Клиент → POST /api/v1/files/upload (файл + метаданные)
+      → Ingester определяет целевой SE через Admin Module API
+        (GET /api/v1/storage-elements?mode=edit|rw&status=online)
+      → Ingester загружает файл в SE (streaming POST /api/v1/files/upload)
+      → Ingester регистрирует файл в Admin Module (POST /api/v1/files)
+      → Клиент получает UploadResponse
+    ```
+
+    ### Выбор Storage Element
+
+    Целевой SE определяется по `retention_policy`:
+    - `temporary` → SE в режиме `edit` (файл с TTL, auto-expire)
+    - `permanent` → SE в режиме `rw` (файл без срока хранения)
+
+    Ingester запрашивает список доступных SE через Admin Module API
+    и выбирает подходящий SE с достаточной свободной ёмкостью.
+
+    ### Ограничения
+
+    - Максимальный размер файла: конфигурируемый (default 1 GB)
+    - Application-level сжатие убрано (HTTP-level compression достаточно)
+    - Streaming progress не поддерживается в v1
+    - Смена retention_policy (temporary → permanent) не поддерживается в v1
+
+    ### Аутентификация
+
+    Все endpoints (кроме `/health/*` и `/metrics`) требуют JWT Bearer token
+    (RS256), выданный Admin Module.
+
+    Для загрузки файлов необходим scope `files:write` (SA) или роль `admin`
+    (Admin User).
+  version: 1.0.0
+  contact:
+    name: Artsore Team
+  license:
+    name: Private
+    url: https://github.com/arturkryukov/artsore
+
+servers:
+  - url: https://{host}:{port}
+    description: Ingester Module instance
+    variables:
+      host:
+        default: localhost
+      port:
+        default: "8020"
+        description: Порт из диапазона 8020-8029
+
+tags:
+  - name: upload
+    description: Загрузка файлов
+  - name: health
+    description: Kubernetes probes и метрики
+
+# ---------------------------------------------------------------------------
+# Пути (Paths)
+# ---------------------------------------------------------------------------
+paths:
+
+  # =========================================================================
+  # Upload
+  # =========================================================================
+
+  /api/v1/files/upload:
+    post:
+      tags: [upload]
+      summary: Загрузка файла
+      description: |
+        Загружает файл в систему Artsore через multipart/form-data.
+
+        Процесс:
+        1. Ingester валидирует запрос (размер файла, параметры)
+        2. Определяет целевой SE через Admin Module API на основе
+           `retention_policy` (temporary → edit SE, permanent → rw SE)
+        3. Загружает файл в SE (streaming)
+        4. Регистрирует файл в Admin Module file registry
+        5. Возвращает клиенту метаданные загруженного файла
+
+        Если `retention_policy=temporary`, то `ttl_days` определяет срок
+        хранения (по умолчанию 30 дней, диапазон 1-365).
+        По истечении TTL файл автоматически удаляется встроенным GC
+        на Storage Element.
+      operationId: uploadFile
+      security:
+        - bearerAuth: [files:write]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Загружаемый файл
+                description:
+                  type: string
+                  description: Описание файла
+                  maxLength: 1000
+                  example: Набросок логотипа v2
+                tags:
+                  type: string
+                  description: |
+                    JSON-массив тегов. Передаётся как строка в multipart.
+                    Используется для категоризации и поиска файлов.
+                  example: '["logo", "draft", "v2"]'
+                retention_policy:
+                  type: string
+                  enum: [temporary, permanent]
+                  default: temporary
+                  description: |
+                    Политика хранения:
+                    - `temporary` — загружается в Edit SE, имеет TTL
+                    - `permanent` — загружается в RW SE, хранится бессрочно
+                  example: temporary
+                ttl_days:
+                  type: integer
+                  minimum: 1
+                  maximum: 365
+                  default: 30
+                  description: |
+                    Срок хранения в днях. Применяется только при
+                    `retention_policy=temporary`. Игнорируется для `permanent`.
+                  example: 30
+      responses:
+        "201":
+          description: Файл успешно загружен
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadResponse"
+        "400":
+          description: Некорректный запрос
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                missingFile:
+                  summary: Файл не указан
+                  value:
+                    error:
+                      code: VALIDATION_ERROR
+                      message: "Поле 'file' обязательно"
+                invalidTags:
+                  summary: Невалидный формат тегов
+                  value:
+                    error:
+                      code: VALIDATION_ERROR
+                      message: "Поле 'tags' должно быть JSON-массивом строк"
+                invalidTtl:
+                  summary: TTL вне допустимого диапазона
+                  value:
+                    error:
+                      code: VALIDATION_ERROR
+                      message: "ttl_days должен быть от 1 до 365"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          description: Файл превышает допустимый размер
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: FILE_TOO_LARGE
+                  message: "Размер файла превышает лимит 1073741824 байт"
+        "502":
+          description: Ошибка при взаимодействии с Storage Element или Admin Module
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                seUnavailable:
+                  summary: Нет доступных SE
+                  value:
+                    error:
+                      code: NO_STORAGE_AVAILABLE
+                      message: "Нет доступных Storage Elements для режима 'edit'"
+                seUploadFailed:
+                  summary: Ошибка загрузки в SE
+                  value:
+                    error:
+                      code: SE_UPLOAD_FAILED
+                      message: "Ошибка при загрузке файла в Storage Element"
+                adminUnavailable:
+                  summary: Admin Module недоступен
+                  value:
+                    error:
+                      code: ADMIN_UNAVAILABLE
+                      message: "Admin Module недоступен"
+        "507":
+          description: Нет свободного места на доступных SE
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: STORAGE_FULL
+                  message: "Недостаточно свободного места на доступных Storage Elements"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # =========================================================================
+  # Health
+  # =========================================================================
+
+  /health/live:
+    get:
+      tags: [health]
+      summary: Liveness probe
+      description: Kubernetes liveness probe. Возвращает 200, если процесс жив.
+      operationId: healthLive
+      security: []
+      responses:
+        "200":
+          description: Сервис жив
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthLiveResponse"
+
+  /health/ready:
+    get:
+      tags: [health]
+      summary: Readiness probe
+      description: |
+        Kubernetes readiness probe. Проверяет готовность Ingester
+        обрабатывать запросы:
+        - Admin Module доступен
+        - Хотя бы 1 SE доступен для каждой retention_policy
+          (edit SE для temporary, rw SE для permanent)
+
+        Статусы:
+        - `ok` (200) — все зависимости доступны
+        - `degraded` (200) — частично доступен (например, есть edit SE,
+          но нет rw SE — можно загружать только temporary)
+        - `fail` (503) — не готов (Admin Module недоступен или нет SE)
+      operationId: healthReady
+      security: []
+      responses:
+        "200":
+          description: Сервис готов (ok или degraded)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthReadyResponse"
+        "503":
+          description: Сервис не готов (fail)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthReadyResponse"
+
+  /metrics:
+    get:
+      tags: [health]
+      summary: Prometheus metrics
+      description: |
+        Метрики в формате Prometheus. Включают:
+        - Счётчики загрузок (успешные, неуспешные, по retention_policy)
+        - Гистограммы латентности upload (общее время, время SE, время регистрации)
+        - Гистограммы размеров файлов
+        - Счётчики ошибок по типу (SE unavailable, storage full, и т.д.)
+        - Gauge текущих активных загрузок
+      operationId: getMetrics
+      security: []
+      responses:
+        "200":
+          description: Метрики Prometheus
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  # HELP ingester_uploads_total Общее количество загрузок
+                  # TYPE ingester_uploads_total counter
+                  ingester_uploads_total{retention_policy="temporary",status="success"} 1523
+                  ingester_uploads_total{retention_policy="permanent",status="success"} 847
+                  ingester_uploads_total{status="error"} 12
+
+# ---------------------------------------------------------------------------
+# Компоненты (Components)
+# ---------------------------------------------------------------------------
+components:
+
+  # =========================================================================
+  # Схемы безопасности
+  # =========================================================================
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT RS256 token, выданный Admin Module.
+        Для загрузки файлов необходим scope `files:write` (SA)
+        или роль `admin` (Admin User).
+
+  # =========================================================================
+  # Переиспользуемые ответы
+  # =========================================================================
+  responses:
+    Unauthorized:
+      description: Отсутствует или невалидный JWT token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: UNAUTHORIZED
+              message: "Требуется аутентификация"
+
+    Forbidden:
+      description: Недостаточно прав для загрузки файлов
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: FORBIDDEN
+              message: "Недостаточно прав для загрузки файлов"
+
+    InternalError:
+      description: Внутренняя ошибка сервера
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: INTERNAL_ERROR
+              message: "Внутренняя ошибка сервера"
+
+  # =========================================================================
+  # Схемы данных
+  # =========================================================================
+  schemas:
+
+    # -----------------------------------------------------------------------
+    # Upload
+    # -----------------------------------------------------------------------
+
+    UploadResponse:
+      type: object
+      description: |
+        Результат загрузки файла. Содержит метаданные загруженного файла,
+        без внутренних деталей (storage_filename, storage_element_url и т.д.).
+      required:
+        - file_id
+        - original_filename
+        - content_type
+        - size
+        - checksum
+        - uploaded_by
+        - uploaded_at
+        - retention_policy
+        - status
+      properties:
+        file_id:
+          type: string
+          format: uuid
+          description: Уникальный идентификатор загруженного файла
+          example: 550e8400-e29b-41d4-a716-446655440000
+        original_filename:
+          type: string
+          description: Оригинальное имя файла
+          example: photo_landscape.jpg
+        content_type:
+          type: string
+          description: MIME-тип файла (определяется автоматически)
+          example: image/jpeg
+        size:
+          type: integer
+          format: int64
+          description: Размер файла в байтах
+          example: 5242880
+        checksum:
+          type: string
+          description: SHA-256 хэш содержимого файла
+          example: a1b2c3d4e5f67890abcdef1234567890abcdef1234567890abcdef1234567890
+        uploaded_by:
+          type: string
+          description: Идентификатор загрузившего (из JWT claim `sub`)
+          example: sa_ingester_a1b2c3
+        uploaded_at:
+          type: string
+          format: date-time
+          description: Дата и время загрузки (ISO 8601, UTC)
+          example: "2026-02-21T15:30:00Z"
+        description:
+          type: string
+          nullable: true
+          description: Описание файла
+          example: Набросок логотипа v2
+        tags:
+          type: array
+          items:
+            type: string
+          description: Теги файла
+          example: ["logo", "draft", "v2"]
+        status:
+          type: string
+          enum: [active]
+          description: Статус файла (всегда `active` при загрузке)
+          example: active
+        retention_policy:
+          type: string
+          enum: [temporary, permanent]
+          description: Политика хранения
+          example: temporary
+        ttl_days:
+          type: integer
+          nullable: true
+          description: Срок хранения в днях (только для temporary)
+          example: 30
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            Дата и время истечения срока хранения (ISO 8601, UTC).
+            `null` для permanent файлов.
+          example: "2026-03-23T15:30:00Z"
+
+    # -----------------------------------------------------------------------
+    # Health
+    # -----------------------------------------------------------------------
+
+    HealthLiveResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+        - version
+        - service
+      properties:
+        status:
+          type: string
+          enum: [ok]
+          example: ok
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-02-21T15:30:00Z"
+        version:
+          type: string
+          example: 1.0.0
+        service:
+          type: string
+          example: ingester-module
+
+    HealthReadyResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+        - version
+        - service
+        - checks
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, fail]
+          description: |
+            Общий статус:
+            - `ok` (200) — Admin Module и все типы SE доступны
+            - `degraded` (200) — частично доступен
+              (например, нет rw SE — только temporary upload)
+            - `fail` (503) — не готов (Admin Module или все SE недоступны)
+          example: ok
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-02-21T15:30:00Z"
+        version:
+          type: string
+          example: 1.0.0
+        service:
+          type: string
+          example: ingester-module
+        checks:
+          type: object
+          description: Результаты проверки зависимостей
+          required:
+            - admin_module
+            - edit_storage
+            - rw_storage
+          properties:
+            admin_module:
+              $ref: "#/components/schemas/HealthCheck"
+            edit_storage:
+              description: Наличие доступного edit SE (для temporary upload)
+              allOf:
+                - $ref: "#/components/schemas/HealthCheck"
+            rw_storage:
+              description: Наличие доступного rw SE (для permanent upload)
+              allOf:
+                - $ref: "#/components/schemas/HealthCheck"
+
+    HealthCheck:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [ok, fail]
+          example: ok
+        message:
+          type: string
+          description: Дополнительная информация (при проблемах)
+          example: "Admin Module доступен"
+
+    # -----------------------------------------------------------------------
+    # Ошибки
+    # -----------------------------------------------------------------------
+
+    ErrorResponse:
+      type: object
+      description: Стандартный формат ошибки (единый для всей системы Artsore)
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              description: |
+                Машиночитаемый код ошибки. Значения:
+                - `VALIDATION_ERROR` — некорректные входные данные
+                - `UNAUTHORIZED` — требуется аутентификация
+                - `FORBIDDEN` — недостаточно прав
+                - `FILE_TOO_LARGE` — файл превышает лимит
+                - `STORAGE_FULL` — нет свободного места
+                - `NO_STORAGE_AVAILABLE` — нет подходящих SE
+                - `SE_UPLOAD_FAILED` — ошибка загрузки в SE
+                - `ADMIN_UNAVAILABLE` — Admin Module недоступен
+                - `INTERNAL_ERROR` — внутренняя ошибка
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              description: Человекочитаемое описание ошибки
+              example: "Поле 'file' обязательно"

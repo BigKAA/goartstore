@@ -1,0 +1,863 @@
+# OpenAPI спецификация для Query Module
+# Модуль: Query Module (поиск и скачивание файлов)
+# Версия API: v1
+# Дата фиксации: 2026-02-21
+
+openapi: 3.0.3
+
+info:
+  title: Query Module API
+  description: |
+    Query Module — модуль поиска и скачивания файлов системы Artsore.
+
+    ## Поиск
+
+    Три режима поиска по метаданным файлов:
+    - `exact` — точное совпадение (поле = значение)
+    - `partial` — частичное совпадение (ILIKE '%value%')
+    - `fulltext` — полнотекстовый поиск (PostgreSQL FTS, GIN-индексы)
+
+    Поиск выполняется через `POST /api/v1/search` с JSON body (POST вместо
+    GET из-за сложной структуры фильтров: массивы тегов, множество параметров).
+
+    ## Скачивание
+
+    Query Module проксирует скачивание файлов: клиент обращается к Query Module,
+    который перенаправляет запрос на соответствующий Storage Element. Клиент
+    не знает прямые URL Storage Elements.
+
+    Поддерживаются HTTP Range requests для возобновляемого скачивания.
+
+    ## Ленивая очистка реестра
+
+    Если при проксировании скачивания SE возвращает 404 (файл удалён GC
+    или отсутствует на диске), Query Module обновляет статус файла в реестре
+    PostgreSQL (`deleted`) и возвращает 404 клиенту. Это обеспечивает
+    автоматическую согласованность реестра с источником истины (attr.json на SE)
+    без ожидания полной периодической синхронизации.
+
+    ## Источник данных
+
+    Query Module использует **Shared PostgreSQL** с Admin Module:
+    - Admin Module владеет таблицей файлов (file registry) и пишет в неё
+    - Query Module добавляет GIN/FTS индексы и читает из неё
+    - Синхронизация не нужна — оба модуля работают с одной БД
+    - In-memory LRU cache (30-60s TTL) для горячих метаданных
+
+    ## Аутентификация
+
+    Все endpoints (кроме `/health/*` и `/metrics`) требуют JWT Bearer token
+    (RS256), выданный Admin Module.
+
+    Для поиска и скачивания необходим scope `files:read` (SA) или
+    роль `admin`/`readonly` (Admin User).
+  version: 1.0.0
+  contact:
+    name: Artsore Team
+  license:
+    name: Private
+    url: https://github.com/arturkryukov/artsore
+
+servers:
+  - url: https://{host}:{port}
+    description: Query Module instance
+    variables:
+      host:
+        default: localhost
+      port:
+        default: "8030"
+        description: Порт из диапазона 8030-8039
+
+tags:
+  - name: search
+    description: Поиск файлов
+  - name: files
+    description: Метаданные и скачивание файлов
+  - name: health
+    description: Kubernetes probes и метрики
+
+# ---------------------------------------------------------------------------
+# Пути (Paths)
+# ---------------------------------------------------------------------------
+paths:
+
+  # =========================================================================
+  # Search
+  # =========================================================================
+
+  /api/v1/search:
+    post:
+      tags: [search]
+      summary: Поиск файлов
+      description: |
+        Поиск файлов по метаданным с поддержкой трёх режимов:
+
+        - **`exact`** — точное совпадение. Ищет файлы, где значение поля
+          точно совпадает с указанным (case-insensitive для строк).
+        - **`partial`** — частичное совпадение. Ищет файлы, где значение
+          поля содержит указанную подстроку (ILIKE).
+        - **`fulltext`** — полнотекстовый поиск. Использует PostgreSQL
+          Full-Text Search (GIN-индексы) по полям `original_filename`,
+          `description`, `tags`. Результаты ранжируются по `relevance_score`.
+
+        Все фильтры опциональны. Если не указан ни один фильтр,
+        возвращаются все файлы со статусом `active` (с пагинацией).
+
+        По умолчанию в результат попадают только файлы со статусом `active`.
+        Для поиска по другим статусам используйте фильтр `status`.
+      operationId: searchFiles
+      security:
+        - bearerAuth: [files:read]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SearchRequest"
+      responses:
+        "200":
+          description: Результаты поиска
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResponse"
+        "400":
+          description: Некорректный запрос (невалидные фильтры)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                invalidMode:
+                  summary: Неизвестный режим поиска
+                  value:
+                    error:
+                      code: VALIDATION_ERROR
+                      message: "Недопустимый режим поиска, допустимые: exact, partial, fulltext"
+                invalidDateRange:
+                  summary: Некорректный диапазон дат
+                  value:
+                    error:
+                      code: VALIDATION_ERROR
+                      message: "uploaded_after не может быть позже uploaded_before"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # =========================================================================
+  # Files — метаданные и скачивание
+  # =========================================================================
+
+  /api/v1/files/{file_id}:
+    get:
+      tags: [files]
+      summary: Метаданные файла
+      description: |
+        Возвращает полные метаданные файла по его ID.
+        Данные берутся из Shared PostgreSQL (file registry Admin Module).
+      operationId: getFileMetadata
+      security:
+        - bearerAuth: [files:read]
+      parameters:
+        - $ref: "#/components/parameters/FileId"
+      responses:
+        "200":
+          description: Метаданные файла
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileMetadata"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/files/{file_id}/download:
+    get:
+      tags: [files]
+      summary: Скачивание файла
+      description: |
+        Скачивание файла через Query Module (proxy к Storage Element).
+
+        Query Module:
+        1. Определяет, на каком SE хранится файл (из Shared PostgreSQL)
+        2. Получает URL SE (из Admin Module API или shared DB)
+        3. Проксирует запрос на SE и стримит ответ клиенту
+
+        Клиент не знает прямые URL Storage Elements.
+
+        **Ленивая очистка реестра:** если SE вернул 404 (файл удалён GC
+        или отсутствует), Query Module обновляет статус файла в реестре
+        (`deleted`) и возвращает 404 клиенту. Это один из 4 механизмов
+        синхронизации файлового реестра с источником истины (attr.json на SE).
+
+        Поддерживает HTTP Range requests для возобновляемого скачивания.
+        Заголовок `Range: bytes=start-end`.
+
+        Ответ включает заголовки:
+        - `Content-Type` — MIME-тип файла
+        - `Content-Length` — размер файла (или части)
+        - `Content-Disposition: attachment; filename="..."` — оригинальное имя
+        - `Accept-Ranges: bytes` — поддержка Range requests
+        - `ETag` — для кэширования (на основе checksum)
+      operationId: downloadFile
+      security:
+        - bearerAuth: [files:read]
+      parameters:
+        - $ref: "#/components/parameters/FileId"
+        - name: Range
+          in: header
+          description: |
+            HTTP Range header для частичного скачивания.
+            Формат: `bytes=start-end`
+          schema:
+            type: string
+          example: bytes=0-1048575
+      responses:
+        "200":
+          description: Полное содержимое файла
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              example: 'attachment; filename="photo.jpg"'
+            Accept-Ranges:
+              schema:
+                type: string
+              example: bytes
+            ETag:
+              schema:
+                type: string
+              example: '"a1b2c3d4e5f6"'
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "206":
+          description: Частичное содержимое (Range request)
+          headers:
+            Content-Range:
+              schema:
+                type: string
+              example: bytes 0-1048575/5242880
+            Content-Disposition:
+              schema:
+                type: string
+            Accept-Ranges:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "416":
+          description: Некорректный Range
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: INVALID_RANGE
+                  message: "Запрошенный диапазон выходит за пределы файла"
+        "502":
+          description: Storage Element недоступен
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: SE_UNAVAILABLE
+                  message: "Storage Element, содержащий файл, недоступен"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # =========================================================================
+  # Health
+  # =========================================================================
+
+  /health/live:
+    get:
+      tags: [health]
+      summary: Liveness probe
+      description: Kubernetes liveness probe. Возвращает 200, если процесс жив.
+      operationId: healthLive
+      security: []
+      responses:
+        "200":
+          description: Сервис жив
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthLiveResponse"
+
+  /health/ready:
+    get:
+      tags: [health]
+      summary: Readiness probe
+      description: |
+        Kubernetes readiness probe. Проверяет готовность Query Module:
+        - PostgreSQL доступен (shared DB с Admin Module)
+
+        Статусы:
+        - `ok` (200) — полностью готов
+        - `degraded` (200) — работает с ограничениями
+        - `fail` (503) — не готов (PostgreSQL недоступен)
+      operationId: healthReady
+      security: []
+      responses:
+        "200":
+          description: Сервис готов (ok или degraded)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthReadyResponse"
+        "503":
+          description: Сервис не готов (fail)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthReadyResponse"
+
+  /metrics:
+    get:
+      tags: [health]
+      summary: Prometheus metrics
+      description: |
+        Метрики в формате Prometheus. Включают:
+        - Счётчики поисковых запросов (по mode: exact/partial/fulltext)
+        - Гистограммы латентности поиска
+        - Счётчики скачиваний (успешные, ошибки)
+        - Гистограммы латентности скачивания
+        - Гистограммы размеров скачанных файлов
+        - LRU cache hit/miss ratio
+        - Количество активных соединений к SE
+        - Счётчик ленивых очисток реестра (lazy cleanup при 404 от SE)
+      operationId: getMetrics
+      security: []
+      responses:
+        "200":
+          description: Метрики Prometheus
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  # HELP query_search_total Общее количество поисковых запросов
+                  # TYPE query_search_total counter
+                  query_search_total{mode="fulltext"} 8523
+                  query_search_total{mode="partial"} 3201
+                  query_search_total{mode="exact"} 1150
+                  # HELP query_downloads_total Общее количество скачиваний
+                  # TYPE query_downloads_total counter
+                  query_downloads_total{status="success"} 12480
+                  query_downloads_total{status="error"} 35
+
+# ---------------------------------------------------------------------------
+# Компоненты (Components)
+# ---------------------------------------------------------------------------
+components:
+
+  # =========================================================================
+  # Схемы безопасности
+  # =========================================================================
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT RS256 token, выданный Admin Module.
+        Для поиска и скачивания необходим scope `files:read` (SA)
+        или роль `admin`/`readonly` (Admin User).
+
+  # =========================================================================
+  # Параметры
+  # =========================================================================
+  parameters:
+    FileId:
+      name: file_id
+      in: path
+      required: true
+      description: Уникальный идентификатор файла (UUID v4)
+      schema:
+        type: string
+        format: uuid
+        example: 550e8400-e29b-41d4-a716-446655440000
+
+  # =========================================================================
+  # Переиспользуемые ответы
+  # =========================================================================
+  responses:
+    Unauthorized:
+      description: Отсутствует или невалидный JWT token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: UNAUTHORIZED
+              message: "Требуется аутентификация"
+
+    Forbidden:
+      description: Недостаточно прав
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: FORBIDDEN
+              message: "Недостаточно прав для выполнения операции"
+
+    NotFound:
+      description: Файл не найден
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: NOT_FOUND
+              message: "Файл не найден"
+
+    InternalError:
+      description: Внутренняя ошибка сервера
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: INTERNAL_ERROR
+              message: "Внутренняя ошибка сервера"
+
+  # =========================================================================
+  # Схемы данных
+  # =========================================================================
+  schemas:
+
+    # -----------------------------------------------------------------------
+    # Search
+    # -----------------------------------------------------------------------
+
+    SearchRequest:
+      type: object
+      description: |
+        Запрос на поиск файлов. Все поля опциональны.
+        Если не указан ни один фильтр, возвращаются все файлы
+        со статусом `active`.
+      properties:
+        query:
+          type: string
+          maxLength: 500
+          description: |
+            Поисковый запрос. Используется в зависимости от `mode`:
+            - `exact` — точное совпадение с `original_filename`
+            - `partial` — подстрока в `original_filename`
+            - `fulltext` — FTS по `original_filename`, `description`, `tags`
+          example: логотип
+        filename:
+          type: string
+          maxLength: 255
+          description: Фильтр по имени файла (partial match)
+          example: logo
+        file_extension:
+          type: string
+          maxLength: 10
+          description: Фильтр по расширению файла (без точки)
+          example: jpg
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 50
+          description: Фильтр по тегам (файл должен содержать все указанные теги)
+          example: ["logo", "draft"]
+        uploaded_by:
+          type: string
+          description: Фильтр по загрузившему (точное совпадение)
+          example: sa_ingester_a1b2c3
+        retention_policy:
+          type: string
+          enum: [temporary, permanent]
+          description: Фильтр по политике хранения
+        status:
+          type: string
+          enum: [active, expired, deleted]
+          default: active
+          description: |
+            Фильтр по статусу файла. По умолчанию `active` —
+            возвращаются только активные файлы.
+        min_size:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Минимальный размер файла (байт)
+          example: 1024
+        max_size:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Максимальный размер файла (байт)
+          example: 10485760
+        uploaded_after:
+          type: string
+          format: date-time
+          description: Файлы, загруженные после указанной даты (ISO 8601)
+          example: "2026-01-01T00:00:00Z"
+        uploaded_before:
+          type: string
+          format: date-time
+          description: Файлы, загруженные до указанной даты (ISO 8601)
+          example: "2026-02-21T23:59:59Z"
+        mode:
+          type: string
+          enum: [exact, partial, fulltext]
+          default: partial
+          description: |
+            Режим поиска:
+            - `exact` — точное совпадение
+            - `partial` — частичное совпадение (по умолчанию)
+            - `fulltext` — полнотекстовый поиск (PostgreSQL FTS)
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 1000
+          default: 100
+          description: Количество результатов на странице
+        offset:
+          type: integer
+          minimum: 0
+          default: 0
+          description: Смещение от начала списка
+        sort_by:
+          type: string
+          enum: [uploaded_at, original_filename, size, relevance]
+          default: uploaded_at
+          description: |
+            Поле сортировки:
+            - `uploaded_at` — по дате загрузки (по умолчанию)
+            - `original_filename` — по имени файла
+            - `size` — по размеру файла
+            - `relevance` — по релевантности (только для `mode=fulltext`,
+              игнорируется в других режимах)
+        sort_order:
+          type: string
+          enum: [asc, desc]
+          default: desc
+          description: Направление сортировки
+
+    SearchResponse:
+      type: object
+      description: Результаты поиска с пагинацией
+      required:
+        - items
+        - total
+        - limit
+        - offset
+        - has_more
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchResultItem"
+        total:
+          type: integer
+          description: Общее количество найденных файлов
+          example: 150
+        limit:
+          type: integer
+          description: Запрошенный лимит
+          example: 100
+        offset:
+          type: integer
+          description: Текущее смещение
+          example: 0
+        has_more:
+          type: boolean
+          description: Есть ли ещё результаты
+          example: true
+
+    SearchResultItem:
+      type: object
+      description: |
+        Элемент результатов поиска. Содержит метаданные файла
+        и опциональный `relevance_score` (только для fulltext-поиска).
+      required:
+        - file_id
+        - original_filename
+        - content_type
+        - size
+        - checksum
+        - uploaded_by
+        - uploaded_at
+        - status
+        - retention_policy
+      properties:
+        file_id:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        original_filename:
+          type: string
+          example: photo_landscape.jpg
+        content_type:
+          type: string
+          example: image/jpeg
+        size:
+          type: integer
+          format: int64
+          description: Размер файла в байтах
+          example: 5242880
+        checksum:
+          type: string
+          description: SHA-256 хэш
+          example: a1b2c3d4e5f67890abcdef1234567890abcdef1234567890abcdef1234567890
+        uploaded_by:
+          type: string
+          example: sa_ingester_a1b2c3
+        uploaded_at:
+          type: string
+          format: date-time
+          example: "2026-02-21T15:30:00Z"
+        description:
+          type: string
+          nullable: true
+          example: Набросок логотипа v2
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["logo", "draft", "v2"]
+        status:
+          type: string
+          enum: [active, expired, deleted]
+          example: active
+        retention_policy:
+          type: string
+          enum: [temporary, permanent]
+          example: permanent
+        ttl_days:
+          type: integer
+          nullable: true
+          description: Срок хранения в днях (для temporary)
+          example: 30
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Дата истечения (для temporary)
+          example: "2026-03-23T15:30:00Z"
+        relevance_score:
+          type: number
+          format: float
+          nullable: true
+          description: |
+            Оценка релевантности (0.0–1.0). Присутствует только
+            в результатах fulltext-поиска. `null` для exact/partial.
+          example: 0.85
+
+    # -----------------------------------------------------------------------
+    # Files
+    # -----------------------------------------------------------------------
+
+    FileMetadata:
+      type: object
+      description: Полные метаданные файла
+      required:
+        - file_id
+        - original_filename
+        - content_type
+        - size
+        - checksum
+        - uploaded_by
+        - uploaded_at
+        - status
+        - retention_policy
+      properties:
+        file_id:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        original_filename:
+          type: string
+          example: photo_landscape.jpg
+        content_type:
+          type: string
+          example: image/jpeg
+        size:
+          type: integer
+          format: int64
+          description: Размер файла в байтах
+          example: 5242880
+        checksum:
+          type: string
+          description: SHA-256 хэш
+          example: a1b2c3d4e5f67890abcdef1234567890abcdef1234567890abcdef1234567890
+        uploaded_by:
+          type: string
+          description: Кто загрузил (sub из JWT)
+          example: sa_ingester_a1b2c3
+        uploaded_at:
+          type: string
+          format: date-time
+          description: Дата и время загрузки (ISO 8601, UTC)
+          example: "2026-02-21T15:30:00Z"
+        description:
+          type: string
+          nullable: true
+          example: Набросок логотипа v2
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["logo", "draft", "v2"]
+        status:
+          type: string
+          enum: [active, expired, deleted]
+          example: active
+        retention_policy:
+          type: string
+          enum: [temporary, permanent]
+          example: permanent
+        ttl_days:
+          type: integer
+          nullable: true
+          description: Срок хранения в днях (для temporary)
+          example: 30
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Дата истечения (для temporary)
+          example: "2026-03-23T15:30:00Z"
+
+    # -----------------------------------------------------------------------
+    # Health
+    # -----------------------------------------------------------------------
+
+    HealthLiveResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+        - version
+        - service
+      properties:
+        status:
+          type: string
+          enum: [ok]
+          example: ok
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-02-21T15:30:00Z"
+        version:
+          type: string
+          example: 1.0.0
+        service:
+          type: string
+          example: query-module
+
+    HealthReadyResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+        - version
+        - service
+        - checks
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, fail]
+          description: |
+            Общий статус:
+            - `ok` (200) — PostgreSQL доступен
+            - `degraded` (200) — работает с ограничениями
+            - `fail` (503) — PostgreSQL недоступен
+          example: ok
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-02-21T15:30:00Z"
+        version:
+          type: string
+          example: 1.0.0
+        service:
+          type: string
+          example: query-module
+        checks:
+          type: object
+          required:
+            - postgresql
+          properties:
+            postgresql:
+              $ref: "#/components/schemas/HealthCheck"
+
+    HealthCheck:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, fail]
+          example: ok
+        message:
+          type: string
+          description: Дополнительная информация (при проблемах)
+
+    # -----------------------------------------------------------------------
+    # Ошибки
+    # -----------------------------------------------------------------------
+
+    ErrorResponse:
+      type: object
+      description: Стандартный формат ошибки (единый для всей системы Artsore)
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              description: |
+                Машиночитаемый код ошибки. Значения:
+                - `VALIDATION_ERROR` — некорректные входные данные
+                - `NOT_FOUND` — файл не найден
+                - `UNAUTHORIZED` — требуется аутентификация
+                - `FORBIDDEN` — недостаточно прав
+                - `INVALID_RANGE` — некорректный Range header
+                - `SE_UNAVAILABLE` — Storage Element недоступен (при download)
+                - `INTERNAL_ERROR` — внутренняя ошибка
+              example: NOT_FOUND
+            message:
+              type: string
+              description: Человекочитаемое описание ошибки
+              example: Файл не найден

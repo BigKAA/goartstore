@@ -1,0 +1,1239 @@
+# OpenAPI спецификация для Storage Element
+# Модуль: Storage Element (физическое хранение файлов)
+# Версия API: v1
+# Дата фиксации: 2026-02-21
+
+openapi: 3.0.3
+
+info:
+  title: Storage Element API
+  description: |
+    Storage Element — модуль физического хранения файлов системы Artsore.
+
+    ## Основные концепции
+
+    ### Attribute-First Storage Model
+    Каждый файл сопровождается файлом атрибутов `*.attr.json`, который является
+    единственным источником истины для метаданных. Внутренний кэш (если используется)
+    пересоздаётся из attr.json файлов.
+
+    ### WAL Protocol
+    Все операции записи проходят через Write-Ahead Log для обеспечения атомарности:
+    WAL entry → запись файла → создание attr.json → WAL commit.
+
+    ### Режимы работы (modes)
+    Storage Element работает в одном из четырёх режимов, определяющих доступные операции:
+
+    | Режим | Upload | Download | Update | Delete | List/Meta |
+    |-------|--------|----------|--------|--------|-----------|
+    | `edit` | да | да | да | да | да |
+    | `rw` | да | да | да | нет | да |
+    | `ro` | нет | да | нет | нет | да |
+    | `ar` | нет | нет | нет | нет | да |
+
+    Переход между режимами — однонаправленный жизненный цикл:
+    `edit` → `rw` → `ro` → `ar`
+
+    ### Retention Policy
+    - `temporary` — файлы с TTL, автоматически удаляются встроенным GC по истечении срока
+    - `permanent` — файлы без срока хранения
+
+    ### Аутентификация
+    Все endpoints (кроме `/health/*`, `/metrics` и `/api/v1/info`) требуют
+    JWT Bearer token (RS256), выданный Admin Module.
+
+    Scopes для межсервисного доступа (M2M):
+    - `files:read` — чтение метаданных и скачивание файлов
+    - `files:write` — загрузка, обновление и удаление файлов
+    - `storage:read` — чтение информации о SE
+    - `storage:write` — управление режимом и обслуживание
+  version: 1.0.0
+  contact:
+    name: Artsore Team
+  license:
+    name: Private
+    url: https://github.com/arturkryukov/artsore
+
+servers:
+  - url: https://{host}:{port}
+    description: Storage Element instance
+    variables:
+      host:
+        default: localhost
+      port:
+        default: "8010"
+        description: Порт из диапазона 8010-8019
+
+tags:
+  - name: files
+    description: Операции с файлами (ядро модуля)
+  - name: system
+    description: Информация о Storage Element
+  - name: mode
+    description: Управление режимом работы
+  - name: maintenance
+    description: Обслуживание и диагностика
+  - name: health
+    description: Kubernetes probes и метрики
+
+# ---------------------------------------------------------------------------
+# Пути (Paths)
+# ---------------------------------------------------------------------------
+paths:
+
+  # =========================================================================
+  # File Operations
+  # =========================================================================
+
+  /api/v1/files/upload:
+    post:
+      tags: [files]
+      summary: Загрузка файла
+      description: |
+        Загружает файл на Storage Element через multipart/form-data.
+
+        **Доступно в режимах:** `edit`, `rw`
+
+        Процесс:
+        1. Создаётся WAL entry
+        2. Файл записывается на диск
+        3. Создаётся `*.attr.json` с метаданными
+        4. WAL entry коммитится
+
+        Имя файла на диске формируется по шаблону:
+        `{original_name}_{username}_{timestamp}_{uuid}.{ext}`
+      operationId: uploadFile
+      security:
+        - bearerAuth: [files:write]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Загружаемый файл
+                description:
+                  type: string
+                  description: Описание файла
+                  maxLength: 1000
+                  example: Набросок логотипа v2
+                tags:
+                  type: string
+                  description: |
+                    JSON-массив тегов. Передаётся как строка в multipart.
+                  example: '["logo", "draft", "v2"]'
+      responses:
+        "201":
+          description: Файл успешно загружен
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileMetadata"
+        "400":
+          description: Некорректный запрос (отсутствует файл, невалидные теги)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                missingFile:
+                  summary: Файл не указан
+                  value:
+                    error:
+                      code: VALIDATION_ERROR
+                      message: "Поле 'file' обязательно"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Операция не разрешена в текущем режиме
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: MODE_NOT_ALLOWED
+                  message: "Загрузка файлов недоступна в режиме 'ro'"
+        "413":
+          description: Файл превышает допустимый размер
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: FILE_TOO_LARGE
+                  message: "Размер файла превышает лимит 1073741824 байт"
+        "507":
+          description: Недостаточно места на Storage Element
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: STORAGE_FULL
+                  message: "Недостаточно свободного места"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/files:
+    get:
+      tags: [files]
+      summary: Список файлов
+      description: |
+        Возвращает список файлов на Storage Element с минимальной фильтрацией.
+
+        **Доступно в режимах:** все (`edit`, `rw`, `ro`, `ar`)
+
+        Сложный поиск (полнотекстовый, по тегам, по дате и т.д.) —
+        задача Query Module. SE предоставляет только базовый листинг.
+      operationId: listFiles
+      security:
+        - bearerAuth: [files:read]
+      parameters:
+        - name: limit
+          in: query
+          description: Количество записей на странице
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+        - name: offset
+          in: query
+          description: Смещение от начала списка
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: status
+          in: query
+          description: Фильтр по статусу файла
+          schema:
+            type: string
+            enum: [active, expired, deleted]
+      responses:
+        "200":
+          description: Список файлов
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/files/{file_id}:
+    get:
+      tags: [files]
+      summary: Метаданные файла
+      description: |
+        Возвращает метаданные файла по его ID.
+
+        **Доступно в режимах:** все (`edit`, `rw`, `ro`, `ar`)
+      operationId: getFileMetadata
+      security:
+        - bearerAuth: [files:read]
+      parameters:
+        - $ref: "#/components/parameters/FileId"
+      responses:
+        "200":
+          description: Метаданные файла
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileMetadata"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    patch:
+      tags: [files]
+      summary: Обновление метаданных файла
+      description: |
+        Обновляет описание и/или теги файла. Обновляет `*.attr.json`.
+
+        **Доступно в режимах:** `edit`, `rw`
+
+        Поля `original_filename`, `content_type`, `size`, `checksum`,
+        `uploaded_by`, `uploaded_at`, `retention_policy` — неизменяемые.
+      operationId: updateFileMetadata
+      security:
+        - bearerAuth: [files:write]
+      parameters:
+        - $ref: "#/components/parameters/FileId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FileMetadataUpdate"
+      responses:
+        "200":
+          description: Метаданные обновлены
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileMetadata"
+        "400":
+          description: Некорректный запрос
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Операция не разрешена в текущем режиме
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: MODE_NOT_ALLOWED
+                  message: "Обновление метаданных недоступно в режиме 'ro'"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    delete:
+      tags: [files]
+      summary: Удаление файла
+      description: |
+        Помечает файл как удалённый (soft delete через обновление статуса
+        в `*.attr.json`). Физическое удаление выполняется встроенным GC.
+
+        **Доступно в режимах:** `edit`
+      operationId: deleteFile
+      security:
+        - bearerAuth: [files:write]
+      parameters:
+        - $ref: "#/components/parameters/FileId"
+      responses:
+        "204":
+          description: Файл помечен как удалённый
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Операция не разрешена в текущем режиме
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: MODE_NOT_ALLOWED
+                  message: "Удаление файлов доступно только в режиме 'edit'"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/files/{file_id}/download:
+    get:
+      tags: [files]
+      summary: Скачивание файла
+      description: |
+        Скачивание файла в виде потока байтов (streaming).
+
+        **Доступно в режимах:** `edit`, `rw`, `ro`
+
+        Поддерживает HTTP Range requests для возобновляемого скачивания
+        (resumable downloads). Заголовок `Range: bytes=start-end`.
+
+        Ответ включает заголовки:
+        - `Content-Type` — MIME-тип файла
+        - `Content-Length` — размер файла (или части)
+        - `Content-Disposition: attachment; filename="..."` — оригинальное имя
+        - `Accept-Ranges: bytes` — поддержка Range requests
+        - `ETag` — для кэширования (на основе checksum)
+      operationId: downloadFile
+      security:
+        - bearerAuth: [files:read]
+      parameters:
+        - $ref: "#/components/parameters/FileId"
+        - name: Range
+          in: header
+          description: |
+            HTTP Range header для частичного скачивания.
+            Формат: `bytes=start-end`
+          schema:
+            type: string
+          example: bytes=0-1048575
+      responses:
+        "200":
+          description: Полное содержимое файла
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              example: 'attachment; filename="photo.jpg"'
+            Accept-Ranges:
+              schema:
+                type: string
+              example: bytes
+            ETag:
+              schema:
+                type: string
+              example: '"a1b2c3d4e5f6"'
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "206":
+          description: Частичное содержимое (Range request)
+          headers:
+            Content-Range:
+              schema:
+                type: string
+              example: bytes 0-1048575/5242880
+            Content-Disposition:
+              schema:
+                type: string
+            Accept-Ranges:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Операция не разрешена в текущем режиме
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: MODE_NOT_ALLOWED
+                  message: "Скачивание файлов недоступно в режиме 'ar'"
+        "416":
+          description: Некорректный Range
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: INVALID_RANGE
+                  message: "Запрошенный диапазон выходит за пределы файла"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # =========================================================================
+  # System
+  # =========================================================================
+
+  /api/v1/info:
+    get:
+      tags: [system]
+      summary: Информация о Storage Element
+      description: |
+        Возвращает информацию о Storage Element: идентификатор, режим работы,
+        статус, ёмкость и допустимые операции.
+
+        Используется Admin Module для discovery и мониторинга.
+
+        **Аутентификация не требуется** — endpoint предоставляет только
+        общую информацию, необходимую для обнаружения и регистрации SE.
+      operationId: getStorageInfo
+      security: []
+      responses:
+        "200":
+          description: Информация о Storage Element
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageInfo"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # =========================================================================
+  # Mode
+  # =========================================================================
+
+  /api/v1/mode/transition:
+    post:
+      tags: [mode]
+      summary: Смена режима работы
+      description: |
+        Переключает Storage Element в указанный режим работы (runtime,
+        без restart). Вызывается Admin Module.
+
+        Допустимые переходы (однонаправленный жизненный цикл):
+        - `edit` → `rw`
+        - `rw` → `ro`
+        - `ro` → `ar`
+
+        Обратные переходы и пропуск шагов не допускаются.
+      operationId: transitionMode
+      security:
+        - bearerAuth: [storage:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ModeTransitionRequest"
+      responses:
+        "200":
+          description: Режим успешно изменён
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModeTransitionResponse"
+        "400":
+          description: Некорректный запрос (невалидный режим)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Переход невозможен (недопустимый переход между режимами)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: INVALID_TRANSITION
+                  message: "Переход из 'ro' в 'edit' не допускается"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # =========================================================================
+  # Maintenance
+  # =========================================================================
+
+  /api/v1/maintenance/reconcile:
+    post:
+      tags: [maintenance]
+      summary: Ручная сверка (reconciliation)
+      description: |
+        Запускает сверку `*.attr.json` файлов с файловой системой.
+
+        Проверяет:
+        - Файлы на диске, у которых нет attr.json (orphaned files)
+        - attr.json записи, у которых нет файла на диске (missing files)
+        - Несоответствия в метаданных (размер, checksum)
+
+        Автоматическая сверка также выполняется SE периодически
+        (интервал задаётся конфигурацией). Этот endpoint предназначен
+        для ручного запуска.
+
+        **Операция может занять значительное время** при большом количестве файлов.
+      operationId: reconcile
+      security:
+        - bearerAuth: [storage:write]
+      responses:
+        "200":
+          description: Результат сверки
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReconcileResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Сверка уже выполняется
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: RECONCILE_IN_PROGRESS
+                  message: "Сверка уже выполняется, дождитесь завершения"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # =========================================================================
+  # Health
+  # =========================================================================
+
+  /health/live:
+    get:
+      tags: [health]
+      summary: Liveness probe
+      description: |
+        Kubernetes liveness probe. Возвращает 200, если процесс SE жив.
+        Не проверяет зависимости (файловая система и т.д.).
+      operationId: healthLive
+      security: []
+      responses:
+        "200":
+          description: SE жив
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthLiveResponse"
+
+  /health/ready:
+    get:
+      tags: [health]
+      summary: Readiness probe
+      description: |
+        Kubernetes readiness probe. Проверяет готовность SE обрабатывать
+        запросы: доступность файловой системы (директория хранения),
+        наличие WAL и другие зависимости.
+
+        Статусы:
+        - `ok` (200) — полностью готов
+        - `degraded` (200) — работает с ограничениями
+        - `fail` (503) — не готов принимать запросы
+      operationId: healthReady
+      security: []
+      responses:
+        "200":
+          description: SE готов (ok или degraded)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthReadyResponse"
+        "503":
+          description: SE не готов (fail)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthReadyResponse"
+
+  /metrics:
+    get:
+      tags: [health]
+      summary: Prometheus metrics
+      description: |
+        Метрики в формате Prometheus. Включают:
+        - Количество файлов по статусам
+        - Объём хранилища (total, used, available)
+        - Счётчики операций (upload, download, delete)
+        - Гистограммы латентности запросов
+        - Информация о режиме работы
+        - Статус и результаты GC
+        - Статус и результаты reconciliation
+      operationId: getMetrics
+      security: []
+      responses:
+        "200":
+          description: Метрики Prometheus
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  # HELP se_files_total Общее количество файлов
+                  # TYPE se_files_total gauge
+                  se_files_total{status="active"} 1523
+                  se_files_total{status="expired"} 42
+                  se_files_total{status="deleted"} 7
+
+# ---------------------------------------------------------------------------
+# Компоненты (Components)
+# ---------------------------------------------------------------------------
+components:
+
+  # =========================================================================
+  # Схемы безопасности
+  # =========================================================================
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT RS256 token, выданный Admin Module.
+        Содержит scopes (для Service Accounts) или role (для Admin Users).
+
+  # =========================================================================
+  # Параметры
+  # =========================================================================
+  parameters:
+    FileId:
+      name: file_id
+      in: path
+      required: true
+      description: Уникальный идентификатор файла (UUID v4)
+      schema:
+        type: string
+        format: uuid
+        example: 550e8400-e29b-41d4-a716-446655440000
+
+  # =========================================================================
+  # Переиспользуемые ответы
+  # =========================================================================
+  responses:
+    Unauthorized:
+      description: Отсутствует или невалидный JWT token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: UNAUTHORIZED
+              message: "Требуется аутентификация"
+
+    Forbidden:
+      description: Недостаточно прав (scope или роль не позволяет операцию)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: FORBIDDEN
+              message: "Недостаточно прав для выполнения операции"
+
+    NotFound:
+      description: Файл не найден
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: NOT_FOUND
+              message: "Файл не найден"
+
+    InternalError:
+      description: Внутренняя ошибка сервера
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: INTERNAL_ERROR
+              message: "Внутренняя ошибка сервера"
+
+  # =========================================================================
+  # Схемы данных
+  # =========================================================================
+  schemas:
+
+    # -----------------------------------------------------------------------
+    # Файлы
+    # -----------------------------------------------------------------------
+
+    FileMetadata:
+      type: object
+      description: Метаданные файла (соответствует содержимому attr.json)
+      required:
+        - file_id
+        - original_filename
+        - content_type
+        - size
+        - checksum
+        - uploaded_by
+        - uploaded_at
+        - status
+        - retention_policy
+      properties:
+        file_id:
+          type: string
+          format: uuid
+          description: Уникальный идентификатор файла
+          example: 550e8400-e29b-41d4-a716-446655440000
+        original_filename:
+          type: string
+          description: Оригинальное имя файла при загрузке
+          example: photo_landscape.jpg
+        content_type:
+          type: string
+          description: MIME-тип файла
+          example: image/jpeg
+        size:
+          type: integer
+          format: int64
+          description: Размер файла в байтах
+          example: 5242880
+        checksum:
+          type: string
+          description: SHA-256 хэш содержимого файла
+          example: a1b2c3d4e5f67890abcdef1234567890abcdef1234567890abcdef1234567890
+        uploaded_by:
+          type: string
+          description: |
+            Идентификатор пользователя или сервисного аккаунта,
+            загрузившего файл (из JWT claim `sub`)
+          example: sa_ingester_abc123
+        uploaded_at:
+          type: string
+          format: date-time
+          description: Дата и время загрузки (ISO 8601, UTC)
+          example: "2026-02-21T15:30:00Z"
+        description:
+          type: string
+          description: Описание файла (опционально)
+          example: Набросок логотипа v2
+        tags:
+          type: array
+          items:
+            type: string
+          description: Теги файла (опционально)
+          example: ["logo", "draft", "v2"]
+        status:
+          type: string
+          enum: [active, expired, deleted]
+          description: |
+            Статус файла:
+            - `active` — доступен для операций
+            - `expired` — TTL истёк (ожидает очистки GC)
+            - `deleted` — помечен на удаление (ожидает очистки GC)
+          example: active
+        retention_policy:
+          type: string
+          enum: [temporary, permanent]
+          description: |
+            Политика хранения:
+            - `temporary` — с TTL, автоматически удаляется
+            - `permanent` — без срока хранения
+          example: permanent
+        ttl_days:
+          type: integer
+          minimum: 1
+          maximum: 365
+          nullable: true
+          description: |
+            Срок хранения в днях (только для `retention_policy=temporary`).
+            `null` для permanent файлов.
+          example: 30
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            Дата и время истечения срока хранения (ISO 8601, UTC).
+            Рассчитывается как `uploaded_at + ttl_days`.
+            `null` для permanent файлов.
+          example: "2026-03-23T15:30:00Z"
+
+    FileMetadataUpdate:
+      type: object
+      description: |
+        Поля для обновления метаданных файла. Все поля опциональные —
+        обновляются только переданные поля.
+      properties:
+        description:
+          type: string
+          description: Новое описание файла
+          maxLength: 1000
+          example: Финальная версия логотипа
+        tags:
+          type: array
+          items:
+            type: string
+          description: Новый список тегов (полностью заменяет существующий)
+          example: ["logo", "final"]
+      minProperties: 1
+
+    FileListResponse:
+      type: object
+      description: Пагинированный список файлов
+      required:
+        - items
+        - total
+        - limit
+        - offset
+        - has_more
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/FileMetadata"
+        total:
+          type: integer
+          description: Общее количество файлов (с учётом фильтров)
+          example: 150
+        limit:
+          type: integer
+          description: Запрошенный лимит
+          example: 100
+        offset:
+          type: integer
+          description: Текущее смещение
+          example: 0
+        has_more:
+          type: boolean
+          description: Есть ли ещё записи после текущей страницы
+          example: true
+
+    # -----------------------------------------------------------------------
+    # Информация о SE
+    # -----------------------------------------------------------------------
+
+    StorageInfo:
+      type: object
+      description: Информация о Storage Element для discovery и мониторинга
+      required:
+        - storage_id
+        - mode
+        - status
+        - version
+        - capacity
+        - allowed_operations
+      properties:
+        storage_id:
+          type: string
+          description: |
+            Уникальный идентификатор SE. Задаётся через конфигурацию
+            при развёртывании (не путать с element_id из старого проекта).
+          example: se-moscow-01
+        mode:
+          type: string
+          enum: [edit, rw, ro, ar]
+          description: Текущий режим работы
+          example: rw
+        status:
+          type: string
+          enum: [online, offline, degraded, maintenance]
+          description: |
+            Текущий статус (унифицирован с Admin Module):
+            - `online` — полностью работоспособен
+            - `offline` — недоступен
+            - `degraded` — работает с ограничениями
+            - `maintenance` — на обслуживании
+          example: online
+        version:
+          type: string
+          description: Версия SE
+          example: 1.0.0
+        capacity:
+          $ref: "#/components/schemas/CapacityInfo"
+        allowed_operations:
+          type: array
+          items:
+            type: string
+            enum: [upload, download, update, delete, list]
+          description: Список операций, доступных в текущем режиме
+          example: [upload, download, update, list]
+
+    CapacityInfo:
+      type: object
+      description: Информация об ёмкости хранилища
+      required:
+        - total_bytes
+        - used_bytes
+        - available_bytes
+      properties:
+        total_bytes:
+          type: integer
+          format: int64
+          description: Общий объём хранилища в байтах
+          example: 107374182400
+        used_bytes:
+          type: integer
+          format: int64
+          description: Занятый объём в байтах
+          example: 53687091200
+        available_bytes:
+          type: integer
+          format: int64
+          description: Доступный объём в байтах
+          example: 53687091200
+
+    # -----------------------------------------------------------------------
+    # Режим работы
+    # -----------------------------------------------------------------------
+
+    ModeTransitionRequest:
+      type: object
+      description: Запрос на смену режима работы
+      required:
+        - target_mode
+      properties:
+        target_mode:
+          type: string
+          enum: [edit, rw, ro, ar]
+          description: |
+            Целевой режим. Допустимые переходы:
+            `edit` → `rw` → `ro` → `ar`
+          example: ro
+
+    ModeTransitionResponse:
+      type: object
+      description: Результат смены режима
+      required:
+        - previous_mode
+        - current_mode
+        - transitioned_at
+      properties:
+        previous_mode:
+          type: string
+          enum: [edit, rw, ro, ar]
+          description: Предыдущий режим
+          example: rw
+        current_mode:
+          type: string
+          enum: [edit, rw, ro, ar]
+          description: Текущий режим (после перехода)
+          example: ro
+        transitioned_at:
+          type: string
+          format: date-time
+          description: Время перехода (ISO 8601, UTC)
+          example: "2026-02-21T16:00:00Z"
+
+    # -----------------------------------------------------------------------
+    # Обслуживание
+    # -----------------------------------------------------------------------
+
+    ReconcileResponse:
+      type: object
+      description: Результат сверки attr.json с файловой системой
+      required:
+        - started_at
+        - completed_at
+        - files_checked
+        - issues
+        - summary
+      properties:
+        started_at:
+          type: string
+          format: date-time
+          description: Время начала сверки
+          example: "2026-02-21T16:00:00Z"
+        completed_at:
+          type: string
+          format: date-time
+          description: Время завершения сверки
+          example: "2026-02-21T16:05:23Z"
+        files_checked:
+          type: integer
+          description: Количество проверенных файлов
+          example: 1523
+        issues:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReconcileIssue"
+          description: Обнаруженные проблемы
+        summary:
+          $ref: "#/components/schemas/ReconcileSummary"
+
+    ReconcileIssue:
+      type: object
+      description: Отдельная проблема, обнаруженная при сверке
+      required:
+        - type
+        - description
+      properties:
+        file_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: ID файла (если известен)
+          example: 550e8400-e29b-41d4-a716-446655440000
+        path:
+          type: string
+          description: Путь к файлу на диске (относительный)
+          example: data/photo_user1_20260221_abc123.jpg
+        type:
+          type: string
+          enum:
+            - orphaned_file
+            - missing_file
+            - checksum_mismatch
+            - size_mismatch
+            - orphaned_attr
+          description: |
+            Тип проблемы:
+            - `orphaned_file` — файл на диске без attr.json
+            - `missing_file` — attr.json без файла на диске
+            - `checksum_mismatch` — не совпадает checksum
+            - `size_mismatch` — не совпадает размер
+            - `orphaned_attr` — attr.json без файла
+          example: missing_file
+        description:
+          type: string
+          description: Описание проблемы
+          example: "Файл отсутствует на диске, attr.json существует"
+
+    ReconcileSummary:
+      type: object
+      description: Сводка по результатам сверки
+      required:
+        - ok
+        - orphaned_files
+        - missing_files
+        - checksum_mismatches
+        - size_mismatches
+      properties:
+        ok:
+          type: integer
+          description: Количество файлов без проблем
+          example: 1520
+        orphaned_files:
+          type: integer
+          description: Файлы на диске без attr.json
+          example: 1
+        missing_files:
+          type: integer
+          description: attr.json записи без файлов на диске
+          example: 2
+        checksum_mismatches:
+          type: integer
+          description: Несовпадения checksum
+          example: 0
+        size_mismatches:
+          type: integer
+          description: Несовпадения размера
+          example: 0
+
+    # -----------------------------------------------------------------------
+    # Health
+    # -----------------------------------------------------------------------
+
+    HealthLiveResponse:
+      type: object
+      description: Ответ liveness probe
+      required:
+        - status
+        - timestamp
+        - version
+        - service
+      properties:
+        status:
+          type: string
+          enum: [ok]
+          example: ok
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-02-21T15:30:00Z"
+        version:
+          type: string
+          example: 1.0.0
+        service:
+          type: string
+          example: storage-element
+
+    HealthReadyResponse:
+      type: object
+      description: Ответ readiness probe
+      required:
+        - status
+        - timestamp
+        - version
+        - service
+        - checks
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, fail]
+          description: |
+            - `ok` (200) — все проверки пройдены
+            - `degraded` (200) — работает с ограничениями
+            - `fail` (503) — не готов
+          example: ok
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-02-21T15:30:00Z"
+        version:
+          type: string
+          example: 1.0.0
+        service:
+          type: string
+          example: storage-element
+        checks:
+          type: object
+          description: Результаты отдельных проверок
+          properties:
+            filesystem:
+              $ref: "#/components/schemas/HealthCheck"
+            wal:
+              $ref: "#/components/schemas/HealthCheck"
+          required:
+            - filesystem
+            - wal
+
+    HealthCheck:
+      type: object
+      description: Результат отдельной проверки здоровья
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, fail]
+          example: ok
+        message:
+          type: string
+          description: Дополнительная информация (при проблемах)
+          example: "Директория хранения доступна для записи"
+
+    # -----------------------------------------------------------------------
+    # Ошибки
+    # -----------------------------------------------------------------------
+
+    ErrorResponse:
+      type: object
+      description: Стандартный формат ошибки (единый для всей системы Artsore)
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              description: |
+                Машиночитаемый код ошибки. Возможные значения:
+                - `VALIDATION_ERROR` — некорректные входные данные
+                - `NOT_FOUND` — ресурс не найден
+                - `UNAUTHORIZED` — требуется аутентификация
+                - `FORBIDDEN` — недостаточно прав
+                - `MODE_NOT_ALLOWED` — операция недоступна в текущем режиме
+                - `INVALID_TRANSITION` — недопустимый переход между режимами
+                - `INVALID_RANGE` — некорректный Range header
+                - `FILE_TOO_LARGE` — файл превышает лимит
+                - `STORAGE_FULL` — нет свободного места
+                - `RECONCILE_IN_PROGRESS` — сверка уже выполняется
+                - `INTERNAL_ERROR` — внутренняя ошибка
+              example: NOT_FOUND
+            message:
+              type: string
+              description: Человекочитаемое описание ошибки
+              example: Файл не найден

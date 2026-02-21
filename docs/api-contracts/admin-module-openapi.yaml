@@ -1,0 +1,2581 @@
+# OpenAPI спецификация для Admin Module
+# Модуль: Admin Module (аутентификация, управление, реестр файлов)
+# Версия API: v1
+# Дата фиксации: 2026-02-21
+
+openapi: 3.0.3
+
+info:
+  title: Admin Module API
+  description: |
+    Admin Module — центральный модуль системы Artsore, отвечающий за аутентификацию,
+    управление пользователями, сервисными аккаунтами, Storage Elements и реестр файлов.
+
+    ## Аутентификация
+
+    ### Service Accounts (M2M)
+    Межсервисное взаимодействие через OAuth 2.0 Client Credentials flow:
+    - `POST /api/v1/auth/token` — получение JWT по `client_id` + `client_secret`
+    - JWT RS256, содержит scopes для авторизации
+    - Refresh token не выдаётся — SA повторно запрашивает token по credentials
+    - Формат client_id: `sa_<name>_<random>` (читаемый)
+
+    Scopes:
+    - `files:read` — чтение метаданных и скачивание файлов
+    - `files:write` — загрузка, обновление и удаление файлов
+    - `storage:read` — чтение информации о Storage Elements
+    - `storage:write` — управление SE (sync, mode transition)
+    - `admin:read` — чтение административных данных
+    - `admin:write` — управление пользователями и SA
+
+    ### Admin Users (H2M)
+    Аутентификация администраторов через login/password:
+    - `POST /api/v1/admin-auth/login` — получение JWT по username + password
+    - `POST /api/v1/admin-auth/refresh` — продление сессии по refresh token
+    - JWT RS256, содержит role для авторизации
+
+    Роли:
+    - `admin` — полный доступ ко всем операциям
+    - `readonly` — только чтение
+
+    ### Блокировка аккаунтов
+    После 5 неудачных попыток входа аккаунт блокируется на 15 минут
+    (конфигурируемо). Ручная разблокировка через `POST /admin-users/{id}/unlock`.
+
+    ## Shared PostgreSQL
+    Admin Module и Query Module используют один PostgreSQL instance.
+    Admin Module владеет таблицей file registry и пишет в неё.
+    Query Module добавляет FTS-индексы и читает из неё.
+
+    ## Синхронизация файлового реестра
+
+    `*.attr.json` файлы на Storage Elements — **единственный источник истины**
+    для метаданных файлов. Файловый реестр в PostgreSQL — вторичный индекс,
+    восстанавливаемый из attr.json.
+
+    4 механизма синхронизации:
+    1. **Периодический sync** — фоновая задача, интервал 1 час (конфигурируемый).
+       Все SE опрашиваются параллельно через `GET /api/v1/files` (пагинация).
+    2. **Ленивая очистка** — Query Module обновляет статус файла при 404 от SE.
+    3. **Ручной sync** — администратор запускает `POST /storage-elements/{id}/sync`.
+    4. **Full sync при подключении** — автоматически при регистрации SE или
+       восстановлении БД из backup.
+  version: 1.0.0
+  contact:
+    name: Artsore Team
+  license:
+    name: Private
+    url: https://github.com/arturkryukov/artsore
+
+servers:
+  - url: https://{host}:{port}
+    description: Admin Module instance
+    variables:
+      host:
+        default: localhost
+      port:
+        default: "8000"
+        description: Порт из диапазона 8000-8009
+
+tags:
+  - name: auth
+    description: OAuth 2.0 токены для Service Accounts
+  - name: admin-auth
+    description: Аутентификация администраторов (login/password)
+  - name: admin-users
+    description: Управление администраторами
+  - name: service-accounts
+    description: Управление сервисными аккаунтами
+  - name: storage-elements
+    description: Управление Storage Elements
+  - name: jwt-keys
+    description: Управление JWT-ключами
+  - name: files
+    description: Реестр файлов (file registry)
+  - name: health
+    description: Kubernetes probes и метрики
+
+# ---------------------------------------------------------------------------
+# Пути (Paths)
+# ---------------------------------------------------------------------------
+paths:
+
+  # =========================================================================
+  # Auth — OAuth 2.0 для Service Accounts
+  # =========================================================================
+
+  /api/v1/auth/token:
+    post:
+      tags: [auth]
+      summary: Получение JWT token (Client Credentials)
+      description: |
+        OAuth 2.0 Client Credentials flow для Service Accounts.
+        Возвращает JWT access token для межсервисного взаимодействия.
+
+        Token содержит scopes, назначенные сервисному аккаунту.
+
+        Если secret SA истёк (`secret_expires_at` в прошлом), запрос
+        будет отклонён с кодом `SECRET_EXPIRED`.
+      operationId: createToken
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenRequest"
+      responses:
+        "200":
+          description: Token выдан
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "401":
+          description: Неверные credentials или secret истёк
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                invalidCredentials:
+                  summary: Неверный client_id или client_secret
+                  value:
+                    error:
+                      code: INVALID_CREDENTIALS
+                      message: "Неверный client_id или client_secret"
+                secretExpired:
+                  summary: Secret истёк
+                  value:
+                    error:
+                      code: SECRET_EXPIRED
+                      message: "Secret сервисного аккаунта истёк, выполните ротацию"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/auth/jwks:
+    get:
+      tags: [auth]
+      summary: Публичные ключи (JWKS)
+      description: |
+        Возвращает публичные ключи в формате JWKS (JSON Web Key Set)
+        для валидации JWT токенов другими модулями (Storage Element,
+        Ingester, Query Module).
+
+        **Аутентификация не требуется** — публичные ключи общедоступны.
+
+        При ротации ключей оба ключа (старый и новый) присутствуют
+        в ответе в течение grace period.
+      operationId: getJwks
+      security: []
+      responses:
+        "200":
+          description: Набор публичных ключей
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JwksResponse"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # =========================================================================
+  # Admin Auth — аутентификация администраторов
+  # =========================================================================
+
+  /api/v1/admin-auth/login:
+    post:
+      tags: [admin-auth]
+      summary: Вход администратора
+      description: |
+        Аутентификация администратора по username и password.
+        Возвращает access token и refresh token.
+
+        При 5 неудачных попытках подряд аккаунт блокируется на 15 минут.
+        Счётчик сбрасывается при успешном входе.
+      operationId: adminLogin
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminLoginRequest"
+      responses:
+        "200":
+          description: Успешный вход
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminLoginResponse"
+        "401":
+          description: Неверные credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: INVALID_CREDENTIALS
+                  message: "Неверный логин или пароль"
+        "423":
+          description: Аккаунт заблокирован
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: ACCOUNT_LOCKED
+                  message: "Аккаунт заблокирован до 2026-02-21T16:15:00Z"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/admin-auth/refresh:
+    post:
+      tags: [admin-auth]
+      summary: Обновление access token
+      description: |
+        Обновляет access token по refresh token.
+        Возвращает новую пару access + refresh token.
+      operationId: adminRefresh
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "200":
+          description: Токены обновлены
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminLoginResponse"
+        "401":
+          description: Невалидный или истёкший refresh token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: INVALID_REFRESH_TOKEN
+                  message: "Refresh token невалиден или истёк"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/admin-auth/me:
+    get:
+      tags: [admin-auth]
+      summary: Текущий администратор
+      description: Возвращает информацию о текущем аутентифицированном администраторе.
+      operationId: getCurrentAdmin
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Информация о текущем администраторе
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUser"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/admin-auth/change-password:
+    post:
+      tags: [admin-auth]
+      summary: Смена пароля
+      description: |
+        Смена пароля текущего администратора. Требует текущий пароль
+        для подтверждения.
+      operationId: changePassword
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+      responses:
+        "204":
+          description: Пароль изменён
+        "400":
+          description: Некорректный запрос (слабый пароль)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Неверный текущий пароль
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: INVALID_CREDENTIALS
+                  message: "Неверный текущий пароль"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # =========================================================================
+  # Admin Users
+  # =========================================================================
+
+  /api/v1/admin-users:
+    post:
+      tags: [admin-users]
+      summary: Создать администратора
+      description: Создание нового администратора. Доступно только роли `admin`.
+      operationId: createAdminUser
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminUserCreate"
+      responses:
+        "201":
+          description: Администратор создан
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUser"
+        "400":
+          description: Некорректный запрос (слабый пароль, дублирующийся username)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Username уже занят
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: CONFLICT
+                  message: "Пользователь с таким username уже существует"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    get:
+      tags: [admin-users]
+      summary: Список администраторов
+      description: Возвращает пагинированный список администраторов. Доступно ролям `admin` и `readonly`.
+      operationId: listAdminUsers
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Список администраторов
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUserListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/admin-users/{id}:
+    get:
+      tags: [admin-users]
+      summary: Получить администратора
+      description: Возвращает данные администратора по ID. Доступно ролям `admin` и `readonly`.
+      operationId: getAdminUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AdminUserId"
+      responses:
+        "200":
+          description: Данные администратора
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUser"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    put:
+      tags: [admin-users]
+      summary: Обновить администратора
+      description: |
+        Обновление данных администратора (role, email). Доступно только роли `admin`.
+        Пароль изменяется отдельными endpoints (change-password, reset-password).
+      operationId: updateAdminUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AdminUserId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminUserUpdate"
+      responses:
+        "200":
+          description: Администратор обновлён
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUser"
+        "400":
+          description: Некорректный запрос
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    delete:
+      tags: [admin-users]
+      summary: Удалить администратора
+      description: |
+        Удаление администратора. Доступно только роли `admin`.
+        Нельзя удалить самого себя.
+      operationId: deleteAdminUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AdminUserId"
+      responses:
+        "204":
+          description: Администратор удалён
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Нельзя удалить самого себя
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: CONFLICT
+                  message: "Нельзя удалить собственный аккаунт"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/admin-users/{id}/reset-password:
+    post:
+      tags: [admin-users]
+      summary: Сброс пароля администратора
+      description: |
+        Сброс пароля администратора (назначение нового).
+        Доступно только роли `admin`. Используется когда администратор
+        забыл пароль.
+      operationId: resetAdminPassword
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AdminUserId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordRequest"
+      responses:
+        "204":
+          description: Пароль сброшен
+        "400":
+          description: Некорректный запрос (слабый пароль)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/admin-users/{id}/unlock:
+    post:
+      tags: [admin-users]
+      summary: Разблокировать администратора
+      description: |
+        Ручная разблокировка аккаунта администратора, заблокированного
+        после превышения лимита неудачных попыток входа.
+        Доступно только роли `admin`.
+
+        Сбрасывает счётчик неудачных попыток и снимает блокировку.
+      operationId: unlockAdminUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AdminUserId"
+      responses:
+        "204":
+          description: Аккаунт разблокирован
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Аккаунт не заблокирован
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: NOT_LOCKED
+                  message: "Аккаунт не заблокирован"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # =========================================================================
+  # Service Accounts
+  # =========================================================================
+
+  /api/v1/service-accounts:
+    post:
+      tags: [service-accounts]
+      summary: Создать сервисный аккаунт
+      description: |
+        Создание нового сервисного аккаунта. Доступно только роли `admin`.
+
+        Генерирует `client_id` в формате `sa_<name>_<random>` и
+        `client_secret`. Secret возвращается **только один раз** в ответе
+        на создание.
+
+        Secret expiration конфигурируется: по умолчанию 90 дней,
+        `0` — без истечения.
+      operationId: createServiceAccount
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceAccountCreate"
+      responses:
+        "201":
+          description: Сервисный аккаунт создан (secret в ответе!)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceAccountWithSecret"
+        "400":
+          description: Некорректный запрос
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Имя уже занято
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: CONFLICT
+                  message: "Сервисный аккаунт с таким именем уже существует"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    get:
+      tags: [service-accounts]
+      summary: Список сервисных аккаунтов
+      description: Возвращает пагинированный список SA. Доступно ролям `admin` и `readonly`.
+      operationId: listServiceAccounts
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - name: status
+          in: query
+          description: Фильтр по статусу
+          schema:
+            type: string
+            enum: [active, suspended]
+      responses:
+        "200":
+          description: Список сервисных аккаунтов
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceAccountListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/service-accounts/{id}:
+    get:
+      tags: [service-accounts]
+      summary: Получить сервисный аккаунт
+      description: Возвращает данные SA по ID. Доступно ролям `admin` и `readonly`.
+      operationId: getServiceAccount
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ServiceAccountId"
+      responses:
+        "200":
+          description: Данные сервисного аккаунта
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceAccount"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    put:
+      tags: [service-accounts]
+      summary: Обновить сервисный аккаунт
+      description: |
+        Обновление SA (name, description, scopes, status).
+        Доступно только роли `admin`.
+        Для изменения secret используйте `rotate-secret`.
+      operationId: updateServiceAccount
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ServiceAccountId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceAccountUpdate"
+      responses:
+        "200":
+          description: Сервисный аккаунт обновлён
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceAccount"
+        "400":
+          description: Некорректный запрос
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    delete:
+      tags: [service-accounts]
+      summary: Удалить сервисный аккаунт
+      description: Удаление SA. Доступно только роли `admin`.
+      operationId: deleteServiceAccount
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ServiceAccountId"
+      responses:
+        "204":
+          description: Сервисный аккаунт удалён
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/service-accounts/{id}/rotate-secret:
+    post:
+      tags: [service-accounts]
+      summary: Ротация secret
+      description: |
+        Генерирует новый `client_secret` для SA. Старый secret
+        немедленно становится невалидным. Новый secret возвращается
+        **только один раз** в ответе.
+
+        Обновляет `secret_expires_at` на основе текущей конфигурации
+        expiration (default 90 дней, 0 = без истечения).
+
+        Доступно только роли `admin`.
+      operationId: rotateSecret
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ServiceAccountId"
+      responses:
+        "200":
+          description: Secret обновлён (новый secret в ответе!)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RotateSecretResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # =========================================================================
+  # Storage Elements
+  # =========================================================================
+
+  /api/v1/storage-elements/discover:
+    post:
+      tags: [storage-elements]
+      summary: Предпросмотр Storage Element
+      description: |
+        Запрашивает информацию о SE по указанному URL (вызывает
+        `GET /api/v1/info` на SE) и возвращает результат.
+        Позволяет убедиться в доступности SE перед регистрацией.
+
+        **Не создаёт запись** — только предпросмотр.
+
+        Доступно ролям `admin` и `readonly`.
+      operationId: discoverStorageElement
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DiscoverRequest"
+      responses:
+        "200":
+          description: Информация о SE получена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiscoverResponse"
+        "400":
+          description: Некорректный URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "502":
+          description: SE недоступен или вернул ошибку
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: SE_UNAVAILABLE
+                  message: "Не удалось подключиться к Storage Element по указанному URL"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/storage-elements:
+    post:
+      tags: [storage-elements]
+      summary: Регистрация Storage Element
+      description: |
+        Регистрирует новый SE в системе. При регистрации автоматически:
+        1. Запрашивает информацию о SE (вызывает `GET /api/v1/info`)
+           и сохраняет данные о режиме и ёмкости.
+        2. Запускает **full sync файловых метаданных** — постранично вычитывает
+           `GET /api/v1/files` на SE и заполняет файловый реестр в PostgreSQL.
+
+        Это обеспечивает восстановление файлового реестра при подключении SE
+        после восстановления БД из backup.
+
+        Доступно только роли `admin`.
+      operationId: createStorageElement
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StorageElementCreate"
+      responses:
+        "201":
+          description: SE зарегистрирован
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageElement"
+        "400":
+          description: Некорректный запрос
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: SE с таким URL уже зарегистрирован
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: CONFLICT
+                  message: "Storage Element с таким URL уже зарегистрирован"
+        "502":
+          description: Не удалось получить информацию от SE
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    get:
+      tags: [storage-elements]
+      summary: Список Storage Elements
+      description: |
+        Возвращает пагинированный список зарегистрированных SE с фильтрами.
+
+        Используется как Admin UI (управление), так и другими модулями
+        (Ingester, Query) для получения списка доступных SE.
+
+        Доступно: роли `admin`, `readonly`, SA с scope `storage:read`.
+      operationId: listStorageElements
+      security:
+        - bearerAuth: [storage:read]
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - name: mode
+          in: query
+          description: Фильтр по режиму работы
+          schema:
+            type: string
+            enum: [edit, rw, ro, ar]
+        - name: status
+          in: query
+          description: Фильтр по статусу
+          schema:
+            type: string
+            enum: [online, offline, degraded, maintenance]
+      responses:
+        "200":
+          description: Список SE
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageElementListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/storage-elements/{id}:
+    get:
+      tags: [storage-elements]
+      summary: Получить Storage Element
+      description: |
+        Возвращает данные SE по ID.
+        Доступно: роли `admin`, `readonly`, SA с scope `storage:read`.
+      operationId: getStorageElement
+      security:
+        - bearerAuth: [storage:read]
+      parameters:
+        - $ref: "#/components/parameters/StorageElementId"
+      responses:
+        "200":
+          description: Данные SE
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageElement"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    put:
+      tags: [storage-elements]
+      summary: Обновить Storage Element
+      description: |
+        Обновление данных SE (name, url). Доступно только роли `admin`.
+        Данные о mode, status, capacity обновляются через sync.
+      operationId: updateStorageElement
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/StorageElementId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StorageElementUpdate"
+      responses:
+        "200":
+          description: SE обновлён
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageElement"
+        "400":
+          description: Некорректный запрос
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    delete:
+      tags: [storage-elements]
+      summary: Удалить Storage Element
+      description: |
+        Удаление SE из реестра. Доступно только роли `admin`.
+        Физически файлы на SE не удаляются.
+      operationId: deleteStorageElement
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/StorageElementId"
+      responses:
+        "204":
+          description: SE удалён из реестра
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/storage-elements/{id}/sync:
+    post:
+      tags: [storage-elements]
+      summary: Синхронизация Storage Element
+      description: |
+        Полная синхронизация данных SE с локальной записью в Admin Module.
+
+        **Шаг 1 — системная информация:**
+        Запрашивает `GET /api/v1/info` на SE и обновляет mode, status, capacity.
+
+        **Шаг 2 — файловый реестр:**
+        Постранично вычитывает `GET /api/v1/files` на SE и синхронизирует
+        файловый реестр в PostgreSQL:
+        - Новые файлы (есть в SE, нет в реестре) — добавляются
+        - Существующие файлы — обновляются метаданные (status, tags, description)
+        - Отсутствующие файлы (есть в реестре, нет в SE) — помечаются как `deleted`
+
+        `*.attr.json` на SE — единственный источник истины для метаданных файлов.
+        Файловый реестр в PostgreSQL — вторичный индекс.
+
+        Этот же механизм используется:
+        - Периодической фоновой задачей (интервал 1 час, конфигурируемый,
+          все SE параллельно)
+        - При ручном запуске администратором из UI
+        - Автоматически при регистрации нового SE
+        - При восстановлении БД из backup (full sync при подключении SE)
+
+        **Операция может занять значительное время** при большом количестве файлов.
+
+        Доступно роли `admin` и SA с scope `storage:write`.
+      operationId: syncStorageElement
+      security:
+        - bearerAuth: [storage:write]
+      parameters:
+        - $ref: "#/components/parameters/StorageElementId"
+      responses:
+        "200":
+          description: SE синхронизирован
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          description: Не удалось подключиться к SE
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: SE_UNAVAILABLE
+                  message: "Не удалось подключиться к Storage Element"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # =========================================================================
+  # JWT Keys
+  # =========================================================================
+
+  /api/v1/jwt-keys/status:
+    get:
+      tags: [jwt-keys]
+      summary: Статус JWT-ключей
+      description: |
+        Возвращает информацию о текущем активном JWT-ключе:
+        ID ключа, дата создания, алгоритм.
+
+        Доступно только роли `admin`.
+      operationId: getJwtKeyStatus
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Статус ключей
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JwtKeyStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/jwt-keys/rotate:
+    post:
+      tags: [jwt-keys]
+      summary: Ротация JWT-ключа
+      description: |
+        Генерирует новую пару RSA-ключей и делает её активной.
+        Старый ключ остаётся валидным в течение grace period
+        (конфигурируемый, по умолчанию 60 минут) для уже выданных токенов.
+
+        Во время grace period оба ключа присутствуют в JWKS endpoint.
+
+        Доступно только роли `admin`.
+      operationId: rotateJwtKey
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Ключ ротирован
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JwtKeyRotateResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # =========================================================================
+  # Files Registry
+  # =========================================================================
+
+  /api/v1/files:
+    post:
+      tags: [files]
+      summary: Регистрация файла
+      description: |
+        Регистрирует файл в реестре после загрузки на Storage Element.
+        Вызывается Ingester Module после успешного upload.
+
+        Доступно SA с scope `files:write`.
+      operationId: registerFile
+      security:
+        - bearerAuth: [files:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FileRegisterRequest"
+      responses:
+        "201":
+          description: Файл зарегистрирован
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileRecord"
+        "400":
+          description: Некорректный запрос
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Файл с таким ID уже зарегистрирован
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    get:
+      tags: [files]
+      summary: Список файлов
+      description: |
+        Возвращает пагинированный список файлов из реестра.
+
+        Доступно: SA с scope `files:read`, роли `admin`, `readonly`.
+      operationId: listFiles
+      security:
+        - bearerAuth: [files:read]
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - name: status
+          in: query
+          description: Фильтр по статусу
+          schema:
+            type: string
+            enum: [active, expired, deleted]
+        - name: retention_policy
+          in: query
+          description: Фильтр по политике хранения
+          schema:
+            type: string
+            enum: [temporary, permanent]
+        - name: storage_element_id
+          in: query
+          description: Фильтр по Storage Element
+          schema:
+            type: string
+            format: uuid
+        - name: uploaded_by
+          in: query
+          description: Фильтр по загрузившему
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Список файлов
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileRecordListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/files/{file_id}:
+    get:
+      tags: [files]
+      summary: Метаданные файла
+      description: |
+        Возвращает метаданные файла из реестра.
+
+        Доступно: SA с scope `files:read`, роли `admin`, `readonly`.
+      operationId: getFile
+      security:
+        - bearerAuth: [files:read]
+      parameters:
+        - $ref: "#/components/parameters/FileId"
+      responses:
+        "200":
+          description: Метаданные файла
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileRecord"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    put:
+      tags: [files]
+      summary: Обновление метаданных файла
+      description: |
+        Обновление метаданных файла в реестре (description, tags, status).
+
+        Доступно: SA с scope `files:write`, роль `admin`.
+      operationId: updateFile
+      security:
+        - bearerAuth: [files:write]
+      parameters:
+        - $ref: "#/components/parameters/FileId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FileRecordUpdate"
+      responses:
+        "200":
+          description: Метаданные обновлены
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileRecord"
+        "400":
+          description: Некорректный запрос
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    delete:
+      tags: [files]
+      summary: Soft delete файла
+      description: |
+        Помечает файл как удалённый в реестре (status → `deleted`).
+        Физическое удаление на SE выполняется встроенным GC на SE.
+
+        Доступно: SA с scope `files:write`, роль `admin`.
+      operationId: deleteFile
+      security:
+        - bearerAuth: [files:write]
+      parameters:
+        - $ref: "#/components/parameters/FileId"
+      responses:
+        "204":
+          description: Файл помечен как удалённый
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # =========================================================================
+  # Health
+  # =========================================================================
+
+  /health/live:
+    get:
+      tags: [health]
+      summary: Liveness probe
+      description: Kubernetes liveness probe. Возвращает 200, если процесс жив.
+      operationId: healthLive
+      security: []
+      responses:
+        "200":
+          description: Сервис жив
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthLiveResponse"
+
+  /health/ready:
+    get:
+      tags: [health]
+      summary: Readiness probe
+      description: |
+        Kubernetes readiness probe. Проверяет готовность:
+        доступность PostgreSQL, наличие JWT-ключей.
+
+        Статусы: `ok` (200), `degraded` (200), `fail` (503).
+      operationId: healthReady
+      security: []
+      responses:
+        "200":
+          description: Сервис готов (ok или degraded)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthReadyResponse"
+        "503":
+          description: Сервис не готов (fail)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthReadyResponse"
+
+  /metrics:
+    get:
+      tags: [health]
+      summary: Prometheus metrics
+      description: |
+        Метрики в формате Prometheus: количество SA, admin users,
+        SE, файлов, счётчики аутентификаций, латентность запросов.
+      operationId: getMetrics
+      security: []
+      responses:
+        "200":
+          description: Метрики Prometheus
+          content:
+            text/plain:
+              schema:
+                type: string
+
+# ---------------------------------------------------------------------------
+# Компоненты (Components)
+# ---------------------------------------------------------------------------
+components:
+
+  # =========================================================================
+  # Схемы безопасности
+  # =========================================================================
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT RS256 token. Для Admin Users содержит `role` (admin/readonly).
+        Для Service Accounts содержит `scopes` (массив строк).
+
+  # =========================================================================
+  # Параметры
+  # =========================================================================
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      description: Количество записей на странице
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 1000
+        default: 100
+
+    Offset:
+      name: offset
+      in: query
+      description: Смещение от начала списка
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+
+    AdminUserId:
+      name: id
+      in: path
+      required: true
+      description: UUID администратора
+      schema:
+        type: string
+        format: uuid
+
+    ServiceAccountId:
+      name: id
+      in: path
+      required: true
+      description: UUID сервисного аккаунта
+      schema:
+        type: string
+        format: uuid
+
+    StorageElementId:
+      name: id
+      in: path
+      required: true
+      description: UUID Storage Element
+      schema:
+        type: string
+        format: uuid
+
+    FileId:
+      name: file_id
+      in: path
+      required: true
+      description: UUID файла
+      schema:
+        type: string
+        format: uuid
+
+  # =========================================================================
+  # Переиспользуемые ответы
+  # =========================================================================
+  responses:
+    Unauthorized:
+      description: Отсутствует или невалидный JWT token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: UNAUTHORIZED
+              message: "Требуется аутентификация"
+
+    Forbidden:
+      description: Недостаточно прав (scope или роль не позволяет операцию)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: FORBIDDEN
+              message: "Недостаточно прав для выполнения операции"
+
+    NotFound:
+      description: Ресурс не найден
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: NOT_FOUND
+              message: "Ресурс не найден"
+
+    InternalError:
+      description: Внутренняя ошибка сервера
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: INTERNAL_ERROR
+              message: "Внутренняя ошибка сервера"
+
+  # =========================================================================
+  # Схемы данных
+  # =========================================================================
+  schemas:
+
+    # -----------------------------------------------------------------------
+    # Auth — OAuth 2.0
+    # -----------------------------------------------------------------------
+
+    TokenRequest:
+      type: object
+      description: Запрос токена для Service Account (Client Credentials)
+      required:
+        - client_id
+        - client_secret
+      properties:
+        client_id:
+          type: string
+          description: Идентификатор SA (формат `sa_<name>_<random>`)
+          example: sa_ingester_a1b2c3
+        client_secret:
+          type: string
+          description: Секрет SA
+          example: "secret_value_here"
+
+    TokenResponse:
+      type: object
+      description: Ответ с JWT token для SA
+      required:
+        - access_token
+        - token_type
+        - expires_in
+      properties:
+        access_token:
+          type: string
+          description: JWT access token (RS256)
+          example: eyJhbGciOiJSUzI1NiIs...
+        token_type:
+          type: string
+          enum: [Bearer]
+          example: Bearer
+        expires_in:
+          type: integer
+          description: Время жизни токена в секундах
+          example: 3600
+
+    JwksResponse:
+      type: object
+      description: JSON Web Key Set — публичные ключи для валидации JWT
+      required:
+        - keys
+      properties:
+        keys:
+          type: array
+          items:
+            type: object
+            required:
+              - kty
+              - use
+              - kid
+              - alg
+              - n
+              - e
+            properties:
+              kty:
+                type: string
+                description: Тип ключа
+                example: RSA
+              use:
+                type: string
+                description: Назначение ключа
+                example: sig
+              kid:
+                type: string
+                description: ID ключа
+                example: key-2026-02-21
+              alg:
+                type: string
+                description: Алгоритм
+                example: RS256
+              n:
+                type: string
+                description: RSA modulus (Base64url)
+              e:
+                type: string
+                description: RSA exponent (Base64url)
+                example: AQAB
+
+    # -----------------------------------------------------------------------
+    # Admin Auth
+    # -----------------------------------------------------------------------
+
+    AdminLoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          example: admin
+        password:
+          type: string
+          format: password
+          example: "strong_password_123"
+
+    AdminLoginResponse:
+      type: object
+      required:
+        - access_token
+        - refresh_token
+        - token_type
+        - expires_in
+      properties:
+        access_token:
+          type: string
+          description: JWT access token (RS256)
+          example: eyJhbGciOiJSUzI1NiIs...
+        refresh_token:
+          type: string
+          description: Refresh token для продления сессии
+          example: rt_a1b2c3d4e5f6...
+        token_type:
+          type: string
+          enum: [Bearer]
+          example: Bearer
+        expires_in:
+          type: integer
+          description: Время жизни access token в секундах
+          example: 1800
+
+    RefreshRequest:
+      type: object
+      required:
+        - refresh_token
+      properties:
+        refresh_token:
+          type: string
+          description: Refresh token из предыдущего ответа login/refresh
+          example: rt_a1b2c3d4e5f6...
+
+    ChangePasswordRequest:
+      type: object
+      required:
+        - current_password
+        - new_password
+      properties:
+        current_password:
+          type: string
+          format: password
+          description: Текущий пароль
+        new_password:
+          type: string
+          format: password
+          description: Новый пароль (минимум 8 символов)
+          minLength: 8
+
+    # -----------------------------------------------------------------------
+    # Admin Users
+    # -----------------------------------------------------------------------
+
+    AdminUser:
+      type: object
+      description: Администратор системы
+      required:
+        - id
+        - username
+        - role
+        - is_locked
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        username:
+          type: string
+          example: admin
+        email:
+          type: string
+          format: email
+          nullable: true
+          example: admin@example.com
+        role:
+          type: string
+          enum: [admin, readonly]
+          description: |
+            Роль администратора:
+            - `admin` — полный доступ ко всем операциям
+            - `readonly` — только чтение
+          example: admin
+        is_locked:
+          type: boolean
+          description: Заблокирован ли аккаунт
+          example: false
+        locked_until:
+          type: string
+          format: date-time
+          nullable: true
+          description: Время автоматической разблокировки (null если не заблокирован)
+        failed_login_attempts:
+          type: integer
+          description: Счётчик неудачных попыток входа
+          example: 0
+        last_login_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Время последнего успешного входа
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-02-21T10:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2026-02-21T10:00:00Z"
+
+    AdminUserCreate:
+      type: object
+      required:
+        - username
+        - password
+        - role
+      properties:
+        username:
+          type: string
+          description: Уникальное имя пользователя
+          minLength: 3
+          maxLength: 50
+          example: operator1
+        password:
+          type: string
+          format: password
+          description: Пароль (минимум 8 символов)
+          minLength: 8
+        email:
+          type: string
+          format: email
+          example: operator1@example.com
+        role:
+          type: string
+          enum: [admin, readonly]
+          example: readonly
+
+    AdminUserUpdate:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [admin, readonly]
+      minProperties: 1
+
+    ResetPasswordRequest:
+      type: object
+      required:
+        - new_password
+      properties:
+        new_password:
+          type: string
+          format: password
+          description: Новый пароль (минимум 8 символов)
+          minLength: 8
+
+    AdminUserListResponse:
+      type: object
+      required:
+        - items
+        - total
+        - limit
+        - offset
+        - has_more
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminUser"
+        total:
+          type: integer
+          example: 5
+        limit:
+          type: integer
+          example: 100
+        offset:
+          type: integer
+          example: 0
+        has_more:
+          type: boolean
+          example: false
+
+    # -----------------------------------------------------------------------
+    # Service Accounts
+    # -----------------------------------------------------------------------
+
+    ServiceAccount:
+      type: object
+      description: Сервисный аккаунт (без secret)
+      required:
+        - id
+        - client_id
+        - name
+        - scopes
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 660e8400-e29b-41d4-a716-446655440001
+        client_id:
+          type: string
+          description: Идентификатор для аутентификации (формат `sa_<name>_<random>`)
+          example: sa_ingester_a1b2c3
+        name:
+          type: string
+          description: Человекочитаемое имя
+          example: ingester
+        description:
+          type: string
+          nullable: true
+          description: Описание назначения SA
+          example: Сервисный аккаунт для Ingester Module
+        scopes:
+          type: array
+          items:
+            type: string
+            enum:
+              - files:read
+              - files:write
+              - storage:read
+              - storage:write
+              - admin:read
+              - admin:write
+          description: Назначенные scopes
+          example: [files:write, storage:read]
+        status:
+          type: string
+          enum: [active, suspended]
+          description: |
+            Статус SA:
+            - `active` — работает
+            - `suspended` — приостановлен администратором
+          example: active
+        secret_expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            Время истечения текущего secret.
+            `null` если secret без срока (secret_expiration_days = 0).
+          example: "2026-05-22T10:00:00Z"
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-02-21T10:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2026-02-21T10:00:00Z"
+
+    ServiceAccountWithSecret:
+      description: SA с secret (возвращается только при создании и ротации)
+      allOf:
+        - $ref: "#/components/schemas/ServiceAccount"
+        - type: object
+          required:
+            - client_secret
+          properties:
+            client_secret:
+              type: string
+              description: |
+                Секрет для аутентификации. **Показывается только один раз!**
+                Сохраните его в безопасном месте.
+              example: cs_random_secret_value_here
+
+    ServiceAccountCreate:
+      type: object
+      required:
+        - name
+        - scopes
+      properties:
+        name:
+          type: string
+          description: Имя SA (используется в client_id)
+          minLength: 2
+          maxLength: 50
+          example: ingester
+        description:
+          type: string
+          description: Описание назначения SA
+          maxLength: 500
+          example: Сервисный аккаунт для Ingester Module
+        scopes:
+          type: array
+          items:
+            type: string
+            enum:
+              - files:read
+              - files:write
+              - storage:read
+              - storage:write
+              - admin:read
+              - admin:write
+          minItems: 1
+          description: Список scopes
+          example: [files:write, storage:read]
+        secret_expiration_days:
+          type: integer
+          minimum: 0
+          maximum: 3650
+          default: 90
+          description: |
+            Срок действия secret в днях. `0` — без истечения.
+            По умолчанию 90 дней.
+          example: 90
+
+    ServiceAccountUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 50
+        description:
+          type: string
+          maxLength: 500
+        scopes:
+          type: array
+          items:
+            type: string
+            enum:
+              - files:read
+              - files:write
+              - storage:read
+              - storage:write
+              - admin:read
+              - admin:write
+          minItems: 1
+        status:
+          type: string
+          enum: [active, suspended]
+      minProperties: 1
+
+    RotateSecretResponse:
+      type: object
+      required:
+        - client_id
+        - client_secret
+        - secret_expires_at
+      properties:
+        client_id:
+          type: string
+          example: sa_ingester_a1b2c3
+        client_secret:
+          type: string
+          description: Новый секрет. **Показывается только один раз!**
+          example: cs_new_random_secret_here
+        secret_expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Время истечения нового secret
+          example: "2026-05-22T10:00:00Z"
+
+    ServiceAccountListResponse:
+      type: object
+      required:
+        - items
+        - total
+        - limit
+        - offset
+        - has_more
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceAccount"
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        has_more:
+          type: boolean
+
+    # -----------------------------------------------------------------------
+    # Storage Elements
+    # -----------------------------------------------------------------------
+
+    StorageElement:
+      type: object
+      description: Зарегистрированный Storage Element
+      required:
+        - id
+        - name
+        - url
+        - storage_id
+        - mode
+        - status
+        - capacity_bytes
+        - used_bytes
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: UUID записи в Admin Module
+          example: 770e8400-e29b-41d4-a716-446655440002
+        name:
+          type: string
+          description: Человекочитаемое имя
+          example: Moscow SE 01
+        url:
+          type: string
+          format: uri
+          description: Базовый URL для обращения к SE
+          example: https://se-moscow-01.kryukov.lan:8010
+        storage_id:
+          type: string
+          description: Идентификатор SE (из SE `/api/v1/info`)
+          example: se-moscow-01
+        mode:
+          type: string
+          enum: [edit, rw, ro, ar]
+          description: Текущий режим (синхронизируется из SE)
+          example: rw
+        status:
+          type: string
+          enum: [online, offline, degraded, maintenance]
+          description: Текущий статус (синхронизируется из SE)
+          example: online
+        capacity_bytes:
+          type: integer
+          format: int64
+          description: Общий объём хранилища
+          example: 107374182400
+        used_bytes:
+          type: integer
+          format: int64
+          description: Занятый объём
+          example: 53687091200
+        available_bytes:
+          type: integer
+          format: int64
+          description: Доступный объём
+          example: 53687091200
+        last_sync_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Время последней синхронизации системной информации (info)
+          example: "2026-02-21T15:00:00Z"
+        last_file_sync_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Время последней синхронизации файлового реестра
+          example: "2026-02-21T15:00:00Z"
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-02-21T10:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2026-02-21T15:00:00Z"
+
+    StorageElementCreate:
+      type: object
+      required:
+        - name
+        - url
+      properties:
+        name:
+          type: string
+          description: Человекочитаемое имя SE
+          minLength: 1
+          maxLength: 100
+          example: Moscow SE 01
+        url:
+          type: string
+          format: uri
+          description: Базовый URL SE (при создании вызывается GET /api/v1/info)
+          example: https://se-moscow-01.kryukov.lan:8010
+
+    StorageElementUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        url:
+          type: string
+          format: uri
+      minProperties: 1
+
+    DiscoverRequest:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          format: uri
+          description: URL SE для предпросмотра
+          example: https://se-moscow-01.kryukov.lan:8010
+
+    DiscoverResponse:
+      type: object
+      description: Информация, полученная от SE через GET /api/v1/info
+      required:
+        - storage_id
+        - mode
+        - status
+        - version
+        - capacity
+      properties:
+        storage_id:
+          type: string
+          example: se-moscow-01
+        mode:
+          type: string
+          enum: [edit, rw, ro, ar]
+          example: rw
+        status:
+          type: string
+          enum: [online, offline, degraded, maintenance]
+          example: online
+        version:
+          type: string
+          example: 1.0.0
+        capacity:
+          type: object
+          properties:
+            total_bytes:
+              type: integer
+              format: int64
+              example: 107374182400
+            used_bytes:
+              type: integer
+              format: int64
+              example: 53687091200
+            available_bytes:
+              type: integer
+              format: int64
+              example: 53687091200
+
+    SyncResponse:
+      type: object
+      description: Результат синхронизации Storage Element
+      required:
+        - storage_element
+        - file_sync
+      properties:
+        storage_element:
+          $ref: "#/components/schemas/StorageElement"
+        file_sync:
+          type: object
+          description: Результат синхронизации файлового реестра
+          required:
+            - files_on_se
+            - files_added
+            - files_updated
+            - files_marked_deleted
+            - started_at
+            - completed_at
+          properties:
+            files_on_se:
+              type: integer
+              description: Общее количество файлов на SE
+              example: 1523
+            files_added:
+              type: integer
+              description: Новых файлов добавлено в реестр
+              example: 5
+            files_updated:
+              type: integer
+              description: Файлов обновлено в реестре
+              example: 12
+            files_marked_deleted:
+              type: integer
+              description: Файлов помечено как deleted (отсутствуют на SE)
+              example: 3
+            started_at:
+              type: string
+              format: date-time
+              description: Время начала синхронизации
+              example: "2026-02-21T16:00:00Z"
+            completed_at:
+              type: string
+              format: date-time
+              description: Время завершения синхронизации
+              example: "2026-02-21T16:02:15Z"
+
+    StorageElementListResponse:
+      type: object
+      required:
+        - items
+        - total
+        - limit
+        - offset
+        - has_more
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/StorageElement"
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        has_more:
+          type: boolean
+
+    # -----------------------------------------------------------------------
+    # JWT Keys
+    # -----------------------------------------------------------------------
+
+    JwtKeyStatus:
+      type: object
+      required:
+        - active_key_id
+        - algorithm
+        - created_at
+      properties:
+        active_key_id:
+          type: string
+          description: ID текущего активного ключа
+          example: key-2026-02-21
+        algorithm:
+          type: string
+          description: Алгоритм подписи
+          example: RS256
+        created_at:
+          type: string
+          format: date-time
+          description: Дата создания активного ключа
+          example: "2026-02-21T10:00:00Z"
+        previous_key_id:
+          type: string
+          nullable: true
+          description: ID предыдущего ключа (если в grace period)
+          example: key-2026-01-15
+        grace_period_ends_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Когда завершится grace period для старого ключа
+          example: "2026-02-21T11:00:00Z"
+
+    JwtKeyRotateResponse:
+      type: object
+      required:
+        - new_key_id
+        - previous_key_id
+        - grace_period_ends_at
+      properties:
+        new_key_id:
+          type: string
+          description: ID нового ключа
+          example: key-2026-02-21-v2
+        previous_key_id:
+          type: string
+          description: ID предыдущего ключа (валиден до окончания grace period)
+          example: key-2026-02-21
+        grace_period_ends_at:
+          type: string
+          format: date-time
+          description: Когда старый ключ перестанет быть валидным
+          example: "2026-02-21T17:00:00Z"
+
+    # -----------------------------------------------------------------------
+    # Files Registry
+    # -----------------------------------------------------------------------
+
+    FileRecord:
+      type: object
+      description: Запись файла в реестре Admin Module
+      required:
+        - file_id
+        - original_filename
+        - content_type
+        - size
+        - checksum
+        - storage_element_id
+        - uploaded_by
+        - uploaded_at
+        - status
+        - retention_policy
+      properties:
+        file_id:
+          type: string
+          format: uuid
+          example: 880e8400-e29b-41d4-a716-446655440003
+        original_filename:
+          type: string
+          example: photo_landscape.jpg
+        content_type:
+          type: string
+          example: image/jpeg
+        size:
+          type: integer
+          format: int64
+          description: Размер в байтах
+          example: 5242880
+        checksum:
+          type: string
+          description: SHA-256 хэш
+          example: a1b2c3d4e5f67890abcdef1234567890abcdef1234567890abcdef1234567890
+        storage_element_id:
+          type: string
+          format: uuid
+          description: UUID SE, на котором хранится файл
+          example: 770e8400-e29b-41d4-a716-446655440002
+        uploaded_by:
+          type: string
+          description: Кто загрузил (sub из JWT)
+          example: sa_ingester_a1b2c3
+        uploaded_at:
+          type: string
+          format: date-time
+          example: "2026-02-21T15:30:00Z"
+        description:
+          type: string
+          nullable: true
+          example: Набросок логотипа v2
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["logo", "draft"]
+        status:
+          type: string
+          enum: [active, expired, deleted]
+          example: active
+        retention_policy:
+          type: string
+          enum: [temporary, permanent]
+          example: permanent
+        ttl_days:
+          type: integer
+          nullable: true
+          description: Срок хранения в днях (для temporary)
+          example: 30
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Дата истечения (для temporary)
+          example: "2026-03-23T15:30:00Z"
+        created_at:
+          type: string
+          format: date-time
+          description: Дата регистрации в реестре
+          example: "2026-02-21T15:30:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2026-02-21T15:30:00Z"
+
+    FileRegisterRequest:
+      type: object
+      description: Запрос на регистрацию файла (от Ingester)
+      required:
+        - file_id
+        - original_filename
+        - content_type
+        - size
+        - checksum
+        - storage_element_id
+        - retention_policy
+      properties:
+        file_id:
+          type: string
+          format: uuid
+          description: UUID файла (сгенерирован SE при upload)
+        original_filename:
+          type: string
+        content_type:
+          type: string
+        size:
+          type: integer
+          format: int64
+        checksum:
+          type: string
+          description: SHA-256
+        storage_element_id:
+          type: string
+          format: uuid
+        description:
+          type: string
+          maxLength: 1000
+        tags:
+          type: array
+          items:
+            type: string
+        retention_policy:
+          type: string
+          enum: [temporary, permanent]
+        ttl_days:
+          type: integer
+          minimum: 1
+          maximum: 365
+          description: Обязателен для retention_policy=temporary
+
+    FileRecordUpdate:
+      type: object
+      description: Обновление метаданных файла в реестре
+      properties:
+        description:
+          type: string
+          maxLength: 1000
+        tags:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [active, expired, deleted]
+      minProperties: 1
+
+    FileRecordListResponse:
+      type: object
+      required:
+        - items
+        - total
+        - limit
+        - offset
+        - has_more
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/FileRecord"
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        has_more:
+          type: boolean
+
+    # -----------------------------------------------------------------------
+    # Health
+    # -----------------------------------------------------------------------
+
+    HealthLiveResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+        - version
+        - service
+      properties:
+        status:
+          type: string
+          enum: [ok]
+          example: ok
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+          example: 1.0.0
+        service:
+          type: string
+          example: admin-module
+
+    HealthReadyResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+        - version
+        - service
+        - checks
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, fail]
+          example: ok
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+          example: 1.0.0
+        service:
+          type: string
+          example: admin-module
+        checks:
+          type: object
+          properties:
+            postgresql:
+              $ref: "#/components/schemas/HealthCheck"
+            jwt_keys:
+              $ref: "#/components/schemas/HealthCheck"
+          required:
+            - postgresql
+            - jwt_keys
+
+    HealthCheck:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, fail]
+          example: ok
+        message:
+          type: string
+
+    # -----------------------------------------------------------------------
+    # Ошибки
+    # -----------------------------------------------------------------------
+
+    ErrorResponse:
+      type: object
+      description: Стандартный формат ошибки (единый для всей системы Artsore)
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              description: |
+                Машиночитаемый код ошибки. Значения:
+                - `VALIDATION_ERROR` — некорректные входные данные
+                - `NOT_FOUND` — ресурс не найден
+                - `UNAUTHORIZED` — требуется аутентификация
+                - `FORBIDDEN` — недостаточно прав
+                - `CONFLICT` — конфликт (дублирующийся ресурс)
+                - `INVALID_CREDENTIALS` — неверные credentials
+                - `SECRET_EXPIRED` — secret SA истёк
+                - `ACCOUNT_LOCKED` — аккаунт заблокирован
+                - `NOT_LOCKED` — аккаунт не заблокирован (при unlock)
+                - `INVALID_REFRESH_TOKEN` — невалидный refresh token
+                - `SE_UNAVAILABLE` — SE недоступен
+                - `INTERNAL_ERROR` — внутренняя ошибка
+              example: NOT_FOUND
+            message:
+              type: string
+              description: Человекочитаемое описание ошибки
+              example: Ресурс не найден
