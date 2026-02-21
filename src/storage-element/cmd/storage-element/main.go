@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -98,11 +99,46 @@ func main() {
 	uploadSvc := service.NewUploadService(cfg, walEngine, store, idx, sm, logger)
 	downloadSvc := service.NewDownloadService(store, idx, sm, logger)
 
-	// 6. Handlers
+	// 6. Фоновые процессы
+	ctx := context.Background()
+
+	// 6.1 GC — фоновая очистка файлов
+	gcSvc := service.NewGCService(store, idx, cfg.GCInterval, logger)
+	gcSvc.Start(ctx)
+
+	// 6.2 Reconciliation — фоновая сверка
+	reconcileSvc := service.NewReconcileService(store, idx, cfg.DataDir, cfg.ReconcileInterval, logger)
+	reconcileSvc.Start(ctx)
+
+	// 6.3 topologymetrics — мониторинг зависимостей
+	dephealthSvc, dephealthErr := service.NewDephealthService(
+		cfg.StorageID,
+		cfg.JWKSUrl,
+		cfg.DephealthCheckInterval,
+		logger,
+	)
+	if dephealthErr != nil {
+		logger.Warn("topologymetrics недоступен, запуск без мониторинга зависимостей",
+			slog.String("error", dephealthErr.Error()),
+		)
+	} else {
+		if startErr := dephealthSvc.Start(ctx); startErr != nil {
+			logger.Warn("Ошибка запуска topologymetrics",
+				slog.String("error", startErr.Error()),
+			)
+		} else {
+			logger.Info("topologymetrics запущен",
+				slog.String("jwks_url", cfg.JWKSUrl),
+				slog.String("check_interval", cfg.DephealthCheckInterval.String()),
+			)
+		}
+	}
+
+	// 7. Handlers
 	filesHandler := handlers.NewFilesHandler(uploadSvc, downloadSvc, store, idx, sm)
 	systemHandler := handlers.NewSystemHandler(cfg, sm, idx, diskUsageFn(cfg.DataDir))
 	modeHandler := handlers.NewModeHandler(sm, logger)
-	maintenanceHandler := handlers.NewMaintenanceHandler()
+	maintenanceHandler := handlers.NewMaintenanceHandler(reconcileSvc)
 	healthHandler := handlers.NewHealthHandlerFull(cfg.DataDir, cfg.WALDir, idx)
 	metricsHandler := server.NewMetricsHandler()
 
@@ -116,7 +152,7 @@ func main() {
 		metricsHandler,
 	)
 
-	// 7. JWT middleware
+	// 8. JWT middleware
 	var jwtAuth server.JWTAuthProvider
 	jwtMiddleware, err := middleware.NewJWTAuth(cfg.JWKSUrl, logger)
 	if err != nil {
@@ -132,12 +168,21 @@ func main() {
 		)
 	}
 
-	// 8. Создание и запуск HTTP-сервера
+	// 9. Создание и запуск HTTP-сервера
 	srv := server.New(cfg, logger, apiHandler, jwtAuth)
 
 	if err := srv.Run(); err != nil {
 		logger.Error("Ошибка сервера", slog.String("error", err.Error()))
 		os.Exit(1)
+	}
+
+	// --- Graceful shutdown фоновых процессов ---
+	logger.Info("Остановка фоновых процессов...")
+
+	gcSvc.Stop()
+	reconcileSvc.Stop()
+	if dephealthSvc != nil {
+		dephealthSvc.Stop()
 	}
 
 	logger.Info("Storage Element остановлен")

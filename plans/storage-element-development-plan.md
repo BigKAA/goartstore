@@ -22,9 +22,9 @@ Storage Element (SE) — первый модуль системы Artsore для
 ## Текущий статус
 
 - **Активная фаза**: Phase 4
-- **Активный подпункт**: 4.1
+- **Активный подпункт**: 4.4 (интеграционное тестирование)
 - **Последнее обновление**: 2026-02-21
-- **Примечание**: Phase 3 завершена — API handlers, JWT middleware, Prometheus метрики. 77 unit-тестов, race detector clean.
+- **Примечание**: Phase 4 (4.1-4.3) завершена — GC, Reconciliation, topologymetrics. 96 unit-тестов (77 Phase 3 + 19 Phase 4), race detector clean.
 
 ---
 
@@ -311,7 +311,7 @@ Core-компоненты без HTTP-слоя: WAL, attr.json, файловое
 ## Phase 4: Фоновые процессы
 
 **Dependencies**: Phase 3
-**Status**: Pending
+**Status**: In Progress
 
 ### Описание
 
@@ -319,7 +319,7 @@ GC (очистка expired/deleted файлов), Reconciliation (сверка a
 
 ### Подпункты
 
-- [ ] **4.1 GC — фоновая очистка файлов**
+- [x] **4.1 GC — фоновая очистка файлов**
   - **Dependencies**: None
   - **Description**: `internal/service/gc.go`. GCService: горутина с ticker (SE_GC_INTERVAL). RunOnce: сканирование индекса -> пометка expired (expires_at < now) -> физическое удаление deleted файлов. Prometheus: se_gc_runs_total, se_gc_files_deleted_total, se_gc_duration_seconds. Unit-тесты.
   - **Creates**:
@@ -328,7 +328,7 @@ GC (очистка expired/deleted файлов), Reconciliation (сверка a
   - **Links**:
     - `docs/briefs/storage-element.md` (GC)
 
-- [ ] **4.2 Reconciliation — фоновая сверка**
+- [x] **4.2 Reconciliation — фоновая сверка**
   - **Dependencies**: None (параллельно с 4.1)
   - **Description**: `internal/service/reconcile.go`. ReconcileService: горутина с ticker (SE_RECONCILE_INTERVAL), sync.Mutex для защиты от параллельного запуска. RunOnce: сканирование FS vs attr.json, выявление orphaned/missing/mismatch. Пересборка индекса. Обновление maintenance handler. Prometheus: se_reconcile_runs_total, se_reconcile_issues_total{type}. Unit-тесты.
   - **Creates**:
@@ -338,7 +338,7 @@ GC (очистка expired/deleted файлов), Reconciliation (сверка a
   - **Links**:
     - `docs/api-contracts/storage-element-openapi.yaml` (ReconcileResponse)
 
-- [ ] **4.3 topologymetrics — мониторинг зависимостей**
+- [x] **4.3 topologymetrics — мониторинг зависимостей**
   - **Dependencies**: None (параллельно с 4.1, 4.2)
   - **Description**: `internal/service/dephealth.go`. Интеграция с `github.com/BigKAA/topologymetrics/sdk-go/dephealth`. Зависимость: Admin Module JWKS (HTTP GET, critical). Метрики на /metrics: app_dependency_health, app_dependency_latency_seconds. Обновление main.go. Unit-тесты с mock HTTP server.
   - **Creates**:
@@ -359,11 +359,11 @@ GC (очистка expired/deleted файлов), Reconciliation (сверка a
 
 ### Критерии завершения Phase 4
 
-- [ ] GC удаляет expired и deleted файлы
-- [ ] Reconciliation обнаруживает orphaned/missing/mismatch
-- [ ] topologymetrics метрики на /metrics
+- [x] GC удаляет expired и deleted файлы
+- [x] Reconciliation обнаруживает orphaned/missing/mismatch
+- [x] topologymetrics метрики на /metrics
 - [ ] Интеграционные тесты проходят в Docker
-- [ ] `go test -race ./...` — все тесты проходят
+- [x] `go test -race ./...` — 96 тестов, нет ошибок
 
 ---
 
