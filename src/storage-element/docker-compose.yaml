@@ -1,0 +1,34 @@
+# docker-compose для локальной разработки и тестирования Storage Element
+services:
+  storage-element:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${TAG:-dev}
+    ports:
+      - "8010:8010"
+    environment:
+      SE_PORT: "8010"
+      SE_STORAGE_ID: "se-local-dev"
+      SE_DATA_DIR: "/data"
+      SE_WAL_DIR: "/wal"
+      SE_MODE: "edit"
+      SE_MAX_FILE_SIZE: "1073741824"
+      SE_GC_INTERVAL: "1h"
+      SE_RECONCILE_INTERVAL: "6h"
+      SE_JWKS_URL: "https://admin.kryukov.lan/api/v1/auth/jwks"
+      SE_TLS_CERT: "/certs/tls.crt"
+      SE_TLS_KEY: "/certs/tls.key"
+      SE_LOG_LEVEL: "debug"
+      SE_LOG_FORMAT: "json"
+      SE_REPLICA_MODE: "standalone"
+    volumes:
+      - se-data:/data
+      - se-wal:/wal
+      - ./certs:/certs:ro
+    restart: unless-stopped
+
+volumes:
+  se-data:
+  se-wal:
