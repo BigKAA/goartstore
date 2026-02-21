@@ -21,10 +21,10 @@ Storage Element (SE) — первый модуль системы Artsore для
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 3
-- **Активный подпункт**: 3.1
+- **Активная фаза**: Phase 4
+- **Активный подпункт**: 4.1
 - **Последнее обновление**: 2026-02-21
-- **Примечание**: Phase 2 завершена — WAL, attr.json, filestore, index, mode state machine. 68 unit-тестов, race detector clean.
+- **Примечание**: Phase 3 завершена — API handlers, JWT middleware, Prometheus метрики. 77 unit-тестов, race detector clean.
 
 ---
 
@@ -32,7 +32,7 @@ Storage Element (SE) — первый модуль системы Artsore для
 
 - [x] [Phase 1: Инфраструктура проекта и скелет сервера](#phase-1-инфраструктура-проекта-и-скелет-сервера)
 - [x] [Phase 2: Ядро хранилища (WAL, attr.json, файловое хранилище, индекс, режимы)](#phase-2-ядро-хранилища)
-- [ ] [Phase 3: API handlers, JWT middleware, Prometheus метрики](#phase-3-api-handlers-jwt-middleware-prometheus-метрики)
+- [x] [Phase 3: API handlers, JWT middleware, Prometheus метрики](#phase-3-api-handlers-jwt-middleware-prometheus-метрики)
 - [ ] [Phase 4: Фоновые процессы (GC, Reconciliation, topologymetrics)](#phase-4-фоновые-процессы)
 - [ ] [Phase 5: Replicated mode (Leader/Follower)](#phase-5-replicated-mode)
 - [ ] [Phase 6: Helm chart и деплой в Kubernetes](#phase-6-helm-chart-и-деплой-в-kubernetes)
@@ -237,7 +237,7 @@ Core-компоненты без HTTP-слоя: WAL, attr.json, файловое
 ## Phase 3: API handlers, JWT middleware, Prometheus метрики
 
 **Dependencies**: Phase 2
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -245,7 +245,7 @@ Core-компоненты без HTTP-слоя: WAL, attr.json, файловое
 
 ### Подпункты
 
-- [ ] **3.1 Ошибки, JWT middleware, Prometheus метрики**
+- [x] **3.1 Ошибки, JWT middleware, Prometheus метрики**
   - **Dependencies**: None
   - **Description**: (a) `internal/api/errors/`: конструкторы для всех кодов ошибок, WriteError(w, statusCode, code, message). (b) JWT middleware (`internal/api/middleware/auth.go`): JWKS через keyfunc, Bearer token, RS256, claims (sub, scopes), RequireScope middleware. Публичные endpoints без auth. (c) Prometheus (`internal/api/middleware/metrics.go`): se_http_requests_total, se_http_request_duration_seconds, se_files_total, se_storage_bytes, se_operations_total. Unit-тесты.
   - **Creates**:
@@ -256,7 +256,7 @@ Core-компоненты без HTTP-слоя: WAL, attr.json, файловое
   - **Links**:
     - [keyfunc JWKS](https://github.com/MicahParks/keyfunc)
 
-- [ ] **3.2 Upload handler (POST /api/v1/files/upload)**
+- [x] **3.2 Upload handler (POST /api/v1/files/upload)**
   - **Dependencies**: 3.1
   - **Description**: Handler + сервисный слой `internal/service/upload.go`. Поток: проверка mode -> scope -> multipart -> размер -> место на диске -> WAL start -> SaveFile (SHA-256) -> WriteAttrFile -> index.Add -> WAL commit. При ошибке: cleanup + rollback. Retention policy из mode (edit->temporary, rw->permanent). Ответ: 201 + FileMetadata. Unit + integration тест.
   - **Creates**:
@@ -266,7 +266,7 @@ Core-компоненты без HTTP-слоя: WAL, attr.json, файловое
   - **Links**:
     - `docs/api-contracts/storage-element-openapi.yaml` (POST /api/v1/files/upload)
 
-- [ ] **3.3 Download handler (GET /api/v1/files/{file_id}/download)**
+- [x] **3.3 Download handler (GET /api/v1/files/{file_id}/download)**
   - **Dependencies**: 3.1
   - **Description**: `internal/service/download.go`. Проверка mode (edit/rw/ro) -> scope -> index.Get -> status==active -> открытие файла -> заголовки (Content-Type, Content-Disposition, ETag, Accept-Ranges). http.ServeContent для Range requests (206) и ETag (If-None-Match). Ошибки: 404, 409, 416. Unit-тесты.
   - **Creates**:
@@ -275,7 +275,7 @@ Core-компоненты без HTTP-слоя: WAL, attr.json, файловое
   - **Links**:
     - `docs/api-contracts/storage-element-openapi.yaml` (GET /api/v1/files/{file_id}/download)
 
-- [ ] **3.4 List, metadata, update, delete handlers**
+- [x] **3.4 List, metadata, update, delete handlers**
   - **Dependencies**: 3.1
   - **Description**: (a) GET /api/v1/files — пагинация из индекса, FileListResponse. (b) GET /api/v1/files/{file_id} — из индекса, 404. (c) PATCH /api/v1/files/{file_id} — scope files:write, mode edit/rw, обновление description/tags в attr + index. (d) DELETE /api/v1/files/{file_id} — scope files:write, mode edit only, soft delete (status=deleted). Unit-тесты.
   - **Creates**:
@@ -284,7 +284,7 @@ Core-компоненты без HTTP-слоя: WAL, attr.json, файловое
   - **Links**:
     - `docs/api-contracts/storage-element-openapi.yaml`
 
-- [ ] **3.5 System info, mode transition, reconcile + полная сборка**
+- [x] **3.5 System info, mode transition, reconcile + полная сборка**
   - **Dependencies**: 3.2, 3.3, 3.4
   - **Description**: (a) GET /api/v1/info — без auth, StorageInfo (storage_id, mode, capacity, version, replica_mode, role). (b) POST /api/v1/mode/transition — scope storage:write, state machine, логирование. (c) POST /api/v1/maintenance/reconcile — заглушка (полная реализация в Phase 4). (d) Обновление health.go: readiness проверяет FS, WAL, индекс. (e) Обновление server.go: все handlers вместо stub, middleware chain. (f) Обновление main.go: инициализация всех компонентов, WAL recovery при старте, index build. Тестирование в Docker: upload -> list -> download -> update -> delete.
   - **Creates**:
@@ -297,13 +297,13 @@ Core-компоненты без HTTP-слоя: WAL, attr.json, файловое
 
 ### Критерии завершения Phase 3
 
-- [ ] Все 12 endpoints реализованы и соответствуют OpenAPI
-- [ ] JWT RS256 + JWKS валидация работает
-- [ ] Ошибки в формате `{"error": {"code": "...", "message": "..."}}`
-- [ ] Upload через WAL, download с Range/ETag, пагинация, фильтрация
-- [ ] Mode transition runtime, все переходы корректны
-- [ ] Prometheus метрики на /metrics
-- [ ] `go test -race ./...` — нет ошибок
+- [x] Все 12 endpoints реализованы и соответствуют OpenAPI
+- [x] JWT RS256 + JWKS валидация работает
+- [x] Ошибки в формате `{"error": {"code": "...", "message": "..."}}`
+- [x] Upload через WAL, download с Range/ETag, пагинация, фильтрация
+- [x] Mode transition runtime, все переходы корректны
+- [x] Prometheus метрики на /metrics
+- [x] `go test -race ./...` — 77 тестов, нет ошибок
 - [ ] Ручное тестирование через curl в Docker
 
 ---
