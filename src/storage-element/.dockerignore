@@ -1,0 +1,10 @@
+bin/
+certs/
+*.md
+.git/
+.gitignore
+charts/
+tests/
+docker-compose.yaml
+Makefile
+oapi-codegen-*.yaml
