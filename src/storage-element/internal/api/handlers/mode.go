@@ -14,17 +14,25 @@ import (
 	"github.com/arturkryukov/artsore/storage-element/internal/domain/mode"
 )
 
+// ModePersister — интерфейс для сохранения режима в mode.json (replicated mode).
+type ModePersister interface {
+	SaveMode(m mode.StorageMode) error
+}
+
 // ModeHandler — обработчик endpoint смены режима.
 type ModeHandler struct {
-	sm     *mode.StateMachine
-	logger *slog.Logger
+	sm            *mode.StateMachine
+	logger        *slog.Logger
+	modePersister ModePersister
 }
 
 // NewModeHandler создаёт обработчик смены режима.
-func NewModeHandler(sm *mode.StateMachine, logger *slog.Logger) *ModeHandler {
+// modePersister — сохранение mode.json (nil для standalone).
+func NewModeHandler(sm *mode.StateMachine, logger *slog.Logger, modePersister ModePersister) *ModeHandler {
 	return &ModeHandler{
-		sm:     sm,
-		logger: logger.With(slog.String("component", "mode_handler")),
+		sm:            sm,
+		logger:        logger.With(slog.String("component", "mode_handler")),
+		modePersister: modePersister,
 	}
 }
 
@@ -70,6 +78,16 @@ func (h *ModeHandler) TransitionMode(w http.ResponseWriter, r *http.Request) {
 		}
 		errors.InternalError(w, "Ошибка смены режима")
 		return
+	}
+
+	// Сохраняем mode.json (replicated mode — leader записывает при смене режима)
+	if h.modePersister != nil {
+		if persistErr := h.modePersister.SaveMode(targetMode); persistErr != nil {
+			h.logger.Error("Ошибка сохранения mode.json",
+				slog.String("error", persistErr.Error()),
+			)
+			// Режим уже изменён в памяти — не откатываем, но логируем
+		}
 	}
 
 	now := time.Now().UTC()

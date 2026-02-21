@@ -11,6 +11,7 @@ import (
 	"github.com/arturkryukov/artsore/storage-element/internal/api/middleware"
 	"github.com/arturkryukov/artsore/storage-element/internal/config"
 	"github.com/arturkryukov/artsore/storage-element/internal/domain/mode"
+	"github.com/arturkryukov/artsore/storage-element/internal/replica"
 	"github.com/arturkryukov/artsore/storage-element/internal/server"
 	"github.com/arturkryukov/artsore/storage-element/internal/service"
 	"github.com/arturkryukov/artsore/storage-element/internal/storage/filestore"
@@ -50,15 +51,33 @@ func main() {
 
 	// --- Инициализация компонентов ---
 
-	// 1. Конечный автомат режимов
-	sm, err := mode.NewStateMachine(mode.StorageMode(cfg.Mode))
+	// 1. Определение начального режима: mode.json приоритетнее SE_MODE (replicated mode)
+	initialMode := cfg.Mode
+	modeFilePath := replica.ModeFilePath(cfg.DataDir)
+	if cfg.ReplicaMode == "replicated" {
+		if loadedMode, loadErr := replica.LoadMode(modeFilePath); loadErr == nil {
+			initialMode = string(loadedMode)
+			logger.Info("Режим загружен из mode.json",
+				slog.String("mode", initialMode),
+				slog.String("path", modeFilePath),
+			)
+		} else {
+			logger.Debug("mode.json не найден, используется SE_MODE",
+				slog.String("mode", initialMode),
+				slog.String("error", loadErr.Error()),
+			)
+		}
+	}
+
+	// 2. Конечный автомат режимов
+	sm, err := mode.NewStateMachine(mode.StorageMode(initialMode))
 	if err != nil {
 		logger.Error("Ошибка инициализации state machine", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
-	logger.Info("Режим работы установлен", slog.String("mode", cfg.Mode))
+	logger.Info("Режим работы установлен", slog.String("mode", initialMode))
 
-	// 2. WAL-движок
+	// 3. WAL-движок
 	walEngine, err := wal.New(cfg.WALDir, logger)
 	if err != nil {
 		logger.Error("Ошибка инициализации WAL", slog.String("error", err.Error()))
@@ -90,14 +109,14 @@ func main() {
 		}
 	}
 
-	// 3. Файловое хранилище
+	// 4. Файловое хранилище
 	store, err := filestore.New(cfg.DataDir)
 	if err != nil {
 		logger.Error("Ошибка инициализации FileStore", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 
-	// 4. In-memory индекс метаданных
+	// 5. In-memory индекс метаданных
 	idx := index.New(logger)
 	if err := idx.BuildFromDir(cfg.DataDir); err != nil {
 		logger.Error("Ошибка построения индекса", slog.String("error", err.Error()))
@@ -107,22 +126,70 @@ func main() {
 	// Обновляем Prometheus метрики файлов
 	updateFileMetrics(idx)
 
-	// 5. Сервисы
+	// 6. Сервисы
 	uploadSvc := service.NewUploadService(cfg, walEngine, store, idx, sm, logger)
 	downloadSvc := service.NewDownloadService(store, idx, sm, logger)
 
-	// 6. Фоновые процессы
 	ctx := context.Background()
 
-	// 6.1 GC — фоновая очистка файлов
+	// 7. Фоновые процессы и leader election
 	gcSvc := service.NewGCService(store, idx, cfg.GCInterval, logger)
-	gcSvc.Start(ctx)
-
-	// 6.2 Reconciliation — фоновая сверка
 	reconcileSvc := service.NewReconcileService(store, idx, cfg.DataDir, cfg.ReconcileInterval, logger)
-	reconcileSvc.Start(ctx)
 
-	// 6.3 topologymetrics — мониторинг зависимостей
+	// RoleProvider и proxy middleware — зависят от replica mode
+	var roleProvider handlers.RoleProvider
+	var proxyMiddleware server.ProxyMiddleware
+	var election *replica.Election
+	var refreshSvc *replica.FollowerRefreshService
+
+	if cfg.ReplicaMode == "replicated" {
+		// --- Replicated mode: leader election ---
+		election = replica.NewElection(
+			cfg.DataDir,
+			cfg.Port,
+			// onBecomeLeader: запустить GC и Reconcile
+			func() {
+				logger.Info("Стал leader — запуск GC и Reconcile")
+				gcSvc.Start(ctx)
+				reconcileSvc.Start(ctx)
+				// Загрузить mode из mode.json (если есть)
+				if loadedMode, loadErr := replica.LoadMode(modeFilePath); loadErr == nil {
+					sm.ForceMode(loadedMode)
+				}
+			},
+			// onBecomeFollower: остановить GC и Reconcile, запустить refresh
+			func() {
+				logger.Info("Стал follower — остановка GC и Reconcile")
+				gcSvc.Stop()
+				reconcileSvc.Stop()
+			},
+			logger,
+		)
+
+		if err := election.Start(); err != nil {
+			logger.Error("Ошибка запуска leader election", slog.String("error", err.Error()))
+			os.Exit(1)
+		}
+
+		// Если follower — запустить FollowerRefreshService
+		if !election.IsLeader() {
+			refreshSvc = replica.NewFollowerRefreshService(
+				idx, sm, cfg.DataDir, modeFilePath,
+				cfg.IndexRefreshInterval, logger,
+			)
+			refreshSvc.Start(ctx)
+		}
+
+		roleProvider = &roleProviderAdapter{election: election}
+		proxyMiddleware = replica.NewLeaderProxy(election, logger)
+	} else {
+		// --- Standalone mode: GC/Reconcile стартуют безусловно ---
+		gcSvc.Start(ctx)
+		reconcileSvc.Start(ctx)
+		roleProvider = &standaloneRoleAdapter{}
+	}
+
+	// 7.1 topologymetrics — мониторинг зависимостей
 	dephealthSvc, dephealthErr := service.NewDephealthService(
 		cfg.StorageID,
 		cfg.DephealthGroup,
@@ -150,12 +217,21 @@ func main() {
 		}
 	}
 
-	// 7. Handlers
+	// 8. ModePersister — сохранение mode.json при смене режима (только replicated mode)
+	var modePersister handlers.ModePersister
+	if cfg.ReplicaMode == "replicated" {
+		modePersister = &modePersisterAdapter{
+			path:     modeFilePath,
+			election: election,
+		}
+	}
+
+	// 9. Handlers
 	filesHandler := handlers.NewFilesHandler(uploadSvc, downloadSvc, store, idx, sm)
-	systemHandler := handlers.NewSystemHandler(cfg, sm, idx, diskUsageFn(cfg.DataDir))
-	modeHandler := handlers.NewModeHandler(sm, logger)
+	systemHandler := handlers.NewSystemHandler(cfg, sm, idx, diskUsageFn(cfg.DataDir), roleProvider)
+	modeHandler := handlers.NewModeHandler(sm, logger, modePersister)
 	maintenanceHandler := handlers.NewMaintenanceHandler(reconcileSvc)
-	healthHandler := handlers.NewHealthHandlerFull(cfg.DataDir, cfg.WALDir, idx)
+	healthHandler := handlers.NewHealthHandlerFull(cfg.DataDir, cfg.WALDir, idx, roleProvider)
 	metricsHandler := server.NewMetricsHandler()
 
 	// Единый API handler
@@ -168,7 +244,7 @@ func main() {
 		metricsHandler,
 	)
 
-	// 8. JWT middleware
+	// 10. JWT middleware
 	var jwtAuth server.JWTAuthProvider
 	jwtMiddleware, err := middleware.NewJWTAuth(cfg.JWKSUrl, logger)
 	if err != nil {
@@ -184,8 +260,8 @@ func main() {
 		)
 	}
 
-	// 9. Создание и запуск HTTP-сервера
-	srv := server.New(cfg, logger, apiHandler, jwtAuth)
+	// 11. Создание и запуск HTTP-сервера
+	srv := server.New(cfg, logger, apiHandler, jwtAuth, proxyMiddleware)
 
 	if err := srv.Run(); err != nil {
 		logger.Error("Ошибка сервера", slog.String("error", err.Error()))
@@ -199,6 +275,12 @@ func main() {
 	reconcileSvc.Stop()
 	if dephealthSvc != nil {
 		dephealthSvc.Stop()
+	}
+	if refreshSvc != nil {
+		refreshSvc.Stop()
+	}
+	if election != nil {
+		election.Stop()
 	}
 
 	logger.Info("Storage Element остановлен")
@@ -216,4 +298,49 @@ func diskUsageFn(dataDir string) func() (total, used, available int64, err error
 	return func() (int64, int64, int64, error) {
 		return getDiskUsage(dataDir)
 	}
+}
+
+// --- Адаптеры для интерфейсов handlers ---
+
+// roleProviderAdapter адаптирует replica.Election к handlers.RoleProvider.
+type roleProviderAdapter struct {
+	election *replica.Election
+}
+
+func (a *roleProviderAdapter) CurrentRole() string {
+	return string(a.election.CurrentRole())
+}
+
+func (a *roleProviderAdapter) IsLeader() bool {
+	return a.election.IsLeader()
+}
+
+func (a *roleProviderAdapter) LeaderAddr() string {
+	return a.election.LeaderAddr()
+}
+
+// standaloneRoleAdapter — адаптер RoleProvider для standalone mode.
+type standaloneRoleAdapter struct{}
+
+func (a *standaloneRoleAdapter) CurrentRole() string {
+	return string(replica.RoleStandalone)
+}
+
+func (a *standaloneRoleAdapter) IsLeader() bool {
+	return true
+}
+
+func (a *standaloneRoleAdapter) LeaderAddr() string {
+	return ""
+}
+
+// modePersisterAdapter адаптирует SaveMode к handlers.ModePersister.
+type modePersisterAdapter struct {
+	path     string
+	election *replica.Election
+}
+
+func (a *modePersisterAdapter) SaveMode(m mode.StorageMode) error {
+	updatedBy := a.election.LeaderAddr()
+	return replica.SaveMode(a.path, m, updatedBy)
 }

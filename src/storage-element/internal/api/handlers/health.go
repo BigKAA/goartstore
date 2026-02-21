@@ -25,6 +25,8 @@ type HealthHandler struct {
 	walDir string
 	// idx — ссылка на индекс для проверки готовности
 	idx IndexReadinessChecker
+	// roleProvider — провайдер роли для проверки leader connection (follower only)
+	roleProvider RoleProvider
 }
 
 // NewHealthHandler создаёт обработчик health endpoints.
@@ -36,12 +38,14 @@ func NewHealthHandler() *HealthHandler {
 }
 
 // NewHealthHandlerFull создаёт обработчик health endpoints с реальными проверками.
-func NewHealthHandlerFull(dataDir, walDir string, idx IndexReadinessChecker) *HealthHandler {
+// roleProvider — провайдер роли (nil для standalone).
+func NewHealthHandlerFull(dataDir, walDir string, idx IndexReadinessChecker, roleProvider RoleProvider) *HealthHandler {
 	return &HealthHandler{
-		version: config.Version,
-		dataDir: dataDir,
-		walDir:  walDir,
-		idx:     idx,
+		version:      config.Version,
+		dataDir:      dataDir,
+		walDir:       walDir,
+		idx:          idx,
+		roleProvider: roleProvider,
 	}
 }
 
@@ -91,15 +95,28 @@ func (h *HealthHandler) HealthReady(w http.ResponseWriter, r *http.Request) {
 		httpStatus = http.StatusServiceUnavailable
 	}
 
+	checks := map[string]any{
+		"filesystem": fsCheck,
+		"wal":        walCheck,
+	}
+
+	// Проверка leader connection (только для follower в replicated mode)
+	if h.roleProvider != nil && !h.roleProvider.IsLeader() {
+		leaderCheck := h.checkLeaderConnection()
+		checks["leader_connection"] = leaderCheck
+		if leaderCheck["status"] != "ok" {
+			if overallStatus != "fail" {
+				overallStatus = "degraded"
+			}
+		}
+	}
+
 	resp := map[string]any{
 		"status":    overallStatus,
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
 		"version":   h.version,
 		"service":   "storage-element",
-		"checks": map[string]any{
-			"filesystem": fsCheck,
-			"wal":        walCheck,
-		},
+		"checks":    checks,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -127,6 +144,29 @@ func (h *HealthHandler) checkFilesystem() map[string]any {
 
 	return map[string]any{
 		"status": "ok",
+	}
+}
+
+// checkLeaderConnection проверяет, известен ли адрес leader (для follower).
+func (h *HealthHandler) checkLeaderConnection() map[string]any {
+	if h.roleProvider == nil {
+		return map[string]any{
+			"status":  "ok",
+			"message": "Проверка не применима",
+		}
+	}
+
+	addr := h.roleProvider.LeaderAddr()
+	if addr == "" {
+		return map[string]any{
+			"status":  "fail",
+			"message": "Адрес leader неизвестен",
+		}
+	}
+
+	return map[string]any{
+		"status":      "ok",
+		"leader_addr": addr,
 	}
 }
 

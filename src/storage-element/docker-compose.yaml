@@ -1,5 +1,6 @@
 # docker-compose для локальной разработки и тестирования Storage Element
 services:
+  # --- Standalone mode (по умолчанию) ---
   storage-element:
     build:
       context: .
@@ -29,6 +30,79 @@ services:
       - ./certs:/certs:ro
     restart: unless-stopped
 
+  # --- Replicated mode (профиль replicated) ---
+  # Leader и Follower на общем volume, имитация NFS
+  se-leader:
+    profiles:
+      - replicated
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${TAG:-dev}
+    hostname: se-leader
+    ports:
+      - "8010:8010"
+    environment:
+      SE_PORT: "8010"
+      SE_STORAGE_ID: "se-replicated-dev"
+      SE_DATA_DIR: "/data"
+      SE_WAL_DIR: "/wal"
+      SE_MODE: "edit"
+      SE_MAX_FILE_SIZE: "1073741824"
+      SE_GC_INTERVAL: "1h"
+      SE_RECONCILE_INTERVAL: "6h"
+      SE_JWKS_URL: "https://admin.kryukov.lan/api/v1/auth/jwks"
+      SE_TLS_CERT: "/certs/tls.crt"
+      SE_TLS_KEY: "/certs/tls.key"
+      SE_LOG_LEVEL: "debug"
+      SE_LOG_FORMAT: "json"
+      SE_REPLICA_MODE: "replicated"
+      SE_INDEX_REFRESH_INTERVAL: "10s"
+    volumes:
+      - se-shared-data:/data
+      - se-leader-wal:/wal
+      - ./certs:/certs:ro
+    restart: unless-stopped
+
+  se-follower:
+    profiles:
+      - replicated
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${TAG:-dev}
+    hostname: se-follower
+    ports:
+      - "8011:8011"
+    environment:
+      SE_PORT: "8011"
+      SE_STORAGE_ID: "se-replicated-dev"
+      SE_DATA_DIR: "/data"
+      SE_WAL_DIR: "/wal"
+      SE_MODE: "edit"
+      SE_MAX_FILE_SIZE: "1073741824"
+      SE_GC_INTERVAL: "1h"
+      SE_RECONCILE_INTERVAL: "6h"
+      SE_JWKS_URL: "https://admin.kryukov.lan/api/v1/auth/jwks"
+      SE_TLS_CERT: "/certs/tls.crt"
+      SE_TLS_KEY: "/certs/tls.key"
+      SE_LOG_LEVEL: "debug"
+      SE_LOG_FORMAT: "json"
+      SE_REPLICA_MODE: "replicated"
+      SE_INDEX_REFRESH_INTERVAL: "10s"
+    volumes:
+      - se-shared-data:/data
+      - se-follower-wal:/wal
+      - ./certs:/certs:ro
+    restart: unless-stopped
+
 volumes:
+  # Standalone mode
   se-data:
   se-wal:
+  # Replicated mode — общий volume для данных, раздельные для WAL
+  se-shared-data:
+  se-leader-wal:
+  se-follower-wal:
