@@ -48,6 +48,10 @@ type Config struct {
 	IndexRefreshInterval time.Duration
 	// Интервал проверки зависимостей topologymetrics
 	DephealthCheckInterval time.Duration
+	// Имя группы в метриках topologymetrics (SE_DEPHEALTH_GROUP)
+	DephealthGroup string
+	// Имя зависимости (целевого сервиса) в метриках topologymetrics (SE_DEPHEALTH_DEP_NAME)
+	DephealthDepName string
 }
 
 // Load загружает конфигурацию из переменных окружения, валидирует
@@ -159,6 +163,12 @@ func Load() (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("SE_DEPHEALTH_CHECK_INTERVAL: %w", err)
 	}
+
+	// SE_DEPHEALTH_GROUP — имя группы в метриках topologymetrics (по умолчанию "storage-element")
+	cfg.DephealthGroup = getEnvDefault("SE_DEPHEALTH_GROUP", "storage-element")
+
+	// SE_DEPHEALTH_DEP_NAME — имя зависимости в метриках topologymetrics (по умолчанию "admin-jwks")
+	cfg.DephealthDepName = getEnvDefault("SE_DEPHEALTH_DEP_NAME", "admin-jwks")
 
 	return cfg, nil
 }
