@@ -9,7 +9,7 @@ Storage Element (SE) — первый модуль системы Artsore для
 - **Версия плана**: 1.0.0
 - **Дата создания**: 2026-02-21
 - **Последнее обновление**: 2026-02-21
-- **Статус**: Pending
+- **Статус**: In Progress
 
 ---
 
@@ -21,17 +21,17 @@ Storage Element (SE) — первый модуль системы Artsore для
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 1
-- **Активный подпункт**: 1.1
+- **Активная фаза**: Phase 3
+- **Активный подпункт**: 3.1
 - **Последнее обновление**: 2026-02-21
-- **Примечание**: План создан, ожидает начала реализации
+- **Примечание**: Phase 2 завершена — WAL, attr.json, filestore, index, mode state machine. 68 unit-тестов, race detector clean.
 
 ---
 
 ## Оглавление
 
-- [ ] [Phase 1: Инфраструктура проекта и скелет сервера](#phase-1-инфраструктура-проекта-и-скелет-сервера)
-- [ ] [Phase 2: Ядро хранилища (WAL, attr.json, файловое хранилище, индекс, режимы)](#phase-2-ядро-хранилища)
+- [x] [Phase 1: Инфраструктура проекта и скелет сервера](#phase-1-инфраструктура-проекта-и-скелет-сервера)
+- [x] [Phase 2: Ядро хранилища (WAL, attr.json, файловое хранилище, индекс, режимы)](#phase-2-ядро-хранилища)
 - [ ] [Phase 3: API handlers, JWT middleware, Prometheus метрики](#phase-3-api-handlers-jwt-middleware-prometheus-метрики)
 - [ ] [Phase 4: Фоновые процессы (GC, Reconciliation, topologymetrics)](#phase-4-фоновые-процессы)
 - [ ] [Phase 5: Replicated mode (Leader/Follower)](#phase-5-replicated-mode)
@@ -105,7 +105,7 @@ Commits: `feat(storage-element): <subject>`. Теги образов: `v1.0.0-N`
 ## Phase 1: Инфраструктура проекта и скелет сервера
 
 **Dependencies**: None
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -113,7 +113,7 @@ Commits: `feat(storage-element): <subject>`. Теги образов: `v1.0.0-N`
 
 ### Подпункты
 
-- [ ] **1.1 Структура проекта и конфигурация**
+- [x] **1.1 Структура проекта и конфигурация**
   - **Dependencies**: None
   - **Description**: Go-модуль (`src/storage-element/go.mod`), структура `cmd/` + `internal/`. Пакет `internal/config/`: парсинг 17 env-переменных (SE_PORT, SE_STORAGE_ID, SE_DATA_DIR, SE_WAL_DIR, SE_MODE, SE_MAX_FILE_SIZE, SE_GC_INTERVAL, SE_RECONCILE_INTERVAL, SE_JWKS_URL, SE_TLS_CERT, SE_TLS_KEY, SE_LOG_LEVEL, SE_LOG_FORMAT, SE_REPLICA_MODE, SE_INDEX_REFRESH_INTERVAL, SE_DEPHEALTH_CHECK_INTERVAL) через stdlib. Валидация обязательных полей, Go duration парсинг, значения по умолчанию. Настройка slog (JSON/text). Минимальный `main.go`. Unit-тесты config.
   - **Creates**:
@@ -124,7 +124,7 @@ Commits: `feat(storage-element): <subject>`. Теги образов: `v1.0.0-N`
   - **Links**:
     - [Go Project Layout](https://github.com/golang-standards/project-layout)
 
-- [ ] **1.2 Кодогенерация из OpenAPI (oapi-codegen)**
+- [x] **1.2 Кодогенерация из OpenAPI (oapi-codegen)**
   - **Dependencies**: 1.1
   - **Description**: Конфигурация oapi-codegen: генерация Go-типов (`types.gen.go`) и chi-server интерфейса `ServerInterface` (`server.gen.go`) из `docs/api-contracts/storage-element-openapi.yaml`. Makefile target `generate`. Заглушка `stub.go`, реализующая `ServerInterface` с ответами 501.
   - **Creates**:
@@ -138,7 +138,7 @@ Commits: `feat(storage-element): <subject>`. Теги образов: `v1.0.0-N`
     - [oapi-codegen](https://github.com/oapi-codegen/oapi-codegen)
     - `docs/api-contracts/storage-element-openapi.yaml`
 
-- [ ] **1.3 HTTP-сервер, TLS, health endpoints**
+- [x] **1.3 HTTP-сервер, TLS, health endpoints**
   - **Dependencies**: 1.2
   - **Description**: Пакет `internal/server/`: chi-роутер, монтирование ServerInterface через `HandlerFromMux`, TLS, graceful shutdown (SIGINT/SIGTERM, 30s timeout). Health endpoints в `internal/api/handlers/health.go`: /health/live (200), /health/ready (заглушка), /metrics (promhttp.Handler). Middleware логирования запросов через slog. Обновление main.go.
   - **Creates**:
@@ -149,7 +149,7 @@ Commits: `feat(storage-element): <subject>`. Теги образов: `v1.0.0-N`
     - [chi router](https://github.com/go-chi/chi)
     - [Prometheus Go client](https://github.com/prometheus/client_golang)
 
-- [ ] **1.4 Dockerfile, Makefile, docker-compose**
+- [x] **1.4 Dockerfile, Makefile, docker-compose**
   - **Dependencies**: 1.3
   - **Description**: Multi-stage Dockerfile (golang:1.23-alpine -> alpine:3.19). Makefile targets: build, test, generate, lint, docker-build, docker-run, dev-certs (self-signed TLS). docker-compose.yaml с маппингом портов, volumes для data/wal/certs, env. Проверка: `docker-compose up` + `curl -k https://localhost:8010/health/live` = 200.
   - **Creates**:
@@ -162,20 +162,20 @@ Commits: `feat(storage-element): <subject>`. Теги образов: `v1.0.0-N`
 
 ### Критерии завершения Phase 1
 
-- [ ] `go build ./...` компилируется без ошибок
-- [ ] `go test ./...` проходит (unit-тесты config)
-- [ ] `make generate` генерирует код из OpenAPI
-- [ ] Docker-образ собирается (`make docker-build TAG=v1.0.0-1`)
-- [ ] `curl -k https://localhost:8010/health/live` = `{"status":"ok",...}`
-- [ ] Все endpoints кроме health возвращают 501 Not Implemented
-- [ ] Логирование в JSON/text работает
+- [x] `go build ./...` компилируется без ошибок
+- [x] `go test ./...` проходит (unit-тесты config)
+- [x] `make generate` генерирует код из OpenAPI
+- [x] Docker-образ собирается (`make docker-build TAG=v1.0.0-1`)
+- [x] `curl -k https://localhost:8010/health/live` = `{"status":"ok",...}`
+- [x] Все endpoints кроме health возвращают 501 Not Implemented
+- [x] Логирование в JSON/text работает
 
 ---
 
 ## Phase 2: Ядро хранилища
 
 **Dependencies**: Phase 1
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -183,7 +183,7 @@ Core-компоненты без HTTP-слоя: WAL, attr.json, файловое
 
 ### Подпункты
 
-- [ ] **2.1 WAL-движок (файловый)**
+- [x] **2.1 WAL-движок (файловый)**
   - **Dependencies**: None
   - **Description**: `internal/storage/wal/`: WALEntry (transaction_id, operation_type [file_create/file_update/file_delete], status [pending/committed/rolled_back], file_id, started_at, completed_at). Движок: StartTransaction (создаёт .wal.json с pending), Commit, Rollback, RecoverPending (при старте — сканирование pending-записей). Атомарная запись: temp + fsync + os.Rename. Unit-тесты: commit, rollback, recovery, concurrent access.
   - **Creates**:
@@ -193,7 +193,7 @@ Core-компоненты без HTTP-слоя: WAL, attr.json, файловое
   - **Links**:
     - `old_artstore/storage-element/app/services/wal_service.py`
 
-- [ ] **2.2 attr.json и файловое хранилище**
+- [x] **2.2 attr.json и файловое хранилище**
   - **Dependencies**: None (параллельно с 2.1)
   - **Description**: Доменная модель FileMetadata (`internal/domain/model/metadata.go`). Пакет `internal/storage/attr/`: WriteAttrFile (JSON -> temp -> fsync -> rename), ReadAttrFile, DeleteAttrFile. Пакет `internal/storage/filestore/`: SaveFile (streaming + SHA-256 на лету), ReadFile, DeleteFile, DiskUsage (syscall.Statfs). Имя файла: `{name}_{user}_{ts}_{uuid}.{ext}`. Unit-тесты.
   - **Creates**:
@@ -205,7 +205,7 @@ Core-компоненты без HTTP-слоя: WAL, attr.json, файловое
   - **Links**:
     - `old_artstore/storage-element/app/utils/attr_utils.py`
 
-- [ ] **2.3 Конечный автомат режимов работы**
+- [x] **2.3 Конечный автомат режимов работы**
   - **Dependencies**: None (параллельно с 2.1, 2.2)
   - **Description**: `internal/domain/mode/`: StorageMode enum (edit, rw, ro, ar). StateMachine (sync.RWMutex): CurrentMode, CanTransitionTo, TransitionTo(target, confirm, subject), AllowedOperations, CanPerform. Два цикла: edit (изолированный) и rw->ro->ar (откат ro->rw с confirm). Unit-тесты всех допустимых и запрещённых переходов.
   - **Creates**:
@@ -215,7 +215,7 @@ Core-компоненты без HTTP-слоя: WAL, attr.json, файловое
     - `docs/briefs/storage-element.md` (раздел "Режимы работы")
     - `old_artstore/storage-element/app/core/storage_mode.py`
 
-- [ ] **2.4 In-memory индекс метаданных**
+- [x] **2.4 In-memory индекс метаданных**
   - **Dependencies**: 2.2
   - **Description**: `internal/storage/index/`: Index (sync.RWMutex + map[string]*FileMetadata). BuildFromDir (сканирование *.attr.json), Add, Update, Remove, Get, List(limit, offset, statusFilter) -> ([]*FileMetadata, total), Count, CountByStatus, RebuildFromDir. Thread-safe. Unit-тесты: построение, CRUD, пагинация, фильтрация, race detector.
   - **Creates**:
@@ -225,12 +225,12 @@ Core-компоненты без HTTP-слоя: WAL, attr.json, файловое
 
 ### Критерии завершения Phase 2
 
-- [ ] `go test ./internal/storage/... ./internal/domain/...` — все тесты проходят
-- [ ] `go test -race ./...` — нет data races
-- [ ] WAL: create, commit, rollback, recovery работают
-- [ ] attr.json: атомарная запись/чтение
-- [ ] In-memory индекс: построение, CRUD, пагинация, фильтрация
-- [ ] Mode state machine: все переходы корректны
+- [x] `go test ./internal/storage/... ./internal/domain/...` — все тесты проходят (68 тестов)
+- [x] `go test -race ./...` — нет data races
+- [x] WAL: create, commit, rollback, recovery работают (14 тестов)
+- [x] attr.json: атомарная запись/чтение (15 тестов)
+- [x] In-memory индекс: построение, CRUD, пагинация, фильтрация (21 тест)
+- [x] Mode state machine: все переходы корректны (17 тестов)
 
 ---
 
