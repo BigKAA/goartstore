@@ -15,6 +15,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	apierrors "github.com/arturkryukov/artsore/storage-element/internal/api/errors"
 	"github.com/arturkryukov/artsore/storage-element/internal/api/generated"
 	"github.com/arturkryukov/artsore/storage-element/internal/api/middleware"
 	"github.com/arturkryukov/artsore/storage-element/internal/config"
@@ -25,23 +26,82 @@ type Server struct {
 	httpServer *http.Server
 	logger     *slog.Logger
 	cfg        *config.Config
+	jwtAuth    JWTAuthProvider
+}
+
+// JWTAuthProvider — интерфейс для JWT middleware.
+type JWTAuthProvider interface {
+	Middleware() func(http.Handler) http.Handler
 }
 
 // New создаёт новый HTTP-сервер с настроенными routes и middleware.
-// handler — реализация generated.ServerInterface (stub или реальные handlers).
-func New(cfg *config.Config, logger *slog.Logger, handler generated.ServerInterface) *Server {
+// handler — реализация generated.ServerInterface с реальными handlers.
+// jwtAuth — JWT middleware (nil для режима без аутентификации).
+func New(cfg *config.Config, logger *slog.Logger, handler generated.ServerInterface, jwtAuth JWTAuthProvider) *Server {
 	router := chi.NewRouter()
 
-	// Middleware
+	// Глобальные middleware
+	router.Use(middleware.MetricsMiddleware())
 	router.Use(middleware.RequestLogger(logger))
 
-	// Prometheus /metrics — монтируем отдельно, чтобы не конфликтовать
-	// с сгенерированными маршрутами (GetMetrics из ServerInterface).
-	// Сгенерированный wrapper вызовет handler.GetMetrics, поэтому мы
-	// перенаправим его в реальный promhttp.Handler через отдельный handler.
-	//
-	// Монтируем все endpoints из ServerInterface через сгенерированный роутер.
-	generated.HandlerFromMux(handler, router)
+	// Определяем маршруты с JWT-аутентификацией.
+	// Публичные endpoints (без auth): health, metrics, info.
+	// Защищённые endpoints: files, mode, maintenance.
+	if jwtAuth != nil {
+		// Публичные маршруты — монтируем напрямую без JWT
+		router.Get("/health/live", handler.HealthLive)
+		router.Get("/health/ready", handler.HealthReady)
+		router.Get("/metrics", handler.GetMetrics)
+		router.Get("/api/v1/info", handler.GetStorageInfo)
+
+		// Защищённые маршруты — JWT middleware
+		router.Group(func(r chi.Router) {
+			r.Use(jwtAuth.Middleware())
+
+			// Files — files:read
+			r.Group(func(rr chi.Router) {
+				rr.Use(middleware.RequireScope("files:read"))
+				// ListFiles и GetFileMetadata через wrapper
+				rr.Get("/api/v1/files", func(w http.ResponseWriter, r *http.Request) {
+					// Парсим параметры вручную для ListFiles
+					siw := &generated.ServerInterfaceWrapper{Handler: handler, ErrorHandlerFunc: defaultErrorHandler}
+					siw.ListFiles(w, r)
+				})
+				rr.Get("/api/v1/files/{file_id}", func(w http.ResponseWriter, r *http.Request) {
+					siw := &generated.ServerInterfaceWrapper{Handler: handler, ErrorHandlerFunc: defaultErrorHandler}
+					siw.GetFileMetadata(w, r)
+				})
+				rr.Get("/api/v1/files/{file_id}/download", func(w http.ResponseWriter, r *http.Request) {
+					siw := &generated.ServerInterfaceWrapper{Handler: handler, ErrorHandlerFunc: defaultErrorHandler}
+					siw.DownloadFile(w, r)
+				})
+			})
+
+			// Files — files:write
+			r.Group(func(rr chi.Router) {
+				rr.Use(middleware.RequireScope("files:write"))
+				rr.Post("/api/v1/files/upload", handler.UploadFile)
+				rr.Patch("/api/v1/files/{file_id}", func(w http.ResponseWriter, r *http.Request) {
+					siw := &generated.ServerInterfaceWrapper{Handler: handler, ErrorHandlerFunc: defaultErrorHandler}
+					siw.UpdateFileMetadata(w, r)
+				})
+				rr.Delete("/api/v1/files/{file_id}", func(w http.ResponseWriter, r *http.Request) {
+					siw := &generated.ServerInterfaceWrapper{Handler: handler, ErrorHandlerFunc: defaultErrorHandler}
+					siw.DeleteFile(w, r)
+				})
+			})
+
+			// Storage — storage:write
+			r.Group(func(rr chi.Router) {
+				rr.Use(middleware.RequireScope("storage:write"))
+				rr.Post("/api/v1/mode/transition", handler.TransitionMode)
+				rr.Post("/api/v1/maintenance/reconcile", handler.Reconcile)
+			})
+		})
+	} else {
+		// Без JWT — все маршруты открыты (для разработки/тестирования)
+		generated.HandlerFromMux(handler, router)
+	}
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.Port),
@@ -62,11 +122,16 @@ func New(cfg *config.Config, logger *slog.Logger, handler generated.ServerInterf
 		httpServer: srv,
 		logger:     logger,
 		cfg:        cfg,
+		jwtAuth:    jwtAuth,
 	}
 }
 
+// defaultErrorHandler — обработчик ошибок парсинга параметров из сгенерированного кода.
+func defaultErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
+	apierrors.ValidationError(w, err.Error())
+}
+
 // MetricsHandler — обработчик для /metrics, делегирующий в Prometheus.
-// Используется для замены stub.GetMetrics на реальный promhttp.Handler.
 type MetricsHandler struct {
 	promHandler http.Handler
 }
@@ -78,89 +143,10 @@ func NewMetricsHandler() *MetricsHandler {
 	}
 }
 
-// GetMetrics реализует endpoint /metrics.
-func (m *MetricsHandler) GetMetrics(w http.ResponseWriter, r *http.Request) {
+// ServeHTTP реализует http.Handler.
+func (m *MetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	m.promHandler.ServeHTTP(w, r)
 }
-
-// CompositeHandler — составной обработчик, объединяющий несколько
-// частичных реализаций ServerInterface.
-type CompositeHandler struct {
-	stub    generated.ServerInterface
-	health  HealthProvider
-	metrics *MetricsHandler
-}
-
-// HealthProvider — интерфейс для health endpoints.
-type HealthProvider interface {
-	HealthLive(w http.ResponseWriter, r *http.Request)
-	HealthReady(w http.ResponseWriter, r *http.Request)
-}
-
-// NewCompositeHandler создаёт составной обработчик, объединяющий
-// заглушки с реальными health и metrics handlers.
-func NewCompositeHandler(stub generated.ServerInterface, health HealthProvider, metrics *MetricsHandler) *CompositeHandler {
-	return &CompositeHandler{
-		stub:    stub,
-		health:  health,
-		metrics: metrics,
-	}
-}
-
-// --- Делегирование в stub для ещё не реализованных endpoints ---
-
-func (c *CompositeHandler) ListFiles(w http.ResponseWriter, r *http.Request, params generated.ListFilesParams) {
-	c.stub.ListFiles(w, r, params)
-}
-
-func (c *CompositeHandler) UploadFile(w http.ResponseWriter, r *http.Request) {
-	c.stub.UploadFile(w, r)
-}
-
-func (c *CompositeHandler) DeleteFile(w http.ResponseWriter, r *http.Request, fileId generated.FileId) {
-	c.stub.DeleteFile(w, r, fileId)
-}
-
-func (c *CompositeHandler) GetFileMetadata(w http.ResponseWriter, r *http.Request, fileId generated.FileId) {
-	c.stub.GetFileMetadata(w, r, fileId)
-}
-
-func (c *CompositeHandler) UpdateFileMetadata(w http.ResponseWriter, r *http.Request, fileId generated.FileId) {
-	c.stub.UpdateFileMetadata(w, r, fileId)
-}
-
-func (c *CompositeHandler) DownloadFile(w http.ResponseWriter, r *http.Request, fileId generated.FileId, params generated.DownloadFileParams) {
-	c.stub.DownloadFile(w, r, fileId, params)
-}
-
-func (c *CompositeHandler) GetStorageInfo(w http.ResponseWriter, r *http.Request) {
-	c.stub.GetStorageInfo(w, r)
-}
-
-func (c *CompositeHandler) Reconcile(w http.ResponseWriter, r *http.Request) {
-	c.stub.Reconcile(w, r)
-}
-
-func (c *CompositeHandler) TransitionMode(w http.ResponseWriter, r *http.Request) {
-	c.stub.TransitionMode(w, r)
-}
-
-// --- Реальные реализации ---
-
-func (c *CompositeHandler) HealthLive(w http.ResponseWriter, r *http.Request) {
-	c.health.HealthLive(w, r)
-}
-
-func (c *CompositeHandler) HealthReady(w http.ResponseWriter, r *http.Request) {
-	c.health.HealthReady(w, r)
-}
-
-func (c *CompositeHandler) GetMetrics(w http.ResponseWriter, r *http.Request) {
-	c.metrics.GetMetrics(w, r)
-}
-
-// Проверка на этапе компиляции
-var _ generated.ServerInterface = (*CompositeHandler)(nil)
 
 // Run запускает сервер и ожидает сигнала завершения (SIGINT, SIGTERM).
 // При получении сигнала выполняется graceful shutdown с таймаутом 30 секунд.
@@ -172,6 +158,7 @@ func (s *Server) Run() error {
 		s.logger.Info("HTTP-сервер запущен",
 			slog.String("addr", s.httpServer.Addr),
 			slog.Bool("tls", s.cfg.TLSCert != ""),
+			slog.Bool("jwt_auth", s.jwtAuth != nil),
 		)
 
 		var err error
