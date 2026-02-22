@@ -51,22 +51,20 @@ func main() {
 
 	// --- Инициализация компонентов ---
 
-	// 1. Определение начального режима: mode.json приоритетнее SE_MODE (replicated mode)
+	// 1. Определение начального режима: mode.json приоритетнее SE_MODE
 	initialMode := cfg.Mode
 	modeFilePath := replica.ModeFilePath(cfg.DataDir)
-	if cfg.ReplicaMode == "replicated" {
-		if loadedMode, loadErr := replica.LoadMode(modeFilePath); loadErr == nil {
-			initialMode = string(loadedMode)
-			logger.Info("Режим загружен из mode.json",
-				slog.String("mode", initialMode),
-				slog.String("path", modeFilePath),
-			)
-		} else {
-			logger.Debug("mode.json не найден, используется SE_MODE",
-				slog.String("mode", initialMode),
-				slog.String("error", loadErr.Error()),
-			)
-		}
+	if loadedMode, loadErr := replica.LoadMode(modeFilePath); loadErr == nil {
+		initialMode = string(loadedMode)
+		logger.Info("Режим загружен из mode.json",
+			slog.String("mode", initialMode),
+			slog.String("path", modeFilePath),
+		)
+	} else {
+		logger.Debug("mode.json не найден, используется SE_MODE",
+			slog.String("mode", initialMode),
+			slog.String("error", loadErr.Error()),
+		)
 	}
 
 	// 2. Конечный автомат режимов
@@ -218,13 +216,18 @@ func main() {
 		}
 	}
 
-	// 8. ModePersister — сохранение mode.json при смене режима (только replicated mode)
-	var modePersister handlers.ModePersister
-	if cfg.ReplicaMode == "replicated" {
-		modePersister = &modePersisterAdapter{
-			path:     modeFilePath,
-			election: election,
+	// 8. ModePersister — сохранение mode.json при смене режима (все режимы)
+	var updatedByFn func() string
+	if cfg.ReplicaMode == "replicated" && election != nil {
+		updatedByFn = election.LeaderAddr
+	} else {
+		updatedByFn = func() string {
+			return fmt.Sprintf("%s:%d", cfg.StorageID, cfg.Port)
 		}
+	}
+	modePersister := &modePersisterAdapter{
+		path:        modeFilePath,
+		updatedByFn: updatedByFn,
 	}
 
 	// 9. Handlers
@@ -343,11 +346,11 @@ func (a *standaloneRoleAdapter) LeaderAddr() string {
 
 // modePersisterAdapter адаптирует SaveMode к handlers.ModePersister.
 type modePersisterAdapter struct {
-	path     string
-	election *replica.Election
+	path        string
+	updatedByFn func() string
 }
 
 func (a *modePersisterAdapter) SaveMode(m mode.StorageMode) error {
-	updatedBy := a.election.LeaderAddr()
+	updatedBy := a.updatedByFn()
 	return replica.SaveMode(a.path, m, updatedBy)
 }
