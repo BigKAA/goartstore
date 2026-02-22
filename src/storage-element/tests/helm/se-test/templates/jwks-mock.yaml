@@ -1,0 +1,76 @@
+# JWKS Mock Server — имитирует JWKS endpoint Admin Module для тестовой среды.
+# Deployment + ClusterIP Service.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jwks-mock
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "se-test.labels" . | nindent 4 }}
+    {{- include "se-test.jwksMock.selectorLabels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "se-test.jwksMock.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "se-test.jwksMock.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: jwks-mock
+          image: {{ include "se-test.mockImage" . }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.jwksMock.port }}
+              name: https
+          env:
+            - name: MOCK_PORT
+              value: {{ .Values.jwksMock.port | quote }}
+            - name: MOCK_TLS_CERT
+              value: /certs/tls.crt
+            - name: MOCK_TLS_KEY
+              value: /certs/tls.key
+          volumeMounts:
+            - name: tls-certs
+              mountPath: /certs
+              readOnly: true
+          resources:
+            {{- toYaml .Values.jwksMock.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.jwksMock.port }}
+              scheme: HTTPS
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.jwksMock.port }}
+              scheme: HTTPS
+            initialDelaySeconds: 3
+            periodSeconds: 10
+      volumes:
+        - name: tls-certs
+          secret:
+            secretName: {{ .Values.tls.secretName }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jwks-mock
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "se-test.labels" . | nindent 4 }}
+    {{- include "se-test.jwksMock.selectorLabels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "se-test.jwksMock.selectorLabels" . | nindent 4 }}
+  ports:
+    - port: {{ .Values.jwksMock.port }}
+      targetPort: {{ .Values.jwksMock.port }}
+      name: https

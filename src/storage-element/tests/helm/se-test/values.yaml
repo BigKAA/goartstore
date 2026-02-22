@@ -1,0 +1,125 @@
+# =============================================================================
+# se-test — Helm values для тестовой среды Storage Element
+# =============================================================================
+
+# Namespace для тестовой среды
+namespace: se-test
+
+# -----------------------------------------------------------------------------
+# Docker Registry
+# -----------------------------------------------------------------------------
+registry: harbor.kryukov.lan/library
+
+# Образ Storage Element
+seImage: storage-element
+seTag: v1.0.0-1
+
+# Образ JWKS Mock Server
+mockImage: jwks-mock
+mockTag: v1.0.0-1
+
+imagePullPolicy: Always
+
+# -----------------------------------------------------------------------------
+# TLS (cert-manager)
+# -----------------------------------------------------------------------------
+tls:
+  clusterIssuer: dev-ca-issuer
+  secretName: se-test-tls
+
+# -----------------------------------------------------------------------------
+# JWKS Mock Server
+# -----------------------------------------------------------------------------
+jwksMock:
+  port: 8080
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "50m"
+    limits:
+      memory: "128Mi"
+      cpu: "200m"
+
+# -----------------------------------------------------------------------------
+# Общие настройки SE
+# -----------------------------------------------------------------------------
+seCommon:
+  port: 8010
+  logLevel: debug
+  logFormat: json
+  gcInterval: "30s"
+  reconcileInterval: "6h"
+  maxFileSize: "10485760"  # 10MB
+  dephealthCheckInterval: "15s"
+  dephealthGroup: "storage-element"
+  dephealthDepName: "admin-jwks"
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "500m"
+
+# StorageClass для PVC
+storageClass: nfs-client
+
+# -----------------------------------------------------------------------------
+# Replicated instances (StatefulSet + headless Service + shared PVC RWX)
+# Каждый экземпляр — 2 пода с общим хранилищем /data и отдельным WAL per pod
+# -----------------------------------------------------------------------------
+replicatedInstances:
+  - name: se-edit-1
+    storageId: se-edit-1
+    mode: edit
+    replicas: 2
+    dataSize: 200Mi
+    walSize: 200Mi
+    indexRefreshInterval: "10s"
+
+  - name: se-edit-2
+    storageId: se-edit-2
+    mode: edit
+    replicas: 2
+    dataSize: 200Mi
+    walSize: 200Mi
+    indexRefreshInterval: "10s"
+
+# -----------------------------------------------------------------------------
+# Standalone instances (Deployment + ClusterIP Service + PVC RWO)
+# Каждый экземпляр — 1 под с отдельным data и WAL
+# -----------------------------------------------------------------------------
+standaloneInstances:
+  - name: se-rw-1
+    storageId: se-rw-1
+    mode: rw
+    dataSize: 200Mi
+    walSize: 200Mi
+
+  - name: se-rw-2
+    storageId: se-rw-2
+    mode: rw
+    dataSize: 200Mi
+    walSize: 200Mi
+
+  # Стартует как rw, init job переведёт в ro
+  - name: se-ro
+    storageId: se-ro
+    mode: rw
+    dataSize: 200Mi
+    walSize: 200Mi
+
+  # Стартует как rw, init job переведёт rw -> ro -> ar
+  - name: se-ar
+    storageId: se-ar
+    mode: rw
+    dataSize: 200Mi
+    walSize: 200Mi
+
+# -----------------------------------------------------------------------------
+# Init Job (Helm post-install hook)
+# Скрипты инициализации данных — реализация в Phase 6.3
+# -----------------------------------------------------------------------------
+initJob:
+  enabled: true
+  activeDeadlineSeconds: 300
