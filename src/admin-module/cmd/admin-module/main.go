@@ -1,7 +1,8 @@
 // Точка входа Admin Module — управляющий модуль системы Artsore v2.0.0.
 // Загружает конфигурацию, подключается к PostgreSQL, применяет миграции,
 // инициализирует Keycloak и SE клиенты, создаёт сервисный слой и API handlers,
-// запускает HTTP-сервер с JWT middleware и graceful shutdown.
+// запускает фоновые задачи (sync SE, sync SA, topologymetrics),
+// HTTP-сервер с JWT middleware и graceful shutdown.
 package main
 
 import (
@@ -13,6 +14,8 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/arturkryukov/artsore/admin-module/internal/api/handlers"
 	"github.com/arturkryukov/artsore/admin-module/internal/api/middleware"
@@ -40,6 +43,13 @@ func main() {
 		slog.Int("port", cfg.Port),
 	)
 
+	// Предупреждения о дефолтных значениях topologymetrics
+	if os.Getenv("AM_DEPHEALTH_GROUP") == "" {
+		logger.Warn("AM_DEPHEALTH_GROUP не задана, используется значение по умолчанию",
+			slog.String("default", cfg.DephealthGroup),
+		)
+	}
+
 	// 3. Применение миграций БД
 	logger.Info("Применение миграций БД...")
 	if err := database.Migrate(cfg, logger); err != nil {
@@ -55,6 +65,12 @@ func main() {
 		os.Exit(1)
 	}
 	defer pool.Close()
+
+	// 4.1 Адаптер pgxpool → *sql.DB для topologymetrics (connection pool mode).
+	// Проверка здоровья PostgreSQL будет идти через существующий пул соединений,
+	// что позволяет обнаружить его исчерпание.
+	pgDB := stdlib.OpenDBFromPool(pool)
+	defer pgDB.Close()
 
 	// 5. HTTP-клиент с кастомным CA (для Keycloak и SE)
 	var httpClientCA *http.Client
@@ -120,7 +136,38 @@ func main() {
 		logger,
 	)
 
-	// 10. Readiness checkers (PostgreSQL + Keycloak)
+	// 10. Фоновые сервисы синхронизации
+	storageSyncSvc := service.NewStorageSyncService(
+		seClient, seRepo, fileRepo, syncStateRepo,
+		cfg.SyncPageSize, cfg.SyncInterval,
+		logger,
+	)
+	saSyncSvc := service.NewSASyncService(
+		kcClient, saRepo, syncStateRepo,
+		cfg.KeycloakSAPrefix, cfg.SASyncInterval,
+		logger,
+	)
+
+	// Подключаем sync-сервисы к основным сервисам
+	storageElemsSvc.SetSyncService(storageSyncSvc)
+	idpSvc.SetSASyncService(saSyncSvc)
+
+	// 11. Начальная синхронизация SA при старте
+	logger.Info("Начальная синхронизация SA с Keycloak...")
+	if result, syncErr := saSyncSvc.SyncNow(ctx); syncErr != nil {
+		logger.Warn("Ошибка начальной синхронизации SA",
+			slog.String("error", syncErr.Error()),
+		)
+	} else {
+		logger.Info("Начальная синхронизация SA завершена",
+			slog.Int("total_local", result.TotalLocal),
+			slog.Int("total_keycloak", result.TotalKeycloak),
+			slog.Int("created_local", result.CreatedLocal),
+			slog.Int("created_keycloak", result.CreatedKeycloak),
+		)
+	}
+
+	// 12. Readiness checkers (PostgreSQL + Keycloak)
 	pgChecker := database.NewReadinessChecker(pool)
 	kcChecker, err := middleware.NewKeycloakReadinessChecker(cfg.JWTJWKSURL, cfg.SECACertPath)
 	if err != nil {
@@ -129,7 +176,7 @@ func main() {
 	}
 	healthHandler := handlers.NewHealthHandler(pgChecker, kcChecker)
 
-	// 11. API handler (реализует generated.ServerInterface)
+	// 13. API handler (реализует generated.ServerInterface)
 	apiHandler := handlers.NewAPIHandler(
 		healthHandler,
 		adminUsersSvc,
@@ -140,7 +187,7 @@ func main() {
 		logger,
 	)
 
-	// 12. JWT middleware
+	// 14. JWT middleware
 	// Адаптер RoleOverrideRepository → middleware.RoleOverrideProvider
 	roleProvider := &roleOverrideAdapter{repo: roleRepo}
 
@@ -163,12 +210,53 @@ func main() {
 		slog.String("issuer", cfg.JWTIssuer),
 	)
 
-	// 13. Создание и запуск HTTP-сервера
+	// 15. Запуск фоновых задач
+	storageSyncSvc.Start(ctx)
+	saSyncSvc.Start(ctx)
+
+	// 15.1 topologymetrics — мониторинг зависимостей (PostgreSQL + Keycloak)
+	var dephealthSvc *service.DephealthService
+	dephealthSvc, dephealthErr := service.NewDephealthService(
+		"admin-module",
+		cfg.DephealthGroup,
+		pgDB,
+		cfg.DatabaseURL(),
+		cfg.JWTJWKSURL,
+		cfg.DephealthCheckInterval,
+		logger,
+	)
+	if dephealthErr != nil {
+		logger.Warn("topologymetrics недоступен, запуск без мониторинга зависимостей",
+			slog.String("error", dephealthErr.Error()),
+		)
+	} else {
+		if startErr := dephealthSvc.Start(ctx); startErr != nil {
+			logger.Warn("Ошибка запуска topologymetrics",
+				slog.String("error", startErr.Error()),
+			)
+		} else {
+			logger.Info("topologymetrics запущен",
+				slog.String("group", cfg.DephealthGroup),
+				slog.String("check_interval", cfg.DephealthCheckInterval.String()),
+			)
+		}
+	}
+
+	// 16. Создание и запуск HTTP-сервера
 	srv := server.New(cfg, logger, apiHandler, jwtAuth)
 	if err := srv.Run(); err != nil {
 		logger.Error("Ошибка сервера", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
+
+	// 17. Graceful shutdown фоновых задач
+	logger.Info("Останавливаем фоновые задачи...")
+
+	if dephealthSvc != nil {
+		dephealthSvc.Stop()
+	}
+	storageSyncSvc.Stop()
+	saSyncSvc.Stop()
 
 	logger.Info("Admin Module остановлен")
 }

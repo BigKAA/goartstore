@@ -1,6 +1,6 @@
 // storage_elements.go — сервис управления Storage Elements.
 // CRUD SE: discover, регистрация, обновление, удаление.
-// Sync (полная синхронизация) — заглушка для Phase 5.
+// Sync делегирует синхронизацию StorageSyncService (Phase 5).
 package service
 
 import (
@@ -19,10 +19,11 @@ import (
 
 // StorageElementService — сервис управления Storage Elements.
 type StorageElementService struct {
-	seClient *seclient.Client
-	seRepo   repository.StorageElementRepository
-	fileRepo repository.FileRegistryRepository
-	logger   *slog.Logger
+	seClient  *seclient.Client
+	seRepo    repository.StorageElementRepository
+	fileRepo  repository.FileRegistryRepository
+	syncSvc   *StorageSyncService
+	logger    *slog.Logger
 }
 
 // NewStorageElementService создаёт сервис Storage Elements.
@@ -38,6 +39,12 @@ func NewStorageElementService(
 		fileRepo: fileRepo,
 		logger:   logger.With(slog.String("component", "se_service")),
 	}
+}
+
+// SetSyncService устанавливает ссылку на StorageSyncService.
+// Вызывается после создания обоих сервисов для избежания циклической зависимости.
+func (s *StorageElementService) SetSyncService(syncSvc *StorageSyncService) {
+	s.syncSvc = syncSvc
 }
 
 // DiscoverResult — результат предпросмотра SE.
@@ -75,8 +82,7 @@ func (s *StorageElementService) Discover(ctx context.Context, url string) (*Disc
 	return result, nil
 }
 
-// Create регистрирует новый SE: discover + сохранение в БД.
-// Полная синхронизация файлов — Phase 5 (заглушка).
+// Create регистрирует новый SE: discover + сохранение в БД + полная синхронизация файлов.
 func (s *StorageElementService) Create(ctx context.Context, name, url string) (*model.StorageElement, error) {
 	// Предпросмотр SE
 	info, err := s.seClient.Info(ctx, url)
@@ -119,7 +125,24 @@ func (s *StorageElementService) Create(ctx context.Context, name, url string) (*
 		slog.String("storage_id", info.StorageID),
 	)
 
-	// TODO Phase 5: запустить полную синхронизацию файлов
+	// Запуск полной синхронизации файлов в фоне (не блокируем Create)
+	if s.syncSvc != nil {
+		go func() {
+			syncCtx := context.Background()
+			result, syncErr := s.syncSvc.SyncOne(syncCtx, seID)
+			if syncErr != nil {
+				s.logger.Warn("Ошибка полной синхронизации при создании SE",
+					slog.String("se_id", seID),
+					slog.String("error", syncErr.Error()),
+				)
+			} else {
+				s.logger.Info("Полная синхронизация при создании SE завершена",
+					slog.String("se_id", seID),
+					slog.Int("files_added", result.FilesAdded),
+				)
+			}
+		}()
+	}
 
 	return se, nil
 }
@@ -202,10 +225,10 @@ func (s *StorageElementService) Delete(ctx context.Context, id string) error {
 }
 
 // Sync выполняет полную синхронизацию SE (info + файлы).
-// В Phase 4 — заглушка, реализация в Phase 5.
+// Делегирует StorageSyncService.SyncOne для полной синхронизации.
 func (s *StorageElementService) Sync(ctx context.Context, id string) (*model.SyncResult, error) {
 	// Проверяем существование SE
-	se, err := s.seRepo.GetByID(ctx, id)
+	_, err := s.seRepo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			return nil, ErrNotFound
@@ -213,49 +236,16 @@ func (s *StorageElementService) Sync(ctx context.Context, id string) (*model.Syn
 		return nil, fmt.Errorf("получение SE для sync: %w", err)
 	}
 
-	startedAt := time.Now().UTC()
+	// Делегируем полную синхронизацию StorageSyncService
+	if s.syncSvc == nil {
+		return nil, fmt.Errorf("сервис синхронизации не инициализирован")
+	}
 
-	// Запрашиваем актуальную информацию о SE
-	info, err := s.seClient.Info(ctx, se.URL)
+	result, err := s.syncSvc.SyncOne(ctx, id)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrSEUnavailable, err)
+		// Оборачиваем ошибку SE unavailable
+		return nil, fmt.Errorf("синхронизация SE: %w", err)
 	}
-
-	// Обновляем данные SE из info
-	se.Mode = info.Mode
-	se.Status = info.Status
-	if info.Capacity != nil {
-		se.CapacityBytes = info.Capacity.TotalBytes
-		se.UsedBytes = info.Capacity.UsedBytes
-		avail := info.Capacity.AvailableBytes
-		se.AvailableBytes = &avail
-	}
-	now := time.Now().UTC()
-	se.LastSyncAt = &now
-
-	// Сохраняем обновлённые данные SE
-	if err := s.seRepo.Update(ctx, se); err != nil {
-		return nil, fmt.Errorf("обновление SE после sync: %w", err)
-	}
-
-	completedAt := time.Now().UTC()
-
-	// TODO Phase 5: полная синхронизация файлов (пагинированный ListFiles + BatchUpsert)
-	result := &model.SyncResult{
-		StorageElementID:   id,
-		FilesOnSE:          0,
-		FilesAdded:         0,
-		FilesUpdated:       0,
-		FilesMarkedDeleted: 0,
-		StartedAt:          startedAt,
-		CompletedAt:        completedAt,
-	}
-
-	s.logger.Info("SE sync выполнен",
-		slog.String("se_id", id),
-		slog.String("mode", info.Mode),
-		slog.String("status", info.Status),
-	)
 
 	return result, nil
 }

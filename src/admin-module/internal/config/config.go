@@ -5,6 +5,7 @@ package config
 import (
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -68,6 +69,8 @@ type Config struct {
 
 	// Интервал проверки зависимостей topologymetrics
 	DephealthCheckInterval time.Duration
+	// Имя группы в метриках topologymetrics (AM_DEPHEALTH_GROUP)
+	DephealthGroup string
 	// Интервал синхронизации файлового реестра с SE
 	SyncInterval time.Duration
 	// Размер страницы при постраничной синхронизации файлов
@@ -212,6 +215,9 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("AM_DEPHEALTH_CHECK_INTERVAL: %w", err)
 	}
 
+	// AM_DEPHEALTH_GROUP — имя группы в метриках topologymetrics (по умолчанию "admin-module")
+	cfg.DephealthGroup = getEnvDefault("AM_DEPHEALTH_GROUP", "admin-module")
+
 	// AM_SYNC_INTERVAL — интервал синхронизации файлового реестра (по умолчанию 1h)
 	cfg.SyncInterval, err = getEnvDuration("AM_SYNC_INTERVAL", time.Hour)
 	if err != nil {
@@ -255,12 +261,24 @@ func Load() (*Config, error) {
 	return cfg, nil
 }
 
-// DatabaseDSN возвращает строку подключения к PostgreSQL.
+// DatabaseDSN возвращает строку подключения к PostgreSQL (keyword/value формат).
 func (c *Config) DatabaseDSN() string {
 	return fmt.Sprintf(
 		"host=%s port=%d dbname=%s user=%s password=%s sslmode=%s",
 		c.DBHost, c.DBPort, c.DBName, c.DBUser, c.DBPassword, c.DBSSLMode,
 	)
+}
+
+// DatabaseURL возвращает URL подключения к PostgreSQL (для topologymetrics SQL checker).
+func (c *Config) DatabaseURL() string {
+	u := &url.URL{
+		Scheme:   "postgres",
+		User:     url.UserPassword(c.DBUser, c.DBPassword),
+		Host:     fmt.Sprintf("%s:%d", c.DBHost, c.DBPort),
+		Path:     c.DBName,
+		RawQuery: fmt.Sprintf("sslmode=%s", c.DBSSLMode),
+	}
+	return u.String()
 }
 
 // SetupLogger настраивает глобальный slog-логгер на основе конфигурации.
