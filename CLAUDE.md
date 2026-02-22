@@ -50,6 +50,7 @@ Harbor: https://harbor.kryukov.lan — admin/password. Использовать 
 - Ingress controller отсутствует
 - cert-manager (ClusterIssuer: `dev-ca-issuer`)
 - Домены для отладки: `test1.kryukov.lan`, `test2.kryukov.lan`, `test3.kryukov.lan` → 192.168.218.180
+- Домен проекта: `artsore.kryukov.lan` → 192.168.218.180 (внешний доступ к API Gateway)
 - DNS сервер: 192.168.218.9
 
 ## Git Workflow (GitHub Flow + Semver Tags)
