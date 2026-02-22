@@ -34,6 +34,8 @@ type Config struct {
 	ReconcileInterval time.Duration
 	// URL JWKS endpoint Admin Module
 	JWKSUrl string
+	// Путь к CA-сертификату для проверки TLS JWKS endpoint (опционально)
+	JWKSCACert string
 	// Путь к TLS сертификату
 	TLSCert string
 	// Путь к TLS приватному ключу
@@ -52,6 +54,14 @@ type Config struct {
 	DephealthGroup string
 	// Имя зависимости (целевого сервиса) в метриках topologymetrics (SE_DEPHEALTH_DEP_NAME)
 	DephealthDepName string
+
+	// Таймаут graceful shutdown HTTP-сервера.
+	// Должен быть меньше K8s terminationGracePeriodSeconds (по умолчанию 30s),
+	// чтобы election.Stop() успел освободить NFS flock до SIGKILL.
+	ShutdownTimeout time.Duration
+	// Интервал retry захвата flock для follower (только replicated mode).
+	// Влияет на скорость failover: меньше = быстрее обнаружение, но больше нагрузка на NFS.
+	ElectionRetryInterval time.Duration
 }
 
 // Load загружает конфигурацию из переменных окружения, валидирует
@@ -122,6 +132,9 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
+	// SE_JWKS_CA_CERT — путь к CA-сертификату для JWKS endpoint (опционально)
+	cfg.JWKSCACert = getEnvDefault("SE_JWKS_CA_CERT", "")
+
 	// SE_TLS_CERT — обязательный
 	cfg.TLSCert, err = getEnvRequired("SE_TLS_CERT")
 	if err != nil {
@@ -169,6 +182,23 @@ func Load() (*Config, error) {
 
 	// SE_DEPHEALTH_DEP_NAME — имя зависимости в метриках topologymetrics (по умолчанию "admin-jwks")
 	cfg.DephealthDepName = getEnvDefault("SE_DEPHEALTH_DEP_NAME", "admin-jwks")
+
+	// SE_SHUTDOWN_TIMEOUT — таймаут graceful shutdown HTTP-сервера (по умолчанию 5s).
+	// Должен быть меньше K8s terminationGracePeriodSeconds, чтобы оставить время
+	// на освобождение NFS flock (election.Stop()) до SIGKILL.
+	cfg.ShutdownTimeout, err = getEnvDuration("SE_SHUTDOWN_TIMEOUT", 5*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("SE_SHUTDOWN_TIMEOUT: %w", err)
+	}
+
+	// SE_ELECTION_RETRY_INTERVAL — интервал retry захвата flock для follower (по умолчанию 5s).
+	// Влияет на скорость failover после смерти leader:
+	//   - Меньший интервал → быстрее failover, но выше нагрузка на NFS
+	//   - NFS v4 lease timeout (~90s по умолчанию) ограничивает минимальное время failover
+	cfg.ElectionRetryInterval, err = getEnvDuration("SE_ELECTION_RETRY_INTERVAL", 5*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("SE_ELECTION_RETRY_INTERVAL: %w", err)
+	}
 
 	return cfg, nil
 }

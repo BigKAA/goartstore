@@ -79,6 +79,8 @@ spec:
               value: standalone
             - name: SE_JWKS_URL
               value: {{ include "se-test.jwksUrl" $ | quote }}
+            - name: SE_JWKS_CA_CERT
+              value: /certs/ca.crt
             - name: SE_TLS_CERT
               value: /certs/tls.crt
             - name: SE_TLS_KEY
@@ -99,6 +101,8 @@ spec:
               value: {{ $.Values.seCommon.dephealthGroup | quote }}
             - name: SE_DEPHEALTH_DEP_NAME
               value: {{ $.Values.seCommon.dephealthDepName | quote }}
+            - name: SE_SHUTDOWN_TIMEOUT
+              value: "5s"
           volumeMounts:
             - name: data
               mountPath: /data

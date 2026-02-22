@@ -22,7 +22,7 @@ func TestElection_SingleInstance(t *testing.T) {
 	logger := newTestLogger()
 
 	leaderCalled := false
-	election := NewElection(tmpDir, 8010, func() {
+	election := NewElection(tmpDir, 8010, 0, func() {
 		leaderCalled = true
 	}, func() {}, logger)
 
@@ -54,7 +54,7 @@ func TestElection_TwoInstances(t *testing.T) {
 	logger := newTestLogger()
 
 	// Первый экземпляр
-	leader := NewElection(tmpDir, 8010, func() {}, func() {}, logger)
+	leader := NewElection(tmpDir, 8010, 0, func() {}, func() {}, logger)
 	if err := leader.Start(); err != nil {
 		t.Fatalf("Ошибка Start leader: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestElection_TwoInstances(t *testing.T) {
 
 	// Второй экземпляр
 	followerCalled := false
-	follower := NewElection(tmpDir, 8011, func() {}, func() {
+	follower := NewElection(tmpDir, 8011, 0, func() {}, func() {
 		followerCalled = true
 	}, logger)
 	if err := follower.Start(); err != nil {
@@ -92,7 +92,7 @@ func TestElection_LeaderInfoFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	logger := newTestLogger()
 
-	election := NewElection(tmpDir, 8010, func() {}, func() {}, logger)
+	election := NewElection(tmpDir, 8010, 0, func() {}, func() {}, logger)
 	if err := election.Start(); err != nil {
 		t.Fatalf("Ошибка Start: %v", err)
 	}
@@ -127,14 +127,14 @@ func TestElection_FollowerBecomesLeader(t *testing.T) {
 	logger := newTestLogger()
 
 	// Первый экземпляр — leader
-	leader := NewElection(tmpDir, 8010, func() {}, func() {}, logger)
+	leader := NewElection(tmpDir, 8010, 0, func() {}, func() {}, logger)
 	if err := leader.Start(); err != nil {
 		t.Fatalf("Ошибка Start leader: %v", err)
 	}
 
 	// Второй экземпляр — follower
 	followerBecameLeader := make(chan struct{})
-	follower := NewElection(tmpDir, 8011, func() {
+	follower := NewElection(tmpDir, 8011, 0, func() {
 		close(followerBecameLeader)
 	}, func() {}, logger)
 	if err := follower.Start(); err != nil {

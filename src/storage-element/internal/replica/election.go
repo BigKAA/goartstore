@@ -12,6 +12,7 @@ package replica
 import (
 	"fmt"
 	"log/slog"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,16 +26,17 @@ const (
 	leaderLockFile = ".leader.lock"
 	// leaderInfoFile — имя файла с адресом leader.
 	leaderInfoFile = ".leader.info"
-	// retryInterval — интервал попыток захвата lock для follower.
-	retryInterval = 5 * time.Second
+	// defaultRetryInterval — интервал retry по умолчанию (если не задан через конфиг).
+	defaultRetryInterval = 5 * time.Second
 )
 
 // Election — leader election через flock() на общей FS.
 // Реализует интерфейс RoleProvider.
 type Election struct {
-	dataDir string
-	port    int
-	logger  *slog.Logger
+	dataDir       string
+	port          int
+	retryInterval time.Duration
+	logger        *slog.Logger
 
 	// Коллбэки при смене роли
 	onBecomeLeader   func()
@@ -54,19 +56,25 @@ type Election struct {
 // Параметры:
 //   - dataDir: директория данных (общая NFS)
 //   - port: порт HTTP-сервера текущего экземпляра
+//   - retryInterval: интервал retry захвата lock для follower (0 = defaultRetryInterval)
 //   - onBecomeLeader: вызывается при получении роли leader
 //   - onBecomeFollower: вызывается при получении роли follower
 //   - logger: логгер
 func NewElection(
 	dataDir string,
 	port int,
+	retryInterval time.Duration,
 	onBecomeLeader func(),
 	onBecomeFollower func(),
 	logger *slog.Logger,
 ) *Election {
+	if retryInterval <= 0 {
+		retryInterval = defaultRetryInterval
+	}
 	return &Election{
 		dataDir:          dataDir,
 		port:             port,
+		retryInterval:    retryInterval,
 		onBecomeLeader:   onBecomeLeader,
 		onBecomeFollower: onBecomeFollower,
 		logger:           logger.With(slog.String("component", "election")),
@@ -212,7 +220,7 @@ func (e *Election) becomeFollower() {
 func (e *Election) retryLoop() {
 	defer close(e.done)
 
-	ticker := time.NewTicker(retryInterval)
+	ticker := time.NewTicker(e.retryInterval)
 	defer ticker.Stop()
 
 	for {
@@ -243,12 +251,34 @@ func (e *Election) retryLoop() {
 	}
 }
 
-// buildAddr формирует адрес текущего экземпляра: hostname:port.
+// buildAddr формирует адрес текущего экземпляра: FQDN:port.
+// В K8s StatefulSet с headless Service, os.Hostname() возвращает короткое имя pod-а
+// (например, "se-edit-1-0"), которое не резолвится из других pod-ов.
+// Функция определяет FQDN через DNS reverse lookup (например,
+// "se-edit-1-0.se-edit-1.se-test.svc.cluster.local"), что обеспечивает
+// корректную маршрутизацию между leader и follower.
 func (e *Election) buildAddr() string {
 	hostname, err := os.Hostname()
 	if err != nil {
 		hostname = "localhost"
 	}
+
+	// Пытаемся получить FQDN через DNS: hostname → IP → reverse lookup
+	addrs, err := net.LookupHost(hostname)
+	if err == nil && len(addrs) > 0 {
+		names, err := net.LookupAddr(addrs[0])
+		if err == nil && len(names) > 0 {
+			fqdn := strings.TrimSuffix(names[0], ".")
+			if fqdn != "" {
+				e.logger.Debug("FQDN определён для leader address",
+					slog.String("hostname", hostname),
+					slog.String("fqdn", fqdn),
+				)
+				hostname = fqdn
+			}
+		}
+	}
+
 	return fmt.Sprintf("%s:%d", hostname, e.port)
 }
 

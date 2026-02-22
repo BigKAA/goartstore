@@ -60,16 +60,17 @@ print_summary() {
 # Например: "201 {\"file_id\":\"abc123\",...}"
 # ==========================================================================
 
-# get_response_code — извлечь HTTP код из ответа
+# get_response_code — извлечь HTTP код из ответа (первое слово первой строки)
 # Использование: CODE=$(get_response_code "$RESPONSE")
 get_response_code() {
-    echo "$1" | awk '{print $1}'
+    echo "$1" | head -1 | awk '{print $1}'
 }
 
-# get_response_body — извлечь тело ответа (JSON) без HTTP кода
+# get_response_body — извлечь тело ответа без HTTP кода
+# Удаляет первое слово (HTTP код) из первой строки, остальные строки без изменений.
 # Использование: BODY=$(get_response_body "$RESPONSE")
 get_response_body() {
-    echo "$1" | cut -d' ' -f2-
+    echo "$1" | sed '1s/^[^ ]* //'
 }
 
 # ==========================================================================

@@ -49,43 +49,40 @@ YELLOW='\033[0;33m'
 NC='\033[0m' # No Color
 
 # ==========================================================================
-# Определение тестовых групп
+# Запуск тестовой группы
+# Аргументы: $1 — скрипт, $2 — название, $3 — номера тестов
 # ==========================================================================
-declare -a GROUPS=()
-declare -a GROUP_NAMES=()
-declare -a GROUP_TESTS=()
+TOTAL_GROUPS=0
+PASSED_GROUPS=0
+FAILED_GROUPS=0
+FAILED_LIST=""
+GROUP_NUM=0
 
-GROUPS+=("${SCRIPT_DIR}/test-smoke.sh")
-GROUP_NAMES+=("Smoke")
-GROUP_TESTS+=("1-3")
+run_group() {
+    local script="$1"
+    local name="$2"
+    local tests="$3"
 
-GROUPS+=("${SCRIPT_DIR}/test-files.sh")
-GROUP_NAMES+=("Files")
-GROUP_TESTS+=("4-11")
+    GROUP_NUM=$((GROUP_NUM + 1))
+    TOTAL_GROUPS=$((TOTAL_GROUPS + 1))
 
-GROUPS+=("${SCRIPT_DIR}/test-modes.sh")
-GROUP_NAMES+=("Modes")
-GROUP_TESTS+=("12-18")
+    echo -e "${BLUE}────────────────────────────────────────────────────────${NC}"
+    echo -e "${BLUE}  [${GROUP_NUM}] ${name} (тесты ${tests})${NC}"
+    echo -e "${BLUE}────────────────────────────────────────────────────────${NC}"
+    echo ""
 
-if [[ "$SKIP_REPLICA" == "false" ]]; then
-    GROUPS+=("${SCRIPT_DIR}/test-replica.sh")
-    GROUP_NAMES+=("Replica")
-    GROUP_TESTS+=("19-22")
-fi
+    chmod +x "$script" 2>/dev/null || true
 
-GROUPS+=("${SCRIPT_DIR}/test-data.sh")
-GROUP_NAMES+=("Data")
-GROUP_TESTS+=("23-24")
-
-if [[ "$SKIP_GC" == "false" ]]; then
-    GROUPS+=("${SCRIPT_DIR}/test-gc-reconcile.sh")
-    GROUP_NAMES+=("GC/Reconcile")
-    GROUP_TESTS+=("25-26")
-fi
-
-GROUPS+=("${SCRIPT_DIR}/test-errors.sh")
-GROUP_NAMES+=("Errors")
-GROUP_TESTS+=("27-30")
+    if "$script"; then
+        PASSED_GROUPS=$((PASSED_GROUPS + 1))
+        echo -e "${GREEN}  >>> ${name}: PASS${NC}"
+    else
+        FAILED_GROUPS=$((FAILED_GROUPS + 1))
+        FAILED_LIST="${FAILED_LIST}\n  - ${name} (тесты ${tests})"
+        echo -e "${RED}  >>> ${name}: FAIL${NC}"
+    fi
+    echo ""
+}
 
 # ==========================================================================
 # Запуск тестов
@@ -95,35 +92,21 @@ echo -e "${BLUE}  SE Integration Tests — Полный набор${NC}"
 echo -e "${BLUE}========================================================${NC}"
 echo ""
 
-TOTAL_GROUPS=${#GROUPS[@]}
-PASSED_GROUPS=0
-FAILED_GROUPS=0
-FAILED_LIST=()
+run_group "${SCRIPT_DIR}/test-smoke.sh"        "Smoke"          "1-3"
+run_group "${SCRIPT_DIR}/test-files.sh"         "Files"          "4-11"
+run_group "${SCRIPT_DIR}/test-modes.sh"         "Modes"          "12-18"
 
-for i in "${!GROUPS[@]}"; do
-    SCRIPT="${GROUPS[$i]}"
-    NAME="${GROUP_NAMES[$i]}"
-    TESTS="${GROUP_TESTS[$i]}"
+if [[ "$SKIP_REPLICA" == "false" ]]; then
+    run_group "${SCRIPT_DIR}/test-replica.sh"   "Replica"        "19-22"
+fi
 
-    echo -e "${BLUE}────────────────────────────────────────────────────────${NC}"
-    echo -e "${BLUE}  [$(( i + 1 ))/${TOTAL_GROUPS}] ${NAME} (тесты ${TESTS})${NC}"
-    echo -e "${BLUE}────────────────────────────────────────────────────────${NC}"
-    echo ""
+run_group "${SCRIPT_DIR}/test-data.sh"          "Data"           "23-24"
 
-    if [[ ! -x "$SCRIPT" ]]; then
-        chmod +x "$SCRIPT"
-    fi
+if [[ "$SKIP_GC" == "false" ]]; then
+    run_group "${SCRIPT_DIR}/test-gc-reconcile.sh" "GC/Reconcile" "25-26"
+fi
 
-    if "$SCRIPT"; then
-        PASSED_GROUPS=$((PASSED_GROUPS + 1))
-        echo -e "${GREEN}  >>> ${NAME}: PASS${NC}"
-    else
-        FAILED_GROUPS=$((FAILED_GROUPS + 1))
-        FAILED_LIST+=("${NAME} (тесты ${TESTS})")
-        echo -e "${RED}  >>> ${NAME}: FAIL${NC}"
-    fi
-    echo ""
-done
+run_group "${SCRIPT_DIR}/test-errors.sh"        "Errors"         "27-30"
 
 # ==========================================================================
 # Итоговый отчёт
@@ -149,11 +132,9 @@ if [[ -n "$SKIPPED" ]]; then
 fi
 echo ""
 
-if [[ ${#FAILED_LIST[@]} -gt 0 ]]; then
+if [[ -n "$FAILED_LIST" ]]; then
     echo -e "${RED}Провалившиеся группы:${NC}"
-    for f in "${FAILED_LIST[@]}"; do
-        echo -e "  ${RED}- ${f}${NC}"
-    done
+    echo -e "${RED}${FAILED_LIST}${NC}"
     echo ""
 fi
 

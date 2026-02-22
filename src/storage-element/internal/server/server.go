@@ -201,8 +201,11 @@ func (s *Server) Run() error {
 		}
 	}
 
-	// Graceful shutdown с таймаутом 30 секунд
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	// Graceful shutdown с таймаутом из конфига (SE_SHUTDOWN_TIMEOUT, по умолчанию 5s).
+	// Важно: таймаут должен быть меньше K8s terminationGracePeriodSeconds,
+	// чтобы после остановки HTTP-сервера оставалось время для election.Stop()
+	// (освобождение NFS flock) до SIGKILL.
+	ctx, cancel := context.WithTimeout(context.Background(), s.cfg.ShutdownTimeout)
 	defer cancel()
 
 	s.logger.Info("Выполняется graceful shutdown...")

@@ -126,10 +126,11 @@ docker-build: docker-build-se docker-push-se docker-build-mock docker-push-mock
 	@echo "  $(SE_IMAGE):$(SE_TAG)"
 	@echo "  $(MOCK_IMAGE):$(MOCK_TAG)"
 
-## docker-build-se: Собрать образ Storage Element
+## docker-build-se: Собрать образ Storage Element (linux/amd64 для K8s кластера)
 docker-build-se:
-	@echo ">>> Сборка Storage Element $(SE_TAG)..."
+	@echo ">>> Сборка Storage Element $(SE_TAG) (linux/amd64)..."
 	docker build \
+		--platform linux/amd64 \
 		--build-arg VERSION=$(SE_TAG) \
 		-t $(SE_IMAGE):$(SE_TAG) \
 		-f $(SE_ROOT)/Dockerfile $(SE_ROOT)
@@ -139,10 +140,11 @@ docker-push-se:
 	@echo ">>> Push $(SE_IMAGE):$(SE_TAG)..."
 	docker push $(SE_IMAGE):$(SE_TAG)
 
-## docker-build-mock: Собрать образ JWKS Mock Server
+## docker-build-mock: Собрать образ JWKS Mock Server (linux/amd64 для K8s кластера)
 docker-build-mock:
-	@echo ">>> Сборка JWKS Mock $(MOCK_TAG)..."
+	@echo ">>> Сборка JWKS Mock $(MOCK_TAG) (linux/amd64)..."
 	docker build \
+		--platform linux/amd64 \
 		-t $(MOCK_IMAGE):$(MOCK_TAG) \
 		-f jwks-mock/Dockerfile jwks-mock/
 

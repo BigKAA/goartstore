@@ -56,35 +56,74 @@ echo ""
 # Вспомогательные функции для работы с pod-ами
 # --------------------------------------------------------------------------
 
-# get_pod_info — получить role из /api/v1/info pod-а через port-forward
-# Аргументы: $1 — имя pod-а, $2 — локальный порт
-# Возвращает: role (leader/follower/standalone)
+# get_pod_role — получить role из /api/v1/info pod-а через kubectl exec + wget.
+# Быстрее port-forward (~1s вместо ~10-15s), что критично для failover-тестов.
+# Аргументы: $1 — имя pod-а
+# Возвращает: role (leader/follower/standalone) или "error"
 get_pod_role() {
     local pod_name="$1"
+
+    local info
+    info=$(kubectl exec -n "$K8S_NAMESPACE" "$pod_name" -- \
+        wget -q --no-check-certificate -O - https://localhost:8010/api/v1/info 2>/dev/null) || true
+
+    if [[ -n "$info" ]]; then
+        echo "$info" | jq -r '.role // "unknown"'
+    else
+        echo "error"
+    fi
+}
+
+# get_pod_role_pf — получить role через port-forward (для тестов, где нужен доступ снаружи кластера).
+# Аргументы: $1 — имя pod-а, $2 — локальный порт
+# Возвращает: role (leader/follower/standalone) или "error"
+get_pod_role_pf() {
+    local pod_name="$1"
     local local_port="$2"
+
+    # Убиваем предыдущий port-forward на этом порту (если остался)
+    local old_pids
+    old_pids=$(lsof -ti :"${local_port}" 2>/dev/null || true)
+    if [[ -n "$old_pids" ]]; then
+        echo "$old_pids" | xargs kill 2>/dev/null || true
+        sleep 1
+    fi
 
     # Запускаем port-forward в фоне
     kubectl port-forward -n "$K8S_NAMESPACE" "pod/${pod_name}" "${local_port}:8010" &>/dev/null &
     local pf_pid=$!
-    sleep 2
 
-    local response
-    response=$(http_get "https://localhost:${local_port}" "" "/api/v1/info") || true
+    # Ждём готовности port-forward (до 10 секунд)
+    local ready=false
+    local wait_elapsed=0
+    while [[ $wait_elapsed -lt 10 ]]; do
+        if curl $CURL_OPTS -o /dev/null "https://localhost:${local_port}/health/live" 2>/dev/null; then
+            ready=true
+            break
+        fi
+        sleep 1
+        wait_elapsed=$((wait_elapsed + 1))
+    done
+
+    local role="error"
+    if [[ "$ready" == "true" ]]; then
+        local response
+        response=$(http_get "https://localhost:${local_port}" "" "/api/v1/info") || true
+
+        local code body
+        code=$(get_response_code "$response")
+        body=$(get_response_body "$response")
+
+        if [[ "$code" == "200" ]]; then
+            role=$(echo "$body" | jq -r '.role // "unknown"')
+        fi
+    fi
 
     # Убиваем port-forward
     kill "$pf_pid" 2>/dev/null || true
     wait "$pf_pid" 2>/dev/null || true
 
-    local code body role
-    code=$(get_response_code "$response")
-    body=$(get_response_body "$response")
-
-    if [[ "$code" == "200" ]]; then
-        role=$(echo "$body" | jq -r '.role // "unknown"')
-        echo "$role"
-    else
-        echo "error"
-    fi
+    echo "$role"
 }
 
 # ==========================================================================
@@ -102,8 +141,8 @@ POD_1_STATUS=$(kubectl get pod -n "$K8S_NAMESPACE" "$POD_1" -o jsonpath='{.statu
 if [[ "$POD_0_STATUS" != "Running" || "$POD_1_STATUS" != "Running" ]]; then
     test_fail "Тест 19: Pod-ы не в состоянии Running (${POD_0}=${POD_0_STATUS}, ${POD_1}=${POD_1_STATUS})"
 else
-    ROLE_0=$(get_pod_role "$POD_0" 19010)
-    ROLE_1=$(get_pod_role "$POD_1" 19011)
+    ROLE_0=$(get_pod_role "$POD_0")
+    ROLE_1=$(get_pod_role "$POD_1")
 
     log_info "  ${POD_0} → role=${ROLE_0}"
     log_info "  ${POD_1} → role=${ROLE_1}"
@@ -135,38 +174,67 @@ fi
 log_info "[Тест 20] POST upload через follower → 201 (proxy)"
 
 if [[ -n "${FOLLOWER_POD:-}" ]]; then
+    # Убиваем предыдущий port-forward на порту follower
+    old_pids=$(lsof -ti :"${FOLLOWER_PORT}" 2>/dev/null || true)
+    if [[ -n "$old_pids" ]]; then
+        echo "$old_pids" | xargs kill 2>/dev/null || true
+        sleep 1
+    fi
+
     # Запускаем port-forward к follower
     kubectl port-forward -n "$K8S_NAMESPACE" "pod/${FOLLOWER_POD}" "${FOLLOWER_PORT}:8010" &>/dev/null &
     PF_PID=$!
-    sleep 2
 
-    RESPONSE=$(upload_file "https://localhost:${FOLLOWER_PORT}" "$TOKEN" "test-proxy-upload.bin" "application/octet-stream" "Upload через follower proxy")
-    CODE=$(get_response_code "$RESPONSE")
-    BODY=$(get_response_body "$RESPONSE")
+    # Ждём готовности port-forward (до 10 секунд)
+    PF_READY=false
+    PF_WAIT=0
+    while [[ $PF_WAIT -lt 10 ]]; do
+        if curl $CURL_OPTS -o /dev/null "https://localhost:${FOLLOWER_PORT}/health/live" 2>/dev/null; then
+            PF_READY=true
+            break
+        fi
+        sleep 1
+        PF_WAIT=$((PF_WAIT + 1))
+    done
 
-    kill "$PF_PID" 2>/dev/null || true
-    wait "$PF_PID" 2>/dev/null || true
-
-    if [[ "$CODE" == "201" ]]; then
-        FILE_ID=$(echo "$BODY" | jq -r '.file_id // empty')
-        test_pass "Тест 20: Upload через follower → 201, file_id=${FILE_ID}"
+    if [[ "$PF_READY" != "true" ]]; then
+        test_fail "Тест 20: Port-forward к ${FOLLOWER_POD}:${FOLLOWER_PORT} не установлен"
+        kill "$PF_PID" 2>/dev/null || true
+        wait "$PF_PID" 2>/dev/null || true
     else
-        test_fail "Тест 20: Upload через follower → HTTP ${CODE} (ожидался 201)"
+        RESPONSE=$(upload_file "https://localhost:${FOLLOWER_PORT}" "$TOKEN" "test-proxy-upload.bin" "application/octet-stream" "Upload через follower proxy")
+        CODE=$(get_response_code "$RESPONSE")
+        BODY=$(get_response_body "$RESPONSE")
+
+        kill "$PF_PID" 2>/dev/null || true
+        wait "$PF_PID" 2>/dev/null || true
+
+        if [[ "$CODE" == "201" ]]; then
+            FILE_ID=$(echo "$BODY" | jq -r '.file_id // empty')
+            test_pass "Тест 20: Upload через follower → 201, file_id=${FILE_ID}"
+        else
+            test_fail "Тест 20: Upload через follower → HTTP ${CODE} (ожидался 201)"
+        fi
     fi
 else
     test_fail "Тест 20: Пропуск — follower не определён (тест 19 не пройден)"
 fi
 
 # ==========================================================================
-# Тест 21: kubectl delete pod <leader> → follower становится leader (30s)
+# Тест 21: kubectl delete pod <leader> → follower становится leader (60s)
 # ==========================================================================
 log_info "[Тест 21] Failover: удаление leader pod → follower становится leader"
 
 if [[ -n "${LEADER_POD:-}" && -n "${FOLLOWER_POD:-}" ]]; then
-    log_info "  Удаление leader pod: ${LEADER_POD}..."
-    kubectl delete pod -n "$K8S_NAMESPACE" "$LEADER_POD" --grace-period=5 2>/dev/null
+    # grace-period=15: достаточно для SE_SHUTDOWN_TIMEOUT (5s) + election.Stop() (flock release).
+    # Важно: если grace-period < SE_SHUTDOWN_TIMEOUT, K8s пошлёт SIGKILL до освобождения
+    # NFS flock, и failover задержится на NFS v4 lease timeout (~90s).
+    log_info "  Удаление leader pod: ${LEADER_POD} (grace-period=15)..."
+    kubectl delete pod -n "$K8S_NAMESPACE" "$LEADER_POD" --grace-period=15 2>/dev/null
 
-    # Ждём пока follower станет leader (до 30 секунд)
+    # Ждём пока follower станет leader (до 30 секунд).
+    # При корректном graceful shutdown (SE_SHUTDOWN_TIMEOUT < grace-period)
+    # NFS flock освобождается за ~5-10s. Timeout 30s — с запасом.
     FAILOVER_TIMEOUT=30
     FAILOVER_ELAPSED=0
     FAILOVER_OK=false
@@ -175,7 +243,7 @@ if [[ -n "${LEADER_POD:-}" && -n "${FOLLOWER_POD:-}" ]]; then
         sleep 3
         FAILOVER_ELAPSED=$((FAILOVER_ELAPSED + 3))
 
-        NEW_ROLE=$(get_pod_role "$FOLLOWER_POD" 19020)
+        NEW_ROLE=$(get_pod_role "$FOLLOWER_POD")
         if [[ "$NEW_ROLE" == "leader" ]]; then
             FAILOVER_OK=true
             break
@@ -207,7 +275,7 @@ if [[ -n "${LEADER_POD:-}" ]]; then
 
     if [[ "$POD_READY" == "True" ]]; then
         # Проверяем роль восстановленного pod-а
-        RESTORED_ROLE=$(get_pod_role "$LEADER_POD" 19030)
+        RESTORED_ROLE=$(get_pod_role "$LEADER_POD")
         if [[ "$RESTORED_ROLE" == "follower" ]]; then
             test_pass "Тест 22: Восстановленный ${LEADER_POD} → follower"
         elif [[ "$RESTORED_ROLE" == "leader" ]]; then

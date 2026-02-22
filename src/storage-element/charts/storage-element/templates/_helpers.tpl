@@ -92,6 +92,10 @@ app.kubernetes.io/instance: {{ .Values.elementId }}
   value: {{ .Values.reconcileInterval | quote }}
 - name: SE_JWKS_URL
   value: {{ .Values.jwksUrl | quote }}
+{{- if .Values.jwksCaCert }}
+- name: SE_JWKS_CA_CERT
+  value: {{ .Values.jwksCaCert | quote }}
+{{- end }}
 - name: SE_TLS_CERT
   value: "/certs/tls.crt"
 - name: SE_TLS_KEY
@@ -106,6 +110,12 @@ app.kubernetes.io/instance: {{ .Values.elementId }}
   value: {{ .Values.dephealthGroup | quote }}
 - name: SE_DEPHEALTH_DEP_NAME
   value: {{ .Values.dephealthDepName | quote }}
+- name: SE_SHUTDOWN_TIMEOUT
+  value: {{ .Values.shutdownTimeout | quote }}
+{{- if eq .Values.replicaMode "replicated" }}
+- name: SE_ELECTION_RETRY_INTERVAL
+  value: {{ .Values.electionRetryInterval | quote }}
+{{- end }}
 {{- end }}
 
 {{/*

@@ -6,11 +6,16 @@ package middleware
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
+	"github.com/MicahParks/jwkset"
 	"github.com/MicahParks/keyfunc/v3"
 	"github.com/golang-jwt/jwt/v5"
 
@@ -42,17 +47,73 @@ type JWTAuth struct {
 
 // NewJWTAuth создаёт JWT middleware с JWKS из указанного URL.
 // jwksURL — URL к JWKS endpoint Admin Module (например, https://admin:8000/api/v1/auth/jwks).
-// Автоматически обновляет ключи в фоне.
-func NewJWTAuth(jwksURL string, logger *slog.Logger) (*JWTAuth, error) {
-	// Создаём JWKS keyfunc с автообновлением
-	k, err := keyfunc.NewDefault([]string{jwksURL})
+// caCertPath — опциональный путь к CA-сертификату для проверки TLS JWKS endpoint.
+// Автоматически обновляет ключи в фоне с интервалом 15 секунд.
+func NewJWTAuth(jwksURL string, caCertPath string, logger *slog.Logger) (*JWTAuth, error) {
+	// Создаём HTTP-клиент (с кастомным CA или стандартный)
+	httpClient := http.DefaultClient
+	if caCertPath != "" {
+		var err error
+		httpClient, err = httpClientWithCA(caCertPath)
+		if err != nil {
+			return nil, fmt.Errorf("загрузка CA-сертификата %s: %w", caCertPath, err)
+		}
+		logger.Info("CA-сертификат добавлен в пул доверия",
+			slog.String("ca_cert", caCertPath),
+		)
+	}
+
+	// Создаём JWKS Storage с кастомным HTTP-клиентом и коротким RefreshInterval.
+	// NoErrorReturnFirstHTTPReq позволяет стартовать даже если JWKS endpoint
+	// ещё недоступен (например, при одновременном запуске pod-ов).
+	storage, err := jwkset.NewStorageFromHTTP(jwksURL, jwkset.HTTPClientStorageOptions{
+		Client:                    httpClient,
+		NoErrorReturnFirstHTTPReq: true,
+		RefreshInterval:           15 * time.Second,
+		RefreshErrorHandler: func(ctx context.Context, err error) {
+			logger.Error("Ошибка обновления JWKS",
+				slog.String("error", err.Error()),
+				slog.String("url", jwksURL),
+			)
+		},
+	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("создание JWKS storage: %w", err)
+	}
+
+	k, err := keyfunc.New(keyfunc.Options{
+		Storage: storage,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("создание keyfunc: %w", err)
 	}
 
 	return &JWTAuth{
 		jwks:   k,
 		logger: logger.With(slog.String("component", "jwt_auth")),
+	}, nil
+}
+
+// httpClientWithCA создаёт HTTP-клиент, доверяющий указанному CA-сертификату.
+func httpClientWithCA(caCertPath string) (*http.Client, error) {
+	caCert, err := os.ReadFile(caCertPath)
+	if err != nil {
+		return nil, err
+	}
+
+	caCertPool, err := x509.SystemCertPool()
+	if err != nil {
+		caCertPool = x509.NewCertPool()
+	}
+	caCertPool.AppendCertsFromPEM(caCert)
+
+	return &http.Client{
+		Timeout: 30 * time.Second,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				RootCAs: caCertPool,
+			},
+		},
 	}, nil
 }
 

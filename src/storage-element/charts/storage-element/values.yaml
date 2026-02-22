@@ -24,6 +24,10 @@ imagePullPolicy: IfNotPresent
 
 # --- JWKS URL для валидации JWT ---
 jwksUrl: "https://admin-module.artsore.svc.cluster.local:8000/api/v1/auth/jwks"
+# Путь к CA-сертификату для проверки TLS JWKS endpoint (опционально).
+# Указывается если JWKS endpoint использует сертификат от внутреннего CA.
+# Пример: /certs/ca.crt (из cert-manager TLS secret)
+# jwksCaCert: ""
 
 # --- Логирование ---
 logLevel: info
@@ -34,6 +38,12 @@ gcInterval: "1h"
 reconcileInterval: "6h"
 maxFileSize: "1073741824"  # 1GB
 
+# --- Graceful shutdown ---
+# Таймаут graceful shutdown HTTP-сервера.
+# Должен быть меньше K8s terminationGracePeriodSeconds (30s по умолчанию),
+# чтобы election.Stop() успел освободить NFS flock до SIGKILL.
+shutdownTimeout: "5s"
+
 # --- Dependency health (topologymetrics) ---
 dephealthCheckInterval: "15s"
 dephealthGroup: "storage-element"
@@ -41,6 +51,12 @@ dephealthDepName: "admin-jwks"
 
 # --- Index refresh (только replicated mode) ---
 indexRefreshInterval: "30s"
+
+# --- Leader election (только replicated mode) ---
+# Интервал retry захвата flock для follower.
+# Влияет на скорость failover после смерти leader.
+# NFS v4 lease timeout (~90s по умолчанию) ограничивает минимальное время failover.
+electionRetryInterval: "5s"
 
 # --- Хранилище ---
 storageClass: nfs-client

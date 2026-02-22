@@ -1,6 +1,10 @@
 # Multi-stage сборка JWKS Mock Server
 # Этап 1: Сборка бинарника
-FROM golang:1.25-alpine AS builder
+# TARGETPLATFORM/TARGETOS/TARGETARCH устанавливаются автоматически при --platform
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS builder
+
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
 
 RUN apk add --no-cache git
 
@@ -13,8 +17,8 @@ RUN go mod download
 # Копируем исходный код
 COPY . .
 
-# Сборка бинарника со статической линковкой
-RUN CGO_ENABLED=0 GOOS=linux go build \
+# Сборка бинарника со статической линковкой для целевой платформы
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
     -ldflags "-s -w" \
     -o /jwks-mock .
 

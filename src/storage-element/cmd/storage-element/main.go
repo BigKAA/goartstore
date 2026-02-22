@@ -147,6 +147,7 @@ func main() {
 		election = replica.NewElection(
 			cfg.DataDir,
 			cfg.Port,
+			cfg.ElectionRetryInterval,
 			// onBecomeLeader: запустить GC и Reconcile
 			func() {
 				logger.Info("Стал leader — запуск GC и Reconcile")
@@ -246,7 +247,7 @@ func main() {
 
 	// 10. JWT middleware
 	var jwtAuth server.JWTAuthProvider
-	jwtMiddleware, err := middleware.NewJWTAuth(cfg.JWKSUrl, logger)
+	jwtMiddleware, err := middleware.NewJWTAuth(cfg.JWKSUrl, cfg.JWKSCACert, logger)
 	if err != nil {
 		// JWT недоступен — запускаем без аутентификации (для разработки)
 		logger.Warn("JWT JWKS недоступен, запуск без аутентификации",
@@ -269,7 +270,16 @@ func main() {
 	}
 
 	// --- Graceful shutdown фоновых процессов ---
+	// Порядок важен: election.Stop() первым — освобождаем NFS flock
+	// до истечения K8s terminationGracePeriodSeconds (SIGKILL).
+	// Без своевременного освобождения flock follower не сможет стать leader
+	// до истечения NFS v4 lease timeout (~90s по умолчанию).
 	logger.Info("Остановка фоновых процессов...")
+
+	if election != nil {
+		election.Stop()
+		logger.Info("Leader election остановлен, NFS flock освобождён")
+	}
 
 	gcSvc.Stop()
 	reconcileSvc.Stop()
@@ -278,9 +288,6 @@ func main() {
 	}
 	if refreshSvc != nil {
 		refreshSvc.Stop()
-	}
-	if election != nil {
-		election.Stop()
 	}
 
 	logger.Info("Storage Element остановлен")

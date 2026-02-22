@@ -4,6 +4,7 @@ go 1.25.6
 
 require (
 	github.com/BigKAA/topologymetrics/sdk-go v0.6.0
+	github.com/MicahParks/jwkset v0.11.0
 	github.com/MicahParks/keyfunc/v3 v3.8.0
 	github.com/getkin/kin-openapi v0.133.0
 	github.com/go-chi/chi/v5 v5.2.5
@@ -14,7 +15,6 @@ require (
 )
 
 require (
-	github.com/MicahParks/jwkset v0.11.0 // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
