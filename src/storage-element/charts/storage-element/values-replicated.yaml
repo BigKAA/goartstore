@@ -1,0 +1,21 @@
+# Пример values для replicated режима (StatefulSet с leader/follower)
+#
+# Использование:
+#   helm install se-edit-01 charts/storage-element \
+#     -f charts/storage-element/values-replicated.yaml \
+#     --set elementId=se-edit-01
+
+# Режим деплоя: replicated → StatefulSet
+replicaMode: replicated
+replicas: 2
+
+# В replicated режиме обычно используется edit mode
+mode: edit
+
+# Shared data PVC (RWX) для доступа с нескольких pod-ов
+# WAL — per-pod через volumeClaimTemplates (RWO)
+dataSize: 2Gi
+walSize: 1Gi
+
+# Интервал обновления индекса на follower
+indexRefreshInterval: "10s"

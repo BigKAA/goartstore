@@ -1,0 +1,31 @@
+{{- if eq .Values.replicaMode "standalone" }}
+# PVC для данных (standalone режим, RWO)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "se.dataPvcName" . }}
+  labels:
+    {{- include "se.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ .Values.storageClass }}
+  resources:
+    requests:
+      storage: {{ .Values.dataSize }}
+---
+# PVC для WAL (standalone режим, RWO)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "se.walPvcName" . }}
+  labels:
+    {{- include "se.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ .Values.storageClass }}
+  resources:
+    requests:
+      storage: {{ .Values.walSize }}
+{{- end }}

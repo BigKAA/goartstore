@@ -1,0 +1,16 @@
+# ClusterIP Service для доступа к Storage Element
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "se.fullname" . }}
+  labels:
+    {{- include "se.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "se.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: https
+      port: {{ .Values.port }}
+      targetPort: https
+      protocol: TCP

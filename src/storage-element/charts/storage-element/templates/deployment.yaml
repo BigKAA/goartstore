@@ -1,0 +1,49 @@
+{{- if eq .Values.replicaMode "standalone" }}
+# Deployment для standalone режима Storage Element
+# Один pod, стратегия Recreate (данные на PVC)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "se.fullname" . }}
+  labels:
+    {{- include "se.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "se.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "se.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: storage-element
+          image: {{ include "se.image" . }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - name: https
+              containerPort: {{ .Values.port }}
+              protocol: TCP
+          env:
+            {{- include "se.envVars" . | nindent 12 }}
+            - name: SE_REPLICA_MODE
+              value: "standalone"
+          volumeMounts:
+            {{- include "se.volumeMounts" . | nindent 12 }}
+          {{- include "se.probes" . | nindent 10 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "se.dataPvcName" . }}
+        - name: wal
+          persistentVolumeClaim:
+            claimName: {{ include "se.walPvcName" . }}
+        - name: tls-certs
+          secret:
+            secretName: {{ include "se.tlsSecretName" . }}
+{{- end }}

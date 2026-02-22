@@ -1,0 +1,36 @@
+{{- if and .Values.tls.enabled (not .Values.tls.existingSecret) }}
+# TLS Certificate через cert-manager
+# Создаёт Secret с TLS-сертификатом для pod-level HTTPS
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "se.fullname" . }}-cert
+  labels:
+    {{- include "se.labels" . | nindent 4 }}
+spec:
+  secretName: {{ include "se.tlsSecretName" . }}
+  issuerRef:
+    name: {{ .Values.tls.clusterIssuer }}
+    kind: ClusterIssuer
+  dnsNames:
+    # Имя сервиса
+    - {{ include "se.fullname" . }}
+    - {{ include "se.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
+    {{- if eq .Values.replicaMode "replicated" }}
+    # Headless service для StatefulSet
+    - {{ include "se.fullname" . }}-headless
+    - {{ include "se.fullname" . }}-headless.{{ .Release.Namespace }}.svc.cluster.local
+    # Wildcard для pod DNS (pod-0.headless-svc.ns.svc.cluster.local)
+    - "*.{{ include "se.fullname" . }}-headless.{{ .Release.Namespace }}.svc.cluster.local"
+    {{- end }}
+    {{- if and .Values.httproute .Values.httproute.enabled .Values.httproute.hostname }}
+    # Hostname из HTTPRoute
+    - {{ .Values.httproute.hostname }}
+    {{- end }}
+    {{- if .Values.ingress.enabled }}
+    {{- range .Values.ingress.hosts }}
+    # Hostname из Ingress
+    - {{ .host }}
+    {{- end }}
+    {{- end }}
+{{- end }}

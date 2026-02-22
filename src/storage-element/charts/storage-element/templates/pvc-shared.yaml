@@ -1,0 +1,18 @@
+{{- if eq .Values.replicaMode "replicated" }}
+# Shared PVC для данных (replicated режим, RWX)
+# Общий том для всех pod-ов StatefulSet — leader и follower
+# работают с одной файловой системой (NFS)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "se.sharedDataPvcName" . }}
+  labels:
+    {{- include "se.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: {{ .Values.storageClass }}
+  resources:
+    requests:
+      storage: {{ .Values.dataSize }}
+{{- end }}

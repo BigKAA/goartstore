@@ -1,0 +1,59 @@
+{{- if eq .Values.replicaMode "replicated" }}
+# StatefulSet для replicated режима Storage Element
+# Leader/Follower через flock(), shared data PVC (RWX), WAL per-pod (RWO)
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "se.fullname" . }}
+  labels:
+    {{- include "se.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "se.fullname" . }}-headless
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      {{- include "se.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "se.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: storage-element
+          image: {{ include "se.image" . }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - name: https
+              containerPort: {{ .Values.port }}
+              protocol: TCP
+          env:
+            {{- include "se.envVars" . | nindent 12 }}
+            - name: SE_REPLICA_MODE
+              value: "replicated"
+            - name: SE_INDEX_REFRESH_INTERVAL
+              value: {{ .Values.indexRefreshInterval | quote }}
+          volumeMounts:
+            {{- include "se.volumeMounts" . | nindent 12 }}
+          {{- include "se.probes" . | nindent 10 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        # Shared data PVC (RWX) — общий для всех pod-ов StatefulSet
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "se.sharedDataPvcName" . }}
+        - name: tls-certs
+          secret:
+            secretName: {{ include "se.tlsSecretName" . }}
+  # WAL — per-pod через volumeClaimTemplates (RWO)
+  volumeClaimTemplates:
+    - metadata:
+        name: wal
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: {{ .Values.storageClass }}
+        resources:
+          requests:
+            storage: {{ .Values.walSize }}
+{{- end }}

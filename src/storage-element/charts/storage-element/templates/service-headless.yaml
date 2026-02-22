@@ -1,0 +1,20 @@
+{{- if eq .Values.replicaMode "replicated" }}
+# Headless Service для StatefulSet — обеспечивает DNS-имена pod-ов
+# Формат: {pod-name}.{service-name}.{namespace}.svc.cluster.local
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "se.fullname" . }}-headless
+  labels:
+    {{- include "se.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    {{- include "se.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: https
+      port: {{ .Values.port }}
+      targetPort: https
+      protocol: TCP
+{{- end }}

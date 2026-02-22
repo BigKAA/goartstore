@@ -1,0 +1,97 @@
+# Основные настройки экземпляра Storage Element
+# По умолчанию — standalone режим (Deployment)
+
+# Уникальный идентификатор экземпляра SE
+elementId: se-01
+
+# Порт HTTPS-сервера
+port: 8010
+
+# Начальный режим работы: edit, rw, ro, ar
+mode: rw
+
+# Режим деплоя: standalone (Deployment) или replicated (StatefulSet)
+replicaMode: standalone
+
+# Количество реплик (используется только в replicated режиме)
+replicas: 2
+
+# --- Образ контейнера ---
+registry: harbor.kryukov.lan
+image: library/storage-element
+tag: latest
+imagePullPolicy: IfNotPresent
+
+# --- JWKS URL для валидации JWT ---
+jwksUrl: "https://admin-module.artsore.svc.cluster.local:8000/api/v1/auth/jwks"
+
+# --- Логирование ---
+logLevel: info
+logFormat: json
+
+# --- Фоновые процессы ---
+gcInterval: "1h"
+reconcileInterval: "6h"
+maxFileSize: "1073741824"  # 1GB
+
+# --- Dependency health (topologymetrics) ---
+dephealthCheckInterval: "15s"
+dephealthGroup: "storage-element"
+dephealthDepName: "admin-jwks"
+
+# --- Index refresh (только replicated mode) ---
+indexRefreshInterval: "30s"
+
+# --- Хранилище ---
+storageClass: nfs-client
+dataSize: 2Gi
+walSize: 1Gi
+
+# --- TLS (cert-manager) ---
+tls:
+  # Создать Certificate ресурс cert-manager для pod-level HTTPS
+  enabled: true
+  clusterIssuer: dev-ca-issuer
+  # Использовать существующий Secret вместо создания Certificate
+  # Если указан — Certificate ресурс не создаётся
+  # existingSecret: ""
+
+# --- Ingress ---
+ingress:
+  enabled: false
+  # Класс Ingress controller (nginx, traefik и т.д.)
+  className: ""
+  annotations: {}
+    # cert-manager.io/cluster-issuer: dev-ca-issuer
+    # nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    # nginx.ingress.kubernetes.io/proxy-body-size: "1g"
+  hosts:
+    - host: se-01.kryukov.lan
+      paths:
+        - path: /
+          pathType: Prefix
+  # TLS для Ingress — cert-manager создаст сертификат автоматически
+  # при наличии аннотации cert-manager.io/cluster-issuer
+  tls: []
+    # - secretName: se-01-ingress-tls
+    #   hosts:
+    #     - se-01.kryukov.lan
+
+# --- HTTPRoute (Gateway API) ---
+# Альтернатива Ingress для кластеров с Gateway API (Envoy Gateway)
+httproute:
+  enabled: false
+  gatewayName: eg
+  gatewayNamespace: envoy-gateway-system
+  hostname: "se-01.kryukov.lan"
+  pathPrefixes:
+    - /api/v1
+
+# --- Ресурсы контейнера ---
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
