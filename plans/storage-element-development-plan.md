@@ -23,9 +23,9 @@ Storage Element (SE) — первый модуль системы Artsore для
 ## Текущий статус
 
 - **Активная фаза**: Phase 6
-- **Активный подпункт**: 6.5 (Makefile для оркестрации)
+- **Активный подпункт**: 6.6 (Основной Helm chart)
 - **Последнее обновление**: 2026-02-22
-- **Примечание**: Phase 5 (5.1-5.2) завершена. Phase 6.1 (JWKS Mock Server) завершена. Phase 6.2 (Helm chart se-test) завершена. Phase 6.3 (Init scripts) завершена — lib.sh + init-data.sh, 8 шагов инициализации, очистка data-файлов se-ar (только attr.json). Phase 6.4 (Тестовые bash-скрипты) завершена — 8 скриптов, 30 тестов (smoke 1-3, files 4-11, modes 12-18, replica 19-22, data 23-24, gc/reconcile 25-26, errors 27-30, test-all runner). 107+ unit-тестов SE, race detector clean.
+- **Примечание**: Phase 5 (5.1-5.2) завершена. Phase 6.1 (JWKS Mock Server) завершена. Phase 6.2 (Helm chart se-test) завершена. Phase 6.3 (Init scripts) завершена — lib.sh + init-data.sh, 8 шагов инициализации, очистка data-файлов se-ar (только attr.json). Phase 6.4 (Тестовые bash-скрипты) завершена — 8 скриптов, 30 тестов (smoke 1-3, files 4-11, modes 12-18, replica 19-22, data 23-24, gc/reconcile 25-26, errors 27-30, test-all runner). Phase 6.5 (Makefile) завершена — 18 targets (docker-build, test-env-up/down/status/logs, port-forward-start/stop/status, 7 test targets, clean). 107+ unit-тестов SE, race detector clean.
 
 ---
 
@@ -664,7 +664,7 @@ Leader/Follower для HA. Leader обрабатывает запись, Followe
     - `docs/api-contracts/storage-element-openapi.yaml` — полный API контракт
     - `src/storage-element/internal/api/errors/errors.go` — коды ошибок
 
-- [ ] **6.5 Makefile для оркестрации**
+- [x] **6.5 Makefile для оркестрации**
   - **Dependencies**: 6.1, 6.2, 6.3, 6.4
   - **Description**: Makefile в `src/storage-element/tests/`, оркестрирующий полный цикл интеграционного тестирования. Переменные: DOCKER_REGISTRY (harbor.kryukov.lan/library), SE_TAG (v1.0.0-1), MOCK_TAG (v1.0.0-1), NAMESPACE (se-test), HELM_CHART (helm/se-test). Все targets идемпотентны.
 
