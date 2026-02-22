@@ -1,6 +1,6 @@
 // idp.go — сервис статуса Identity Provider (Keycloak).
 // GetStatus — проверка подключения, RealmInfo, подсчёт users/clients.
-// SyncSA — принудительная синхронизация SA (заглушка для Phase 5).
+// SyncSA — принудительная синхронизация SA через SASyncService.
 package service
 
 import (
@@ -19,6 +19,7 @@ type IDPService struct {
 	kcClient      *keycloak.Client
 	saRepo        repository.ServiceAccountRepository
 	syncStateRepo repository.SyncStateRepository
+	saSyncSvc     *SASyncService
 	keycloakURL   string
 	realm         string
 	saPrefix      string
@@ -53,6 +54,12 @@ func NewIDPService(
 		saPrefix:      saPrefix,
 		logger:        logger.With(slog.String("component", "idp_service")),
 	}
+}
+
+// SetSASyncService устанавливает ссылку на SASyncService.
+// Вызывается после создания обоих сервисов для избежания циклической зависимости.
+func (s *IDPService) SetSASyncService(saSyncSvc *SASyncService) {
+	s.saSyncSvc = saSyncSvc
 }
 
 // GetStatus возвращает статус подключения к Keycloak.
@@ -102,41 +109,25 @@ func (s *IDPService) GetStatus(ctx context.Context) *IDPStatus {
 }
 
 // SyncSA выполняет принудительную синхронизацию SA с Keycloak.
-// В Phase 4 — заглушка, реализация в Phase 5.
+// Делегирует SASyncService.SyncNow для полной reconciliation.
 func (s *IDPService) SyncSA(ctx context.Context) (*model.SASyncResult, error) {
 	s.logger.Info("Принудительная синхронизация SA запущена")
 
-	// TODO Phase 5: полная реализация reconciliation
-	// Пока возвращаем текущее состояние без синхронизации
-	localCount, err := s.saRepo.Count(ctx, nil)
+	if s.saSyncSvc == nil {
+		return nil, fmt.Errorf("сервис синхронизации SA не инициализирован")
+	}
+
+	result, err := s.saSyncSvc.SyncNow(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("подсчёт локальных SA: %w", err)
+		return nil, fmt.Errorf("синхронизация SA: %w", err)
 	}
 
-	kcClients, err := s.kcClient.ListClients(ctx, s.saPrefix, 0, 1000)
-	if err != nil {
-		return nil, fmt.Errorf("получение SA clients из Keycloak: %w", err)
-	}
-
-	now := time.Now().UTC()
-
-	result := &model.SASyncResult{
-		TotalLocal:      localCount,
-		TotalKeycloak:   len(kcClients),
-		CreatedLocal:    0,
-		CreatedKeycloak: 0,
-		Updated:         0,
-		SyncedAt:        now,
-	}
-
-	// Обновляем timestamp синхронизации
-	if err := s.syncStateRepo.UpdateSASyncAt(ctx, now); err != nil {
-		s.logger.Warn("Ошибка обновления sync state", slog.String("error", err.Error()))
-	}
-
-	s.logger.Info("Синхронизация SA завершена (заглушка Phase 4)",
+	s.logger.Info("Принудительная синхронизация SA завершена",
 		slog.Int("total_local", result.TotalLocal),
 		slog.Int("total_keycloak", result.TotalKeycloak),
+		slog.Int("created_local", result.CreatedLocal),
+		slog.Int("created_keycloak", result.CreatedKeycloak),
+		slog.Int("updated", result.Updated),
 	)
 
 	return result, nil

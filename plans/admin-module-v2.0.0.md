@@ -21,10 +21,10 @@ Admin Module — управляющий модуль системы Artsore, о�
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 4 ✅
+- **Активная фаза**: Phase 5 ✅
 - **Активный подпункт**: —
 - **Последнее обновление**: 2026-02-22
-- **Примечание**: Phase 4 завершена (сервисный слой + handlers + full assembly)
+- **Примечание**: Phase 5 завершена (storage sync, SA sync, topologymetrics)
 
 ---
 
@@ -34,7 +34,7 @@ Admin Module — управляющий модуль системы Artsore, о�
 - [x] [Phase 2: База данных, доменные модели и RBAC](#phase-2-база-данных-доменные-модели-и-rbac)
 - [x] [Phase 3: Внешние клиенты и JWT middleware](#phase-3-внешние-клиенты-и-jwt-middleware)
 - [x] [Phase 4: API handlers (29 endpoints)](#phase-4-api-handlers)
-- [ ] [Phase 5: Фоновые задачи (sync SE, sync SA, topologymetrics)](#phase-5-фоновые-задачи)
+- [x] [Phase 5: Фоновые задачи (sync SE, sync SA, topologymetrics)](#phase-5-фоновые-задачи)
 - [ ] [Phase 6: Helm chart, интеграционное тестирование и деплой](#phase-6-helm-chart-интеграционное-тестирование-и-деплой)
 
 ---
@@ -397,7 +397,7 @@ HTTP-клиенты для Keycloak Admin API и Storage Elements, JWT middlewar
 ## Phase 5: Фоновые задачи
 
 **Dependencies**: Phase 4
-**Status**: Pending
+**Status**: Done ✅
 
 ### Описание
 
@@ -405,7 +405,7 @@ HTTP-клиенты для Keycloak Admin API и Storage Elements, JWT middlewar
 
 ### Подпункты
 
-- [ ] **5.1 Синхронизация файлового реестра с SE**
+- [x] **5.1 Синхронизация файлового реестра с SE**
   - **Dependencies**: None
   - **Description**: `internal/service/storage_sync.go`. StorageSyncService: Start(ctx) — горутина с ticker (AM_SYNC_INTERVAL, default 1h), Stop(). SyncAll(ctx) — получить SE со статусом online, для каждого параллельно (errgroup) SyncOne. SyncOne(ctx, seID) — (1) seclient.Info → обновить mode/status/capacity в БД, (2) постраничный seclient.ListFiles (AM_SYNC_PAGE_SIZE, default 1000) → batch upsert в file_registry (INSERT ON CONFLICT UPDATE), (3) пометить отсутствующие как deleted (MarkDeletedExcept), (4) обновить last_sync_at, last_file_sync_at, (5) вернуть SyncResult. Prometheus: admin_module_sync_duration_seconds, admin_module_sync_files_processed. Подключение SyncOne к handler POST /storage-elements/{id}/sync. Подключение SyncOne к handler POST /storage-elements (full sync при создании). Unit-тесты.
   - **Creates**:
@@ -415,7 +415,7 @@ HTTP-клиенты для Keycloak Admin API и Storage Elements, JWT middlewar
   - **Links**:
     - `docs/briefs/admin-module.md` (раздел 6. Фоновые задачи, раздел 9. Синхронизация)
 
-- [ ] **5.2 Синхронизация SA с Keycloak**
+- [x] **5.2 Синхронизация SA с Keycloak**
   - **Dependencies**: None (параллельно с 5.1)
   - **Description**: `internal/service/sa_sync.go`. SASyncService: Start(ctx) — горутина с ticker (AM_SA_SYNC_INTERVAL, default 15m), Stop(). SyncNow(ctx) — (1) ListClients из Keycloak с prefix sa_*, (2) List SA из БД, (3) reconciliation: в KC не локально → создать (source=keycloak), локально не в KC → создать в KC (source=local), в обоих → сравнить scopes, обновить по updated_at (last write wins), (4) обновить sync_state.last_sa_sync_at, (5) вернуть SASyncResult. Подключение к handler POST /idp/sync-sa. Prometheus: admin_module_sa_sync_duration_seconds. Unit-тесты.
   - **Creates**:
@@ -425,9 +425,9 @@ HTTP-клиенты для Keycloak Admin API и Storage Elements, JWT middlewar
   - **Links**:
     - `docs/briefs/admin-module.md` (раздел 6. Фоновые задачи — SA sync)
 
-- [ ] **5.3 topologymetrics — мониторинг зависимостей**
+- [x] **5.3 topologymetrics — мониторинг зависимостей**
   - **Dependencies**: None (параллельно с 5.1, 5.2)
-  - **Description**: `internal/service/dephealth.go`. Интеграция с `github.com/BigKAA/topologymetrics/sdk-go/dephealth`. Две зависимости: (1) PostgreSQL — `sqldb.FromDB("postgresql", db, ...)`, critical; (2) Keycloak — `dephealth.NewHTTPCheck("keycloak", jwksURL, ...)`, critical. Метрики на /metrics: app_dependency_health, app_dependency_latency_seconds, app_dependency_status, app_dependency_status_detail. Обновление main.go. Паттерн: `src/storage-element/internal/service/dephealth.go`.
+  - **Description**: `internal/service/dephealth.go`. Интеграция с `github.com/BigKAA/topologymetrics/sdk-go/dephealth`. Две зависимости: (1) PostgreSQL — `sqldb.FromDB("postgresql", db, ...)`, critical, использовать интеграцию с db connection pool; (2) Keycloak — `dephealth.NewHTTPCheck("keycloak", jwksURL, ...)`, critical. Метрики на /metrics: app_dependency_health, app_dependency_latency_seconds, app_dependency_status, app_dependency_status_detail. Обновление main.go. Паттерн: `src/storage-element/internal/service/dephealth.go`.
   - **Creates**:
     - `src/admin-module/internal/service/dephealth.go`
     - Обновление: `main.go`
@@ -437,12 +437,12 @@ HTTP-клиенты для Keycloak Admin API и Storage Elements, JWT middlewar
 
 ### Критерии завершения Phase 5
 
-- [ ] Storage sync: периодический + ручной (POST /storage-elements/{id}/sync)
-- [ ] Storage sync: full sync при регистрации SE (POST /storage-elements)
-- [ ] Storage sync: batch upsert файлов, пометка отсутствующих как deleted
-- [ ] SA sync: периодический + ручной (POST /idp/sync-sa)
-- [ ] SA sync: reconciliation в обе стороны (local ↔ Keycloak)
-- [ ] topologymetrics: PostgreSQL + Keycloak на /metrics
+- [x] Storage sync: периодический + ручной (POST /storage-elements/{id}/sync)
+- [x] Storage sync: full sync при регистрации SE (POST /storage-elements)
+- [x] Storage sync: batch upsert файлов, пометка отсутствующих как deleted
+- [x] SA sync: периодический + ручной (POST /idp/sync-sa)
+- [x] SA sync: reconciliation в обе стороны (local ↔ Keycloak)
+- [x] topologymetrics: PostgreSQL + Keycloak на /metrics
 - [ ] `go test -race ./...` — все тесты проходят
 - [ ] Docker compose: полный цикл (регистрация SE → sync → проверка файлового реестра)
 
