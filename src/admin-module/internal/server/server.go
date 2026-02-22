@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -27,18 +28,22 @@ type Server struct {
 }
 
 // New создаёт новый HTTP-сервер с настроенными routes и middleware.
-// handler — реализация generated.ServerInterface (StubHandler на Phase 1,
-// с HealthLive/HealthReady/GetMetrics переопределёнными через HealthHandler).
-func New(cfg *config.Config, logger *slog.Logger, handler generated.ServerInterface) *Server {
+// handler — реализация generated.ServerInterface (APIHandler на Phase 4).
+// jwtAuth — JWT middleware (может быть nil для тестирования без auth).
+func New(cfg *config.Config, logger *slog.Logger, handler generated.ServerInterface, jwtAuth *middleware.JWTAuth) *Server {
 	router := chi.NewRouter()
 
-	// Глобальные middleware
+	// Глобальные middleware (применяются ко ВСЕМ маршрутам)
 	router.Use(middleware.MetricsMiddleware())
 	router.Use(middleware.RequestLogger(logger))
 
-	// Все маршруты через HandlerFromMux (без JWT на Phase 1).
-	// Health/metrics обрабатываются через переопределённые методы в StubHandler.
-	// JWT middleware будет добавлен в Phase 3.
+	// JWT middleware с исключениями для публичных endpoints.
+	// Health и metrics проверяются Kubernetes напрямую, без API Gateway.
+	if jwtAuth != nil {
+		router.Use(jwtAuthWithExclusions(jwtAuth, "/health/", "/metrics"))
+	}
+
+	// Все маршруты через HandlerFromMux (oapi-codegen chi-server).
 	generated.HandlerFromMux(handler, router)
 
 	srv := &http.Server{
@@ -53,6 +58,27 @@ func New(cfg *config.Config, logger *slog.Logger, handler generated.ServerInterf
 		httpServer: srv,
 		logger:     logger,
 		cfg:        cfg,
+	}
+}
+
+// jwtAuthWithExclusions оборачивает JWTAuth.Middleware(), пропуская указанные пути.
+// Запросы к путям, начинающимся с любого из excludePrefixes, проходят без JWT.
+func jwtAuthWithExclusions(jwtAuth *middleware.JWTAuth, excludePrefixes ...string) func(http.Handler) http.Handler {
+	jwtMiddleware := jwtAuth.Middleware()
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Проверяем, начинается ли путь с исключённого префикса
+			for _, prefix := range excludePrefixes {
+				if strings.HasPrefix(r.URL.Path, prefix) {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+
+			// Применяем JWT middleware
+			jwtMiddleware(next).ServeHTTP(w, r)
+		})
 	}
 }
 
