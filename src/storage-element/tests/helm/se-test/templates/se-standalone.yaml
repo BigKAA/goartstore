@@ -14,7 +14,7 @@ metadata:
     {{- include "se-test.se.selectorLabels" (dict "name" $instance.name "Release" $.Release) | nindent 4 }}
 spec:
   accessModes:
-    - ReadWriteOnce
+    - {{ $instance.dataAccessMode | default "ReadWriteOnce" }}
   storageClassName: {{ $.Values.storageClass }}
   resources:
     requests:

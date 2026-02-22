@@ -109,12 +109,15 @@ standaloneInstances:
     dataSize: 200Mi
     walSize: 200Mi
 
-  # Стартует как rw, init job переведёт rw -> ro -> ar
+  # Стартует как rw, init job переведёт rw -> ro -> ar.
+  # dataAccessMode: ReadWriteMany — для доступа из init job (очистка data файлов,
+  # в ar остаются только *.attr.json).
   - name: se-ar
     storageId: se-ar
     mode: rw
     dataSize: 200Mi
     walSize: 200Mi
+    dataAccessMode: ReadWriteMany
 
 # -----------------------------------------------------------------------------
 # Init Job (Helm post-install hook)
