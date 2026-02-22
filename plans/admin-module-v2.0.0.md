@@ -21,17 +21,17 @@ Admin Module — управляющий модуль системы Artsore, о�
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 1 ✅
+- **Активная фаза**: Phase 2 ✅
 - **Активный подпункт**: —
 - **Последнее обновление**: 2026-02-22
-- **Примечание**: Phase 1 завершена
+- **Примечание**: Phase 2 завершена
 
 ---
 
 ## Оглавление
 
 - [x] [Phase 1: Инфраструктура проекта и скелет сервера](#phase-1-инфраструктура-проекта-и-скелет-сервера)
-- [ ] [Phase 2: База данных, доменные модели и RBAC](#phase-2-база-данных-доменные-модели-и-rbac)
+- [x] [Phase 2: База данных, доменные модели и RBAC](#phase-2-база-данных-доменные-модели-и-rbac)
 - [ ] [Phase 3: Внешние клиенты и JWT middleware](#phase-3-внешние-клиенты-и-jwt-middleware)
 - [ ] [Phase 4: API handlers (29 endpoints)](#phase-4-api-handlers)
 - [ ] [Phase 5: Фоновые задачи (sync SE, sync SA, topologymetrics)](#phase-5-фоновые-задачи)
@@ -205,7 +205,7 @@ Commits: `feat(admin-module): <subject>`. Теги образов: `v2.0.0-N`.
 ## Phase 2: База данных, доменные модели и RBAC
 
 **Dependencies**: Phase 1
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -213,7 +213,7 @@ PostgreSQL подключение (pgxpool), миграции (golang-migrate), 
 
 ### Подпункты
 
-- [ ] **2.1 PostgreSQL подключение и миграции**
+- [x] **2.1 PostgreSQL подключение и миграции**
   - **Dependencies**: None
   - **Description**: Пакет `internal/database/`: инициализация pgxpool (connection string из config), ping check, Close. Миграция `001_initial_schema.up.sql` и `.down.sql`: 5 таблиц (storage_elements, file_registry, service_accounts, role_overrides, sync_state), индексы, триггеры updated_at, начальная запись sync_state. golang-migrate embedded migrations. Функция `database.Connect(cfg) (*pgxpool.Pool, error)` и `database.Migrate(pool) error`. Unit-тесты с testcontainers-go (PostgreSQL).
   - **Creates**:
@@ -226,7 +226,7 @@ PostgreSQL подключение (pgxpool), миграции (golang-migrate), 
     - [pgx](https://github.com/jackc/pgx)
     - [golang-migrate](https://github.com/golang-migrate/migrate)
 
-- [ ] **2.2 Доменные модели и RBAC**
+- [x] **2.2 Доменные модели и RBAC**
   - **Dependencies**: None (параллельно с 2.1)
   - **Description**: Пакет `internal/domain/model/`: структуры AdminUser, RoleOverride, ServiceAccount, StorageElement, FileRecord, SyncState, SyncResult. Пакет `internal/domain/rbac/`: EffectiveRole(idpRoles, roleOverride) → string, maxRole(a, b), highestRole(roles), MapGroupsToRole(groups, adminGroups, readonlyGroups) → string. Правила: итоговая роль = max(IdP, local override), только повышение. Unit-тесты RBAC: все комбинации ролей (admin+readonly, override up, override ignored).
   - **Creates**:
@@ -241,7 +241,7 @@ PostgreSQL подключение (pgxpool), миграции (golang-migrate), 
     - `docs/briefs/admin-module.md` (раздел 4. Аутентификация и авторизация)
     - `docs/design/admin-module-design.md` (раздел 5.3. Определение эффективной роли)
 
-- [ ] **2.3 Слой репозиториев (PostgreSQL CRUD)**
+- [x] **2.3 Слой репозиториев (PostgreSQL CRUD)**
   - **Dependencies**: 2.1, 2.2
   - **Description**: Пакет `internal/repository/`: интерфейсы и реализации для каждой таблицы. `repository.go` — общий интерфейс `TxRunner` для транзакций. `storage_element.go` — Create, GetByID, List(mode, status, limit, offset), Update, Delete, Count. `file_registry.go` — Register, GetByID, List(filters, limit, offset), Update, Delete(soft), BatchUpsert(files) для sync, MarkDeletedExcept(seID, existingIDs). `service_account.go` — Create, GetByID, GetByClientID, List(status, limit, offset), Update, Delete. `role_override.go` — Upsert, GetByKeycloakUserID, Delete, List. `sync_state.go` — Get, UpdateSASyncAt, UpdateFileSyncAt. Все запросы — чистый SQL с pgx. Unit-тесты с testcontainers-go.
   - **Creates**:
@@ -257,13 +257,13 @@ PostgreSQL подключение (pgxpool), миграции (golang-migrate), 
 
 ### Критерии завершения Phase 2
 
-- [ ] PostgreSQL подключение через pgxpool работает
-- [ ] Миграции применяются и откатываются корректно
-- [ ] Все 5 таблиц созданы с индексами и триггерами
-- [ ] RBAC: EffectiveRole корректно вычисляет итоговую роль
-- [ ] Репозитории: CRUD для всех таблиц, batch upsert для file_registry
-- [ ] `go test -race ./...` — все тесты проходят
-- [ ] Health /ready проверяет подключение к PostgreSQL (ping)
+- [x] PostgreSQL подключение через pgxpool работает
+- [x] Миграции применяются и откатываются корректно
+- [x] Все 5 таблиц созданы с индексами и триггерами
+- [x] RBAC: EffectiveRole корректно вычисляет итоговую роль
+- [x] Репозитории: CRUD для всех таблиц, batch upsert для file_registry
+- [x] `go test -race ./...` — все тесты проходят
+- [x] Health /ready проверяет подключение к PostgreSQL (ping)
 
 ---
 
