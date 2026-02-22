@@ -22,10 +22,10 @@ Storage Element (SE) — первый модуль системы Artsore для
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 5
-- **Активный подпункт**: 5.3 (интеграционное тестирование replicated mode)
+- **Активная фаза**: Phase 6
+- **Активный подпункт**: 6.2 (Helm chart для тестовой среды)
 - **Последнее обновление**: 2026-02-22
-- **Примечание**: Phase 5 (5.1-5.2) завершена — Leader election, proxy middleware, follower refresh, mode.json. 107+ тестов (96 Phase 4 + 11 Phase 5), race detector clean. Phase 5.3 переработана: интеграционное тестирование в K8s (вместо Docker). Phase 6 расширена: JWKS Mock, тестовая среда (6 SE), 30 тестов, production Helm chart.
+- **Примечание**: Phase 5 (5.1-5.2) завершена. Phase 6.1 (JWKS Mock Server) завершена — Go-сервис с GET /jwks (RFC 7517) и POST /token (JWT RS256), Dockerfile, проверено локально. 107+ unit-тестов SE, race detector clean.
 
 ---
 
@@ -443,7 +443,7 @@ Leader/Follower для HA. Leader обрабатывает запись, Followe
 ## Phase 6: Helm charts, интеграционное тестирование и деплой в Kubernetes
 
 **Dependencies**: Phase 5
-**Status**: Pending
+**Status**: In Progress
 
 ### Описание
 
@@ -451,7 +451,7 @@ Leader/Follower для HA. Leader обрабатывает запись, Followe
 
 ### Подпункты
 
-- [ ] **6.1 JWKS Mock Server (Go-сервис + Dockerfile)**
+- [x] **6.1 JWKS Mock Server (Go-сервис + Dockerfile)**
   - **Dependencies**: None
   - **Description**: Минималистичный Go-сервис (~200 строк), имитирующий JWKS endpoint Admin Module для тестовой среды. При старте генерирует RSA-2048 ключевую пару. Два endpoint-а: `GET /jwks` — возвращает JWKS (RFC 7517) с единственным ключом (kty=RSA, use=sig, alg=RS256, kid=test-key-1); `POST /token` — принимает JSON `{sub, scopes, ttl_seconds}`, генерирует подписанный JWT (RS256) с claims `{sub, scopes, exp, iss="jwks-mock"}`, возвращает `{token: "..."}`. TLS: сервис принимает MOCK_TLS_CERT и MOCK_TLS_KEY через env-переменные (сертификат от cert-manager). Порт: 8080. Зависимости: только `golang-jwt/jwt/v5`. Docker-образ: `harbor.kryukov.lan/library/jwks-mock:v1.0.0-1`. Go module отдельный: `github.com/arturkryukov/artsore/jwks-mock`.
 
@@ -797,7 +797,7 @@ Leader/Follower для HA. Leader обрабатывает запись, Followe
 
 ### Критерии завершения Phase 6
 
-- [ ] JWKS Mock Server: /jwks возвращает валидный JWKS, /token выдаёт подписанный JWT
+- [x] JWKS Mock Server: /jwks возвращает валидный JWKS, /token выдаёт подписанный JWT
 - [ ] Docker-образы собраны и pushed в Harbor (storage-element, jwks-mock)
 - [ ] Тестовая среда (6 SE + JWKS Mock) разворачивается через `make test-env-up`
 - [ ] Init job: se-ro в режиме ro с 3-4 файлами, se-ar в режиме ar с 200 файлами
