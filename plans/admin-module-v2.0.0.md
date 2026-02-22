@@ -21,10 +21,10 @@ Admin Module — управляющий модуль системы Artsore, о�
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 3 ✅
+- **Активная фаза**: Phase 4 ✅
 - **Активный подпункт**: —
 - **Последнее обновление**: 2026-02-22
-- **Примечание**: Phase 3 завершена
+- **Примечание**: Phase 4 завершена (сервисный слой + handlers + full assembly)
 
 ---
 
@@ -33,7 +33,7 @@ Admin Module — управляющий модуль системы Artsore, о�
 - [x] [Phase 1: Инфраструктура проекта и скелет сервера](#phase-1-инфраструктура-проекта-и-скелет-сервера)
 - [x] [Phase 2: База данных, доменные модели и RBAC](#phase-2-база-данных-доменные-модели-и-rbac)
 - [x] [Phase 3: Внешние клиенты и JWT middleware](#phase-3-внешние-клиенты-и-jwt-middleware)
-- [ ] [Phase 4: API handlers (29 endpoints)](#phase-4-api-handlers)
+- [x] [Phase 4: API handlers (29 endpoints)](#phase-4-api-handlers)
 - [ ] [Phase 5: Фоновые задачи (sync SE, sync SA, topologymetrics)](#phase-5-фоновые-задачи)
 - [ ] [Phase 6: Helm chart, интеграционное тестирование и деплой](#phase-6-helm-chart-интеграционное-тестирование-и-деплой)
 
@@ -324,7 +324,7 @@ HTTP-клиенты для Keycloak Admin API и Storage Elements, JWT middlewar
 ## Phase 4: API handlers
 
 **Dependencies**: Phase 3
-**Status**: Pending
+**Status**: Done ✅
 
 ### Описание
 
@@ -332,7 +332,7 @@ HTTP-клиенты для Keycloak Admin API и Storage Elements, JWT middlewar
 
 ### Подпункты
 
-- [ ] **4.1 Admin auth + Admin users (6 endpoints)**
+- [x] **4.1 Admin auth + Admin users (6 endpoints)**
   - **Dependencies**: None
   - **Description**: Сервис `internal/service/admin_users.go`: GetCurrentUser(claims) — данные из JWT + role override из БД. ListUsers(limit, offset) — пользователи из Keycloak + role overrides. GetUser(id) — из Keycloak + override. UpdateUser(id, update) — обновить override. DeleteUser(id) — удалить override. SetRoleOverride(id, role, createdBy) — создать/обновить override в БД, проверить существование в Keycloak. Handlers `internal/api/handlers/admin_auth.go` и `admin_users.go`: маппинг HTTP ↔ service, RBAC декораторы. 6 endpoints: GET /admin-auth/me, GET /admin-users, GET /admin-users/{id}, PUT /admin-users/{id}, DELETE /admin-users/{id}, POST /admin-users/{id}/role-override.
   - **Creates**:
@@ -342,7 +342,7 @@ HTTP-клиенты для Keycloak Admin API и Storage Elements, JWT middlewar
   - **Links**:
     - `docs/api-contracts/admin-module-openapi.yaml` (admin-auth, admin-users)
 
-- [ ] **4.2 Service accounts (6 endpoints)**
+- [x] **4.2 Service accounts (6 endpoints)**
   - **Dependencies**: None (параллельно с 4.1)
   - **Description**: Сервис `internal/service/service_accounts.go`: Create(name, description, scopes) — создать в Keycloak (Client Credentials grant) + сохранить в БД, вернуть client_secret. List, Get, Update (+ sync в Keycloak), Delete (+ удалить в Keycloak), RotateSecret (regenerate в Keycloak). Handler `internal/api/handlers/service_accounts.go`. 6 endpoints: POST /service-accounts, GET /service-accounts, GET /service-accounts/{id}, PUT /service-accounts/{id}, DELETE /service-accounts/{id}, POST /service-accounts/{id}/rotate-secret.
   - **Creates**:
@@ -351,7 +351,7 @@ HTTP-клиенты для Keycloak Admin API и Storage Elements, JWT middlewar
   - **Links**:
     - `docs/api-contracts/admin-module-openapi.yaml` (service-accounts)
 
-- [ ] **4.3 Storage elements (7 endpoints)**
+- [x] **4.3 Storage elements (7 endpoints)**
   - **Dependencies**: None (параллельно с 4.1, 4.2)
   - **Description**: Сервис `internal/service/storage_elements.go`: Discover(url) — вызов seclient.Info, вернуть DiscoverResponse. Create(name, url) — discover + сохранить в БД + запустить full sync (файловый реестр). List(mode, status, limit, offset). Get, Update, Delete. Sync(id) — делегирует storage_sync.SyncOne (Phase 5, заглушка на этом этапе). Handler `internal/api/handlers/storage_elements.go`. 7 endpoints: POST /storage-elements/discover, POST /storage-elements, GET /storage-elements, GET /storage-elements/{id}, PUT /storage-elements/{id}, DELETE /storage-elements/{id}, POST /storage-elements/{id}/sync.
   - **Creates**:
@@ -360,7 +360,7 @@ HTTP-клиенты для Keycloak Admin API и Storage Elements, JWT middlewar
   - **Links**:
     - `docs/api-contracts/admin-module-openapi.yaml` (storage-elements)
 
-- [ ] **4.4 Files registry (5 endpoints)**
+- [x] **4.4 Files registry (5 endpoints)**
   - **Dependencies**: None (параллельно с 4.1-4.3)
   - **Description**: Сервис `internal/service/file_registry.go`: Register(req) — валидация, проверка SE exists, INSERT в file_registry. List(filters, limit, offset). Get(fileID). Update(fileID, update). Delete(fileID) — soft delete (status → deleted). Handler `internal/api/handlers/files.go`. 5 endpoints: POST /files, GET /files, GET /files/{file_id}, PUT /files/{file_id}, DELETE /files/{file_id}.
   - **Creates**:
@@ -369,7 +369,7 @@ HTTP-клиенты для Keycloak Admin API и Storage Elements, JWT middlewar
   - **Links**:
     - `docs/api-contracts/admin-module-openapi.yaml` (files)
 
-- [ ] **4.5 IdP endpoints + полная сборка**
+- [x] **4.5 IdP endpoints + полная сборка**
   - **Dependencies**: 4.1, 4.2, 4.3, 4.4
   - **Description**: (a) Сервис для IdP: GetStatus — проверить доступность Keycloak, вернуть realm info, users_count, clients_count, last_sa_sync_at. SyncSA — делегирует sa_sync.SyncNow (Phase 5, заглушка). (b) Handler `internal/api/handlers/idp.go`. 2 endpoints: GET /idp/status, POST /idp/sync-sa. (c) Обновление health.go: readiness проверяет PostgreSQL (ping) + Keycloak (realm info). (d) Обновление server.go: все handlers вместо stub, middleware chain (logging → metrics → auth → handler). (e) Обновление main.go: инициализация всех компонентов (DB → Keycloak → SE client → repos → services → handlers → server), graceful shutdown. (f) Тестирование в Docker: docker compose up → curl все 29 endpoints.
   - **Creates**:
@@ -381,14 +381,14 @@ HTTP-клиенты для Keycloak Admin API и Storage Elements, JWT middlewar
 
 ### Критерии завершения Phase 4
 
-- [ ] Все 29 endpoints реализованы и соответствуют OpenAPI v2.0.0
-- [ ] JWT claims-based авторизация работает (роли + scopes)
-- [ ] Role overrides применяются корректно (повышение, не понижение)
-- [ ] SA CRUD синхронизируется с Keycloak
-- [ ] SE discover вызывает GET /api/v1/info на SE
-- [ ] Files CRUD работает с PostgreSQL
-- [ ] Ошибки в формате `{"error": {"code": "...", "message": "..."}}`
-- [ ] Health /ready проверяет PostgreSQL + Keycloak
+- [x] Все 29 endpoints реализованы и соответствуют OpenAPI v2.0.0
+- [x] JWT claims-based авторизация работает (роли + scopes)
+- [x] Role overrides применяются корректно (повышение, не понижение)
+- [x] SA CRUD синхронизируется с Keycloak
+- [x] SE discover вызывает GET /api/v1/info на SE
+- [x] Files CRUD работает с PostgreSQL
+- [x] Ошибки в формате `{"error": {"code": "...", "message": "..."}}`
+- [x] Health /ready проверяет PostgreSQL + Keycloak
 - [ ] `go test -race ./...` — все тесты проходят
 - [ ] Ручное тестирование через curl в Docker (docker compose)
 
