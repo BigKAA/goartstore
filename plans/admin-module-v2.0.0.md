@@ -21,10 +21,10 @@ Admin Module — управляющий модуль системы Artsore, о�
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 2 ✅
+- **Активная фаза**: Phase 3 ✅
 - **Активный подпункт**: —
 - **Последнее обновление**: 2026-02-22
-- **Примечание**: Phase 2 завершена
+- **Примечание**: Phase 3 завершена
 
 ---
 
@@ -32,7 +32,7 @@ Admin Module — управляющий модуль системы Artsore, о�
 
 - [x] [Phase 1: Инфраструктура проекта и скелет сервера](#phase-1-инфраструктура-проекта-и-скелет-сервера)
 - [x] [Phase 2: База данных, доменные модели и RBAC](#phase-2-база-данных-доменные-модели-и-rbac)
-- [ ] [Phase 3: Внешние клиенты и JWT middleware](#phase-3-внешние-клиенты-и-jwt-middleware)
+- [x] [Phase 3: Внешние клиенты и JWT middleware](#phase-3-внешние-клиенты-и-jwt-middleware)
 - [ ] [Phase 4: API handlers (29 endpoints)](#phase-4-api-handlers)
 - [ ] [Phase 5: Фоновые задачи (sync SE, sync SA, topologymetrics)](#phase-5-фоновые-задачи)
 - [ ] [Phase 6: Helm chart, интеграционное тестирование и деплой](#phase-6-helm-chart-интеграционное-тестирование-и-деплой)
@@ -270,7 +270,7 @@ PostgreSQL подключение (pgxpool), миграции (golang-migrate), 
 ## Phase 3: Внешние клиенты и JWT middleware
 
 **Dependencies**: Phase 2
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -278,7 +278,7 @@ HTTP-клиенты для Keycloak Admin API и Storage Elements, JWT middlewar
 
 ### Подпункты
 
-- [ ] **3.1 JWT middleware (claims extraction + RBAC)**
+- [x] **3.1 JWT middleware (claims extraction + RBAC)**
   - **Dependencies**: None
   - **Description**: `internal/api/middleware/auth.go`. Два слоя: (1) JWTAuth middleware — извлекает `Authorization: Bearer <token>`, валидирует подпись через JWKS (fallback, основная на gateway), извлекает claims (sub, preferred_username, email, realm_access.roles, groups, scope, client_id), помещает в context. Поддержка обоих типов субъектов: Admin User (roles/groups) и Service Account (scope/client_id). (2) RBAC helpers — `RequireRole(roles ...string)` middleware, `RequireScope(scopes ...string)` middleware, `RequireRoleOrScope(roles, scopes)`. Интеграция с role_overrides через repository. Публичные endpoints (/health/*, /metrics) без auth. Паттерн: `src/storage-element/internal/api/middleware/auth.go` (расширенный для claims-based RBAC). Unit-тесты с httptest.
   - **Creates**:
@@ -289,7 +289,7 @@ HTTP-клиенты для Keycloak Admin API и Storage Elements, JWT middlewar
     - `docs/briefs/admin-module.md` (раздел 4. RBAC)
     - [keyfunc JWKS](https://github.com/MicahParks/keyfunc)
 
-- [ ] **3.2 Keycloak Admin API клиент**
+- [x] **3.2 Keycloak Admin API клиент**
   - **Dependencies**: None (параллельно с 3.1)
   - **Description**: Пакет `internal/keycloak/`: HTTP-клиент к Keycloak Admin REST API. `client.go` — New(url, realm, clientID, clientSecret, httpClient), автоматическое получение service account token через Client Credentials flow, кэширование токена (обновление за 30s до expiration). Модели (`models.go`): KeycloakUser, KeycloakClient, KeycloakGroup, TokenResponse. Операции: ListUsers(query), GetUser(id), GetUserGroups(id), ListClients(prefix), CreateClient, UpdateClient, DeleteClient, GetClientSecret, RegenerateClientSecret, RealmInfo. Unit-тесты с httptest mock server.
   - **Creates**:
@@ -300,7 +300,7 @@ HTTP-клиенты для Keycloak Admin API и Storage Elements, JWT middlewar
     - [Keycloak Admin REST API](https://www.keycloak.org/docs-api/latest/rest-api/index.html)
     - `docs/briefs/admin-module.md` (раздел 4. Keycloak)
 
-- [ ] **3.3 SE HTTP-клиент**
+- [x] **3.3 SE HTTP-клиент**
   - **Dependencies**: None (параллельно с 3.1, 3.2)
   - **Description**: Пакет `internal/seclient/`: HTTP-клиент для взаимодействия с Storage Elements. `client.go` — New(caCertPath, tokenProvider), TLS с кастомным CA (AM_SE_CA_CERT_PATH). Info(ctx, seURL) — GET /api/v1/info, возвращает SEInfo (storage_id, mode, status, capacity). ListFiles(ctx, seURL, limit, offset) — GET /api/v1/files с пагинацией, возвращает FileListResponse. tokenProvider — функция, возвращающая JWT для авторизации на SE (от Keycloak). Unit-тесты с httptest.
   - **Creates**:
@@ -311,13 +311,13 @@ HTTP-клиенты для Keycloak Admin API и Storage Elements, JWT middlewar
 
 ### Критерии завершения Phase 3
 
-- [ ] JWT middleware: извлекает claims, определяет тип субъекта (User/SA)
-- [ ] RBAC: RequireRole, RequireScope, RequireRoleOrScope middleware
-- [ ] Role overrides применяются при определении effective role
-- [ ] Keycloak клиент: аутентификация Client Credentials, кэширование токена
-- [ ] Keycloak клиент: CRUD users (read), CRUD clients (SA)
-- [ ] SE клиент: Info + ListFiles с TLS
-- [ ] `go test -race ./...` — все тесты проходят
+- [x] JWT middleware: извлекает claims, определяет тип субъекта (User/SA)
+- [x] RBAC: RequireRole, RequireScope, RequireRoleOrScope middleware
+- [x] Role overrides применяются при определении effective role
+- [x] Keycloak клиент: аутентификация Client Credentials, кэширование токена
+- [x] Keycloak клиент: CRUD users (read), CRUD clients (SA)
+- [x] SE клиент: Info + ListFiles с TLS
+- [x] `go test -race ./...` — все тесты проходят
 
 ---
 
