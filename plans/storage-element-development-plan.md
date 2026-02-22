@@ -21,10 +21,10 @@ Storage Element (SE) — первый модуль системы Artsore для
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 4
-- **Активный подпункт**: 4.4 (интеграционное тестирование)
+- **Активная фаза**: Phase 5
+- **Активный подпункт**: 5.3 (интеграционное тестирование replicated mode)
 - **Последнее обновление**: 2026-02-21
-- **Примечание**: Phase 4 (4.1-4.3) завершена — GC, Reconciliation, topologymetrics. 96 unit-тестов (77 Phase 3 + 19 Phase 4), race detector clean.
+- **Примечание**: Phase 5 (5.1-5.2) завершена — Leader election, proxy middleware, follower refresh, mode.json. 107+ тестов (96 Phase 4 + 11 Phase 5), race detector clean.
 
 ---
 
@@ -33,8 +33,8 @@ Storage Element (SE) — первый модуль системы Artsore для
 - [x] [Phase 1: Инфраструктура проекта и скелет сервера](#phase-1-инфраструктура-проекта-и-скелет-сервера)
 - [x] [Phase 2: Ядро хранилища (WAL, attr.json, файловое хранилище, индекс, режимы)](#phase-2-ядро-хранилища)
 - [x] [Phase 3: API handlers, JWT middleware, Prometheus метрики](#phase-3-api-handlers-jwt-middleware-prometheus-метрики)
-- [ ] [Phase 4: Фоновые процессы (GC, Reconciliation, topologymetrics)](#phase-4-фоновые-процессы)
-- [ ] [Phase 5: Replicated mode (Leader/Follower)](#phase-5-replicated-mode)
+- [x] [Phase 4: Фоновые процессы (GC, Reconciliation, topologymetrics)](#phase-4-фоновые-процессы)
+- [ ] [Phase 5: Replicated mode (Leader/Follower)](#phase-5-replicated-mode) *(5.1-5.2 завершены)*
 - [ ] [Phase 6: Helm chart и деплой в Kubernetes](#phase-6-helm-chart-и-деплой-в-kubernetes)
 
 ---
@@ -370,7 +370,7 @@ GC (очистка expired/deleted файлов), Reconciliation (сверка a
 ## Phase 5: Replicated mode
 
 **Dependencies**: Phase 4
-**Status**: Pending
+**Status**: In Progress (5.1-5.2 завершены)
 
 ### Описание
 
@@ -378,26 +378,24 @@ Leader/Follower для HA. Leader обрабатывает запись, Followe
 
 ### Подпункты
 
-- [ ] **5.1 Leader election и управление ролями**
+- [x] **5.1 Leader election и управление ролями** *(commit 42944c2)*
   - **Dependencies**: None
-  - **Description**: `internal/replica/`. RoleManager (standalone/leader/follower). LeaderElection: flock() на `{SE_DATA_DIR}/.leader.lock`, запись `.leader.info` (host, port). mode.json на NFS для режима. При standalone — leader election не запускается. GC/reconciliation только на leader. Unit-тесты.
+  - **Description**: `internal/replica/`. RoleProvider (standalone/leader/follower). LeaderElection: flock() на `{SE_DATA_DIR}/.leader.lock`, запись `.leader.info` (host, port). mode.json на NFS для режима. При standalone — leader election не запускается. GC/reconciliation только на leader. ForceMode в StateMachine. Unit-тесты (6 тестов).
   - **Creates**:
     - `src/storage-element/internal/replica/role.go`
-    - `src/storage-element/internal/replica/leader.go`
-    - `src/storage-element/internal/replica/leader_test.go`
-    - Обновление: `main.go`
-  - **Links**:
-    - `docs/briefs/storage-element.md` (раздел "Масштабирование")
+    - `src/storage-element/internal/replica/election.go`
+    - `src/storage-element/internal/replica/mode_file.go`
+    - `src/storage-element/internal/replica/election_test.go`
+    - Обновление: `main.go`, `state_machine.go`
 
-- [ ] **5.2 Follower proxy и index refresh**
+- [x] **5.2 Follower proxy и index refresh** *(commit 42944c2)*
   - **Dependencies**: 5.1
-  - **Description**: `internal/replica/follower.go`. Proxy write-запросов к leader через httputil.ReverseProxy (адрес из .leader.info). Index refresh по таймеру (SE_INDEX_REFRESH_INTERVAL). Обновление handlers: проверка роли перед write. /api/v1/info возвращает replica_mode и role. Unit-тесты.
+  - **Description**: `internal/replica/proxy.go`. Chi middleware проксирования write-запросов к leader через httputil.ReverseProxy. FollowerRefreshService: пересборка индекса + sync mode.json. Обновление handlers: dynamic role в /api/v1/info, leader_connection в health, mode.json persist. Unit-тесты (5 тестов).
   - **Creates**:
-    - `src/storage-element/internal/replica/follower.go`
-    - `src/storage-element/internal/replica/follower_test.go`
-    - Обновление: handlers, docker-compose.yaml
-  - **Links**:
-    - `docs/briefs/storage-element.md` (Follower proxy)
+    - `src/storage-element/internal/replica/proxy.go`
+    - `src/storage-element/internal/replica/refresh.go`
+    - `src/storage-element/internal/replica/proxy_test.go`
+    - Обновление: handlers (system, mode, health), server.go, docker-compose.yaml
 
 - [ ] **5.3 Интеграционное тестирование replicated mode**
   - **Dependencies**: 5.2
@@ -409,12 +407,12 @@ Leader/Follower для HA. Leader обрабатывает запись, Followe
 
 ### Критерии завершения Phase 5
 
-- [ ] Leader election через flock() работает
-- [ ] Follower проксирует write-запросы к leader
-- [ ] Follower обновляет индекс по таймеру
-- [ ] Failover: при падении leader follower становится leader
-- [ ] /api/v1/info корректно отображает replica_mode и role
-- [ ] GC/reconciliation только на leader
+- [x] Leader election через flock() работает
+- [x] Follower проксирует write-запросы к leader
+- [x] Follower обновляет индекс по таймеру
+- [x] Failover: при падении leader follower становится leader
+- [x] /api/v1/info корректно отображает replica_mode и role
+- [x] GC/reconciliation только на leader
 - [ ] Интеграционные тесты replicated mode проходят
 
 ---
