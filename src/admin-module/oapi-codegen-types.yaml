@@ -1,0 +1,5 @@
+# Конфигурация oapi-codegen: генерация Go-типов из OpenAPI спецификации
+package: generated
+generate:
+  models: true
+output: internal/api/generated/types.gen.go
