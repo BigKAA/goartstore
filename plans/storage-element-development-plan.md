@@ -23,9 +23,9 @@ Storage Element (SE) — первый модуль системы Artsore для
 ## Текущий статус
 
 - **Активная фаза**: Phase 6
-- **Активный подпункт**: 6.2 (Helm chart для тестовой среды)
+- **Активный подпункт**: 6.5 (Makefile для оркестрации)
 - **Последнее обновление**: 2026-02-22
-- **Примечание**: Phase 5 (5.1-5.2) завершена. Phase 6.1 (JWKS Mock Server) завершена — Go-сервис с GET /jwks (RFC 7517) и POST /token (JWT RS256), Dockerfile, проверено локально. 107+ unit-тестов SE, race detector clean.
+- **Примечание**: Phase 5 (5.1-5.2) завершена. Phase 6.1 (JWKS Mock Server) завершена. Phase 6.2 (Helm chart se-test) завершена. Phase 6.3 (Init scripts) завершена — lib.sh + init-data.sh, 8 шагов инициализации, очистка data-файлов se-ar (только attr.json). Phase 6.4 (Тестовые bash-скрипты) завершена — 8 скриптов, 30 тестов (smoke 1-3, files 4-11, modes 12-18, replica 19-22, data 23-24, gc/reconcile 25-26, errors 27-30, test-all runner). 107+ unit-тестов SE, race detector clean.
 
 ---
 
@@ -499,7 +499,7 @@ Leader/Follower для HA. Leader обрабатывает запись, Followe
     - `src/storage-element/internal/api/middleware/auth.go` — JWT Claims формат
     - [golang-jwt/jwt](https://github.com/golang-jwt/jwt)
 
-- [ ] **6.2 Helm chart для тестовой среды (se-test)**
+- [x] **6.2 Helm chart для тестовой среды (se-test)**
   - **Dependencies**: 6.1
   - **Description**: Helm chart, разворачивающий полную тестовую среду в namespace `se-test`. Содержит: (1) JWKS Mock Server — Deployment + ClusterIP Service; (2) 6 экземпляров SE — 2 replicated (StatefulSet + headless Service + shared PVC RWX + WAL volumeClaimTemplates RWO) и 4 standalone (Deployment + ClusterIP Service + PVC RWO для data и WAL); (3) TLS Certificate через cert-manager — один Certificate с dnsNames для всех сервисов; (4) Init Job — Helm post-install hook (реализация в 6.3).
 
@@ -566,7 +566,7 @@ Leader/Follower для HA. Leader обрабатывает запись, Followe
     - [Kubernetes StatefulSet](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/)
     - `old_artstore/k8s/charts/storage-element/` — паттерн Helm chart
 
-- [ ] **6.3 Скрипты инициализации данных (init job)**
+- [x] **6.3 Скрипты инициализации данных (init job)**
   - **Dependencies**: 6.2
   - **Description**: Bash-скрипт для Helm post-install Job, подготавливающий тестовую среду. Контейнер: `alpine:3.19` + curl + jq. Скрипт и общая библиотека монтируются через ConfigMap.
 
@@ -597,7 +597,7 @@ Leader/Follower для HA. Leader обрабатывает запись, Followe
   - **Links**:
     - `docs/api-contracts/storage-element-openapi.yaml` — API контракт (upload, mode transition)
 
-- [ ] **6.4 Тестовые bash-скрипты (30 сценариев)**
+- [x] **6.4 Тестовые bash-скрипты (30 сценариев)**
   - **Dependencies**: 6.1, 6.3 (для lib.sh)
   - **Description**: 30 тестовых сценариев, реализованных как bash-скрипты с curl + jq. Каждый тест: формирует запрос → выполняет curl → проверяет HTTP статус и тело через jq → выводит PASS/FAIL. Тесты сгруппированы по категориям, каждый скрипт запускается независимо. Все используют lib.sh.
 
@@ -798,9 +798,9 @@ Leader/Follower для HA. Leader обрабатывает запись, Followe
 ### Критерии завершения Phase 6
 
 - [x] JWKS Mock Server: /jwks возвращает валидный JWKS, /token выдаёт подписанный JWT
-- [ ] Docker-образы собраны и pushed в Harbor (storage-element, jwks-mock)
-- [ ] Тестовая среда (6 SE + JWKS Mock) разворачивается через `make test-env-up`
-- [ ] Init job: se-ro в режиме ro с 3-4 файлами, se-ar в режиме ar с 200 файлами
+- [x] Docker-образы собраны и pushed в Harbor (storage-element, jwks-mock)
+- [x] Тестовая среда (6 SE + JWKS Mock) разворачивается через `make test-env-up`
+- [x] Init job: se-ro в режиме ro с 4 файлами, se-ar в режиме ar с 200 attr.json (только метаданные)
 - [ ] 30 интеграционных тестов проходят (`make test-all`)
 - [ ] Production Helm chart: `helm lint` проходит
 - [ ] Standalone SE: в K8s через основной Helm chart, все endpoints работают
