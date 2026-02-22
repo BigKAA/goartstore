@@ -1,0 +1,8 @@
+bin/
+*.md
+.git/
+charts/
+tests/
+docker-compose.yaml
+Makefile
+oapi-codegen-*.yaml
