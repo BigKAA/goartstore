@@ -1,0 +1,108 @@
+# =============================================================================
+# artsore-infra — Helm values для инфраструктурного слоя
+# Компоненты: PostgreSQL + Keycloak
+# =============================================================================
+
+# Namespace для тестовой среды
+namespace: artsore-test
+
+# -----------------------------------------------------------------------------
+# TLS (cert-manager)
+# Один Certificate покрывает ВСЕ сервисы тестовой среды (PG, KC, AM, SE)
+# -----------------------------------------------------------------------------
+tls:
+  clusterIssuer: dev-ca-issuer
+  secretName: artsore-test-tls
+
+# -----------------------------------------------------------------------------
+# PostgreSQL
+# -----------------------------------------------------------------------------
+postgresql:
+  image: postgres:17-alpine
+  port: 5432
+  user: artsore
+  password: artsore-test-password
+  database: artsore
+  dataSize: 1Gi
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+# -----------------------------------------------------------------------------
+# Keycloak (Bitnami subchart)
+# https://github.com/bitnami/charts/tree/main/bitnami/keycloak
+# -----------------------------------------------------------------------------
+keycloak:
+  # Dev mode — без production requirements (hostname, HTTPS required)
+  production: false
+  # Прокси: используем встроенный HTTPS (self-signed из cert-manager)
+  proxy: edge
+  # Admin credentials (bootstrap admin)
+  auth:
+    adminUser: admin
+    adminPassword: admin
+  # Используем внешний PostgreSQL (наш PG, БД keycloak)
+  postgresql:
+    enabled: false
+  externalDatabase:
+    host: postgresql
+    port: 5432
+    user: artsore
+    password: artsore-test-password
+    database: keycloak
+  # HTTPS через cert-manager сертификат
+  tls:
+    enabled: true
+    existingSecret: artsore-test-tls
+    usePem: true
+  # HTTP порт (для AM — внутрикластерная связь без TLS)
+  httpPorts:
+    http: 8080
+  # Realm import
+  keycloakConfigCli:
+    enabled: false
+  extraVolumeMounts:
+    - name: realm-config
+      mountPath: /opt/bitnami/keycloak/data/import
+  extraVolumes:
+    - name: realm-config
+      configMap:
+        name: artsore-realm
+  # Команда с --import-realm
+  args:
+    - /opt/bitnami/keycloak/bin/kc.sh
+    - start
+    - --import-realm
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "200m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+
+# StorageClass для PVC
+storageClass: nfs-client
+
+# -----------------------------------------------------------------------------
+# DNS-имена для Certificate (сервисы из ДРУГИХ chart-ов)
+# artsore-infra владеет Certificate и включает dnsNames для всех сервисов
+# -----------------------------------------------------------------------------
+certificateExtraDnsNames:
+  # Сервисы приложений (Admin Module и т.д.)
+  services:
+    - admin-module
+  # Replicated SE instances (из artsore-se)
+  replicatedInstances:
+    - se-edit-1
+    - se-edit-2
+  # Standalone SE instances (из artsore-se)
+  standaloneInstances:
+    - se-rw-1
+    - se-rw-2
+    - se-ro
+    - se-ar

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: artsore-se
+description: "Storage Elements для тестовой среды Artsore: 6 SE всех типов"
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

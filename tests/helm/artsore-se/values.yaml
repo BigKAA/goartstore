@@ -1,0 +1,111 @@
+# =============================================================================
+# artsore-se — Helm values для Storage Elements тестовой среды
+# Компоненты: 2 replicated (edit) + 4 standalone (rw/ro/ar) SE
+# =============================================================================
+
+# Namespace для тестовой среды (должен совпадать с artsore-infra)
+namespace: artsore-test
+
+# -----------------------------------------------------------------------------
+# Docker Registry
+# -----------------------------------------------------------------------------
+registry: harbor.kryukov.lan/library
+seImage: storage-element
+seTag: v0.1.0-1
+imagePullPolicy: Always
+
+# -----------------------------------------------------------------------------
+# TLS — ссылка на secret, созданный artsore-infra (Certificate)
+# -----------------------------------------------------------------------------
+tls:
+  secretName: artsore-test-tls
+
+# -----------------------------------------------------------------------------
+# Имя release artsore-infra — для формирования KC service name
+# Bitnami KC создаёт service <infraReleaseName>-keycloak
+# -----------------------------------------------------------------------------
+infraReleaseName: artsore-infra
+
+# -----------------------------------------------------------------------------
+# Keycloak
+# -----------------------------------------------------------------------------
+keycloak:
+  realm: artsore
+
+# -----------------------------------------------------------------------------
+# Общие настройки SE
+# -----------------------------------------------------------------------------
+seCommon:
+  port: 8010
+  logLevel: debug
+  logFormat: json
+  gcInterval: "30s"
+  reconcileInterval: "6h"
+  maxFileSize: "10485760"  # 10MB
+  dephealthCheckInterval: "15s"
+  dephealthGroup: "storage-element"
+  dephealthDepName: "admin-jwks"
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "500m"
+
+# StorageClass для PVC
+storageClass: nfs-client
+
+# -----------------------------------------------------------------------------
+# Replicated instances (StatefulSet + headless Service + shared PVC RWX)
+# Каждый экземпляр — 2 пода с общим хранилищем /data и отдельным WAL per pod
+# -----------------------------------------------------------------------------
+replicatedInstances:
+  - name: se-edit-1
+    storageId: se-edit-1
+    mode: edit
+    replicas: 2
+    dataSize: 200Mi
+    walSize: 200Mi
+    indexRefreshInterval: "10s"
+
+  - name: se-edit-2
+    storageId: se-edit-2
+    mode: edit
+    replicas: 2
+    dataSize: 200Mi
+    walSize: 200Mi
+    indexRefreshInterval: "10s"
+
+# -----------------------------------------------------------------------------
+# Standalone instances (Deployment + ClusterIP Service + PVC RWO)
+# Каждый экземпляр — 1 под с отдельным data и WAL
+# -----------------------------------------------------------------------------
+standaloneInstances:
+  - name: se-rw-1
+    storageId: se-rw-1
+    mode: rw
+    dataSize: 200Mi
+    walSize: 200Mi
+
+  - name: se-rw-2
+    storageId: se-rw-2
+    mode: rw
+    dataSize: 200Mi
+    walSize: 200Mi
+
+  # Стартует как rw, init job переведёт в ro
+  - name: se-ro
+    storageId: se-ro
+    mode: rw
+    dataSize: 200Mi
+    walSize: 200Mi
+
+  # Стартует как rw, init job переведёт rw -> ro -> ar
+  # dataAccessMode: ReadWriteMany — для доступа из init job
+  - name: se-ar
+    storageId: se-ar
+    mode: rw
+    dataSize: 200Mi
+    walSize: 200Mi
+    dataAccessMode: ReadWriteMany
