@@ -6,6 +6,7 @@ require (
 	github.com/BigKAA/topologymetrics/sdk-go v0.6.0
 	github.com/MicahParks/jwkset v0.11.0
 	github.com/MicahParks/keyfunc/v3 v3.8.0
+	github.com/a-h/templ v0.3.977
 	github.com/getkin/kin-openapi v0.133.0
 	github.com/go-chi/chi/v5 v5.2.5
 	github.com/golang-jwt/jwt/v5 v5.3.1

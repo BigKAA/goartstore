@@ -1,0 +1,115 @@
+/* Входной CSS-файл для Tailwind CSS.
+ * Компилируется в output.css через Tailwind Standalone CLI.
+ * Содержит директивы Tailwind и кастомные CSS-переменные.
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* --- Кастомные CSS-переменные (дизайн-токены) --- */
+
+@layer base {
+  :root {
+    /* Фоновые слои */
+    --bg-base: #0a0f0a;
+    --bg-surface: #111c11;
+    --bg-elevated: #1a2e1a;
+    --bg-hover: #243824;
+
+    /* Текст */
+    --text-primary: #e8f5e8;
+    --text-secondary: #9cb89c;
+    --text-muted: #5a7a5a;
+
+    /* Акцентные цвета */
+    --accent-primary: #22c55e;
+    --accent-light: #4ade80;
+    --accent-bright: #86efac;
+
+    /* Семантические цвета */
+    --status-success: #22c55e;
+    --status-warning: #eab308;
+    --status-error: #ef4444;
+    --status-info: #3b82f6;
+
+    /* Анимации */
+    --transition-fast: 150ms;
+    --transition-normal: 250ms;
+  }
+
+  /* Глобальные стили для тёмной темы */
+  body {
+    @apply bg-bg-base text-text-primary antialiased;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  /* Scrollbar стилизация */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-bg-base;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-bg-hover rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-border-default;
+  }
+}
+
+/* --- Кастомные утилитарные классы --- */
+
+@layer components {
+  /* Карточка с hover-эффектом */
+  .card {
+    @apply bg-bg-surface border border-border-subtle rounded-card p-4
+           transition-colors duration-[var(--transition-normal)];
+  }
+
+  .card:hover {
+    @apply border-border-default;
+  }
+
+  /* Кнопка primary */
+  .btn-primary {
+    @apply bg-accent-primary text-bg-base font-medium px-4 py-2
+           rounded-button transition-colors duration-[var(--transition-fast)]
+           hover:bg-accent-light active:bg-accent-bright
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Кнопка secondary */
+  .btn-secondary {
+    @apply bg-bg-elevated text-text-primary border border-accent-primary
+           font-medium px-4 py-2 rounded-button
+           transition-colors duration-[var(--transition-fast)]
+           hover:bg-bg-hover active:bg-bg-surface
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Кнопка danger */
+  .btn-danger {
+    @apply bg-status-error text-white font-medium px-4 py-2
+           rounded-button transition-colors duration-[var(--transition-fast)]
+           hover:bg-red-600 active:bg-red-700
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Строка таблицы с hover */
+  .table-row {
+    @apply border-b border-border-subtle
+           transition-colors duration-[var(--transition-fast)]
+           hover:bg-bg-hover;
+  }
+
+  /* Чередующиеся строки */
+  .table-row-alt:nth-child(even) {
+    @apply bg-bg-elevated;
+  }
+}
