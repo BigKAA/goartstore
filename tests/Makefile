@@ -1,15 +1,14 @@
 # =============================================================================
 # Makefile для интеграционного тестирования Artsore в Kubernetes
 #
-# Оркестрирует полный цикл: сборка образов → деплой тестовой среды
-# (PG + Keycloak + Admin Module + 6 SE) → port-forward → тесты → очистка.
+# Три независимых Helm chart-а (artsore-infra, artsore-se, artsore-apps)
+# деплоятся в один namespace artsore-test. Init Job — standalone manifest.
 #
 # Использование:
 #   make help                  — Справка
 #   make docker-build          — Собрать и запушить образы AM + SE
-#   make test-env-up           — Развернуть тестовую среду в K8s
+#   make test-env-up           — Развернуть всю тестовую среду
 #   make port-forward-start    — Запустить port-forward ко всем сервисам
-#   make test-all              — Запустить все интеграционные тесты
 #   make test-env-down         — Удалить тестовую среду
 # =============================================================================
 
@@ -20,14 +19,25 @@ DOCKER_REGISTRY ?= harbor.kryukov.lan/library
 AM_TAG          ?= v0.1.0-1
 SE_TAG          ?= v0.1.0-1
 NAMESPACE       ?= artsore-test
-HELM_CHART      := helm/artsore-test
-HELM_RELEASE    := artsore-test
+AM_PORT         ?= 8000
+SE_PORT         ?= 8010
 
-# Директории (относительно этого Makefile)
+# Helm chart-ы и release names
+INFRA_CHART     := helm/artsore-infra
+INFRA_RELEASE   := artsore-infra
+SE_CHART        := helm/artsore-se
+SE_RELEASE      := artsore-se
+APPS_CHART      := helm/artsore-apps
+APPS_RELEASE    := artsore-apps
+
+# Init Job manifest
+INIT_JOB_SRC    := helm/init-job/job.yaml
+
+# Директории
 AM_ROOT         := ../src/admin-module
 SE_ROOT         := ../src/storage-element
 REALM_SRC       := ../deploy/keycloak/artsore-realm.json
-REALM_DST       := helm/artsore-test/files/artsore-realm.json
+REALM_DST       := helm/artsore-infra/files/artsore-realm.json
 SCRIPTS_DIR     := scripts
 PF_PID_DIR      := .port-forward
 
@@ -36,24 +46,15 @@ AM_IMAGE        := $(DOCKER_REGISTRY)/admin-module
 SE_IMAGE        := $(DOCKER_REGISTRY)/storage-element
 
 # Port-forward: локальный порт → сервис K8s
-# PostgreSQL: 15432 → postgresql:5432
-# Keycloak:   18080 → keycloak:8443
-# AM:         18000 → admin-module:8000
-# se-edit-1:  18010 → se-edit-1:8010
-# se-edit-2:  18011 → se-edit-2:8010
-# se-rw-1:    18012 → se-rw-1:8010
-# se-rw-2:    18013 → se-rw-2:8010
-# se-ro:      18014 → se-ro:8010
-# se-ar:      18015 → se-ar:8010
 PF_PG           := 15432:5432
 PF_KC           := 18080:8443
-PF_AM           := 18000:8000
-PF_SE_EDIT_1    := 18010:8010
-PF_SE_EDIT_2    := 18011:8010
-PF_SE_RW_1      := 18012:8010
-PF_SE_RW_2      := 18013:8010
-PF_SE_RO        := 18014:8010
-PF_SE_AR        := 18015:8010
+PF_AM           := 18000:$(AM_PORT)
+PF_SE_EDIT_1    := 18010:$(SE_PORT)
+PF_SE_EDIT_2    := 18011:$(SE_PORT)
+PF_SE_RW_1      := 18012:$(SE_PORT)
+PF_SE_RW_2      := 18013:$(SE_PORT)
+PF_SE_RO        := 18014:$(SE_PORT)
+PF_SE_AR        := 18015:$(SE_PORT)
 
 # Переменные окружения для тестовых скриптов
 export KC_URL         := https://localhost:18080
@@ -69,15 +70,18 @@ export K8S_NAMESPACE  := $(NAMESPACE)
 export CURL_OPTS      := -k -s --connect-timeout 5
 
 .PHONY: help docker-build docker-build-am docker-build-se docker-push-am docker-push-se \
-        copy-realm helm-dep-update test-env-up test-env-status test-env-logs test-env-down \
+        copy-realm infra-up infra-down se-up se-down apps-up apps-down \
+        init-data init-data-clean test-env-up test-env-down \
+        test-env-status test-env-logs \
         port-forward-start port-forward-stop port-forward-status \
+        port-forward-infra port-forward-se port-forward-apps \
         test-all clean
 
 # -----------------------------------------------------------------------------
 # Справка
 # -----------------------------------------------------------------------------
 
-## help: Показать справку по всем целям
+## help: Показать справку
 help:
 	@echo "============================================================"
 	@echo "  Artsore Integration Tests — Makefile"
@@ -87,16 +91,22 @@ help:
 	@echo "  docker-build         Собрать и запушить AM + SE в Harbor"
 	@echo "  docker-build-am      Собрать образ Admin Module"
 	@echo "  docker-build-se      Собрать образ Storage Element"
-	@echo "  docker-push-am       Запушить образ AM в Harbor"
-	@echo "  docker-push-se       Запушить образ SE в Harbor"
 	@echo ""
-	@echo "Тестовая среда:"
-	@echo "  copy-realm           Копировать realm.json в Helm files/"
-	@echo "  helm-dep-update      Обновить Helm зависимости (Keycloak)"
-	@echo "  test-env-up          Развернуть тестовую среду (PG+KC+AM+6SE)"
+	@echo "Тестовая среда (по слоям):"
+	@echo "  infra-up             Деплой инфраструктуры (PG + KC)"
+	@echo "  infra-down           Удалить инфраструктуру"
+	@echo "  se-up                Деплой Storage Elements (6 SE)"
+	@echo "  se-down              Удалить Storage Elements"
+	@echo "  apps-up              Деплой приложений (Admin Module)"
+	@echo "  apps-down            Удалить приложения"
+	@echo "  init-data            Запустить Init Job (загрузка данных)"
+	@echo "  init-data-clean      Удалить Init Job (для перезапуска)"
+	@echo ""
+	@echo "Тестовая среда (всё сразу):"
+	@echo "  test-env-up          Развернуть всё: infra → se → apps"
+	@echo "  test-env-down        Удалить всё: apps → se → infra → ns"
 	@echo "  test-env-status      Показать статус pods, svc, pvc, jobs"
 	@echo "  test-env-logs        Показать логи всех контейнеров"
-	@echo "  test-env-down        Удалить тестовую среду"
 	@echo ""
 	@echo "Port-forward:"
 	@echo "  port-forward-start   Запустить port-forward ко всем сервисам"
@@ -116,7 +126,7 @@ help:
 	@echo "  NAMESPACE            $(NAMESPACE)"
 	@echo ""
 	@echo "Быстрый старт:"
-	@echo "  make docker-build && make test-env-up && make port-forward-start && make test-all"
+	@echo "  make docker-build && make test-env-up && make port-forward-start"
 
 # -----------------------------------------------------------------------------
 # Сборка Docker-образов
@@ -129,28 +139,22 @@ docker-build: docker-build-am docker-push-am docker-build-se docker-push-se
 	@echo "  $(AM_IMAGE):$(AM_TAG)"
 	@echo "  $(SE_IMAGE):$(SE_TAG)"
 
-## docker-build-am: Собрать образ Admin Module (linux/amd64)
+## docker-build-am: Собрать образ Admin Module
 docker-build-am:
 	@echo ">>> Сборка Admin Module $(AM_TAG) (linux/amd64)..."
-	docker build \
-		--platform linux/amd64 \
-		--build-arg VERSION=$(AM_TAG) \
-		-t $(AM_IMAGE):$(AM_TAG) \
-		-f $(AM_ROOT)/Dockerfile $(AM_ROOT)
+	docker build --platform linux/amd64 --build-arg VERSION=$(AM_TAG) \
+		-t $(AM_IMAGE):$(AM_TAG) -f $(AM_ROOT)/Dockerfile $(AM_ROOT)
 
 ## docker-push-am: Запушить образ AM в Harbor
 docker-push-am:
 	@echo ">>> Push $(AM_IMAGE):$(AM_TAG)..."
 	docker push $(AM_IMAGE):$(AM_TAG)
 
-## docker-build-se: Собрать образ Storage Element (linux/amd64)
+## docker-build-se: Собрать образ Storage Element
 docker-build-se:
 	@echo ">>> Сборка Storage Element $(SE_TAG) (linux/amd64)..."
-	docker build \
-		--platform linux/amd64 \
-		--build-arg VERSION=$(SE_TAG) \
-		-t $(SE_IMAGE):$(SE_TAG) \
-		-f $(SE_ROOT)/Dockerfile $(SE_ROOT)
+	docker build --platform linux/amd64 --build-arg VERSION=$(SE_TAG) \
+		-t $(SE_IMAGE):$(SE_TAG) -f $(SE_ROOT)/Dockerfile $(SE_ROOT)
 
 ## docker-push-se: Запушить образ SE в Harbor
 docker-push-se:
@@ -158,42 +162,113 @@ docker-push-se:
 	docker push $(SE_IMAGE):$(SE_TAG)
 
 # -----------------------------------------------------------------------------
-# Подготовка Helm Chart
+# Подготовка
 # -----------------------------------------------------------------------------
 
-## copy-realm: Копировать realm.json в Helm chart files/
+## copy-realm: Копировать realm.json в artsore-infra files/
 copy-realm:
 	@echo ">>> Копирование realm.json..."
 	@mkdir -p $(dir $(REALM_DST))
 	@cp $(REALM_SRC) $(REALM_DST)
 	@echo "  $(REALM_SRC) -> $(REALM_DST)"
 
-## helm-dep-update: Обновить Helm зависимости (Keycloak subchart)
-helm-dep-update:
-	@echo ">>> Обновление Helm зависимостей..."
-	helm dependency update $(HELM_CHART)
-
 # -----------------------------------------------------------------------------
-# Тестовая среда в Kubernetes
+# Деплой по слоям
 # -----------------------------------------------------------------------------
 
-## test-env-up: Развернуть тестовую среду через Helm
-test-env-up: copy-realm helm-dep-update
-	@echo ">>> Деплой тестовой среды в namespace $(NAMESPACE)..."
-	helm upgrade --install $(HELM_RELEASE) $(HELM_CHART) \
+## infra-up: Деплой artsore-infra (PG + KC)
+infra-up: copy-realm
+	@echo ">>> Обновление Helm зависимостей artsore-infra..."
+	@helm dependency update $(INFRA_CHART) 2>&1 | tail -1
+	@echo ">>> Деплой artsore-infra в namespace $(NAMESPACE)..."
+	helm upgrade --install $(INFRA_RELEASE) $(INFRA_CHART) \
 		--namespace $(NAMESPACE) \
 		--create-namespace \
-		--set amTag=$(AM_TAG) \
+		--wait --timeout 10m
+	@echo ">>> Ожидание готовности PostgreSQL..."
+	@kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=postgresql \
+		-n $(NAMESPACE) --timeout=120s
+	@echo ">>> Ожидание готовности Keycloak..."
+	@kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=keycloak \
+		-n $(NAMESPACE) --timeout=300s
+	@echo ">>> artsore-infra развёрнут"
+
+## infra-down: Удалить artsore-infra
+infra-down:
+	@echo ">>> Удаление artsore-infra..."
+	@helm uninstall $(INFRA_RELEASE) -n $(NAMESPACE) 2>/dev/null || true
+	@echo ">>> artsore-infra удалён"
+
+## se-up: Деплой artsore-se (6 SE)
+se-up:
+	@echo ">>> Деплой artsore-se в namespace $(NAMESPACE)..."
+	helm upgrade --install $(SE_RELEASE) $(SE_CHART) \
+		--namespace $(NAMESPACE) \
 		--set seTag=$(SE_TAG) \
-		--wait \
-		--timeout 10m
+		--wait --timeout 10m
+	@echo ">>> Ожидание готовности SE pods..."
+	@kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=storage-element \
+		-n $(NAMESPACE) --timeout=300s
+	@echo ">>> artsore-se развёрнут (6 SE)"
+
+## se-down: Удалить artsore-se
+se-down:
+	@echo ">>> Удаление artsore-se..."
+	@helm uninstall $(SE_RELEASE) -n $(NAMESPACE) 2>/dev/null || true
+	@echo ">>> artsore-se удалён"
+
+## apps-up: Деплой artsore-apps (AM)
+apps-up:
+	@echo ">>> Деплой artsore-apps в namespace $(NAMESPACE)..."
+	helm upgrade --install $(APPS_RELEASE) $(APPS_CHART) \
+		--namespace $(NAMESPACE) \
+		--set amTag=$(AM_TAG) \
+		--wait --timeout 10m
+	@echo ">>> Ожидание готовности Admin Module..."
+	@kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=admin-module \
+		-n $(NAMESPACE) --timeout=300s
+	@echo ">>> artsore-apps развёрнут"
+
+## apps-down: Удалить artsore-apps
+apps-down:
+	@echo ">>> Удаление artsore-apps..."
+	@helm uninstall $(APPS_RELEASE) -n $(NAMESPACE) 2>/dev/null || true
+	@echo ">>> artsore-apps удалён"
+
+## init-data: Запустить Init Job (загрузка данных, mode transitions)
+init-data:
+	@echo ">>> Запуск Init Job..."
+	@export NAMESPACE=$(NAMESPACE) INFRA_RELEASE=$(INFRA_RELEASE) \
+		AM_PORT=$(AM_PORT) SE_PORT=$(SE_PORT); \
+		envsubst '$$NAMESPACE $$INFRA_RELEASE $$AM_PORT $$SE_PORT' \
+		< $(INIT_JOB_SRC) | kubectl apply -f -
+	@echo ">>> Ожидание завершения Init Job (до 600с)..."
+	@kubectl wait --for=condition=complete job/artsore-init \
+		-n $(NAMESPACE) --timeout=600s
+	@echo ">>> Init Job завершён"
+
+## init-data-clean: Удалить Init Job (для перезапуска)
+init-data-clean:
+	@echo ">>> Удаление Init Job ресурсов..."
+	@kubectl delete job artsore-init -n $(NAMESPACE) 2>/dev/null || true
+	@kubectl delete configmap artsore-init-lib artsore-init-data -n $(NAMESPACE) 2>/dev/null || true
+	@echo ">>> Init Job ресурсы удалены"
+
+# -----------------------------------------------------------------------------
+# Тестовая среда (всё сразу)
+# -----------------------------------------------------------------------------
+
+## test-env-up: Развернуть всё — infra → se → apps (последовательно)
+test-env-up: infra-up se-up apps-up
 	@echo ""
-	@echo ">>> Тестовая среда развёрнута. Ожидание init job..."
-	@kubectl wait --for=condition=complete job/artsore-test-init \
-		-n $(NAMESPACE) --timeout=600s 2>/dev/null || \
-		echo "WARN: Init job ещё не завершён или не найден. Проверьте: make test-env-status"
-	@echo ""
+	@echo ">>> Тестовая среда полностью развёрнута"
 	@$(MAKE) --no-print-directory test-env-status
+
+## test-env-down: Удалить всё — apps → se → infra → namespace
+test-env-down: port-forward-stop init-data-clean apps-down se-down infra-down
+	@echo ">>> Удаление namespace $(NAMESPACE)..."
+	@kubectl delete namespace $(NAMESPACE) --wait=false 2>/dev/null || true
+	@echo ">>> Тестовая среда полностью удалена"
 
 ## test-env-status: Показать статус тестовой среды
 test-env-status:
@@ -208,6 +283,9 @@ test-env-status:
 	@echo ""
 	@echo ">>> Jobs:"
 	@kubectl get jobs -n $(NAMESPACE) 2>/dev/null || true
+	@echo ""
+	@echo ">>> Helm releases:"
+	@helm list -n $(NAMESPACE) 2>/dev/null || true
 
 ## test-env-logs: Показать логи всех контейнеров
 test-env-logs:
@@ -218,32 +296,28 @@ test-env-logs:
 		kubectl logs -n $(NAMESPACE) "$$pod" --all-containers --tail=50 2>/dev/null || true; \
 	done
 
-## test-env-down: Удалить тестовую среду
-test-env-down: port-forward-stop
-	@echo ">>> Удаление Helm release $(HELM_RELEASE)..."
-	@helm uninstall $(HELM_RELEASE) -n $(NAMESPACE) 2>/dev/null || true
-	@echo ">>> Удаление namespace $(NAMESPACE)..."
-	@kubectl delete namespace $(NAMESPACE) --wait=false 2>/dev/null || true
-	@echo ">>> Тестовая среда удалена"
-
 # -----------------------------------------------------------------------------
 # Port-forward
 # -----------------------------------------------------------------------------
 
 ## port-forward-start: Запустить port-forward ко всем сервисам
-port-forward-start: port-forward-stop
+port-forward-start: port-forward-stop port-forward-infra port-forward-se port-forward-apps
+	@sleep 2
+	@$(MAKE) --no-print-directory port-forward-status
+
+## port-forward-infra: Port-forward для PG + KC
+port-forward-infra:
 	@mkdir -p $(PF_PID_DIR)
-	@echo ">>> Запуск port-forward..."
-	@# PostgreSQL
+	@echo ">>> Port-forward: infra (PG + KC)..."
 	@kubectl port-forward -n $(NAMESPACE) svc/postgresql $(PF_PG) >/dev/null 2>&1 & \
 		echo $$! > $(PF_PID_DIR)/postgresql.pid
-	@# Keycloak (Bitnami: <release>-keycloak)
-	@kubectl port-forward -n $(NAMESPACE) svc/$(HELM_RELEASE)-keycloak $(PF_KC) >/dev/null 2>&1 & \
+	@kubectl port-forward -n $(NAMESPACE) svc/$(INFRA_RELEASE)-keycloak $(PF_KC) >/dev/null 2>&1 & \
 		echo $$! > $(PF_PID_DIR)/keycloak.pid
-	@# Admin Module
-	@kubectl port-forward -n $(NAMESPACE) svc/admin-module $(PF_AM) >/dev/null 2>&1 & \
-		echo $$! > $(PF_PID_DIR)/admin-module.pid
-	@# SE instances
+
+## port-forward-se: Port-forward для SE
+port-forward-se:
+	@mkdir -p $(PF_PID_DIR)
+	@echo ">>> Port-forward: SE (6 экземпляров)..."
 	@kubectl port-forward -n $(NAMESPACE) svc/se-edit-1 $(PF_SE_EDIT_1) >/dev/null 2>&1 & \
 		echo $$! > $(PF_PID_DIR)/se-edit-1.pid
 	@kubectl port-forward -n $(NAMESPACE) svc/se-edit-2 $(PF_SE_EDIT_2) >/dev/null 2>&1 & \
@@ -256,8 +330,13 @@ port-forward-start: port-forward-stop
 		echo $$! > $(PF_PID_DIR)/se-ro.pid
 	@kubectl port-forward -n $(NAMESPACE) svc/se-ar $(PF_SE_AR) >/dev/null 2>&1 & \
 		echo $$! > $(PF_PID_DIR)/se-ar.pid
-	@sleep 2
-	@$(MAKE) --no-print-directory port-forward-status
+
+## port-forward-apps: Port-forward для AM
+port-forward-apps:
+	@mkdir -p $(PF_PID_DIR)
+	@echo ">>> Port-forward: apps (AM)..."
+	@kubectl port-forward -n $(NAMESPACE) svc/admin-module $(PF_AM) >/dev/null 2>&1 & \
+		echo $$! > $(PF_PID_DIR)/admin-module.pid
 
 ## port-forward-stop: Остановить все port-forward
 port-forward-stop:
@@ -302,13 +381,13 @@ port-forward-status:
 	@echo "  Маппинг портов:"
 	@echo "    PostgreSQL:   localhost:15432 → postgresql:5432"
 	@echo "    Keycloak:     localhost:18080 → keycloak:8443"
-	@echo "    Admin Module: localhost:18000 → admin-module:8000"
-	@echo "    se-edit-1:    localhost:18010 → se-edit-1:8010"
-	@echo "    se-edit-2:    localhost:18011 → se-edit-2:8010"
-	@echo "    se-rw-1:      localhost:18012 → se-rw-1:8010"
-	@echo "    se-rw-2:      localhost:18013 → se-rw-2:8010"
-	@echo "    se-ro:        localhost:18014 → se-ro:8010"
-	@echo "    se-ar:        localhost:18015 → se-ar:8010"
+	@echo "    Admin Module: localhost:18000 → admin-module:$(AM_PORT)"
+	@echo "    se-edit-1:    localhost:18010 → se-edit-1:$(SE_PORT)"
+	@echo "    se-edit-2:    localhost:18011 → se-edit-2:$(SE_PORT)"
+	@echo "    se-rw-1:      localhost:18012 → se-rw-1:$(SE_PORT)"
+	@echo "    se-rw-2:      localhost:18013 → se-rw-2:$(SE_PORT)"
+	@echo "    se-ro:        localhost:18014 → se-ro:$(SE_PORT)"
+	@echo "    se-ar:        localhost:18015 → se-ar:$(SE_PORT)"
 
 # -----------------------------------------------------------------------------
 # Интеграционные тесты
@@ -317,7 +396,7 @@ port-forward-status:
 ## test-all: Запустить все интеграционные тесты
 test-all:
 	@echo ">>> Интеграционные тесты пока не реализованы"
-	@echo "  Реализация будет в Phase 6 Admin Module"
+	@echo "  Реализация будет в Phase 7"
 
 # -----------------------------------------------------------------------------
 # Очистка

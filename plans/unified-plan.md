@@ -24,8 +24,8 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 4
-- **Активный подпункт**: 4.1
+- **Активная фаза**: Phase 5
+- **Активный подпункт**: 5.1
 - **Последнее обновление**: 2026-02-23
 - **Примечание**: Phase 1 завершена
 
@@ -38,7 +38,7 @@
 - [x] [Phase 1: artsore-infra chart (PG + KC)](#phase-1-artsore-infra-chart-pg--kc)
 - [x] [Phase 2: artsore-se chart (6 SE)](#phase-2-artsore-se-chart-6-se)
 - [x] [Phase 3: artsore-apps chart (AM)](#phase-3-artsore-apps-chart-am)
-- [ ] [Phase 4: Makefile и Init Job](#phase-4-makefile-и-init-job)
+- [x] [Phase 4: Makefile и Init Job](#phase-4-makefile-и-init-job)
 - [ ] [Phase 5: Валидация инфраструктуры](#phase-5-валидация-инфраструктуры)
 
 **Admin Module (приоритет 2):**
@@ -269,7 +269,7 @@ Helm chart `artsore-apps` с Admin Module для тестовой среды. Д
 ## Phase 4: Makefile и Init Job
 
 **Dependencies**: Phase 1, Phase 2, Phase 3
-**Status**: Pending
+**Status**: Done
 **Origin**: test-infrastructure-v2.0.0 Phase D
 
 ### Описание
@@ -278,7 +278,7 @@ Helm chart `artsore-apps` с Admin Module для тестовой среды. Д
 
 ### Подпункты
 
-- [ ] **4.1 Вынести Init Job в standalone manifest**
+- [x] **4.1 Вынести Init Job в standalone manifest**
   - **Dependencies**: None
   - **Description**: Извлечь Init Job из Helm hooks:
     - `tests/helm/init-job/job.yaml` — Job + ConfigMaps (lib.sh + init-data.sh)
@@ -290,7 +290,7 @@ Helm chart `artsore-apps` с Admin Module для тестовой среды. Д
   - **Links**:
     - `tests/helm/artsore-test/templates/init-job.yaml` — исходный template
 
-- [ ] **4.2 Обновить Makefile**
+- [x] **4.2 Обновить Makefile**
   - **Dependencies**: 4.1
   - **Description**: Переписать для трёх chart-ов:
     - **Переменные**: INFRA_CHART, SE_CHART, APPS_CHART + release names
@@ -310,8 +310,8 @@ Helm chart `artsore-apps` с Admin Module для тестовой среды. Д
 
 ### Критерии завершения Phase 4
 
-- [ ] Все подпункты завершены (4.1, 4.2)
-- [ ] `make help` показывает все targets
+- [x] Все подпункты завершены (4.1, 4.2)
+- [x] `make help` показывает все targets
 - [ ] `make infra-up`, `make se-up`, `make apps-up` работают по отдельности
 - [ ] `make test-env-up` разворачивает всё одной командой
 - [ ] `make init-data` запускает Init Job отдельно
