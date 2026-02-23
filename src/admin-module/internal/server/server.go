@@ -37,6 +37,8 @@ type UIComponents struct {
 	AuthHandler *uihandlers.AuthHandler
 	// AuthMiddleware — middleware проверки UI-сессии.
 	AuthMiddleware *uimiddleware.UIAuth
+	// DashboardHandler — обработчик страницы Dashboard.
+	DashboardHandler *uihandlers.DashboardHandler
 }
 
 // New создаёт новый HTTP-сервер с настроенными routes и middleware.
@@ -95,29 +97,8 @@ func registerUIRoutes(router chi.Router, ui *UIComponents, logger *slog.Logger) 
 	router.Route("/admin", func(r chi.Router) {
 		r.Use(ui.AuthMiddleware.Middleware())
 
-		// Заглушка для главной страницы Admin UI (будет заменена в Phase 3)
-		r.Get("/", func(w http.ResponseWriter, req *http.Request) {
-			session := uimiddleware.SessionFromContext(req.Context())
-			username := "unknown"
-			role := "unknown"
-			if session != nil {
-				username = session.Username
-				role = session.Role
-			}
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			fmt.Fprintf(w, `<!DOCTYPE html>
-<html>
-<head><title>Artstore Admin</title></head>
-<body style="background:#0a0f0a;color:#e8f5e8;font-family:Inter,system-ui,sans-serif;padding:40px">
-<h1 style="color:#22c55e">Artstore Admin UI</h1>
-<p>Добро пожаловать, <strong>%s</strong> (роль: <code>%s</code>)</p>
-<form method="POST" action="/admin/logout">
-<button type="submit" style="background:#ef4444;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer">Logout</button>
-</form>
-<p style="color:#5a7a5a;margin-top:20px">Phase 2 — аутентификация работает. Полный UI в Phase 3.</p>
-</body>
-</html>`, username, role)
-		})
+		// Dashboard (главная страница Admin UI)
+		r.Get("/", ui.DashboardHandler.HandleDashboard)
 	})
 
 	logger.Info("Admin UI маршруты зарегистрированы",

@@ -1,0 +1,88 @@
+package components
+
+// FilterOption — вариант значения в выпадающем списке фильтра
+type FilterOption struct {
+	Value    string // Значение (передаётся в query parameter)
+	Label    string // Отображаемый текст
+	Selected bool   // Выбран ли по умолчанию
+}
+
+// FilterSelect — описание выпадающего фильтра
+type FilterSelect struct {
+	Name    string         // Имя query parameter (например, "mode")
+	Label   string         // Подпись фильтра (например, "Режим")
+	Options []FilterOption // Варианты
+}
+
+// FilterBarParams — параметры панели фильтров
+type FilterBarParams struct {
+	Filters     []FilterSelect // Выпадающие фильтры
+	SearchName  string         // Имя query parameter для поиска (например, "q")
+	SearchLabel string         // Placeholder поиска (например, "Поиск по имени...")
+	SearchValue string         // Текущее значение поиска
+	ActionURL   string         // URL для HTMX запроса (hx-get)
+	TargetID    string         // ID элемента для HTMX swap
+}
+
+// FilterBar — панель фильтров (select dropdowns + search input) с HTMX фильтрацией.
+templ FilterBar(params FilterBarParams) {
+	<div class="flex flex-wrap items-end gap-4 mb-4 p-4 bg-bg-surface rounded-card border border-border-subtle">
+		<!-- Выпадающие фильтры -->
+		for _, filter := range params.Filters {
+			<div class="flex flex-col space-y-1">
+				<label class="text-xs font-medium text-text-secondary uppercase tracking-wide">
+					{ filter.Label }
+				</label>
+				<select
+					name={ filter.Name }
+					class="bg-bg-elevated text-text-primary text-sm rounded-button border border-border-default
+					       px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary
+					       appearance-none cursor-pointer min-w-[120px]"
+					hx-get={ params.ActionURL }
+					hx-target={ "#" + params.TargetID }
+					hx-swap="innerHTML"
+					hx-include="closest .flex"
+				>
+					for _, opt := range filter.Options {
+						<option
+							value={ opt.Value }
+							selected?={ opt.Selected }
+						>
+							{ opt.Label }
+						</option>
+					}
+				</select>
+			</div>
+		}
+
+		<!-- Поле поиска -->
+		if params.SearchName != "" {
+			<div class="flex flex-col space-y-1 flex-1 min-w-[200px]">
+				<label class="text-xs font-medium text-text-secondary uppercase tracking-wide">
+					Поиск
+				</label>
+				<div class="relative">
+					<div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+						<svg class="w-4 h-4 text-text-muted" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"></path>
+						</svg>
+					</div>
+					<input
+						type="text"
+						name={ params.SearchName }
+						value={ params.SearchValue }
+						placeholder={ params.SearchLabel }
+						class="w-full bg-bg-elevated text-text-primary text-sm rounded-button border border-border-default
+						       pl-10 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary
+						       placeholder:text-text-muted"
+						hx-get={ params.ActionURL }
+						hx-target={ "#" + params.TargetID }
+						hx-swap="innerHTML"
+						hx-trigger="keyup changed delay:300ms"
+						hx-include="closest .flex"
+					/>
+				</div>
+			</div>
+		}
+	</div>
+}

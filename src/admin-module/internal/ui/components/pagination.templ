@@ -1,0 +1,139 @@
+package components
+
+import "fmt"
+
+// PaginationParams — параметры пагинации
+type PaginationParams struct {
+	CurrentPage int    // Текущая страница (1-based)
+	TotalPages  int    // Всего страниц
+	TotalItems  int    // Всего элементов
+	PageSize    int    // Размер страницы
+	BaseURL     string // Базовый URL для HTMX (например, "/admin/partials/file-table")
+	TargetID    string // ID элемента для HTMX swap
+}
+
+// Pagination — компонент пагинации (prev/next, номера страниц, total items).
+// Навигация через HTMX hx-get.
+templ Pagination(params PaginationParams) {
+	if params.TotalPages > 1 {
+		<nav class="flex items-center justify-between px-1 py-3" aria-label="Пагинация">
+			<!-- Информация о количестве -->
+			<div class="text-sm text-text-muted">
+				{ paginationInfo(params) }
+			</div>
+
+			<!-- Кнопки навигации -->
+			<div class="flex items-center space-x-1">
+				<!-- Prev -->
+				if params.CurrentPage > 1 {
+					<button
+						class="px-3 py-1.5 text-sm rounded-button text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
+						hx-get={ paginationURL(params.BaseURL, params.CurrentPage-1) }
+						hx-target={ "#" + params.TargetID }
+						hx-swap="innerHTML"
+					>
+						<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"></path>
+						</svg>
+					</button>
+				} else {
+					<button class="px-3 py-1.5 text-sm rounded-button text-text-muted cursor-not-allowed" disabled>
+						<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"></path>
+						</svg>
+					</button>
+				}
+
+				<!-- Номера страниц -->
+				for _, page := range paginationPages(params.CurrentPage, params.TotalPages) {
+					if page == -1 {
+						<!-- Многоточие -->
+						<span class="px-2 py-1.5 text-sm text-text-muted">...</span>
+					} else if page == params.CurrentPage {
+						<!-- Текущая страница -->
+						<button class="px-3 py-1.5 text-sm rounded-button bg-accent-primary text-bg-base font-medium" disabled>
+							{ fmt.Sprintf("%d", page) }
+						</button>
+					} else {
+						<!-- Другая страница -->
+						<button
+							class="px-3 py-1.5 text-sm rounded-button text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
+							hx-get={ paginationURL(params.BaseURL, page) }
+							hx-target={ "#" + params.TargetID }
+							hx-swap="innerHTML"
+						>
+							{ fmt.Sprintf("%d", page) }
+						</button>
+					}
+				}
+
+				<!-- Next -->
+				if params.CurrentPage < params.TotalPages {
+					<button
+						class="px-3 py-1.5 text-sm rounded-button text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
+						hx-get={ paginationURL(params.BaseURL, params.CurrentPage+1) }
+						hx-target={ "#" + params.TargetID }
+						hx-swap="innerHTML"
+					>
+						<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"></path>
+						</svg>
+					</button>
+				} else {
+					<button class="px-3 py-1.5 text-sm rounded-button text-text-muted cursor-not-allowed" disabled>
+						<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"></path>
+						</svg>
+					</button>
+				}
+			</div>
+		</nav>
+	}
+}
+
+// paginationInfo — текст "Показано X-Y из Z"
+func paginationInfo(params PaginationParams) string {
+	start := (params.CurrentPage-1)*params.PageSize + 1
+	end := params.CurrentPage * params.PageSize
+	if end > params.TotalItems {
+		end = params.TotalItems
+	}
+	return fmt.Sprintf("Показано %d–%d из %d", start, end, params.TotalItems)
+}
+
+// paginationURL — URL для перехода на страницу
+func paginationURL(baseURL string, page int) string {
+	return fmt.Sprintf("%s?page=%d", baseURL, page)
+}
+
+// paginationPages — список номеров страниц для отображения (-1 = многоточие).
+// Показывает: первую, последнюю, текущую ± 1, и многоточие между разрывами.
+func paginationPages(current, total int) []int {
+	if total <= 7 {
+		pages := make([]int, total)
+		for i := range pages {
+			pages[i] = i + 1
+		}
+		return pages
+	}
+
+	pages := []int{}
+	pages = append(pages, 1)
+
+	if current > 3 {
+		pages = append(pages, -1)
+	}
+
+	for i := current - 1; i <= current+1; i++ {
+		if i > 1 && i < total {
+			pages = append(pages, i)
+		}
+	}
+
+	if current < total-2 {
+		pages = append(pages, -1)
+	}
+
+	pages = append(pages, total)
+	return pages
+}

@@ -1,0 +1,128 @@
+package components
+
+// BadgeVariant — вариант оформления бейджа
+type BadgeVariant string
+
+const (
+	// Статусы SE
+	BadgeOnline   BadgeVariant = "online"
+	BadgeOffline  BadgeVariant = "offline"
+	BadgeDegraded BadgeVariant = "degraded"
+
+	// Режимы SE
+	BadgeModeEdit BadgeVariant = "mode-edit"
+	BadgeModeRW   BadgeVariant = "mode-rw"
+	BadgeModeRO   BadgeVariant = "mode-ro"
+	BadgeModeAR   BadgeVariant = "mode-ar"
+
+	// Роли
+	BadgeAdmin    BadgeVariant = "admin"
+	BadgeReadonly BadgeVariant = "readonly"
+
+	// Общие
+	BadgeSuccess     BadgeVariant = "success"
+	BadgeWarning     BadgeVariant = "warning"
+	BadgeError       BadgeVariant = "error"
+	BadgeInfo        BadgeVariant = "info"
+	BadgeNeutral     BadgeVariant = "neutral"
+	BadgeMaintenance BadgeVariant = "maintenance"
+)
+
+// badgeStyles — CSS-классы для каждого варианта бейджа
+var badgeStyles = map[BadgeVariant]string{
+	BadgeOnline:      "bg-status-success/20 text-status-success",
+	BadgeOffline:     "bg-status-error/20 text-status-error",
+	BadgeDegraded:    "bg-status-warning/20 text-status-warning",
+	BadgeMaintenance: "bg-status-info/20 text-status-info",
+	BadgeModeEdit:    "bg-mode-edit/20 text-mode-edit",
+	BadgeModeRW:      "bg-mode-rw/20 text-mode-rw",
+	BadgeModeRO:      "bg-mode-ro/20 text-mode-ro",
+	BadgeModeAR:      "bg-mode-ar/20 text-mode-ar",
+	BadgeAdmin:       "bg-accent-primary/20 text-accent-primary",
+	BadgeReadonly:     "bg-status-info/20 text-status-info",
+	BadgeSuccess:     "bg-status-success/20 text-status-success",
+	BadgeWarning:     "bg-status-warning/20 text-status-warning",
+	BadgeError:       "bg-status-error/20 text-status-error",
+	BadgeInfo:        "bg-status-info/20 text-status-info",
+	BadgeNeutral:     "bg-bg-elevated text-text-secondary",
+}
+
+// Badge — бейдж статуса/роли/режима с цветовой индикацией.
+// Маленький округлённый элемент с полупрозрачным фоном и цветным текстом.
+templ Badge(variant BadgeVariant, label string) {
+	<span class={ "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium", badgeClasses(variant) }>
+		<!-- Индикатор-точка для статусных бейджей -->
+		if variant == BadgeOnline || variant == BadgeOffline || variant == BadgeDegraded || variant == BadgeMaintenance {
+			<span class={ "w-1.5 h-1.5 rounded-full mr-1.5", badgeDotClass(variant) }></span>
+		}
+		{ label }
+	</span>
+}
+
+// StatusBadge — бейдж SE-статуса (автоматический выбор варианта по строке статуса)
+templ StatusBadge(status string) {
+	switch status {
+		case "online":
+			@Badge(BadgeOnline, "Online")
+		case "offline":
+			@Badge(BadgeOffline, "Offline")
+		case "degraded":
+			@Badge(BadgeDegraded, "Degraded")
+		case "maintenance":
+			@Badge(BadgeMaintenance, "Maintenance")
+		default:
+			@Badge(BadgeNeutral, status)
+	}
+}
+
+// ModeBadge — бейдж SE-режима (автоматический выбор варианта по строке режима)
+templ ModeBadge(mode string) {
+	switch mode {
+		case "edit":
+			@Badge(BadgeModeEdit, "edit")
+		case "rw":
+			@Badge(BadgeModeRW, "rw")
+		case "ro":
+			@Badge(BadgeModeRO, "ro")
+		case "ar":
+			@Badge(BadgeModeAR, "ar")
+		default:
+			@Badge(BadgeNeutral, mode)
+	}
+}
+
+// RoleBadge — бейдж роли пользователя
+templ RoleBadge(role string) {
+	switch role {
+		case "admin":
+			@Badge(BadgeAdmin, "admin")
+		case "readonly":
+			@Badge(BadgeReadonly, "readonly")
+		default:
+			@Badge(BadgeNeutral, role)
+	}
+}
+
+// badgeClasses — CSS-классы для варианта бейджа
+func badgeClasses(variant BadgeVariant) string {
+	if classes, ok := badgeStyles[variant]; ok {
+		return classes
+	}
+	return badgeStyles[BadgeNeutral]
+}
+
+// badgeDotClass — CSS-класс точки-индикатора для статусного бейджа
+func badgeDotClass(variant BadgeVariant) string {
+	switch variant {
+	case BadgeOnline:
+		return "bg-status-success"
+	case BadgeOffline:
+		return "bg-status-error"
+	case BadgeDegraded:
+		return "bg-status-warning"
+	case BadgeMaintenance:
+		return "bg-status-info"
+	default:
+		return "bg-text-muted"
+	}
+}
