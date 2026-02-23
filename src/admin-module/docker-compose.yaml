@@ -72,9 +72,10 @@ services:
       # topologymetrics
       AM_DEPHEALTH_CHECK_INTERVAL: "15s"
       AM_DEPHEALTH_GROUP: admin-module
-      # Admin UI (Phase 2)
+      # Admin UI
       AM_UI_ENABLED: "true"
       AM_UI_OIDC_CLIENT_ID: artstore-admin-ui
+      AM_UI_SESSION_SECRET: "dev-session-secret-32-bytes-ok!"
     ports:
       - "8000:8000"
     depends_on:

@@ -65,6 +65,7 @@ adminModule:
   # Admin UI
   uiEnabled: "true"
   uiOidcClientId: "artstore-admin-ui"
+  uiSessionSecret: "test-session-secret-32bytes-ok!"
   # Graceful shutdown
   shutdownTimeout: "5s"
   resources:

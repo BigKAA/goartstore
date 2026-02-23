@@ -1,0 +1,29 @@
+====================================================================
+  Admin Module успешно развёрнут!
+====================================================================
+
+API endpoints:
+  Health (liveness):  http://{{ include "am.fullname" . }}:{{ .Values.port }}/health/live
+  Health (readiness): http://{{ include "am.fullname" . }}:{{ .Values.port }}/health/ready
+  Metrics:            http://{{ include "am.fullname" . }}:{{ .Values.port }}/metrics
+  API:                http://{{ include "am.fullname" . }}:{{ .Values.port }}/api/v1/
+
+{{- if .Values.ui.enabled }}
+
+Admin UI:
+  Панель управления: http://{{ include "am.fullname" . }}:{{ .Values.port }}/admin/
+  Статические файлы: http://{{ include "am.fullname" . }}:{{ .Values.port }}/static/
+  OIDC Client ID:    {{ .Values.ui.oidcClientId }}
+
+  Для доступа к Admin UI необходим клиент {{ .Values.ui.oidcClientId }}
+  в Keycloak realm {{ .Values.keycloak.realm }} (public client, PKCE).
+{{- end }}
+
+{{- if and .Values.httproute .Values.httproute.enabled }}
+
+Внешний доступ (Gateway API):
+  https://{{ .Values.httproute.hostname }}/api/v1/
+  {{- if .Values.ui.enabled }}
+  https://{{ .Values.httproute.hostname }}/admin/
+  {{- end }}
+{{- end }}

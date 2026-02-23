@@ -42,7 +42,7 @@ help:
 	@echo "  lint            — Запустить golangci-lint"
 	@echo ""
 	@echo "  Docker:"
-	@echo "  docker-build    — Собрать Docker-образ (TAG=v0.1.0-1)"
+	@echo "  docker-build    — Собрать Docker-образ с UI (templ + tailwind в Docker)"
 	@echo "  docker-run      — Запустить через docker-compose"
 	@echo "  docker-stop     — Остановить docker-compose"
 	@echo ""
@@ -86,7 +86,7 @@ generate:
 lint:
 	golangci-lint run ./...
 
-## docker-build: Собрать Docker-образ
+## docker-build: Собрать Docker-образ (включает templ generate + tailwind compile)
 docker-build:
 	docker build \
 		--build-arg VERSION=$(TAG) \

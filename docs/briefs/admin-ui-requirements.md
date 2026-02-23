@@ -1,6 +1,6 @@
 # Admin UI — Спецификация требований
 
-> **Статус**: Draft v1.0
+> **Статус**: Released v1.0
 > **Дата**: 2026-02-23
 > **Модуль**: Admin Module (src/admin-module)
 

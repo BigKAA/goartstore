@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==========================================================================
-# test-am-all.sh — Запуск всех тестов Admin Module (тесты 1-30)
+# test-am-all.sh — Запуск всех тестов Admin Module (тесты 1-40)
 #
 # Последовательно запускает все тестовые группы, собирает итоги.
 # Exit code: 0 если все группы пройдены, 1 при наличии ошибок.
@@ -25,17 +25,20 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # ==========================================================================
 SKIP_SE=false
 SKIP_FILES=false
+SKIP_UI=false
 
 for arg in "$@"; do
     case "$arg" in
         --skip-se)    SKIP_SE=true ;;
         --skip-files) SKIP_FILES=true ;;
+        --skip-ui)    SKIP_UI=true ;;
         --help|-h)
-            echo "Использование: ./test-am-all.sh [--skip-se] [--skip-files]"
+            echo "Использование: ./test-am-all.sh [--skip-se] [--skip-files] [--skip-ui]"
             echo ""
             echo "Опции:"
             echo "  --skip-se      Пропустить тесты Storage Elements (16-20)"
             echo "  --skip-files   Пропустить тесты Files (21-24, зависят от SE)"
+            echo "  --skip-ui      Пропустить тесты Admin UI (31-40)"
             exit 0
             ;;
     esac
@@ -115,6 +118,10 @@ fi
 run_group "${SCRIPT_DIR}/test-am-idp.sh"               "IdP Status"        "25-26"
 run_group "${SCRIPT_DIR}/test-am-errors.sh"            "Error Handling"    "27-30"
 
+if [[ "$SKIP_UI" == "false" ]]; then
+    run_group "${SCRIPT_DIR}/test-am-ui.sh"              "Admin UI"          "31-40"
+fi
+
 # ==========================================================================
 # Итоговый отчёт
 # ==========================================================================
@@ -129,6 +136,9 @@ if [[ "$SKIP_SE" == "true" ]]; then
 fi
 if [[ "$SKIP_FILES" == "true" ]]; then
     SKIPPED="${SKIPPED} Files(21-24)"
+fi
+if [[ "$SKIP_UI" == "true" ]]; then
+    SKIPPED="${SKIPPED} UI(31-40)"
 fi
 
 echo -e "  Групп: ${TOTAL_GROUPS}"

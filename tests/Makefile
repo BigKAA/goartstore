@@ -86,7 +86,7 @@ export KC_SA_CLIENT_SECRET        := admin-module-test-secret
         test-env-status test-env-logs \
         port-forward-start port-forward-stop port-forward-status \
         port-forward-infra port-forward-se port-forward-apps \
-        test-am test-all clean
+        test-am test-am-ui test-all clean
 
 # -----------------------------------------------------------------------------
 # Справка
@@ -126,6 +126,7 @@ help:
 	@echo ""
 	@echo "Тесты (требуют port-forward-start):"
 	@echo "  test-am              Запустить интеграционные тесты Admin Module"
+	@echo "  test-am-ui           Запустить интеграционные тесты Admin UI"
 	@echo "  test-all             Запустить все интеграционные тесты"
 	@echo ""
 	@echo "Очистка:"
@@ -431,6 +432,11 @@ port-forward-status:
 test-am:
 	@echo ">>> Запуск интеграционных тестов Admin Module..."
 	@$(SCRIPTS_DIR)/test-am-all.sh $(TEST_AM_ARGS)
+
+## test-am-ui: Запустить интеграционные тесты Admin UI
+test-am-ui:
+	@echo ">>> Запуск интеграционных тестов Admin UI..."
+	@$(SCRIPTS_DIR)/test-am-ui.sh
 
 ## test-all: Запустить все интеграционные тесты
 test-all: test-am

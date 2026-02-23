@@ -133,6 +133,10 @@ spec:
               value: {{ .Values.adminModule.uiEnabled | quote }}
             - name: AM_UI_OIDC_CLIENT_ID
               value: {{ .Values.adminModule.uiOidcClientId | quote }}
+            {{- if .Values.adminModule.uiSessionSecret }}
+            - name: AM_UI_SESSION_SECRET
+              value: {{ .Values.adminModule.uiSessionSecret | quote }}
+            {{- end }}
             # --- Graceful shutdown ---
             - name: AM_SHUTDOWN_TIMEOUT
               value: {{ .Values.adminModule.shutdownTimeout | quote }}

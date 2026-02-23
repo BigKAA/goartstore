@@ -67,6 +67,15 @@ dephealth:
   checkInterval: "15s"
   group: "admin-module"
 
+# --- Admin UI ---
+ui:
+  enabled: true
+  # Секрет для шифрования session cookie (AES-256-GCM, 32 bytes hex/base64)
+  # Если пусто — автогенерация при запуске (не сохраняется между рестартами!)
+  sessionSecret: ""
+  # OIDC Client ID (public client в Keycloak, Authorization Code + PKCE)
+  oidcClientId: "artstore-admin-ui"
+
 # --- Graceful shutdown ---
 shutdownTimeout: "5s"
 
@@ -80,6 +89,8 @@ httproute:
   pathPrefixes:
     - /api/v1
     - /health
+    - /admin
+    - /static
 
 # --- Prometheus метрики ---
 metrics:

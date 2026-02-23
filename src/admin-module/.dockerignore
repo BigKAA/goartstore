@@ -6,3 +6,5 @@ tests/
 docker-compose.yaml
 Makefile
 oapi-codegen-*.yaml
+# Tailwind Standalone CLI (скачивается в Docker)
+tailwindcss

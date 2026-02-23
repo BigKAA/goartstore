@@ -42,5 +42,8 @@ data:
   # --- Dependency health (topologymetrics) ---
   AM_DEPHEALTH_CHECK_INTERVAL: {{ .Values.dephealth.checkInterval | quote }}
   AM_DEPHEALTH_GROUP: {{ .Values.dephealth.group | quote }}
+  # --- Admin UI ---
+  AM_UI_ENABLED: {{ .Values.ui.enabled | quote }}
+  AM_UI_OIDC_CLIENT_ID: {{ .Values.ui.oidcClientId | quote }}
   # --- Graceful shutdown ---
   AM_SHUTDOWN_TIMEOUT: {{ .Values.shutdownTimeout | quote }}
