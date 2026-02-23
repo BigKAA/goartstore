@@ -1,14 +1,14 @@
 apiVersion: v2
 name: admin-module
 description: >-
-  Helm chart для Admin Module — модуль управления системой Artsore.
+  Helm chart для Admin Module — модуль управления системой Artstore.
   Keycloak IdP интеграция, RBAC, реестр Storage Elements и файлов,
   Service Accounts. Stateless Deployment + ClusterIP Service + HTTPRoute.
 type: application
 version: 0.1.0
 appVersion: "0.1.0"
 keywords:
-  - artsore
+  - artstore
   - admin-module
   - rbac
   - keycloak

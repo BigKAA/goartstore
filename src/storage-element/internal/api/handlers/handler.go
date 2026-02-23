@@ -5,8 +5,8 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/arturkryukov/artsore/storage-element/internal/api/generated"
-	"github.com/arturkryukov/artsore/storage-element/internal/server"
+	"github.com/arturkryukov/artstore/storage-element/internal/api/generated"
+	"github.com/arturkryukov/artstore/storage-element/internal/server"
 )
 
 // APIHandler — единая реализация ServerInterface, собирающая

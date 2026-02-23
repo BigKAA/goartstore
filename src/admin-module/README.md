@@ -1,6 +1,6 @@
 # Admin Module
 
-Центральный модуль управления Artsore — реестр Storage Elements, файлов, Service Accounts, RBAC и интеграция с Keycloak IdP.
+Центральный модуль управления Artstore — реестр Storage Elements, файлов, Service Accounts, RBAC и интеграция с Keycloak IdP.
 
 ## Возможности
 
@@ -40,7 +40,7 @@ Env-переменные (обязательные):
 | `AM_KEYCLOAK_CLIENT_ID` | Client ID для Admin API Keycloak |
 | `AM_KEYCLOAK_CLIENT_SECRET` | Client secret для Admin API Keycloak |
 
-Опциональные (с дефолтами): `AM_PORT=8000`, `AM_LOG_LEVEL=info`, `AM_KEYCLOAK_REALM=artsore`, `AM_SYNC_INTERVAL=1h`, `AM_SA_SYNC_INTERVAL=15m` и др. Полный список: `internal/config/config.go`.
+Опциональные (с дефолтами): `AM_PORT=8000`, `AM_LOG_LEVEL=info`, `AM_KEYCLOAK_REALM=artstore`, `AM_SYNC_INTERVAL=1h`, `AM_SA_SYNC_INTERVAL=15m` и др. Полный список: `internal/config/config.go`.
 
 ## Деплой в Kubernetes
 
@@ -49,17 +49,17 @@ Env-переменные (обязательные):
 ```bash
 cd charts/admin-module/
 helm install admin-module . \
-  --namespace artsore \
+  --namespace artstore \
   --set image.tag=v0.1.0 \
-  --set database.host=postgresql.artsore.svc \
-  --set keycloak.url=https://keycloak.artsore.svc
+  --set database.host=postgresql.artstore.svc \
+  --set keycloak.url=https://keycloak.artstore.svc
 ```
 
 Chart создаёт: Deployment, Service (ClusterIP:8000), HTTPRoute (Gateway API), ConfigMap, Secret.
 
 ### Тестовая среда
 
-AM деплоится как часть тестовой инфраструктуры через `tests/helm/artsore-apps/`. Подробности — `tests/Makefile`.
+AM деплоится как часть тестовой инфраструктуры через `tests/helm/artstore-apps/`. Подробности — `tests/Makefile`.
 
 ## Интеграционные тесты
 

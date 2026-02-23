@@ -2,7 +2,7 @@
 # Основные цели: build, test, generate, lint, docker-build, docker-run
 
 BINARY_NAME := admin-module
-MODULE := github.com/arturkryukov/artsore/admin-module
+MODULE := github.com/arturkryukov/artstore/admin-module
 VERSION ?= dev
 OPENAPI_SPEC := ../../docs/api-contracts/admin-module-openapi.yaml
 

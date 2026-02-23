@@ -7,9 +7,9 @@ import (
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
-	apierrors "github.com/arturkryukov/artsore/admin-module/internal/api/errors"
-	"github.com/arturkryukov/artsore/admin-module/internal/api/generated"
-	"github.com/arturkryukov/artsore/admin-module/internal/api/middleware"
+	apierrors "github.com/arturkryukov/artstore/admin-module/internal/api/errors"
+	"github.com/arturkryukov/artstore/admin-module/internal/api/generated"
+	"github.com/arturkryukov/artstore/admin-module/internal/api/middleware"
 )
 
 // GetCurrentUser — GET /api/v1/admin-auth/me.

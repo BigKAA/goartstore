@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/arturkryukov/artsore/admin-module/internal/service"
+	"github.com/arturkryukov/artstore/admin-module/internal/service"
 )
 
 // APIHandler — основной обработчик API Admin Module.

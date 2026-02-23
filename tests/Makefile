@@ -1,8 +1,8 @@
 # =============================================================================
-# Makefile для интеграционного тестирования Artsore в Kubernetes
+# Makefile для интеграционного тестирования Artstore в Kubernetes
 #
-# Три независимых Helm chart-а (artsore-infra, artsore-se, artsore-apps)
-# деплоятся в один namespace artsore-test. Init Job — standalone manifest.
+# Три независимых Helm chart-а (artstore-infra, artstore-se, artstore-apps)
+# деплоятся в один namespace artstore-test. Init Job — standalone manifest.
 #
 # Использование:
 #   make help                  — Справка
@@ -16,20 +16,20 @@
 # Переменные
 # -----------------------------------------------------------------------------
 DOCKER_REGISTRY ?= harbor.kryukov.lan/library
-AM_TAG          ?= v0.1.0-2
-SE_TAG          ?= v0.1.0-1
-NAMESPACE       ?= artsore-test
+AM_TAG          ?= v0.1.0-3
+SE_TAG          ?= v0.1.0-2
+NAMESPACE       ?= artstore-test
 AM_PORT         ?= 8000
 SE_PORT         ?= 8010
 TEST_AM_ARGS    ?=
 
 # Helm chart-ы и release names
-INFRA_CHART     := helm/artsore-infra
-INFRA_RELEASE   := artsore-infra
-SE_CHART        := helm/artsore-se
-SE_RELEASE      := artsore-se
-APPS_CHART      := helm/artsore-apps
-APPS_RELEASE    := artsore-apps
+INFRA_CHART     := helm/artstore-infra
+INFRA_RELEASE   := artstore-infra
+SE_CHART        := helm/artstore-se
+SE_RELEASE      := artstore-se
+APPS_CHART      := helm/artstore-apps
+APPS_RELEASE    := artstore-apps
 
 # Init Job manifest
 INIT_JOB_SRC    := helm/init-job/job.yaml
@@ -37,8 +37,8 @@ INIT_JOB_SRC    := helm/init-job/job.yaml
 # Директории
 AM_ROOT         := ../src/admin-module
 SE_ROOT         := ../src/storage-element
-REALM_SRC       := ../deploy/keycloak/artsore-realm.json
-REALM_DST       := helm/artsore-infra/files/artsore-realm.json
+REALM_SRC       := ../deploy/keycloak/artstore-realm.json
+REALM_DST       := helm/artstore-infra/files/artstore-realm.json
 SCRIPTS_DIR     := scripts
 PF_PID_DIR      := .port-forward
 
@@ -59,7 +59,7 @@ PF_SE_AR        := 18015:$(SE_PORT)
 
 # Переменные окружения для тестовых скриптов
 export KC_URL         := https://localhost:18080
-export KC_TOKEN_URL   := https://localhost:18080/realms/artsore/protocol/openid-connect/token
+export KC_TOKEN_URL   := https://localhost:18080/realms/artstore/protocol/openid-connect/token
 export AM_URL         := http://localhost:18000
 export SE_EDIT_1_URL  := https://localhost:18010
 export SE_EDIT_2_URL  := https://localhost:18011
@@ -71,13 +71,13 @@ export K8S_NAMESPACE  := $(NAMESPACE)
 export CURL_OPTS      := -k -s --connect-timeout 5
 
 # Keycloak тестовые клиенты (для получения JWT)
-export KC_TEST_USER_CLIENT_ID     := artsore-test-user
+export KC_TEST_USER_CLIENT_ID     := artstore-test-user
 export KC_TEST_USER_CLIENT_SECRET := test-user-secret
 export KC_ADMIN_USERNAME          := admin
 export KC_ADMIN_PASSWORD          := admin
 export KC_VIEWER_USERNAME         := viewer
 export KC_VIEWER_PASSWORD         := viewer
-export KC_SA_CLIENT_ID            := artsore-admin-module
+export KC_SA_CLIENT_ID            := artstore-admin-module
 export KC_SA_CLIENT_SECRET        := admin-module-test-secret
 
 .PHONY: help docker-build docker-build-am docker-build-se docker-push-am docker-push-se \
@@ -95,7 +95,7 @@ export KC_SA_CLIENT_SECRET        := admin-module-test-secret
 ## help: Показать справку
 help:
 	@echo "============================================================"
-	@echo "  Artsore Integration Tests — Makefile"
+	@echo "  Artstore Integration Tests — Makefile"
 	@echo "============================================================"
 	@echo ""
 	@echo "Сборка образов:"
@@ -177,7 +177,7 @@ docker-push-se:
 # Подготовка
 # -----------------------------------------------------------------------------
 
-## copy-realm: Копировать realm.json в artsore-infra files/
+## copy-realm: Копировать realm.json в artstore-infra files/
 copy-realm:
 	@echo ">>> Копирование realm.json..."
 	@mkdir -p $(dir $(REALM_DST))
@@ -188,9 +188,9 @@ copy-realm:
 # Деплой по слоям
 # -----------------------------------------------------------------------------
 
-## infra-up: Деплой artsore-infra (PG + KC)
+## infra-up: Деплой artstore-infra (PG + KC)
 infra-up: copy-realm
-	@echo ">>> Деплой artsore-infra в namespace $(NAMESPACE)..."
+	@echo ">>> Деплой artstore-infra в namespace $(NAMESPACE)..."
 	helm upgrade --install $(INFRA_RELEASE) $(INFRA_CHART) \
 		--namespace $(NAMESPACE) \
 		--create-namespace \
@@ -201,7 +201,7 @@ infra-up: copy-realm
 	@echo ">>> Ожидание готовности Keycloak..."
 	@kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=keycloak \
 		-n $(NAMESPACE) --timeout=300s
-	@echo ">>> artsore-infra развёрнут"
+	@echo ">>> artstore-infra развёрнут"
 	@$(MAKE) --no-print-directory kc-setup
 
 ## kc-setup: Настроить Keycloak realm (frontendUrl для корректного JWT issuer)
@@ -217,7 +217,7 @@ kc-setup:
 	KC_ADMIN_TOKEN=$$(curl -sf http://localhost:$$KC_LOCAL_PORT/realms/master/protocol/openid-connect/token \
 		-d "grant_type=password&client_id=admin-cli&username=admin&password=admin" | jq -r '.access_token'); \
 	if [ -n "$$KC_ADMIN_TOKEN" ] && [ "$$KC_ADMIN_TOKEN" != "null" ]; then \
-		curl -sf -X PUT http://localhost:$$KC_LOCAL_PORT/admin/realms/artsore \
+		curl -sf -X PUT http://localhost:$$KC_LOCAL_PORT/admin/realms/artstore \
 			-H "Authorization: Bearer $$KC_ADMIN_TOKEN" \
 			-H "Content-Type: application/json" \
 			-d "{\"attributes\": {\"frontendUrl\": \"$$KC_INTERNAL\"}}" && \
@@ -227,15 +227,15 @@ kc-setup:
 	fi; \
 	kill $$KC_PF_PID 2>/dev/null || true
 
-## infra-down: Удалить artsore-infra
+## infra-down: Удалить artstore-infra
 infra-down:
-	@echo ">>> Удаление artsore-infra..."
+	@echo ">>> Удаление artstore-infra..."
 	@helm uninstall $(INFRA_RELEASE) -n $(NAMESPACE) 2>/dev/null || true
-	@echo ">>> artsore-infra удалён"
+	@echo ">>> artstore-infra удалён"
 
-## se-up: Деплой artsore-se (6 SE)
+## se-up: Деплой artstore-se (6 SE)
 se-up:
-	@echo ">>> Деплой artsore-se в namespace $(NAMESPACE)..."
+	@echo ">>> Деплой artstore-se в namespace $(NAMESPACE)..."
 	helm upgrade --install $(SE_RELEASE) $(SE_CHART) \
 		--namespace $(NAMESPACE) \
 		--set seTag=$(SE_TAG) \
@@ -243,17 +243,17 @@ se-up:
 	@echo ">>> Ожидание готовности SE pods..."
 	@kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=storage-element \
 		-n $(NAMESPACE) --timeout=300s
-	@echo ">>> artsore-se развёрнут (6 SE)"
+	@echo ">>> artstore-se развёрнут (6 SE)"
 
-## se-down: Удалить artsore-se
+## se-down: Удалить artstore-se
 se-down:
-	@echo ">>> Удаление artsore-se..."
+	@echo ">>> Удаление artstore-se..."
 	@helm uninstall $(SE_RELEASE) -n $(NAMESPACE) 2>/dev/null || true
-	@echo ">>> artsore-se удалён"
+	@echo ">>> artstore-se удалён"
 
-## apps-up: Деплой artsore-apps (AM)
+## apps-up: Деплой artstore-apps (AM)
 apps-up:
-	@echo ">>> Деплой artsore-apps в namespace $(NAMESPACE)..."
+	@echo ">>> Деплой artstore-apps в namespace $(NAMESPACE)..."
 	helm upgrade --install $(APPS_RELEASE) $(APPS_CHART) \
 		--namespace $(NAMESPACE) \
 		--set amTag=$(AM_TAG) \
@@ -261,13 +261,13 @@ apps-up:
 	@echo ">>> Ожидание готовности Admin Module..."
 	@kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=admin-module \
 		-n $(NAMESPACE) --timeout=300s
-	@echo ">>> artsore-apps развёрнут"
+	@echo ">>> artstore-apps развёрнут"
 
-## apps-down: Удалить artsore-apps
+## apps-down: Удалить artstore-apps
 apps-down:
-	@echo ">>> Удаление artsore-apps..."
+	@echo ">>> Удаление artstore-apps..."
 	@helm uninstall $(APPS_RELEASE) -n $(NAMESPACE) 2>/dev/null || true
-	@echo ">>> artsore-apps удалён"
+	@echo ">>> artstore-apps удалён"
 
 ## init-data: Запустить Init Job (загрузка данных, mode transitions)
 init-data:
@@ -277,15 +277,15 @@ init-data:
 		envsubst '$$NAMESPACE $$INFRA_RELEASE $$AM_PORT $$SE_PORT' \
 		< $(INIT_JOB_SRC) | kubectl apply -f -
 	@echo ">>> Ожидание завершения Init Job (до 600с)..."
-	@kubectl wait --for=condition=complete job/artsore-init \
+	@kubectl wait --for=condition=complete job/artstore-init \
 		-n $(NAMESPACE) --timeout=600s
 	@echo ">>> Init Job завершён"
 
 ## init-data-clean: Удалить Init Job (для перезапуска)
 init-data-clean:
 	@echo ">>> Удаление Init Job ресурсов..."
-	@kubectl delete job artsore-init -n $(NAMESPACE) 2>/dev/null || true
-	@kubectl delete configmap artsore-init-lib artsore-init-data -n $(NAMESPACE) 2>/dev/null || true
+	@kubectl delete job artstore-init -n $(NAMESPACE) 2>/dev/null || true
+	@kubectl delete configmap artstore-init-lib artstore-init-data -n $(NAMESPACE) 2>/dev/null || true
 	@echo ">>> Init Job ресурсы удалены"
 
 # -----------------------------------------------------------------------------

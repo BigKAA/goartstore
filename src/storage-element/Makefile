@@ -2,7 +2,7 @@
 # Основные цели: build, test, generate, lint, docker-build, docker-run, dev-certs
 
 BINARY_NAME := storage-element
-MODULE := github.com/arturkryukov/artsore/storage-element
+MODULE := github.com/arturkryukov/artstore/storage-element
 VERSION ?= dev
 OPENAPI_SPEC := ../../docs/api-contracts/storage-element-openapi.yaml
 
@@ -74,7 +74,7 @@ dev-certs:
 			-keyout certs/tls.key \
 			-out certs/tls.crt \
 			-days 365 \
-			-subj "/CN=storage-element/O=Artsore/C=RU" \
+			-subj "/CN=storage-element/O=Artstore/C=RU" \
 			-addext "subjectAltName=DNS:localhost,DNS:storage-element,IP:127.0.0.1" 2>/dev/null; \
 		echo "TLS сертификаты сгенерированы в certs/"; \
 	else \

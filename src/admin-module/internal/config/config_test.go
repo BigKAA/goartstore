@@ -19,11 +19,11 @@ func setEnvs(t *testing.T, envs map[string]string) {
 func minimalEnvs() map[string]string {
 	return map[string]string{
 		"AM_DB_HOST":               "localhost",
-		"AM_DB_NAME":               "artsore",
-		"AM_DB_USER":               "artsore",
+		"AM_DB_NAME":               "artstore",
+		"AM_DB_USER":               "artstore",
 		"AM_DB_PASSWORD":           "secret",
 		"AM_KEYCLOAK_URL":          "https://keycloak.kryukov.lan",
-		"AM_KEYCLOAK_CLIENT_ID":    "artsore-admin-module",
+		"AM_KEYCLOAK_CLIENT_ID":    "artstore-admin-module",
 		"AM_KEYCLOAK_CLIENT_SECRET": "kc-secret",
 	}
 }
@@ -55,8 +55,8 @@ func TestLoad_MinimalConfig(t *testing.T) {
 	if cfg.DBSSLMode != "disable" {
 		t.Errorf("DBSSLMode = %q, ожидается disable", cfg.DBSSLMode)
 	}
-	if cfg.KeycloakRealm != "artsore" {
-		t.Errorf("KeycloakRealm = %q, ожидается artsore", cfg.KeycloakRealm)
+	if cfg.KeycloakRealm != "artstore" {
+		t.Errorf("KeycloakRealm = %q, ожидается artstore", cfg.KeycloakRealm)
 	}
 	if cfg.KeycloakSAPrefix != "sa_" {
 		t.Errorf("KeycloakSAPrefix = %q, ожидается sa_", cfg.KeycloakSAPrefix)
@@ -86,12 +86,12 @@ func TestLoad_JWTAutoDerive(t *testing.T) {
 		t.Fatalf("Load() вернул ошибку: %v", err)
 	}
 
-	expectedIssuer := "https://keycloak.kryukov.lan/realms/artsore"
+	expectedIssuer := "https://keycloak.kryukov.lan/realms/artstore"
 	if cfg.JWTIssuer != expectedIssuer {
 		t.Errorf("JWTIssuer = %q, ожидается %q", cfg.JWTIssuer, expectedIssuer)
 	}
 
-	expectedJWKS := "https://keycloak.kryukov.lan/realms/artsore/protocol/openid-connect/certs"
+	expectedJWKS := "https://keycloak.kryukov.lan/realms/artstore/protocol/openid-connect/certs"
 	if cfg.JWTJWKSURL != expectedJWKS {
 		t.Errorf("JWTJWKSURL = %q, ожидается %q", cfg.JWTJWKSURL, expectedJWKS)
 	}
@@ -310,12 +310,12 @@ func TestDatabaseDSN(t *testing.T) {
 	cfg := &Config{
 		DBHost:     "db.example.com",
 		DBPort:     5432,
-		DBName:     "artsore",
+		DBName:     "artstore",
 		DBUser:     "user",
 		DBPassword: "pass",
 		DBSSLMode:  "disable",
 	}
-	expected := "host=db.example.com port=5432 dbname=artsore user=user password=pass sslmode=disable"
+	expected := "host=db.example.com port=5432 dbname=artstore user=user password=pass sslmode=disable"
 	if dsn := cfg.DatabaseDSN(); dsn != expected {
 		t.Errorf("DatabaseDSN() = %q, ожидается %q", dsn, expected)
 	}

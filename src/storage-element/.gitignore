@@ -1,5 +1,6 @@
 # Артефакты сборки
 bin/
+tests/jwks-mock/jwks-mock
 
 # Dev-сертификаты (генерируются через make dev-certs)
 certs/

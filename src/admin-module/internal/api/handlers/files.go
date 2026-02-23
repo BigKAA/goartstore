@@ -10,12 +10,12 @@ import (
 
 	"github.com/google/uuid"
 
-	apierrors "github.com/arturkryukov/artsore/admin-module/internal/api/errors"
-	"github.com/arturkryukov/artsore/admin-module/internal/api/generated"
-	"github.com/arturkryukov/artsore/admin-module/internal/api/middleware"
-	"github.com/arturkryukov/artsore/admin-module/internal/domain/model"
-	"github.com/arturkryukov/artsore/admin-module/internal/repository"
-	"github.com/arturkryukov/artsore/admin-module/internal/service"
+	apierrors "github.com/arturkryukov/artstore/admin-module/internal/api/errors"
+	"github.com/arturkryukov/artstore/admin-module/internal/api/generated"
+	"github.com/arturkryukov/artstore/admin-module/internal/api/middleware"
+	"github.com/arturkryukov/artstore/admin-module/internal/domain/model"
+	"github.com/arturkryukov/artstore/admin-module/internal/repository"
+	"github.com/arturkryukov/artstore/admin-module/internal/service"
 )
 
 // RegisterFile — POST /api/v1/files.

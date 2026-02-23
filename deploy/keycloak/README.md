@@ -1,6 +1,6 @@
-# Keycloak Realm — Artsore
+# Keycloak Realm — Artstore
 
-Конфигурация Keycloak realm `artsore` для всех модулей системы.
+Конфигурация Keycloak realm `artstore` для всех модулей системы.
 
 ## Содержимое realm
 
@@ -20,22 +20,22 @@
 
 | Client ID | Тип | Flow | Scopes |
 |-----------|-----|------|--------|
-| `artsore-admin-module` | confidential | Client Credentials | все scopes + realm-management roles |
-| `artsore-ingester` | confidential | Client Credentials | files:\*, storage:read |
-| `artsore-query` | confidential | Client Credentials | files:read, storage:read |
-| `artsore-admin-ui` | public | Auth Code + PKCE | openid, profile, email, groups |
-| `artsore-test-user` | confidential | Password (ROPC) | groups (default) + все scopes (optional) |
-| `artsore-test-init` | confidential | Client Credentials | files:\*, storage:\* |
+| `artstore-admin-module` | confidential | Client Credentials | все scopes + realm-management roles |
+| `artstore-ingester` | confidential | Client Credentials | files:\*, storage:read |
+| `artstore-query` | confidential | Client Credentials | files:read, storage:read |
+| `artstore-admin-ui` | public | Auth Code + PKCE | openid, profile, email, groups |
+| `artstore-test-user` | confidential | Password (ROPC) | groups (default) + все scopes (optional) |
+| `artstore-test-init` | confidential | Client Credentials | files:\*, storage:\* |
 
 ### Тестовые секреты
 
 | Client ID | Secret |
 |-----------|--------|
-| `artsore-admin-module` | `admin-module-test-secret` |
-| `artsore-ingester` | `ingester-test-secret` |
-| `artsore-query` | `query-test-secret` |
-| `artsore-test-user` | `test-user-secret` |
-| `artsore-test-init` | `test-init-secret` |
+| `artstore-admin-module` | `admin-module-test-secret` |
+| `artstore-ingester` | `ingester-test-secret` |
+| `artstore-query` | `query-test-secret` |
+| `artstore-test-user` | `test-user-secret` |
+| `artstore-test-init` | `test-init-secret` |
 
 > **Внимание**: секреты предназначены только для тестовой/dev среды.
 > В production используйте секреты, сгенерированные Keycloak.
@@ -44,19 +44,19 @@
 
 | Группа | Realm Role |
 |--------|-----------|
-| `artsore-admins` | `admin` |
-| `artsore-viewers` | `readonly` |
+| `artstore-admins` | `admin` |
+| `artstore-viewers` | `readonly` |
 
 ### Тестовые пользователи
 
 | Username | Password | Группа | Роль |
 |----------|----------|--------|------|
-| `admin` | `admin` | `artsore-admins` | `admin` |
-| `viewer` | `viewer` | `artsore-viewers` | `readonly` |
+| `admin` | `admin` | `artstore-admins` | `admin` |
+| `viewer` | `viewer` | `artstore-viewers` | `readonly` |
 
 ### Service Account — Admin Module
 
-Service account клиента `artsore-admin-module` имеет роли `realm-management`:
+Service account клиента `artstore-admin-module` имеет роли `realm-management`:
 
 - `view-users` — просмотр пользователей
 - `manage-clients` — управление клиентами
@@ -70,11 +70,11 @@ Service account клиента `artsore-admin-module` имеет роли `realm
 
 | Client | Mapper | Claim | Назначение |
 |--------|--------|-------|-----------|
-| `artsore-admin-module` | `client_id` | `client_id` | Идентификация SA в JWT |
-| `artsore-test-user` | `realm roles` | `realm_access.roles` | Роли пользователя в JWT |
-| `artsore-test-user` | `preferred_username` | `preferred_username` | Username в JWT |
-| `artsore-test-user` | `sub` | `sub` | Subject в JWT |
-| `artsore-test-user` | `email` | `email` | Email в JWT |
+| `artstore-admin-module` | `client_id` | `client_id` | Идентификация SA в JWT |
+| `artstore-test-user` | `realm roles` | `realm_access.roles` | Роли пользователя в JWT |
+| `artstore-test-user` | `preferred_username` | `preferred_username` | Username в JWT |
+| `artstore-test-user` | `sub` | `sub` | Subject в JWT |
+| `artstore-test-user` | `email` | `email` | Email в JWT |
 
 ## Импорт realm
 
@@ -87,7 +87,7 @@ Service account клиента `artsore-admin-module` имеет роли `realm
 docker run -d \
   -e KC_BOOTSTRAP_ADMIN_USERNAME=admin \
   -e KC_BOOTSTRAP_ADMIN_PASSWORD=admin \
-  -v $(pwd)/artsore-realm.json:/opt/keycloak/data/import/artsore-realm.json \
+  -v $(pwd)/artstore-realm.json:/opt/keycloak/data/import/artstore-realm.json \
   quay.io/keycloak/keycloak:26.1 \
   start-dev --import-realm
 
@@ -100,7 +100,7 @@ docker run -d \
 #     extraVolumes:
 #       - name: realm-config
 #         configMap:
-#           name: artsore-realm
+#           name: artstore-realm
 ```
 
 Keycloak импортирует realm при первом запуске. Если realm уже существует — импорт
@@ -112,7 +112,7 @@ Keycloak импортирует realm при первом запуске. Есл
 2. Войдите под bootstrap admin (admin/admin)
 3. В левом верхнем углу нажмите на выпадающий список realm
 4. Нажмите **Create realm**
-5. Нажмите **Browse...** и выберите файл `artsore-realm.json`
+5. Нажмите **Browse...** и выберите файл `artstore-realm.json`
 6. Нажмите **Create**
 
 ### Через Keycloak Admin CLI
@@ -131,26 +131,26 @@ TOKEN=$(curl -s -X POST \
 curl -s -X POST "http://localhost:8080/admin/realms" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d @artsore-realm.json
+  -d @artstore-realm.json
 ```
 
 ## Проверка импорта
 
 ```bash
 # Получить информацию о realm (публичный endpoint)
-curl -s http://localhost:8080/realms/artsore | jq .
+curl -s http://localhost:8080/realms/artstore | jq .
 
 # Ожидаемый ответ содержит:
-# "realm": "artsore"
+# "realm": "artstore"
 # "public_key": "..."
 
 # Получить JWKS (публичный endpoint)
-curl -s http://localhost:8080/realms/artsore/protocol/openid-connect/certs | jq .
+curl -s http://localhost:8080/realms/artstore/protocol/openid-connect/certs | jq .
 
 # Получить токен через Client Credentials
 curl -s -X POST \
-  "http://localhost:8080/realms/artsore/protocol/openid-connect/token" \
+  "http://localhost:8080/realms/artstore/protocol/openid-connect/token" \
   -d "grant_type=client_credentials" \
-  -d "client_id=artsore-test-init" \
+  -d "client_id=artstore-test-init" \
   -d "client_secret=test-init-secret" | jq .
 ```

@@ -89,10 +89,10 @@ func newTestJWTAuth(t *testing.T, key *rsa.PrivateKey, roleProvider RoleOverride
 
 	return NewJWTAuthWithKeyfunc(
 		kf,
-		"https://keycloak.test/realms/artsore",
+		"https://keycloak.test/realms/artstore",
 		roleProvider,
-		[]string{"artsore-admins"},
-		[]string{"artsore-viewers"},
+		[]string{"artstore-admins"},
+		[]string{"artstore-viewers"},
 		testLogger(),
 	)
 }
@@ -110,7 +110,7 @@ func generateUserToken(t *testing.T, key *rsa.PrivateKey, sub, username, email s
 		"sub":                sub,
 		"preferred_username": username,
 		"email":              email,
-		"iss":                "https://keycloak.test/realms/artsore",
+		"iss":                "https://keycloak.test/realms/artstore",
 		"exp":                jwt.NewNumericDate(exp),
 		"nbf":                jwt.NewNumericDate(time.Now().Add(-time.Minute)),
 		"iat":                jwt.NewNumericDate(time.Now()),
@@ -147,7 +147,7 @@ func generateSAToken(t *testing.T, key *rsa.PrivateKey, sub, clientID, scope str
 		"sub":       sub,
 		"client_id": clientID,
 		"scope":     scope,
-		"iss":       "https://keycloak.test/realms/artsore",
+		"iss":       "https://keycloak.test/realms/artstore",
 		"exp":       jwt.NewNumericDate(exp),
 		"nbf":       jwt.NewNumericDate(time.Now().Add(-time.Minute)),
 		"iat":       jwt.NewNumericDate(time.Now()),
@@ -198,7 +198,7 @@ func TestJWTAuth_ValidUserToken(t *testing.T) {
 	}))
 
 	tokenStr := generateUserToken(t, key, "user-123", "admin", "admin@test.com",
-		[]string{"admin"}, []string{"artsore-admins"}, false)
+		[]string{"admin"}, []string{"artstore-admins"}, false)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin-auth/me", nil)
 	req.Header.Set("Authorization", "Bearer "+tokenStr)
@@ -344,7 +344,7 @@ func TestJWTAuth_RoleOverride(t *testing.T) {
 			t.Fatal("claims не найдены")
 		}
 
-		// IdpRole = readonly (из группы artsore-viewers)
+		// IdpRole = readonly (из группы artstore-viewers)
 		if claims.IdpRole != "readonly" {
 			t.Errorf("ожидался IdpRole=readonly, получен %s", claims.IdpRole)
 		}
@@ -361,7 +361,7 @@ func TestJWTAuth_RoleOverride(t *testing.T) {
 	}))
 
 	tokenStr := generateUserToken(t, key, "user-readonly", "viewer", "viewer@test.com",
-		nil, []string{"artsore-viewers"}, false)
+		nil, []string{"artstore-viewers"}, false)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin-auth/me", nil)
 	req.Header.Set("Authorization", "Bearer "+tokenStr)
@@ -401,7 +401,7 @@ func TestJWTAuth_RoleOverrideCannotDemote(t *testing.T) {
 	}))
 
 	tokenStr := generateUserToken(t, key, "user-admin", "admin", "admin@test.com",
-		nil, []string{"artsore-admins"}, false)
+		nil, []string{"artstore-admins"}, false)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin-auth/me", nil)
 	req.Header.Set("Authorization", "Bearer "+tokenStr)
@@ -421,9 +421,9 @@ func TestJWTAuth_GroupMapping(t *testing.T) {
 		groups       []string
 		expectedRole string
 	}{
-		{"admin group", []string{"artsore-admins"}, "admin"},
-		{"readonly group", []string{"artsore-viewers"}, "readonly"},
-		{"both groups", []string{"artsore-admins", "artsore-viewers"}, "admin"},
+		{"admin group", []string{"artstore-admins"}, "admin"},
+		{"readonly group", []string{"artstore-viewers"}, "readonly"},
+		{"both groups", []string{"artstore-admins", "artstore-viewers"}, "admin"},
 		{"no groups", []string{}, ""},
 		{"unknown group", []string{"other-group"}, ""},
 	}
@@ -813,7 +813,7 @@ func TestJWTAuth_RolesFromRealmAccess(t *testing.T) {
 
 	// Токен без groups, но с realm_access.roles
 	tokenStr := generateUserToken(t, key, "user-123", "admin", "admin@test.com",
-		[]string{"admin", "default-roles-artsore"}, nil, false)
+		[]string{"admin", "default-roles-artstore"}, nil, false)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin-auth/me", nil)
 	req.Header.Set("Authorization", "Bearer "+tokenStr)

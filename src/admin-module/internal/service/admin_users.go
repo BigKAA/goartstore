@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/arturkryukov/artsore/admin-module/internal/api/middleware"
-	"github.com/arturkryukov/artsore/admin-module/internal/domain/model"
-	"github.com/arturkryukov/artsore/admin-module/internal/domain/rbac"
-	"github.com/arturkryukov/artsore/admin-module/internal/keycloak"
-	"github.com/arturkryukov/artsore/admin-module/internal/repository"
+	"github.com/arturkryukov/artstore/admin-module/internal/api/middleware"
+	"github.com/arturkryukov/artstore/admin-module/internal/domain/model"
+	"github.com/arturkryukov/artstore/admin-module/internal/domain/rbac"
+	"github.com/arturkryukov/artstore/admin-module/internal/keycloak"
+	"github.com/arturkryukov/artstore/admin-module/internal/repository"
 )
 
 // AdminUserService — сервис управления пользователями.

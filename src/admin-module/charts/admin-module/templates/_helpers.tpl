@@ -25,7 +25,7 @@ admin-module
 {{- define "am.labels" -}}
 helm.sh/chart: {{ include "am.chart" . }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
-app.kubernetes.io/part-of: artsore
+app.kubernetes.io/part-of: artstore
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{ include "am.selectorLabels" . }}
 {{- end }}

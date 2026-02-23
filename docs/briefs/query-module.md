@@ -9,7 +9,7 @@
 
 ## 1. Назначение модуля
 
-Query Module — модуль поиска и скачивания файлов системы Artsore.
+Query Module — модуль поиска и скачивания файлов системы Artstore.
 Предоставляет полнотекстовый поиск по метаданным файлов и проксирует
 скачивание файлов с Storage Elements.
 
@@ -458,8 +458,8 @@ docker run -d \
   -p 8030:8030 \
   -e QM_DB_HOST=postgres \
   -e QM_DB_PORT=5432 \
-  -e QM_DB_NAME=artsore \
-  -e QM_DB_USER=artsore_readonly \
+  -e QM_DB_NAME=artstore \
+  -e QM_DB_USER=artstore_readonly \
   -e QM_DB_PASSWORD=secret \
   -e QM_ADMIN_URL=http://admin-module:8000 \
   -e QM_JWKS_URL=http://admin-module:8000/api/v1/auth/jwks \
@@ -475,12 +475,12 @@ docker run -d \
 ```bash
 # Установка через Helm chart
 helm install query-module ./query-module/chart \
-  --set db.host=postgresql.artsore.svc \
-  --set db.name=artsore \
-  --set db.user=artsore_readonly \
+  --set db.host=postgresql.artstore.svc \
+  --set db.name=artstore \
+  --set db.user=artstore_readonly \
   --set db.password=secret \
-  --set adminUrl=http://admin-module.artsore.svc:8000 \
-  --set jwksUrl=http://admin-module.artsore.svc:8000/api/v1/auth/jwks \
+  --set adminUrl=http://admin-module.artstore.svc:8000 \
+  --set jwksUrl=http://admin-module.artstore.svc:8000/api/v1/auth/jwks \
   --set clientId=sa_query_xyz789 \
   --set clientSecret=cs_secret_value_here \
   --set seCaCert.secretName=se-ca-cert
@@ -522,7 +522,7 @@ import (
     _ "github.com/BigKAA/topologymetrics/sdk-go/dephealth/checks"
 )
 
-dh, err := dephealth.New("query-module", "artsore",
+dh, err := dephealth.New("query-module", "artstore",
     dephealth.WithCheckInterval(cfg.DephealthCheckInterval),
     sqldb.FromDB("postgresql", db,
         dephealth.FromURL(cfg.DatabaseURL),

@@ -1,4 +1,4 @@
-# PostgreSQL 17 — общая БД для Admin Module (artsore) и Keycloak (keycloak).
+# PostgreSQL 17 — общая БД для Admin Module (artstore) и Keycloak (keycloak).
 # initdb-скрипт создаёт дополнительную БД keycloak.
 ---
 # ConfigMap с initdb-скриптом — создание БД keycloak
@@ -8,10 +8,10 @@ metadata:
   name: postgresql-initdb
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "artsore-infra.labels" . | nindent 4 }}
+    {{- include "artstore-infra.labels" . | nindent 4 }}
 data:
   # Скрипт выполняется при первой инициализации PostgreSQL.
-  # Основная БД (POSTGRES_DB=artsore) создаётся автоматически.
+  # Основная БД (POSTGRES_DB=artstore) создаётся автоматически.
   # Дополнительно создаём БД keycloak для Keycloak.
   create-keycloak-db.sh: |
     #!/bin/bash
@@ -29,8 +29,8 @@ metadata:
   name: postgresql-data
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "artsore-infra.labels" . | nindent 4 }}
-    {{- include "artsore-infra.pg.selectorLabels" . | nindent 4 }}
+    {{- include "artstore-infra.labels" . | nindent 4 }}
+    {{- include "artstore-infra.pg.selectorLabels" . | nindent 4 }}
 spec:
   accessModes:
     - ReadWriteOnce
@@ -46,19 +46,19 @@ metadata:
   name: postgresql
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "artsore-infra.labels" . | nindent 4 }}
-    {{- include "artsore-infra.pg.selectorLabels" . | nindent 4 }}
+    {{- include "artstore-infra.labels" . | nindent 4 }}
+    {{- include "artstore-infra.pg.selectorLabels" . | nindent 4 }}
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      {{- include "artsore-infra.pg.selectorLabels" . | nindent 6 }}
+      {{- include "artstore-infra.pg.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "artsore-infra.pg.selectorLabels" . | nindent 8 }}
+        {{- include "artstore-infra.pg.selectorLabels" . | nindent 8 }}
     spec:
       containers:
         - name: postgresql
@@ -112,12 +112,12 @@ metadata:
   name: postgresql
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "artsore-infra.labels" . | nindent 4 }}
-    {{- include "artsore-infra.pg.selectorLabels" . | nindent 4 }}
+    {{- include "artstore-infra.labels" . | nindent 4 }}
+    {{- include "artstore-infra.pg.selectorLabels" . | nindent 4 }}
 spec:
   type: ClusterIP
   selector:
-    {{- include "artsore-infra.pg.selectorLabels" . | nindent 4 }}
+    {{- include "artstore-infra.pg.selectorLabels" . | nindent 4 }}
   ports:
     - port: {{ .Values.postgresql.port }}
       targetPort: {{ .Values.postgresql.port }}

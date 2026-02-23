@@ -1,28 +1,28 @@
 # Production values для деплоя Admin Module
-# Использует инфраструктуру из artsore-test namespace
+# Использует инфраструктуру из artstore-test namespace
 
 tag: v0.1.0-2
 
-# PostgreSQL — используем PG из artsore-test
+# PostgreSQL — используем PG из artstore-test
 database:
-  host: postgresql.artsore-test.svc.cluster.local
+  host: postgresql.artstore-test.svc.cluster.local
   port: 5432
-  name: artsore
-  user: artsore
-  password: artsore-test-password
+  name: artstore
+  user: artstore
+  password: artstore-test-password
   sslMode: disable
 
-# Keycloak — используем KC из artsore-test
+# Keycloak — используем KC из artstore-test
 keycloak:
-  url: "http://artsore-infra-keycloak.artsore-test.svc.cluster.local:8080"
-  realm: artsore
-  clientId: artsore-admin-module
+  url: "http://artstore-infra-keycloak.artstore-test.svc.cluster.local:8080"
+  realm: artstore
+  clientId: artstore-admin-module
   clientSecret: admin-module-test-secret
   saPrefix: "sa_"
 
 # TLS — CA-сертификат для подключения к SE
 tls:
-  caSecret: artsore-test-tls
+  caSecret: artstore-test-tls
 
 # HTTPRoute — включаем для внешнего доступа через API Gateway
 httproute:

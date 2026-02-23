@@ -11,15 +11,15 @@ services:
   postgresql:
     image: postgres:17-alpine
     environment:
-      POSTGRES_DB: artsore
-      POSTGRES_USER: artsore
-      POSTGRES_PASSWORD: artsore-dev-password
+      POSTGRES_DB: artstore
+      POSTGRES_USER: artstore
+      POSTGRES_PASSWORD: artstore-dev-password
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U artsore"]
+      test: ["CMD-SHELL", "pg_isready -U artstore"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -30,9 +30,9 @@ services:
     command: start-dev
     environment:
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://postgresql:5432/artsore
-      KC_DB_USERNAME: artsore
-      KC_DB_PASSWORD: artsore-dev-password
+      KC_DB_URL: jdbc:postgresql://postgresql:5432/artstore
+      KC_DB_USERNAME: artstore
+      KC_DB_PASSWORD: artstore-dev-password
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
       KC_HTTP_PORT: 8080
@@ -56,14 +56,14 @@ services:
       # PostgreSQL
       AM_DB_HOST: postgresql
       AM_DB_PORT: "5432"
-      AM_DB_NAME: artsore
-      AM_DB_USER: artsore
-      AM_DB_PASSWORD: artsore-dev-password
+      AM_DB_NAME: artstore
+      AM_DB_USER: artstore
+      AM_DB_PASSWORD: artstore-dev-password
       AM_DB_SSL_MODE: disable
       # Keycloak
       AM_KEYCLOAK_URL: http://keycloak:8080
-      AM_KEYCLOAK_REALM: artsore
-      AM_KEYCLOAK_CLIENT_ID: artsore-admin-module
+      AM_KEYCLOAK_REALM: artstore
+      AM_KEYCLOAK_CLIENT_ID: artstore-admin-module
       AM_KEYCLOAK_CLIENT_SECRET: dev-secret
       # Фоновые задачи (Phase 5)
       AM_SYNC_INTERVAL: "1h"

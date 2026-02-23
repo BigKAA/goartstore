@@ -1,64 +1,62 @@
-# Replicated SE instances — StatefulSet + headless Service + shared PVC RWX.
-# Итерация по .Values.replicatedInstances: se-edit-1, se-edit-2.
-# Каждый экземпляр — 2 пода, общее хранилище /data (RWX NFS), WAL per pod (RWO volumeClaimTemplates).
-# Leader election через flock() на shared /data/.leader.lock.
+# Standalone SE instances — Deployment + ClusterIP Service + PVC (data + WAL).
+# Итерация по .Values.standaloneInstances: se-rw-1, se-rw-2, se-ro, se-ar.
+# Каждый экземпляр — 1 под, strategy Recreate, отдельные PVC RWO для data и WAL.
 # JWKS URL указывает на Keycloak через infraReleaseName.
-{{- range $instance := .Values.replicatedInstances }}
+{{- range $instance := .Values.standaloneInstances }}
 ---
-# Shared PVC для данных (RWX — NFS, общий для всех реплик)
+# PVC для данных (файлы + attr.json)
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: {{ $instance.name }}-data
   namespace: {{ $.Values.namespace }}
   labels:
-    {{- include "artsore-se.labels" $ | nindent 4 }}
-    {{- include "artsore-se.se.selectorLabels" (dict "name" $instance.name "Release" $.Release) | nindent 4 }}
+    {{- include "artstore-se.labels" $ | nindent 4 }}
+    {{- include "artstore-se.se.selectorLabels" (dict "name" $instance.name "Release" $.Release) | nindent 4 }}
 spec:
   accessModes:
-    - ReadWriteMany
+    - {{ $instance.dataAccessMode | default "ReadWriteOnce" }}
   storageClassName: {{ $.Values.storageClass }}
   resources:
     requests:
       storage: {{ $instance.dataSize }}
 ---
-# Headless Service для StatefulSet DNS (pod-0.se-edit-1.artsore-test.svc.cluster.local)
+# PVC для WAL
 apiVersion: v1
-kind: Service
+kind: PersistentVolumeClaim
 metadata:
-  name: {{ $instance.name }}
+  name: {{ $instance.name }}-wal
   namespace: {{ $.Values.namespace }}
   labels:
-    {{- include "artsore-se.labels" $ | nindent 4 }}
-    {{- include "artsore-se.se.selectorLabels" (dict "name" $instance.name "Release" $.Release) | nindent 4 }}
+    {{- include "artstore-se.labels" $ | nindent 4 }}
+    {{- include "artstore-se.se.selectorLabels" (dict "name" $instance.name "Release" $.Release) | nindent 4 }}
 spec:
-  type: ClusterIP
-  clusterIP: None
-  selector:
-    {{- include "artsore-se.se.selectorLabels" (dict "name" $instance.name "Release" $.Release) | nindent 4 }}
-  ports:
-    - port: {{ $.Values.seCommon.port }}
-      targetPort: {{ $.Values.seCommon.port }}
-      name: https
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ $.Values.storageClass }}
+  resources:
+    requests:
+      storage: {{ $instance.walSize }}
 ---
 apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment
 metadata:
   name: {{ $instance.name }}
   namespace: {{ $.Values.namespace }}
   labels:
-    {{- include "artsore-se.labels" $ | nindent 4 }}
-    {{- include "artsore-se.se.selectorLabels" (dict "name" $instance.name "Release" $.Release) | nindent 4 }}
+    {{- include "artstore-se.labels" $ | nindent 4 }}
+    {{- include "artstore-se.se.selectorLabels" (dict "name" $instance.name "Release" $.Release) | nindent 4 }}
 spec:
-  serviceName: {{ $instance.name }}
-  replicas: {{ $instance.replicas }}
+  replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
-      {{- include "artsore-se.se.selectorLabels" (dict "name" $instance.name "Release" $.Release) | nindent 6 }}
+      {{- include "artstore-se.se.selectorLabels" (dict "name" $instance.name "Release" $.Release) | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "artsore-se.se.selectorLabels" (dict "name" $instance.name "Release" $.Release) | nindent 8 }}
+        {{- include "artstore-se.se.selectorLabels" (dict "name" $instance.name "Release" $.Release) | nindent 8 }}
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: {{ $.Values.seCommon.port | quote }}
@@ -67,7 +65,7 @@ spec:
     spec:
       containers:
         - name: storage-element
-          image: {{ include "artsore-se.seImage" $ }}
+          image: {{ include "artstore-se.seImage" $ }}
           imagePullPolicy: {{ $.Values.imagePullPolicy }}
           ports:
             - containerPort: {{ $.Values.seCommon.port }}
@@ -84,11 +82,9 @@ spec:
             - name: SE_MODE
               value: {{ $instance.mode | quote }}
             - name: SE_REPLICA_MODE
-              value: replicated
-            - name: SE_INDEX_REFRESH_INTERVAL
-              value: {{ $instance.indexRefreshInterval | quote }}
+              value: standalone
             - name: SE_JWKS_URL
-              value: {{ include "artsore-se.jwksUrl" $ | quote }}
+              value: {{ include "artstore-se.jwksUrl" $ | quote }}
             - name: SE_JWKS_CA_CERT
               value: /certs/ca.crt
             - name: SE_TLS_CERT
@@ -113,8 +109,6 @@ spec:
               value: {{ $.Values.seCommon.dephealthDepName | quote }}
             - name: SE_SHUTDOWN_TIMEOUT
               value: "5s"
-            - name: SE_ELECTION_RETRY_INTERVAL
-              value: "3s"
           volumeMounts:
             - name: data
               mountPath: /data
@@ -140,23 +134,31 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 15
       volumes:
-        # Shared data PVC (RWX) — общий для всех реплик
         - name: data
           persistentVolumeClaim:
             claimName: {{ $instance.name }}-data
-        # TLS сертификаты из cert-manager (secret из artsore-infra)
+        - name: wal
+          persistentVolumeClaim:
+            claimName: {{ $instance.name }}-wal
+        # TLS сертификаты из cert-manager (secret из artstore-infra)
         - name: tls-certs
           secret:
             secretName: {{ $.Values.tls.secretName }}
-  # WAL — отдельный PVC per pod через volumeClaimTemplates (RWO)
-  volumeClaimTemplates:
-    - metadata:
-        name: wal
-      spec:
-        accessModes:
-          - ReadWriteOnce
-        storageClassName: {{ $.Values.storageClass }}
-        resources:
-          requests:
-            storage: {{ $instance.walSize }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $instance.name }}
+  namespace: {{ $.Values.namespace }}
+  labels:
+    {{- include "artstore-se.labels" $ | nindent 4 }}
+    {{- include "artstore-se.se.selectorLabels" (dict "name" $instance.name "Release" $.Release) | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "artstore-se.se.selectorLabels" (dict "name" $instance.name "Release" $.Release) | nindent 4 }}
+  ports:
+    - port: {{ $.Values.seCommon.port }}
+      targetPort: {{ $.Values.seCommon.port }}
+      name: https
 {{- end }}

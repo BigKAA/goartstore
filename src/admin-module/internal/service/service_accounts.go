@@ -15,9 +15,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/arturkryukov/artsore/admin-module/internal/domain/model"
-	"github.com/arturkryukov/artsore/admin-module/internal/keycloak"
-	"github.com/arturkryukov/artsore/admin-module/internal/repository"
+	"github.com/arturkryukov/artstore/admin-module/internal/domain/model"
+	"github.com/arturkryukov/artstore/admin-module/internal/keycloak"
+	"github.com/arturkryukov/artstore/admin-module/internal/repository"
 )
 
 // ServiceAccountService — сервис управления Service Accounts.

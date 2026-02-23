@@ -12,9 +12,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/arturkryukov/artsore/admin-module/internal/domain/model"
-	"github.com/arturkryukov/artsore/admin-module/internal/repository"
-	"github.com/arturkryukov/artsore/admin-module/internal/seclient"
+	"github.com/arturkryukov/artstore/admin-module/internal/domain/model"
+	"github.com/arturkryukov/artstore/admin-module/internal/repository"
+	"github.com/arturkryukov/artstore/admin-module/internal/seclient"
 )
 
 // StorageElementService — сервис управления Storage Elements.

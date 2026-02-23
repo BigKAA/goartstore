@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/arturkryukov/artsore/admin-module/internal/domain/model"
+	"github.com/arturkryukov/artstore/admin-module/internal/domain/model"
 )
 
 // ServiceAccountRepository — интерфейс CRUD для таблицы service_accounts.

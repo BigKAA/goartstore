@@ -24,9 +24,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/arturkryukov/artsore/admin-module/internal/domain/model"
-	"github.com/arturkryukov/artsore/admin-module/internal/repository"
-	"github.com/arturkryukov/artsore/admin-module/internal/seclient"
+	"github.com/arturkryukov/artstore/admin-module/internal/domain/model"
+	"github.com/arturkryukov/artstore/admin-module/internal/repository"
+	"github.com/arturkryukov/artstore/admin-module/internal/seclient"
 )
 
 // Prometheus-метрики для синхронизации файлового реестра.

@@ -9,8 +9,8 @@
 
 ## 1. Назначение модуля
 
-Admin Module — управляющий модуль системы Artsore, отвечающий за управление
-Artsore-специфичными сущностями: реестр Storage Elements, файловый реестр,
+Admin Module — управляющий модуль системы Artstore, отвечающий за управление
+Artstore-специфичными сущностями: реестр Storage Elements, файловый реестр,
 локальные дополнения ролей пользователей, синхронизация SA с IdP.
 
 **Admin Module не является auth-сервером.** Аутентификация и выдача JWT
@@ -21,7 +21,7 @@ Artsore-специфичными сущностями: реестр Storage Elem
 ### Ключевые концепции
 
 **Внешний Identity Provider (Keycloak)** — единый источник аутентификации
-для всей системы Artsore. Keycloak выдаёт JWT для всех субъектов:
+для всей системы Artstore. Keycloak выдаёт JWT для всех субъектов:
 Admin Users (H2M) и Service Accounts (M2M). Keycloak управляет RSA-ключами,
 JWKS endpoint, token lifecycle, brute force protection. Поддерживает
 федерацию с LDAP, Active Directory, внешними OAuth/OIDC провайдерами.
@@ -50,7 +50,7 @@ OpenResty / другой reverse proxy вне Kubernetes. Сервисы не з
 **Локальные дополнения ролей** — роли пользователей определяются маппингом
 групп из IdP (Keycloak). Admin Module может **дополнить** (но не понизить)
 роль конкретного пользователя локально. Пример: пользователь в группе
-`artsore-viewers` (→ `readonly`) может получить локальное дополнение до
+`artstore-viewers` (→ `readonly`) может получить локальное дополнение до
 `admin` в Admin Module. Обратное невозможно — если IdP даёт `admin`,
 Admin Module не может понизить до `readonly`.
 
@@ -209,7 +209,7 @@ Admin Module не управляет RSA-ключами и не выдаёт JWT
 | Flow | OIDC Authorization Code (через Keycloak login page) или Direct Grant |
 | Токен | JWT от Keycloak, содержит `sub`, `realm_roles`, `groups` |
 | TTL | Настраивается в Keycloak (рекомендуемо: access 30 мин, refresh 24 ч) |
-| Роли | Определяются маппингом Keycloak groups → Artsore roles |
+| Роли | Определяются маппингом Keycloak groups → Artstore roles |
 | Блокировка | Brute Force Detection в Keycloak |
 | Пароли | Управляются в Keycloak |
 
@@ -249,10 +249,10 @@ Keycloak поддерживает подключение внешних исто
 Группы из внешних провайдеров (LDAP, AD) маппятся на Keycloak roles,
 которые передаются в JWT claims. Admin Module интерпретирует эти claims.
 
-| Keycloak группа / роль | Artsore роль | Описание |
+| Keycloak группа / роль | Artstore роль | Описание |
 |------------------------|-------------|----------|
-| `artsore-admins` | `admin` | Полный доступ |
-| `artsore-viewers` | `readonly` | Только чтение |
+| `artstore-admins` | `admin` | Полный доступ |
+| `artstore-viewers` | `readonly` | Только чтение |
 
 Маппинг настраивается в Keycloak (Group Mapper / Role Mapper).
 Конкретные имена групп конфигурируемы.
@@ -283,10 +283,10 @@ Admin Module хранит в своей БД таблицу `role_overrides` —
 
 | Пользователь | Группа IdP | Роль IdP | Локальное дополнение | Итоговая роль |
 |-------------|-----------|---------|---------------------|--------------|
-| alice | artsore-admins | admin | — | admin |
-| bob | artsore-viewers | readonly | admin | admin |
-| carol | artsore-viewers | readonly | — | readonly |
-| dave | artsore-admins, artsore-viewers | admin (max) | — | admin |
+| alice | artstore-admins | admin | — | admin |
+| bob | artstore-viewers | readonly | admin | admin |
+| carol | artstore-viewers | readonly | — | readonly |
+| dave | artstore-admins, artstore-viewers | admin (max) | — | admin |
 
 ### Admin UI — аутентификация через Keycloak (OIDC)
 
@@ -311,21 +311,21 @@ Admin UI встроен непосредственно в Admin Module (не о�
 
 ### Keycloak Realm — конфигурация при первом развёртывании
 
-Конфигурация realm `artsore` выполняется **один раз** при первом
+Конфигурация realm `artstore` выполняется **один раз** при первом
 развёртывании Keycloak. Параметры фиксированы и документированы
 для воспроизводимости.
 
 | Параметр | Значение | Описание |
 |----------|---------|----------|
-| Realm name | `artsore` | Изолированный realm для системы Artsore |
-| Client для Admin UI (встроен в Admin Module) | `artsore-admin-ui` (public, Authorization Code + PKCE) | Аутентификация администраторов через браузер |
-| Client для Ingester | `artsore-ingester` (confidential, Client Credentials) | M2M токены для Ingester Module |
-| Client для Query | `artsore-query` (confidential, Client Credentials) | M2M токены для Query Module |
-| Client для Admin Module | `artsore-admin-module` (confidential, Client Credentials) | Доступ к Keycloak Admin API для синхронизации SA |
-| Groups | `artsore-admins`, `artsore-viewers` | Группы для маппинга на роли |
+| Realm name | `artstore` | Изолированный realm для системы Artstore |
+| Client для Admin UI (встроен в Admin Module) | `artstore-admin-ui` (public, Authorization Code + PKCE) | Аутентификация администраторов через браузер |
+| Client для Ingester | `artstore-ingester` (confidential, Client Credentials) | M2M токены для Ingester Module |
+| Client для Query | `artstore-query` (confidential, Client Credentials) | M2M токены для Query Module |
+| Client для Admin Module | `artstore-admin-module` (confidential, Client Credentials) | Доступ к Keycloak Admin API для синхронизации SA |
+| Groups | `artstore-admins`, `artstore-viewers` | Группы для маппинга на роли |
 | Group Mapper | groups → `roles` claim в JWT | Protocol Mapper типа «Group Membership» |
 | Brute Force Detection | Enabled (5 попыток, 15 мин блокировка) | Защита от перебора паролей |
-| Начальный администратор | Создаётся при развёртывании realm | Пользователь с ролью `admin` в группе `artsore-admins` |
+| Начальный администратор | Создаётся при развёртывании realm | Пользователь с ролью `admin` в группе `artstore-admins` |
 
 Рекомендуется использовать Keycloak Realm Export/Import для
 автоматизации развёртывания (JSON-файл конфигурации realm).
@@ -464,7 +464,7 @@ Admin Module запускает фоновую задачу, которая с �
 
 1. **Применить миграции БД** — создать таблицы (service_accounts,
    storage_elements, file_registry, role_overrides и др.)
-2. **Проверить подключение к Keycloak** — убедиться что realm `artsore`
+2. **Проверить подключение к Keycloak** — убедиться что realm `artstore`
    существует и Admin Module имеет доступ к Keycloak Admin API
 3. **Выполнить начальную синхронизацию SA** — если есть clients в Keycloak
    с prefix `sa_*`, импортировать их в локальную БД
@@ -502,7 +502,7 @@ realm). Admin Module не создаёт пользователей.
 | Переменная | Обязательная | По умолчанию | Описание |
 |------------|:------------:|--------------|----------|
 | `AM_KEYCLOAK_URL` | да | — | URL Keycloak (например `https://keycloak.kryukov.lan`) |
-| `AM_KEYCLOAK_REALM` | нет | `artsore` | Имя realm в Keycloak |
+| `AM_KEYCLOAK_REALM` | нет | `artstore` | Имя realm в Keycloak |
 | `AM_KEYCLOAK_CLIENT_ID` | да | — | Client ID для доступа к Keycloak Admin API |
 | `AM_KEYCLOAK_CLIENT_SECRET` | да | — | Client Secret для доступа к Keycloak Admin API |
 | `AM_KEYCLOAK_SA_PREFIX` | нет | `sa_` | Prefix для идентификации SA clients в Keycloak |
@@ -530,8 +530,8 @@ realm). Admin Module не создаёт пользователей.
 
 | Переменная | Обязательная | По умолчанию | Описание |
 |------------|:------------:|--------------|----------|
-| `AM_ROLE_ADMIN_GROUPS` | нет | `artsore-admins` | Группы IdP, маппящиеся на роль `admin` (через запятую) |
-| `AM_ROLE_READONLY_GROUPS` | нет | `artsore-viewers` | Группы IdP, маппящиеся на роль `readonly` (через запятую) |
+| `AM_ROLE_ADMIN_GROUPS` | нет | `artstore-admins` | Группы IdP, маппящиеся на роль `admin` (через запятую) |
+| `AM_ROLE_READONLY_GROUPS` | нет | `artstore-viewers` | Группы IdP, маппящиеся на роль `readonly` (через запятую) |
 
 ---
 
@@ -648,12 +648,12 @@ docker run -d \
   -p 8000:8000 \
   -e AM_DB_HOST=postgres \
   -e AM_DB_PORT=5432 \
-  -e AM_DB_NAME=artsore \
-  -e AM_DB_USER=artsore \
+  -e AM_DB_NAME=artstore \
+  -e AM_DB_USER=artstore \
   -e AM_DB_PASSWORD=secret \
   -e AM_KEYCLOAK_URL=https://keycloak.kryukov.lan \
-  -e AM_KEYCLOAK_REALM=artsore \
-  -e AM_KEYCLOAK_CLIENT_ID=artsore-admin-module \
+  -e AM_KEYCLOAK_REALM=artstore \
+  -e AM_KEYCLOAK_CLIENT_ID=artstore-admin-module \
   -e AM_KEYCLOAK_CLIENT_SECRET=secret \
   -e AM_SE_CA_CERT_PATH=/certs/ca.crt \
   -v /path/to/ca-certs:/certs:ro \
@@ -665,13 +665,13 @@ docker run -d \
 ```bash
 # Установка через Helm chart
 helm install admin-module ./admin-module/chart \
-  --set db.host=postgresql.artsore.svc \
-  --set db.name=artsore \
-  --set db.user=artsore \
+  --set db.host=postgresql.artstore.svc \
+  --set db.name=artstore \
+  --set db.user=artstore \
   --set db.password=secret \
-  --set keycloak.url=https://keycloak.artsore.svc \
-  --set keycloak.realm=artsore \
-  --set keycloak.clientId=artsore-admin-module \
+  --set keycloak.url=https://keycloak.artstore.svc \
+  --set keycloak.realm=artstore \
+  --set keycloak.clientId=artstore-admin-module \
   --set keycloak.clientSecret=secret \
   --set seCaCert.secretName=se-ca-cert
 ```
@@ -679,7 +679,7 @@ helm install admin-module ./admin-module/chart \
 ### Порядок развёртывания
 
 1. **PostgreSQL** — БД для Admin Module и Keycloak (или отдельные инстансы)
-2. **Keycloak** — настроить realm `artsore`, создать clients, группы,
+2. **Keycloak** — настроить realm `artstore`, создать clients, группы,
    начального администратора, настроить LDAP federation (если нужно)
 3. **API Gateway** (Envoy / Nginx) — настроить TLS, JWT validation
    через JWKS Keycloak, routing к backend-сервисам
@@ -722,7 +722,7 @@ import (
     _ "github.com/BigKAA/topologymetrics/sdk-go/dephealth/checks"
 )
 
-dh, err := dephealth.New("admin-module", "artsore",
+dh, err := dephealth.New("admin-module", "artstore",
     dephealth.WithCheckInterval(cfg.DephealthCheckInterval),
     sqldb.FromDB("postgresql", db,
         dephealth.FromURL(cfg.DatabaseURL),

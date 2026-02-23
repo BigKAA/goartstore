@@ -1,8 +1,8 @@
 {
-  "id": "artsore",
-  "realm": "artsore",
-  "displayName": "Artsore",
-  "displayNameHtml": "<b>Artsore</b>",
+  "id": "artstore",
+  "realm": "artstore",
+  "displayName": "Artstore",
+  "displayNameHtml": "<b>Artstore</b>",
   "enabled": true,
   "sslRequired": "none",
   "registrationAllowed": false,
@@ -35,18 +35,18 @@
     "realm": [
       {
         "name": "admin",
-        "description": "Полный доступ к административным функциям Artsore",
+        "description": "Полный доступ к административным функциям Artstore",
         "composite": false,
         "clientRole": false
       },
       {
         "name": "readonly",
-        "description": "Доступ только на чтение к данным Artsore",
+        "description": "Доступ только на чтение к данным Artstore",
         "composite": false,
         "clientRole": false
       },
       {
-        "name": "default-roles-artsore",
+        "name": "default-roles-artstore",
         "description": "${role_default-roles}",
         "composite": true,
         "clientRole": false,
@@ -78,8 +78,8 @@
   },
   "groups": [
     {
-      "name": "artsore-admins",
-      "path": "/artsore-admins",
+      "name": "artstore-admins",
+      "path": "/artstore-admins",
       "realmRoles": [
         "admin"
       ],
@@ -87,8 +87,8 @@
       "subGroups": []
     },
     {
-      "name": "artsore-viewers",
-      "path": "/artsore-viewers",
+      "name": "artstore-viewers",
+      "path": "/artstore-viewers",
       "realmRoles": [
         "readonly"
       ],
@@ -291,9 +291,9 @@
   ],
   "clients": [
     {
-      "clientId": "artsore-admin-module",
+      "clientId": "artstore-admin-module",
       "name": "Admin Module",
-      "description": "Artsore Admin Module — управление реестром SE, файлов, SA",
+      "description": "Artstore Admin Module — управление реестром SE, файлов, SA",
       "enabled": true,
       "clientAuthenticatorType": "client-secret",
       "secret": "admin-module-test-secret",
@@ -342,9 +342,9 @@
       ]
     },
     {
-      "clientId": "artsore-ingester",
+      "clientId": "artstore-ingester",
       "name": "Ingester Module",
-      "description": "Artsore Ingester — загрузка файлов в Storage Elements",
+      "description": "Artstore Ingester — загрузка файлов в Storage Elements",
       "enabled": true,
       "clientAuthenticatorType": "client-secret",
       "secret": "ingester-test-secret",
@@ -372,9 +372,9 @@
       "optionalClientScopes": []
     },
     {
-      "clientId": "artsore-query",
+      "clientId": "artstore-query",
       "name": "Query Module",
-      "description": "Artsore Query — поиск и скачивание файлов",
+      "description": "Artstore Query — поиск и скачивание файлов",
       "enabled": true,
       "clientAuthenticatorType": "client-secret",
       "secret": "query-test-secret",
@@ -401,9 +401,9 @@
       "optionalClientScopes": []
     },
     {
-      "clientId": "artsore-admin-ui",
+      "clientId": "artstore-admin-ui",
       "name": "Admin UI",
-      "description": "Artsore Admin UI — веб-интерфейс администратора (public client, PKCE)",
+      "description": "Artstore Admin UI — веб-интерфейс администратора (public client, PKCE)",
       "enabled": true,
       "clientAuthenticatorType": "client-secret",
       "redirectUris": [
@@ -445,7 +445,7 @@
       ]
     },
     {
-      "clientId": "artsore-test-user",
+      "clientId": "artstore-test-user",
       "name": "Test User Client",
       "description": "Клиент для интеграционных тестов — получение JWT пользователей через Resource Owner Password Credentials flow",
       "enabled": true,
@@ -534,7 +534,7 @@
       ]
     },
     {
-      "clientId": "artsore-test-init",
+      "clientId": "artstore-test-init",
       "name": "Test Init Client",
       "description": "Клиент для инициализации тестовой среды (загрузка файлов, mode transitions)",
       "enabled": true,
@@ -572,7 +572,7 @@
       "emailVerified": true,
       "firstName": "Admin",
       "lastName": "User",
-      "email": "admin@artsore.local",
+      "email": "admin@artstore.local",
       "credentials": [
         {
           "type": "password",
@@ -582,10 +582,10 @@
       ],
       "realmRoles": [
         "admin",
-        "default-roles-artsore"
+        "default-roles-artstore"
       ],
       "groups": [
-        "/artsore-admins"
+        "/artstore-admins"
       ]
     },
     {
@@ -594,7 +594,7 @@
       "emailVerified": true,
       "firstName": "Viewer",
       "lastName": "User",
-      "email": "viewer@artsore.local",
+      "email": "viewer@artstore.local",
       "credentials": [
         {
           "type": "password",
@@ -604,19 +604,19 @@
       ],
       "realmRoles": [
         "readonly",
-        "default-roles-artsore"
+        "default-roles-artstore"
       ],
       "groups": [
-        "/artsore-viewers"
+        "/artstore-viewers"
       ]
     },
     {
-      "username": "service-account-artsore-admin-module",
+      "username": "service-account-artstore-admin-module",
       "enabled": true,
       "emailVerified": false,
-      "serviceAccountClientId": "artsore-admin-module",
+      "serviceAccountClientId": "artstore-admin-module",
       "realmRoles": [
-        "default-roles-artsore"
+        "default-roles-artstore"
       ],
       "clientRoles": {
         "realm-management": [
@@ -635,7 +635,7 @@
   "clientScopeMappings": {
     "realm-management": [
       {
-        "client": "artsore-admin-module",
+        "client": "artstore-admin-module",
         "roles": [
           "view-users",
           "manage-clients",

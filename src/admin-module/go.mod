@@ -1,4 +1,4 @@
-module github.com/arturkryukov/artsore/admin-module
+module github.com/arturkryukov/artstore/admin-module
 
 go 1.25.6
 

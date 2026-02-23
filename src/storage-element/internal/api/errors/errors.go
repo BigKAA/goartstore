@@ -1,4 +1,4 @@
-// Пакет errors — конструкторы стандартных ошибок в формате Artsore.
+// Пакет errors — конструкторы стандартных ошибок в формате Artstore.
 // Единый формат: {"error": {"code": "...", "message": "..."}}.
 // Все HTTP-ответы с ошибками должны использовать WriteError.
 package errors
@@ -35,7 +35,7 @@ type errorDetail struct {
 	Message string `json:"message"`
 }
 
-// WriteError записывает ответ ошибки в стандартном формате Artsore.
+// WriteError записывает ответ ошибки в стандартном формате Artstore.
 // statusCode — HTTP статус-код, code — машиночитаемый код, message — описание.
 func WriteError(w http.ResponseWriter, statusCode int, code, message string) {
 	w.Header().Set("Content-Type", "application/json")

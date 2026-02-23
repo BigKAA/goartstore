@@ -1,10 +1,10 @@
 # =============================================================================
-# artsore-se — Helm values для Storage Elements тестовой среды
+# artstore-se — Helm values для Storage Elements тестовой среды
 # Компоненты: 2 replicated (edit) + 4 standalone (rw/ro/ar) SE
 # =============================================================================
 
-# Namespace для тестовой среды (должен совпадать с artsore-infra)
-namespace: artsore-test
+# Namespace для тестовой среды (должен совпадать с artstore-infra)
+namespace: artstore-test
 
 # -----------------------------------------------------------------------------
 # Docker Registry
@@ -15,22 +15,22 @@ seTag: v0.1.0-1
 imagePullPolicy: Always
 
 # -----------------------------------------------------------------------------
-# TLS — ссылка на secret, созданный artsore-infra (Certificate)
+# TLS — ссылка на secret, созданный artstore-infra (Certificate)
 # -----------------------------------------------------------------------------
 tls:
-  secretName: artsore-test-tls
+  secretName: artstore-test-tls
 
 # -----------------------------------------------------------------------------
-# Имя release artsore-infra — для формирования KC service name
+# Имя release artstore-infra — для формирования KC service name
 # Bitnami KC создаёт service <infraReleaseName>-keycloak
 # -----------------------------------------------------------------------------
-infraReleaseName: artsore-infra
+infraReleaseName: artstore-infra
 
 # -----------------------------------------------------------------------------
 # Keycloak
 # -----------------------------------------------------------------------------
 keycloak:
-  realm: artsore
+  realm: artstore
 
 # -----------------------------------------------------------------------------
 # Общие настройки SE

@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/arturkryukov/artsore/admin-module/internal/domain/model"
+	"github.com/arturkryukov/artstore/admin-module/internal/domain/model"
 )
 
 // FileRegistryRepository — интерфейс CRUD для таблицы file_registry.

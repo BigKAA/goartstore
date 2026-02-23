@@ -8,19 +8,19 @@ metadata:
   name: admin-module
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "artsore-apps.labels" . | nindent 4 }}
-    {{- include "artsore-apps.am.selectorLabels" . | nindent 4 }}
+    {{- include "artstore-apps.labels" . | nindent 4 }}
+    {{- include "artstore-apps.am.selectorLabels" . | nindent 4 }}
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      {{- include "artsore-apps.am.selectorLabels" . | nindent 6 }}
+      {{- include "artstore-apps.am.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "artsore-apps.am.selectorLabels" . | nindent 8 }}
+        {{- include "artstore-apps.am.selectorLabels" . | nindent 8 }}
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: {{ .Values.adminModule.port | quote }}
@@ -49,7 +49,7 @@ spec:
             - |
               apk add --no-cache curl > /dev/null 2>&1
               echo "Ожидание Keycloak realm {{ .Values.adminModule.keycloakRealm }}..."
-              KC_URL="{{ include "artsore-apps.keycloakHttpUrl" . }}"
+              KC_URL="{{ include "artstore-apps.keycloakHttpUrl" . }}"
               TIMEOUT=300
               ELAPSED=0
               until curl -sf "${KC_URL}/realms/{{ .Values.adminModule.keycloakRealm }}" > /dev/null 2>&1; do
@@ -64,7 +64,7 @@ spec:
               echo "Keycloak realm {{ .Values.adminModule.keycloakRealm }} готов!"
       containers:
         - name: admin-module
-          image: {{ include "artsore-apps.amImage" . }}
+          image: {{ include "artstore-apps.amImage" . }}
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           ports:
             - containerPort: {{ .Values.adminModule.port }}
@@ -92,7 +92,7 @@ spec:
               value: disable
             # --- Keycloak ---
             - name: AM_KEYCLOAK_URL
-              value: {{ include "artsore-apps.keycloakHttpUrl" . | quote }}
+              value: {{ include "artstore-apps.keycloakHttpUrl" . | quote }}
             - name: AM_KEYCLOAK_REALM
               value: {{ .Values.adminModule.keycloakRealm | quote }}
             - name: AM_KEYCLOAK_CLIENT_ID
@@ -152,7 +152,7 @@ spec:
             initialDelaySeconds: 20
             periodSeconds: 15
       volumes:
-        # TLS сертификаты из cert-manager (secret из artsore-infra)
+        # TLS сертификаты из cert-manager (secret из artstore-infra)
         - name: tls-certs
           secret:
             secretName: {{ .Values.tls.secretName }}
@@ -164,12 +164,12 @@ metadata:
   name: admin-module
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "artsore-apps.labels" . | nindent 4 }}
-    {{- include "artsore-apps.am.selectorLabels" . | nindent 4 }}
+    {{- include "artstore-apps.labels" . | nindent 4 }}
+    {{- include "artstore-apps.am.selectorLabels" . | nindent 4 }}
 spec:
   type: ClusterIP
   selector:
-    {{- include "artsore-apps.am.selectorLabels" . | nindent 4 }}
+    {{- include "artstore-apps.am.selectorLabels" . | nindent 4 }}
   ports:
     - port: {{ .Values.adminModule.port }}
       targetPort: {{ .Values.adminModule.port }}

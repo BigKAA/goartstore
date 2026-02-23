@@ -1,4 +1,4 @@
-// Точка входа Admin Module — управляющий модуль системы Artsore.
+// Точка входа Admin Module — управляющий модуль системы Artstore.
 // Загружает конфигурацию, подключается к PostgreSQL, применяет миграции,
 // инициализирует Keycloak и SE клиенты, создаёт сервисный слой и API handlers,
 // запускает фоновые задачи (sync SE, sync SA, topologymetrics),
@@ -17,15 +17,15 @@ import (
 
 	"github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/arturkryukov/artsore/admin-module/internal/api/handlers"
-	"github.com/arturkryukov/artsore/admin-module/internal/api/middleware"
-	"github.com/arturkryukov/artsore/admin-module/internal/config"
-	"github.com/arturkryukov/artsore/admin-module/internal/database"
-	"github.com/arturkryukov/artsore/admin-module/internal/keycloak"
-	"github.com/arturkryukov/artsore/admin-module/internal/repository"
-	"github.com/arturkryukov/artsore/admin-module/internal/seclient"
-	"github.com/arturkryukov/artsore/admin-module/internal/server"
-	"github.com/arturkryukov/artsore/admin-module/internal/service"
+	"github.com/arturkryukov/artstore/admin-module/internal/api/handlers"
+	"github.com/arturkryukov/artstore/admin-module/internal/api/middleware"
+	"github.com/arturkryukov/artstore/admin-module/internal/config"
+	"github.com/arturkryukov/artstore/admin-module/internal/database"
+	"github.com/arturkryukov/artstore/admin-module/internal/keycloak"
+	"github.com/arturkryukov/artstore/admin-module/internal/repository"
+	"github.com/arturkryukov/artstore/admin-module/internal/seclient"
+	"github.com/arturkryukov/artstore/admin-module/internal/server"
+	"github.com/arturkryukov/artstore/admin-module/internal/service"
 )
 
 func main() {

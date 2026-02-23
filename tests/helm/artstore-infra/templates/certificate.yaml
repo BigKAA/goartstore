@@ -1,14 +1,14 @@
 # TLS Certificate через cert-manager для всех сервисов тестовой среды.
-# artsore-infra владеет единственным Certificate с dnsNames для ВСЕХ сервисов:
+# artstore-infra владеет единственным Certificate с dnsNames для ВСЕХ сервисов:
 # PostgreSQL, Keycloak, Admin Module и все Storage Elements.
 # Остальные chart-ы используют TLS secret по имени.
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: artsore-test-tls
+  name: artstore-test-tls
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "artsore-infra.labels" . | nindent 4 }}
+    {{- include "artstore-infra.labels" . | nindent 4 }}
 spec:
   secretName: {{ .Values.tls.secretName }}
   issuerRef:

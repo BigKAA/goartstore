@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/arturkryukov/artsore/storage-element/internal/domain/model"
-	"github.com/arturkryukov/artsore/storage-element/internal/storage/attr"
+	"github.com/arturkryukov/artstore/storage-element/internal/domain/model"
+	"github.com/arturkryukov/artstore/storage-element/internal/storage/attr"
 )
 
 // testLogger возвращает логгер для тестов.

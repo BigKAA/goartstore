@@ -18,7 +18,7 @@
 - **Язык**: Go
 - **Целевая структура**:
   ```
-  artsore/
+  artstore/
   ├── admin-module/       # Аутентификация и управление
   ├── storage-element/    # Физическое хранение файлов
   ├── ingester-module/    # Загрузка файлов
@@ -293,7 +293,7 @@ Promotion можно добавить в будущих версиях при р
   (не отдельный сервис/модуль)
 - Технологический стек определится позже
 - Аутентификация через Keycloak (OIDC Authorization Code + PKCE),
-  Keycloak-клиент `artsore-admin-ui`
+  Keycloak-клиент `artstore-admin-ui`
 - Dashboard, управление аккаунтами, Storage Elements, файлами
 - Реализуется последним
 

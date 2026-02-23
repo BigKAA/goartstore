@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/arturkryukov/artsore/storage-element/internal/api/errors"
-	"github.com/arturkryukov/artsore/storage-element/internal/api/generated"
-	"github.com/arturkryukov/artsore/storage-element/internal/api/middleware"
-	"github.com/arturkryukov/artsore/storage-element/internal/domain/mode"
+	"github.com/arturkryukov/artstore/storage-element/internal/api/errors"
+	"github.com/arturkryukov/artstore/storage-element/internal/api/generated"
+	"github.com/arturkryukov/artstore/storage-element/internal/api/middleware"
+	"github.com/arturkryukov/artstore/storage-element/internal/domain/mode"
 )
 
 // ModePersister — интерфейс для сохранения режима в mode.json (replicated mode).

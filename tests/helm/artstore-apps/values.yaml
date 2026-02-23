@@ -1,10 +1,10 @@
 # =============================================================================
-# artsore-apps — Helm values для приложений тестовой среды
+# artstore-apps — Helm values для приложений тестовой среды
 # Компоненты: Admin Module
 # =============================================================================
 
-# Namespace для тестовой среды (должен совпадать с artsore-infra)
-namespace: artsore-test
+# Namespace для тестовой среды (должен совпадать с artstore-infra)
+namespace: artstore-test
 
 # -----------------------------------------------------------------------------
 # Docker Registry
@@ -15,27 +15,27 @@ amTag: v0.1.0-1
 imagePullPolicy: Always
 
 # -----------------------------------------------------------------------------
-# TLS — ссылка на secret, созданный artsore-infra (Certificate)
+# TLS — ссылка на secret, созданный artstore-infra (Certificate)
 # -----------------------------------------------------------------------------
 tls:
-  secretName: artsore-test-tls
+  secretName: artstore-test-tls
 
 # -----------------------------------------------------------------------------
-# Имя release artsore-infra — для формирования PG/KC service names
+# Имя release artstore-infra — для формирования PG/KC service names
 # Bitnami KC создаёт service <infraReleaseName>-keycloak
-# PostgreSQL service name: postgresql (фиксировано в artsore-infra)
+# PostgreSQL service name: postgresql (фиксировано в artstore-infra)
 # -----------------------------------------------------------------------------
-infraReleaseName: artsore-infra
+infraReleaseName: artstore-infra
 
 # -----------------------------------------------------------------------------
-# PostgreSQL (параметры подключения к PG из artsore-infra)
+# PostgreSQL (параметры подключения к PG из artstore-infra)
 # -----------------------------------------------------------------------------
 postgresql:
   image: postgres:17-alpine
   port: 5432
-  user: artsore
-  password: artsore-test-password
-  database: artsore
+  user: artstore
+  password: artstore-test-password
+  database: artstore
 
 # -----------------------------------------------------------------------------
 # Admin Module
@@ -45,16 +45,16 @@ adminModule:
   logLevel: debug
   logFormat: json
   # Keycloak
-  keycloakRealm: artsore
-  keycloakClientId: artsore-admin-module
+  keycloakRealm: artstore
+  keycloakClientId: artstore-admin-module
   keycloakClientSecret: admin-module-test-secret
   keycloakSAPrefix: "sa_"
   # JWT
   jwtRolesClaim: "realm_access.roles"
   jwtGroupsClaim: "groups"
   # Маппинг групп → ролей
-  roleAdminGroups: "artsore-admins"
-  roleReadonlyGroups: "artsore-viewers"
+  roleAdminGroups: "artstore-admins"
+  roleReadonlyGroups: "artstore-viewers"
   # Синхронизация
   syncInterval: "5m"
   syncPageSize: "1000"

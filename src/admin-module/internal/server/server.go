@@ -15,9 +15,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/arturkryukov/artsore/admin-module/internal/api/generated"
-	"github.com/arturkryukov/artsore/admin-module/internal/api/middleware"
-	"github.com/arturkryukov/artsore/admin-module/internal/config"
+	"github.com/arturkryukov/artstore/admin-module/internal/api/generated"
+	"github.com/arturkryukov/artstore/admin-module/internal/api/middleware"
+	"github.com/arturkryukov/artstore/admin-module/internal/config"
 )
 
 // Server — HTTP-сервер Admin Module.

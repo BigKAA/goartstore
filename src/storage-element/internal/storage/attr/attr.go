@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/arturkryukov/artsore/storage-element/internal/domain/model"
+	"github.com/arturkryukov/artstore/storage-element/internal/domain/model"
 )
 
 // AttrSuffix — суффикс файла метаданных.

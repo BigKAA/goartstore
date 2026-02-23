@@ -19,7 +19,7 @@ import (
 	"github.com/MicahParks/keyfunc/v3"
 	"github.com/golang-jwt/jwt/v5"
 
-	apierrors "github.com/arturkryukov/artsore/storage-element/internal/api/errors"
+	apierrors "github.com/arturkryukov/artstore/storage-element/internal/api/errors"
 )
 
 // contextKey — тип для ключей контекста (избегаем коллизий).

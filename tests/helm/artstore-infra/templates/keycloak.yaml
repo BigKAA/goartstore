@@ -1,4 +1,4 @@
-# Keycloak — IdP для Artsore (official image).
+# Keycloak — IdP для Artstore (official image).
 # Dev mode (start-dev) — без strict hostname, без production requirements.
 # Realm import при первом запуске через --import-realm.
 ---
@@ -9,19 +9,19 @@ metadata:
   name: {{ .Release.Name }}-keycloak
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "artsore-infra.labels" . | nindent 4 }}
-    {{- include "artsore-infra.kc.selectorLabels" . | nindent 4 }}
+    {{- include "artstore-infra.labels" . | nindent 4 }}
+    {{- include "artstore-infra.kc.selectorLabels" . | nindent 4 }}
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      {{- include "artsore-infra.kc.selectorLabels" . | nindent 6 }}
+      {{- include "artstore-infra.kc.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "artsore-infra.kc.selectorLabels" . | nindent 8 }}
+        {{- include "artstore-infra.kc.selectorLabels" . | nindent 8 }}
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9000"
@@ -97,7 +97,7 @@ spec:
             secretName: {{ .Values.tls.secretName }}
         - name: realm-config
           configMap:
-            name: artsore-realm
+            name: artstore-realm
 ---
 # Service Keycloak
 apiVersion: v1
@@ -106,12 +106,12 @@ metadata:
   name: {{ .Release.Name }}-keycloak
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "artsore-infra.labels" . | nindent 4 }}
-    {{- include "artsore-infra.kc.selectorLabels" . | nindent 4 }}
+    {{- include "artstore-infra.labels" . | nindent 4 }}
+    {{- include "artstore-infra.kc.selectorLabels" . | nindent 4 }}
 spec:
   type: ClusterIP
   selector:
-    {{- include "artsore-infra.kc.selectorLabels" . | nindent 4 }}
+    {{- include "artstore-infra.kc.selectorLabels" . | nindent 4 }}
   ports:
     - port: 8080
       targetPort: http

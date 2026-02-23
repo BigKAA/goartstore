@@ -173,8 +173,8 @@ func Load() (*Config, error) {
 	// Убираем trailing slash
 	cfg.KeycloakURL = strings.TrimRight(cfg.KeycloakURL, "/")
 
-	// AM_KEYCLOAK_REALM — realm (по умолчанию artsore)
-	cfg.KeycloakRealm = getEnvDefault("AM_KEYCLOAK_REALM", "artsore")
+	// AM_KEYCLOAK_REALM — realm (по умолчанию artstore)
+	cfg.KeycloakRealm = getEnvDefault("AM_KEYCLOAK_REALM", "artstore")
 
 	// AM_KEYCLOAK_CLIENT_ID — обязательный
 	cfg.KeycloakClientID, err = getEnvRequired("AM_KEYCLOAK_CLIENT_ID")
@@ -244,11 +244,11 @@ func Load() (*Config, error) {
 
 	// --- Маппинг групп → ролей ---
 
-	// AM_ROLE_ADMIN_GROUPS — группы для роли admin (по умолчанию "artsore-admins")
-	cfg.RoleAdminGroups = parseCSV(getEnvDefault("AM_ROLE_ADMIN_GROUPS", "artsore-admins"))
+	// AM_ROLE_ADMIN_GROUPS — группы для роли admin (по умолчанию "artstore-admins")
+	cfg.RoleAdminGroups = parseCSV(getEnvDefault("AM_ROLE_ADMIN_GROUPS", "artstore-admins"))
 
-	// AM_ROLE_READONLY_GROUPS — группы для роли readonly (по умолчанию "artsore-viewers")
-	cfg.RoleReadonlyGroups = parseCSV(getEnvDefault("AM_ROLE_READONLY_GROUPS", "artsore-viewers"))
+	// AM_ROLE_READONLY_GROUPS — группы для роли readonly (по умолчанию "artstore-viewers")
+	cfg.RoleReadonlyGroups = parseCSV(getEnvDefault("AM_ROLE_READONLY_GROUPS", "artstore-viewers"))
 
 	// --- Graceful shutdown ---
 

@@ -1,10 +1,10 @@
 # =============================================================================
-# artsore-infra — Helm values для инфраструктурного слоя
+# artstore-infra — Helm values для инфраструктурного слоя
 # Компоненты: PostgreSQL + Keycloak
 # =============================================================================
 
 # Namespace для тестовой среды
-namespace: artsore-test
+namespace: artstore-test
 
 # -----------------------------------------------------------------------------
 # TLS (cert-manager)
@@ -12,7 +12,7 @@ namespace: artsore-test
 # -----------------------------------------------------------------------------
 tls:
   clusterIssuer: dev-ca-issuer
-  secretName: artsore-test-tls
+  secretName: artstore-test-tls
 
 # -----------------------------------------------------------------------------
 # PostgreSQL
@@ -20,9 +20,9 @@ tls:
 postgresql:
   image: postgres:17-alpine
   port: 5432
-  user: artsore
-  password: artsore-test-password
-  database: artsore
+  user: artstore
+  password: artstore-test-password
+  database: artstore
   dataSize: 1Gi
   resources:
     requests:
@@ -46,8 +46,8 @@ keycloak:
     host: postgresql
     port: 5432
     name: keycloak
-    user: artsore
-    password: artsore-test-password
+    user: artstore
+    password: artstore-test-password
   resources:
     requests:
       memory: "512Mi"
@@ -61,17 +61,17 @@ storageClass: nfs-client
 
 # -----------------------------------------------------------------------------
 # DNS-имена для Certificate (сервисы из ДРУГИХ chart-ов)
-# artsore-infra владеет Certificate и включает dnsNames для всех сервисов
+# artstore-infra владеет Certificate и включает dnsNames для всех сервисов
 # -----------------------------------------------------------------------------
 certificateExtraDnsNames:
   # Сервисы приложений (Admin Module и т.д.)
   services:
     - admin-module
-  # Replicated SE instances (из artsore-se)
+  # Replicated SE instances (из artstore-se)
   replicatedInstances:
     - se-edit-1
     - se-edit-2
-  # Standalone SE instances (из artsore-se)
+  # Standalone SE instances (из artstore-se)
   standaloneInstances:
     - se-rw-1
     - se-rw-2

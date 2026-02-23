@@ -16,8 +16,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib.sh"
 
 : "${AM_URL:=http://localhost:18000}"
-: "${KC_TOKEN_URL:=https://localhost:18080/realms/artsore/protocol/openid-connect/token}"
-: "${KC_TEST_USER_CLIENT_ID:=artsore-test-user}"
+: "${KC_TOKEN_URL:=https://localhost:18080/realms/artstore/protocol/openid-connect/token}"
+: "${KC_TEST_USER_CLIENT_ID:=artstore-test-user}"
 : "${KC_TEST_USER_CLIENT_SECRET:=test-user-secret}"
 : "${KC_ADMIN_USERNAME:=admin}"
 : "${KC_ADMIN_PASSWORD:=admin}"
@@ -26,7 +26,7 @@ source "${SCRIPT_DIR}/lib.sh"
 # SE URL для AM — AM подключается к SE внутри кластера, но discover/register
 # используют URL, по которому AM может достучаться до SE.
 # В тестовой среде AM и SE в одном namespace, поэтому используем cluster-internal URL.
-: "${K8S_NAMESPACE:=artsore-test}"
+: "${K8S_NAMESPACE:=artstore-test}"
 SE_INTERNAL_URL="https://se-rw-1.${K8S_NAMESPACE}.svc.cluster.local:8010"
 
 log_info "=== AM Storage Elements Tests (16-20) ==="

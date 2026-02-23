@@ -9,7 +9,7 @@
 
 ## 1. Назначение модуля
 
-Storage Element (SE) — модуль физического хранения файлов системы Artsore.
+Storage Element (SE) — модуль физического хранения файлов системы Artstore.
 Каждый экземпляр SE управляет локальной файловой системой: принимает, хранит,
 отдаёт и удаляет файлы. SE — автономная единица хранения, способная работать
 удалённо (вне кластера Kubernetes, через WAN).
@@ -518,7 +518,7 @@ Prometheus-метриками SE.
 ### 12.3. Labels
 
 Все метрики имеют обязательные labels: `name` (storage-element),
-`group` (artsore), `dependency`, `type`, `host`, `port`, `critical`.
+`group` (artstore), `dependency`, `type`, `host`, `port`, `critical`.
 
 ### 12.4. Интеграция в коде
 
@@ -528,7 +528,7 @@ import (
     _ "github.com/BigKAA/topologymetrics/sdk-go/dephealth/checks"
 )
 
-dh, err := dephealth.New("storage-element", "artsore",
+dh, err := dephealth.New("storage-element", "artstore",
     dephealth.WithCheckInterval(cfg.DephealthCheckInterval),
     dephealth.HTTP("admin-jwks",
         dephealth.FromURL(cfg.JWKSUrl),
