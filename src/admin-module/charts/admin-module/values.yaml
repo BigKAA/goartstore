@@ -1,0 +1,91 @@
+# Admin Module — production Helm chart values
+# Stateless HTTP-сервис, TLS termination на API Gateway
+
+# --- Образ контейнера ---
+registry: harbor.kryukov.lan
+image: library/admin-module
+tag: latest
+imagePullPolicy: IfNotPresent
+
+# --- Реплики ---
+replicas: 1
+
+# --- Сервер ---
+port: 8000
+logLevel: info
+logFormat: json
+
+# --- PostgreSQL ---
+database:
+  host: ""          # обязательный: хост PostgreSQL
+  port: 5432
+  name: artsore
+  user: artsore
+  password: ""      # обязательный: пароль PostgreSQL
+  sslMode: disable  # disable, require, verify-ca, verify-full
+
+# --- Keycloak ---
+keycloak:
+  url: ""              # обязательный: URL Keycloak (например, https://keycloak.kryukov.lan)
+  realm: artsore
+  clientId: ""         # обязательный: Client ID для Admin API
+  clientSecret: ""     # обязательный: Client Secret для Admin API
+  saPrefix: "sa_"      # префикс client_id для Service Accounts
+
+# --- JWT ---
+jwt:
+  # Авто-вычисляются из keycloak.url, если не заданы
+  # issuer: ""
+  # jwksUrl: ""
+  rolesClaim: "realm_access.roles"
+  groupsClaim: "groups"
+
+# --- Маппинг групп Keycloak → ролей AM ---
+rbac:
+  adminGroups: "artsore-admins"
+  readonlyGroups: "artsore-viewers"
+
+# --- Синхронизация ---
+sync:
+  # Интервал синхронизации файлового реестра с SE
+  interval: "1h"
+  # Размер страницы при постраничной синхронизации
+  pageSize: 1000
+  # Интервал синхронизации Service Accounts с Keycloak
+  saInterval: "15m"
+
+# --- TLS (CA-сертификат для подключения к SE) ---
+# AM не использует собственный TLS — HTTP внутри кластера,
+# TLS termination выполняется на API Gateway.
+tls:
+  # Существующий Secret с CA-сертификатом для TLS-соединений к SE
+  # Если задан — монтируется в /certs и AM_SE_CA_CERT_PATH=/certs/ca.crt
+  caSecret: ""
+
+# --- Dependency health (topologymetrics) ---
+dephealth:
+  checkInterval: "15s"
+  group: "admin-module"
+
+# --- Graceful shutdown ---
+shutdownTimeout: "5s"
+
+# --- HTTPRoute (Gateway API) ---
+# Внешний доступ через API Gateway (Envoy Gateway)
+httproute:
+  enabled: false
+  gatewayName: eg
+  gatewayNamespace: envoy-gateway-system
+  hostname: "artsore.kryukov.lan"
+  pathPrefixes:
+    - /api/v1
+    - /health
+
+# --- Ресурсы контейнера ---
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi

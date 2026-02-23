@@ -1,0 +1,46 @@
+# ConfigMap с не-секретными переменными окружения Admin Module
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "am.fullname" . }}-config
+  labels:
+    {{- include "am.labels" . | nindent 4 }}
+data:
+  # --- Сервер ---
+  AM_PORT: {{ .Values.port | quote }}
+  AM_LOG_LEVEL: {{ .Values.logLevel | quote }}
+  AM_LOG_FORMAT: {{ .Values.logFormat | quote }}
+  # --- PostgreSQL (не-секретные) ---
+  AM_DB_HOST: {{ .Values.database.host | quote }}
+  AM_DB_PORT: {{ .Values.database.port | quote }}
+  AM_DB_NAME: {{ .Values.database.name | quote }}
+  AM_DB_SSL_MODE: {{ .Values.database.sslMode | quote }}
+  # --- Keycloak (не-секретные) ---
+  AM_KEYCLOAK_URL: {{ .Values.keycloak.url | quote }}
+  AM_KEYCLOAK_REALM: {{ .Values.keycloak.realm | quote }}
+  AM_KEYCLOAK_SA_PREFIX: {{ .Values.keycloak.saPrefix | quote }}
+  # --- JWT ---
+  {{- if .Values.jwt.issuer }}
+  AM_JWT_ISSUER: {{ .Values.jwt.issuer | quote }}
+  {{- end }}
+  {{- if .Values.jwt.jwksUrl }}
+  AM_JWT_JWKS_URL: {{ .Values.jwt.jwksUrl | quote }}
+  {{- end }}
+  AM_JWT_ROLES_CLAIM: {{ .Values.jwt.rolesClaim | quote }}
+  AM_JWT_GROUPS_CLAIM: {{ .Values.jwt.groupsClaim | quote }}
+  # --- Маппинг групп → ролей ---
+  AM_ROLE_ADMIN_GROUPS: {{ .Values.rbac.adminGroups | quote }}
+  AM_ROLE_READONLY_GROUPS: {{ .Values.rbac.readonlyGroups | quote }}
+  # --- Синхронизация ---
+  AM_SYNC_INTERVAL: {{ .Values.sync.interval | quote }}
+  AM_SYNC_PAGE_SIZE: {{ .Values.sync.pageSize | quote }}
+  AM_SA_SYNC_INTERVAL: {{ .Values.sync.saInterval | quote }}
+  # --- TLS (CA для подключения к SE) ---
+  {{- if .Values.tls.caSecret }}
+  AM_SE_CA_CERT_PATH: "/certs/ca.crt"
+  {{- end }}
+  # --- Dependency health (topologymetrics) ---
+  AM_DEPHEALTH_CHECK_INTERVAL: {{ .Values.dephealth.checkInterval | quote }}
+  AM_DEPHEALTH_GROUP: {{ .Values.dephealth.group | quote }}
+  # --- Graceful shutdown ---
+  AM_SHUTDOWN_TIMEOUT: {{ .Values.shutdownTimeout | quote }}
