@@ -1,0 +1,568 @@
+{
+  "id": "artsore",
+  "realm": "artsore",
+  "displayName": "Artsore",
+  "displayNameHtml": "<b>Artsore</b>",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": false,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "maxFailureWaitSeconds": 900,
+  "minimumQuickLoginWaitSeconds": 60,
+  "waitIncrementSeconds": 60,
+  "quickLoginCheckMilliSeconds": 1000,
+  "maxDeltaTimeSeconds": 43200,
+  "failureFactor": 5,
+  "accessTokenLifespan": 300,
+  "accessTokenLifespanForImplicitFlow": 900,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "offlineSessionIdleTimeout": 2592000,
+  "offlineSessionMaxLifespanEnabled": false,
+  "offlineSessionMaxLifespan": 5184000,
+  "accessCodeLifespan": 60,
+  "accessCodeLifespanUserAction": 300,
+  "accessCodeLifespanLogin": 1800,
+  "actionTokenGeneratedByAdminLifespan": 43200,
+  "actionTokenGeneratedByUserLifespan": 300,
+  "defaultSignatureAlgorithm": "RS256",
+  "roles": {
+    "realm": [
+      {
+        "name": "admin",
+        "description": "Полный доступ к административным функциям Artsore",
+        "composite": false,
+        "clientRole": false
+      },
+      {
+        "name": "readonly",
+        "description": "Доступ только на чтение к данным Artsore",
+        "composite": false,
+        "clientRole": false
+      },
+      {
+        "name": "default-roles-artsore",
+        "description": "${role_default-roles}",
+        "composite": true,
+        "clientRole": false,
+        "composites": {
+          "realm": [
+            "offline_access"
+          ],
+          "client": {
+            "account": [
+              "view-profile",
+              "manage-account"
+            ]
+          }
+        }
+      },
+      {
+        "name": "offline_access",
+        "description": "${role_offline-access}",
+        "composite": false,
+        "clientRole": false
+      },
+      {
+        "name": "uma_authorization",
+        "description": "${role_uma_authorization}",
+        "composite": false,
+        "clientRole": false
+      }
+    ]
+  },
+  "groups": [
+    {
+      "name": "artsore-admins",
+      "path": "/artsore-admins",
+      "realmRoles": [
+        "admin"
+      ],
+      "clientRoles": {},
+      "subGroups": []
+    },
+    {
+      "name": "artsore-viewers",
+      "path": "/artsore-viewers",
+      "realmRoles": [
+        "readonly"
+      ],
+      "clientRoles": {},
+      "subGroups": []
+    }
+  ],
+  "defaultDefaultClientScopes": [
+    "role_list",
+    "profile",
+    "email",
+    "roles",
+    "web-origins",
+    "acr"
+  ],
+  "defaultOptionalClientScopes": [
+    "offline_access",
+    "address",
+    "phone",
+    "microprofile-jwt"
+  ],
+  "clientScopes": [
+    {
+      "name": "files:read",
+      "description": "Чтение метаданных и скачивание файлов",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true",
+        "consent.screen.text": "Доступ на чтение файлов"
+      },
+      "protocolMappers": [
+        {
+          "name": "files:read-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "",
+            "id.token.claim": "false",
+            "lightweight.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "files:write",
+      "description": "Загрузка, обновление и удаление файлов",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true",
+        "consent.screen.text": "Доступ на запись файлов"
+      },
+      "protocolMappers": [
+        {
+          "name": "files:write-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "",
+            "id.token.claim": "false",
+            "lightweight.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "storage:read",
+      "description": "Чтение информации о Storage Elements",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true",
+        "consent.screen.text": "Доступ на чтение информации о хранилищах"
+      },
+      "protocolMappers": [
+        {
+          "name": "storage:read-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "",
+            "id.token.claim": "false",
+            "lightweight.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "storage:write",
+      "description": "Управление Storage Elements (sync, mode transition)",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true",
+        "consent.screen.text": "Доступ на управление хранилищами"
+      },
+      "protocolMappers": [
+        {
+          "name": "storage:write-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "",
+            "id.token.claim": "false",
+            "lightweight.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "admin:read",
+      "description": "Чтение административных данных (пользователи, SA)",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true",
+        "consent.screen.text": "Доступ на чтение административных данных"
+      },
+      "protocolMappers": [
+        {
+          "name": "admin:read-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "",
+            "id.token.claim": "false",
+            "lightweight.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "admin:write",
+      "description": "Управление пользователями и Service Accounts",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true",
+        "consent.screen.text": "Доступ на управление пользователями"
+      },
+      "protocolMappers": [
+        {
+          "name": "admin:write-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "",
+            "id.token.claim": "false",
+            "lightweight.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "groups",
+      "description": "Маппинг групп пользователя в JWT claim 'groups'",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "true",
+        "consent.screen.text": "Членство в группах"
+      },
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "full.path": "false",
+            "introspection.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "lightweight.claim": "false",
+            "access.token.claim": "true",
+            "claim.name": "groups"
+          }
+        }
+      ]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "artsore-admin-module",
+      "name": "Admin Module",
+      "description": "Artsore Admin Module — управление реестром SE, файлов, SA",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "admin-module-test-secret",
+      "redirectUris": [],
+      "webOrigins": [],
+      "bearerOnly": false,
+      "consentRequired": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "publicClient": false,
+      "frontchannelLogout": false,
+      "protocol": "openid-connect",
+      "attributes": {
+        "access.token.lifespan": "300",
+        "client.secret.creation.time": "0"
+      },
+      "fullScopeAllowed": false,
+      "defaultClientScopes": [
+        "roles",
+        "files:read",
+        "files:write",
+        "storage:read",
+        "storage:write",
+        "admin:read",
+        "admin:write",
+        "groups"
+      ],
+      "optionalClientScopes": []
+    },
+    {
+      "clientId": "artsore-ingester",
+      "name": "Ingester Module",
+      "description": "Artsore Ingester — загрузка файлов в Storage Elements",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "ingester-test-secret",
+      "redirectUris": [],
+      "webOrigins": [],
+      "bearerOnly": false,
+      "consentRequired": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "publicClient": false,
+      "frontchannelLogout": false,
+      "protocol": "openid-connect",
+      "attributes": {
+        "access.token.lifespan": "300",
+        "client.secret.creation.time": "0"
+      },
+      "fullScopeAllowed": false,
+      "defaultClientScopes": [
+        "files:read",
+        "files:write",
+        "storage:read"
+      ],
+      "optionalClientScopes": []
+    },
+    {
+      "clientId": "artsore-query",
+      "name": "Query Module",
+      "description": "Artsore Query — поиск и скачивание файлов",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "query-test-secret",
+      "redirectUris": [],
+      "webOrigins": [],
+      "bearerOnly": false,
+      "consentRequired": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "publicClient": false,
+      "frontchannelLogout": false,
+      "protocol": "openid-connect",
+      "attributes": {
+        "access.token.lifespan": "300",
+        "client.secret.creation.time": "0"
+      },
+      "fullScopeAllowed": false,
+      "defaultClientScopes": [
+        "files:read",
+        "storage:read"
+      ],
+      "optionalClientScopes": []
+    },
+    {
+      "clientId": "artsore-admin-ui",
+      "name": "Admin UI",
+      "description": "Artsore Admin UI — веб-интерфейс администратора (public client, PKCE)",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "redirectUris": [
+        "http://localhost:3000/*",
+        "https://artsore.kryukov.lan/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3000",
+        "https://artsore.kryukov.lan"
+      ],
+      "bearerOnly": false,
+      "consentRequired": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "publicClient": true,
+      "frontchannelLogout": true,
+      "protocol": "openid-connect",
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:3000/*##https://artsore.kryukov.lan/*"
+      },
+      "fullScopeAllowed": false,
+      "defaultClientScopes": [
+        "openid",
+        "profile",
+        "email",
+        "groups"
+      ],
+      "optionalClientScopes": [
+        "files:read",
+        "files:write",
+        "storage:read",
+        "storage:write",
+        "admin:read",
+        "admin:write",
+        "offline_access"
+      ]
+    },
+    {
+      "clientId": "artsore-test-init",
+      "name": "Test Init Client",
+      "description": "Клиент для инициализации тестовой среды (загрузка файлов, mode transitions)",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "test-init-secret",
+      "redirectUris": [],
+      "webOrigins": [],
+      "bearerOnly": false,
+      "consentRequired": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "publicClient": false,
+      "frontchannelLogout": false,
+      "protocol": "openid-connect",
+      "attributes": {
+        "access.token.lifespan": "600",
+        "client.secret.creation.time": "0"
+      },
+      "fullScopeAllowed": false,
+      "defaultClientScopes": [
+        "files:read",
+        "files:write",
+        "storage:read",
+        "storage:write"
+      ],
+      "optionalClientScopes": []
+    }
+  ],
+  "users": [
+    {
+      "username": "admin",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Admin",
+      "lastName": "User",
+      "email": "admin@artsore.local",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "admin",
+        "default-roles-artsore"
+      ],
+      "groups": [
+        "/artsore-admins"
+      ]
+    },
+    {
+      "username": "viewer",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Viewer",
+      "lastName": "User",
+      "email": "viewer@artsore.local",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "viewer",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "readonly",
+        "default-roles-artsore"
+      ],
+      "groups": [
+        "/artsore-viewers"
+      ]
+    },
+    {
+      "username": "service-account-artsore-admin-module",
+      "enabled": true,
+      "emailVerified": false,
+      "serviceAccountClientId": "artsore-admin-module",
+      "realmRoles": [
+        "default-roles-artsore"
+      ],
+      "clientRoles": {
+        "realm-management": [
+          "view-users",
+          "manage-clients",
+          "view-clients",
+          "manage-users",
+          "view-realm",
+          "query-users",
+          "query-clients"
+        ]
+      }
+    }
+  ],
+  "scopeMappings": [],
+  "clientScopeMappings": {
+    "realm-management": [
+      {
+        "client": "artsore-admin-module",
+        "roles": [
+          "view-users",
+          "manage-clients",
+          "view-clients",
+          "manage-users",
+          "view-realm",
+          "query-users",
+          "query-clients"
+        ]
+      }
+    ]
+  },
+  "browserSecurityHeaders": {
+    "contentSecurityPolicyReportOnly": "",
+    "xContentTypeOptions": "nosniff",
+    "referrerPolicy": "no-referrer",
+    "xRobotsTag": "none",
+    "xFrameOptions": "SAMEORIGIN",
+    "contentSecurityPolicy": "frame-src 'self'; frame-ancestors 'self'; object-src 'none';",
+    "xXSSProtection": "1; mode=block",
+    "strictTransportSecurity": "max-age=31536000; includeSubDomains"
+  },
+  "smtpServer": {},
+  "internationalizationEnabled": false,
+  "supportedLocales": [],
+  "defaultLocale": "",
+  "authenticationFlows": [],
+  "authenticatorConfig": [],
+  "requiredActions": [],
+  "browserFlow": "browser",
+  "registrationFlow": "registration",
+  "directGrantFlow": "direct grant",
+  "resetCredentialsFlow": "reset credentials",
+  "clientAuthenticationFlow": "clients"
+}

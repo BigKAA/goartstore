@@ -8,7 +8,7 @@ import (
 	"net/http"
 )
 
-// Коды ошибок, определённые в OpenAPI контракте v2.0.0.
+// Коды ошибок, определённые в OpenAPI контракте.
 const (
 	CodeValidationError = "VALIDATION_ERROR"
 	CodeNotFound        = "NOT_FOUND"

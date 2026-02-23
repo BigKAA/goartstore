@@ -51,7 +51,7 @@ info:
     - `files:write` — загрузка, обновление и удаление файлов
     - `storage:read` — чтение информации о SE
     - `storage:write` — управление режимом и обслуживание
-  version: 1.0.0
+  version: 0.1.0
   contact:
     name: Artsore Team
   license:

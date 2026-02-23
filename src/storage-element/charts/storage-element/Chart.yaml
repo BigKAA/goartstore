@@ -6,7 +6,7 @@ description: >-
   (StatefulSet с leader/follower) режимы деплоя.
 type: application
 version: 0.1.0
-appVersion: "1.0.0"
+appVersion: "0.1.0"
 keywords:
   - artsore
   - storage-element

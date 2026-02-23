@@ -1,0 +1,79 @@
+# =============================================================================
+# artsore-infra — Helm values для инфраструктурного слоя
+# Компоненты: PostgreSQL + Keycloak
+# =============================================================================
+
+# Namespace для тестовой среды
+namespace: artsore-test
+
+# -----------------------------------------------------------------------------
+# TLS (cert-manager)
+# Один Certificate покрывает ВСЕ сервисы тестовой среды (PG, KC, AM, SE)
+# -----------------------------------------------------------------------------
+tls:
+  clusterIssuer: dev-ca-issuer
+  secretName: artsore-test-tls
+
+# -----------------------------------------------------------------------------
+# PostgreSQL
+# -----------------------------------------------------------------------------
+postgresql:
+  image: postgres:17-alpine
+  port: 5432
+  user: artsore
+  password: artsore-test-password
+  database: artsore
+  dataSize: 1Gi
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+# -----------------------------------------------------------------------------
+# Keycloak (official image)
+# https://www.keycloak.org/server/containers
+# -----------------------------------------------------------------------------
+keycloak:
+  image: quay.io/keycloak/keycloak:26.1
+  # Admin credentials (bootstrap admin)
+  adminUser: admin
+  adminPassword: admin
+  # Подключение к PostgreSQL (БД keycloak)
+  database:
+    host: postgresql
+    port: 5432
+    name: keycloak
+    user: artsore
+    password: artsore-test-password
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "200m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+
+# StorageClass для PVC
+storageClass: nfs-client
+
+# -----------------------------------------------------------------------------
+# DNS-имена для Certificate (сервисы из ДРУГИХ chart-ов)
+# artsore-infra владеет Certificate и включает dnsNames для всех сервисов
+# -----------------------------------------------------------------------------
+certificateExtraDnsNames:
+  # Сервисы приложений (Admin Module и т.д.)
+  services:
+    - admin-module
+  # Replicated SE instances (из artsore-se)
+  replicatedInstances:
+    - se-edit-1
+    - se-edit-2
+  # Standalone SE instances (из artsore-se)
+  standaloneInstances:
+    - se-rw-1
+    - se-rw-2
+    - se-ro
+    - se-ar

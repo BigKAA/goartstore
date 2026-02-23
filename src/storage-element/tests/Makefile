@@ -17,8 +17,8 @@
 # Переменные
 # -----------------------------------------------------------------------------
 DOCKER_REGISTRY ?= harbor.kryukov.lan/library
-SE_TAG          ?= v1.0.0-1
-MOCK_TAG        ?= v1.0.0-1
+SE_TAG          ?= v0.1.0-1
+MOCK_TAG        ?= v0.1.0-1
 NAMESPACE       ?= se-test
 HELM_CHART      := helm/se-test
 HELM_RELEASE    := se-test

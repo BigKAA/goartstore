@@ -1,23 +1,19 @@
-# OpenAPI спецификация для Admin Module v2.0.0
+# OpenAPI спецификация для Admin Module
 # Модуль: Admin Module (управление SE, файловый реестр, SA, role overrides)
 # Версия API: v1
-# Версия спецификации: 2.0.0
+# Версия спецификации: 0.1.0
 # Дата фиксации: 2026-02-22
 #
-# ИЗМЕНЕНИЯ v2.0.0:
-# - Аутентификация полностью делегирована Keycloak (IdP)
-# - Убраны: auth/token, auth/jwks, admin-auth/login, admin-auth/refresh,
-#   admin-auth/change-password, jwt-keys/status, jwt-keys/rotate,
-#   admin-users POST (create), admin-users reset-password, admin-users unlock
-# - Добавлены: admin-users role-override, idp/status, idp/sync-sa
-# - Итого: 29 endpoints (было 36 в v1.0.0)
+# Аутентификация полностью делегирована Keycloak (IdP).
+# 29 endpoints: admin-auth/me, admin-users (5), SA (6), SE (7),
+# files (5), idp (2), health (3).
 
 openapi: 3.0.3
 
 info:
   title: Admin Module API
   description: |
-    Admin Module — управляющий модуль системы Artsore v2.0.0.
+    Admin Module — управляющий модуль системы Artsore.
 
     **Admin Module не является auth-сервером.** Аутентификация и выдача JWT
     полностью делегированы внешнему Identity Provider (Keycloak). Admin Module
@@ -70,7 +66,7 @@ info:
     2. **Ленивая очистка** — Query Module помечает файл при 404 от SE
     3. **Ручной sync** — `POST /storage-elements/{id}/sync`
     4. **Full sync** — автоматически при регистрации SE
-  version: 2.0.0
+  version: 0.1.0
   contact:
     name: Artsore Team
   license:

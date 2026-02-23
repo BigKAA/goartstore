@@ -22,7 +22,7 @@ Artsore — переработка проекта ArtStore (распределё
 | Ingester Module | 8020-8029 | Streaming upload, валидация, выбор SE, регистрация файлов | ⏳ Не начат |
 | Query Module | 8030-8039 | Поиск (PostgreSQL FTS), LRU cache, proxy download | ⏳ Не начат |
 
-Admin UI отменён. Административный доступ выполняется через API (Keycloak OIDC + API Gateway).
+Admin UI будет встроен непосредственно в Admin Module (стек определится позже). Keycloak-клиент `artsore-admin-ui` (Authorization Code + PKCE) используется для аутентификации администраторов через браузер.
 
 ## Технический стек
 
@@ -90,10 +90,19 @@ Harbor: https://harbor.kryukov.lan — admin/password. Использовать 
 4. После commit — предложить: локальный merge (`--no-ff`) или GitHub PR
 5. Удалить ветку после merge
 
+### Версионирование модулей
+
+Все модули на стадии разработки используют версии `0.x.y` (semver):
+
+- `0.Y.Z` — стадия разработки (Y = minor/milestone, Z = patch/bugfix)
+- `1.0.0` — первый production release (все модули интегрированы и протестированы)
+- Бамп minor-версии (`0.1.0` → `0.2.0`) — **только с разрешения пользователя**
+- Бамп patch-версии (`0.1.0` → `0.1.1`) — баг-фиксы, без разрешения
+
 ### Теги образов
 
-- При разработке: `vX.Y.Z-N` (суффикс инкрементируется)
-- При релизе: `vX.Y.Z` (суффикс убирается, patch увеличивается)
+- При разработке: `v0.Y.Z-N` (суффикс инкрементируется при каждой сборке)
+- При релизе: `v0.Y.Z` (суффикс убирается, patch увеличивается)
 
 ## Планы разработки
 
@@ -117,7 +126,7 @@ plans/             — Планы разработки (активные)
 docs/              — Документация
   api-contracts/   — OpenAPI 3.0.3 спецификации всех модулей
   api-review/      — Анализ API старого проекта
-  briefs/          — Краткие описания модулей v2.0.0
+  briefs/          — Краткие описания модулей
   design/          — Технические дизайн-документы
 ```
 
@@ -162,7 +171,7 @@ src/<module>/
 | API-контракты | `docs/api-contracts/*.yaml` | OpenAPI спецификации всех модулей |
 | Брифы модулей | `docs/briefs/*.md` | Краткие описания архитектуры модулей |
 | Дизайн Admin Module | `docs/design/admin-module-design.md` | Техдизайн: схема БД, компоненты, потоки |
-| План Admin Module | `plans/admin-module-v2.0.0.md` | Активный план (Phase 5-6 pending) |
+| План Admin Module | `plans/admin-module.md` | Активный план (Phase 5-6 pending) |
 | План SE (архив) | `plans/archive/storage-element-development-plan.md` | Завершённый план SE |
 
 ## Справка по старому проекту (old_artstore/)

@@ -1,0 +1,223 @@
+# =============================================================================
+# artsore-test — Helm values для полной тестовой среды Artsore
+# Компоненты: PostgreSQL + Keycloak + Admin Module + 6 Storage Elements
+# =============================================================================
+
+# Namespace для тестовой среды
+namespace: artsore-test
+
+# -----------------------------------------------------------------------------
+# Docker Registry
+# -----------------------------------------------------------------------------
+registry: harbor.kryukov.lan/library
+
+# Образ Admin Module
+amImage: admin-module
+amTag: v0.1.0-1
+
+# Образ Storage Element
+seImage: storage-element
+seTag: v0.1.0-1
+
+imagePullPolicy: Always
+
+# -----------------------------------------------------------------------------
+# TLS (cert-manager)
+# -----------------------------------------------------------------------------
+tls:
+  clusterIssuer: dev-ca-issuer
+  secretName: artsore-test-tls
+
+# -----------------------------------------------------------------------------
+# PostgreSQL
+# -----------------------------------------------------------------------------
+postgresql:
+  image: postgres:17-alpine
+  port: 5432
+  user: artsore
+  password: artsore-test-password
+  database: artsore
+  dataSize: 1Gi
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+# -----------------------------------------------------------------------------
+# Keycloak (Bitnami subchart)
+# https://github.com/bitnami/charts/tree/main/bitnami/keycloak
+# -----------------------------------------------------------------------------
+keycloak:
+  # Dev mode — без production requirements (hostname, HTTPS required)
+  production: false
+  # Прокси: используем встроенный HTTPS (self-signed из cert-manager)
+  proxy: edge
+  # Admin credentials (bootstrap admin)
+  auth:
+    adminUser: admin
+    adminPassword: admin
+  # Используем внешний PostgreSQL (наш PG, БД keycloak)
+  postgresql:
+    enabled: false
+  externalDatabase:
+    host: postgresql
+    port: 5432
+    user: artsore
+    password: artsore-test-password
+    database: keycloak
+  # HTTPS через cert-manager сертификат
+  tls:
+    enabled: true
+    existingSecret: artsore-test-tls
+    usePem: true
+  # HTTP порт (для AM — внутрикластерная связь без TLS)
+  httpPorts:
+    http: 8080
+  # Realm import
+  keycloakConfigCli:
+    enabled: false
+  extraVolumeMounts:
+    - name: realm-config
+      mountPath: /opt/bitnami/keycloak/data/import
+  extraVolumes:
+    - name: realm-config
+      configMap:
+        name: artsore-realm
+  # Команда с --import-realm
+  args:
+    - /opt/bitnami/keycloak/bin/kc.sh
+    - start
+    - --import-realm
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "200m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+
+# -----------------------------------------------------------------------------
+# Admin Module
+# -----------------------------------------------------------------------------
+adminModule:
+  port: 8000
+  logLevel: debug
+  logFormat: json
+  # Keycloak
+  keycloakRealm: artsore
+  keycloakClientId: artsore-admin-module
+  keycloakClientSecret: admin-module-test-secret
+  keycloakSAPrefix: "sa_"
+  # JWT
+  jwtRolesClaim: "realm_access.roles"
+  jwtGroupsClaim: "groups"
+  # Маппинг групп → ролей
+  roleAdminGroups: "artsore-admins"
+  roleReadonlyGroups: "artsore-viewers"
+  # Синхронизация
+  syncInterval: "5m"
+  syncPageSize: "1000"
+  saSyncInterval: "5m"
+  # topologymetrics
+  dephealthCheckInterval: "15s"
+  dephealthGroup: "admin-module"
+  # Graceful shutdown
+  shutdownTimeout: "5s"
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "500m"
+
+# -----------------------------------------------------------------------------
+# Общие настройки SE
+# -----------------------------------------------------------------------------
+seCommon:
+  port: 8010
+  logLevel: debug
+  logFormat: json
+  gcInterval: "30s"
+  reconcileInterval: "6h"
+  maxFileSize: "10485760"  # 10MB
+  dephealthCheckInterval: "15s"
+  dephealthGroup: "storage-element"
+  dephealthDepName: "admin-jwks"
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "500m"
+
+# StorageClass для PVC
+storageClass: nfs-client
+
+# -----------------------------------------------------------------------------
+# Replicated instances (StatefulSet + headless Service + shared PVC RWX)
+# Каждый экземпляр — 2 пода с общим хранилищем /data и отдельным WAL per pod
+# -----------------------------------------------------------------------------
+replicatedInstances:
+  - name: se-edit-1
+    storageId: se-edit-1
+    mode: edit
+    replicas: 2
+    dataSize: 200Mi
+    walSize: 200Mi
+    indexRefreshInterval: "10s"
+
+  - name: se-edit-2
+    storageId: se-edit-2
+    mode: edit
+    replicas: 2
+    dataSize: 200Mi
+    walSize: 200Mi
+    indexRefreshInterval: "10s"
+
+# -----------------------------------------------------------------------------
+# Standalone instances (Deployment + ClusterIP Service + PVC RWO)
+# Каждый экземпляр — 1 под с отдельным data и WAL
+# -----------------------------------------------------------------------------
+standaloneInstances:
+  - name: se-rw-1
+    storageId: se-rw-1
+    mode: rw
+    dataSize: 200Mi
+    walSize: 200Mi
+
+  - name: se-rw-2
+    storageId: se-rw-2
+    mode: rw
+    dataSize: 200Mi
+    walSize: 200Mi
+
+  # Стартует как rw, init job переведёт в ro
+  - name: se-ro
+    storageId: se-ro
+    mode: rw
+    dataSize: 200Mi
+    walSize: 200Mi
+
+  # Стартует как rw, init job переведёт rw -> ro -> ar
+  # dataAccessMode: ReadWriteMany — для доступа из init job
+  - name: se-ar
+    storageId: se-ar
+    mode: rw
+    dataSize: 200Mi
+    walSize: 200Mi
+    dataAccessMode: ReadWriteMany
+
+# -----------------------------------------------------------------------------
+# Init Job (Helm post-install hook)
+# Загрузка данных, mode transitions через Keycloak token
+# -----------------------------------------------------------------------------
+initJob:
+  enabled: true
+  activeDeadlineSeconds: 600
+  keycloakClientId: artsore-test-init
+  keycloakClientSecret: test-init-secret

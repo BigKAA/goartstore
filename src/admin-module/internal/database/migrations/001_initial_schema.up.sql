@@ -1,5 +1,5 @@
 -- 001_initial_schema.up.sql
--- Начальная схема базы данных Admin Module v2.0.0.
+-- Начальная схема базы данных Admin Module.
 -- 5 таблиц: storage_elements, file_registry, service_accounts, role_overrides, sync_state.
 
 -- Включаем расширение для генерации UUID

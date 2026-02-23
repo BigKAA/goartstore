@@ -21,7 +21,7 @@ help:
 	@echo "  test-race    — Запустить тесты с race detector"
 	@echo "  generate     — Сгенерировать код из OpenAPI"
 	@echo "  lint         — Запустить линтер"
-	@echo "  docker-build — Собрать Docker-образ (TAG=v2.0.0-1)"
+	@echo "  docker-build — Собрать Docker-образ (TAG=v0.1.0-1)"
 	@echo "  docker-run   — Запустить через docker-compose"
 	@echo "  docker-stop  — Остановить docker-compose"
 	@echo "  clean        — Очистить артефакты сборки"

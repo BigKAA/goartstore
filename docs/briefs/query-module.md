@@ -1,6 +1,6 @@
 # Query Module — Бриф модуля
 
-**Версия**: 1.0.0
+**Версия**: 0.1.0
 **Дата**: 2026-02-21
 **Статус**: Draft
 **Порты**: 8030-8039
@@ -449,7 +449,7 @@ CREATE INDEX idx_file_registry_retention
 
 ```bash
 # Сборка образа
-docker build -t harbor.kryukov.lan/library/query-module:v1.0.0 \
+docker build -t harbor.kryukov.lan/library/query-module:v0.1.0 \
   -f query-module/Dockerfile .
 
 # Запуск контейнера
@@ -467,7 +467,7 @@ docker run -d \
   -e QM_CLIENT_SECRET=cs_secret_value_here \
   -e QM_SE_CA_CERT_PATH=/certs/ca.crt \
   -v /path/to/ca-certs:/certs:ro \
-  harbor.kryukov.lan/library/query-module:v1.0.0
+  harbor.kryukov.lan/library/query-module:v0.1.0
 ```
 
 ### Kubernetes (Helm)

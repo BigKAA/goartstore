@@ -23,8 +23,8 @@
   ├── storage-element/    # Физическое хранение файлов
   ├── ingester-module/    # Загрузка файлов
   ├── query-module/       # Поиск и скачивание
-  ├── admin-ui/           # Веб-интерфейс (Angular, позднее)
   ├── pkg/                # Общие Go-пакеты (если понадобятся)
+  │                       # Admin UI встроен в admin-module (стек определится позже)
   ├── docs/               # Документация и API-контракты
   └── old_artstore/       # Старый проект (справочный материал)
   ```
@@ -44,9 +44,7 @@
 | Генерация кода из SQL | `sqlc` |
 | Миграции БД | `golang-migrate` |
 | OpenAPI | OpenAPI 3.x (yaml) |
-| Admin UI шаблоны | `templ` (type-safe HTML) |
-| Admin UI интерактивность | HTMX |
-| Admin UI стили | Tailwind CSS (standalone) или Bootstrap |
+| Admin UI | Встроен в Admin Module (стек определится позже) |
 
 ### 2.4. Архитектурные паттерны
 
@@ -70,7 +68,7 @@
 - Admin Module
 - Ingester Module
 - Query Module
-- Admin UI
+- Admin UI (встроен в Admin Module)
 - PostgreSQL (shared между Admin Module и Query Module)
 
 **Вне кластера** (remote, потенциально WAN, ненадёжная сеть):
@@ -211,7 +209,7 @@ Promotion можно добавить в будущих версиях при р
 2. **Storage Element** (порты 8010-8019) — физическое хранение файлов
 3. **Ingester Module** (порты 8020-8029) — загрузка файлов
 4. **Query Module** (порты 8030-8039) — поиск и скачивание
-5. **Admin UI** (порт 4200) — Go + Templ + HTMX
+5. **Admin UI** — встроен в Admin Module (не отдельный сервис, стек определится позже)
 
 ### 2.12. Порядок реализации
 
@@ -289,14 +287,13 @@ Promotion можно добавить в будущих версиях при р
 - **Без Redis** — не нужен
 - **Без search_history / download_statistics** — не в MVP
 
-### 3.5. Admin UI (Go + Templ + HTMX)
+### 3.5. Admin UI (встроен в Admin Module)
 
-- **Go-модуль** в монорепо (не отдельная SPA-кодовая база)
-- **Templ** — type-safe HTML шаблоны, компилируются в Go-код
-- **HTMX** — интерактивность без JavaScript (динамические таблицы, формы,
-  фильтры через HTML-атрибуты)
-- **CSS** — Tailwind CSS (standalone binary) или Bootstrap
-- Один бинарник, один Docker image, без Node.js toolchain
+- Веб-интерфейс администратора встроен непосредственно в Admin Module
+  (не отдельный сервис/модуль)
+- Технологический стек определится позже
+- Аутентификация через Keycloak (OIDC Authorization Code + PKCE),
+  Keycloak-клиент `artsore-admin-ui`
 - Dashboard, управление аккаунтами, Storage Elements, файлами
 - Реализуется последним
 

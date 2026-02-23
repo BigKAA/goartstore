@@ -1,0 +1,172 @@
+# Admin Module — Deployment + Service.
+# Init containers: wait-for-pg (PostgreSQL ready) + wait-for-kc (Keycloak realm ready).
+# PG и KC service names формируются через infraReleaseName.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: admin-module
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "artsore-apps.labels" . | nindent 4 }}
+    {{- include "artsore-apps.am.selectorLabels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "artsore-apps.am.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "artsore-apps.am.selectorLabels" . | nindent 8 }}
+    spec:
+      initContainers:
+        # Ожидание готовности PostgreSQL (pg_isready)
+        - name: wait-for-pg
+          image: {{ .Values.postgresql.image }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Ожидание PostgreSQL..."
+              until pg_isready -h postgresql -p {{ .Values.postgresql.port }} -U {{ .Values.postgresql.user }}; do
+                echo "  PostgreSQL не готов, повтор через 2 секунды..."
+                sleep 2
+              done
+              echo "PostgreSQL готов!"
+        # Ожидание готовности Keycloak (realm endpoint)
+        - name: wait-for-kc
+          image: alpine:3.19
+          command:
+            - /bin/sh
+            - -c
+            - |
+              apk add --no-cache curl > /dev/null 2>&1
+              echo "Ожидание Keycloak realm {{ .Values.adminModule.keycloakRealm }}..."
+              KC_URL="{{ include "artsore-apps.keycloakHttpUrl" . }}"
+              TIMEOUT=300
+              ELAPSED=0
+              until curl -sf "${KC_URL}/realms/{{ .Values.adminModule.keycloakRealm }}" > /dev/null 2>&1; do
+                if [ $ELAPSED -ge $TIMEOUT ]; then
+                  echo "ОШИБКА: Keycloak не стал доступен за ${TIMEOUT} секунд"
+                  exit 1
+                fi
+                echo "  Keycloak не готов (${ELAPSED}s), повтор через 5 секунд..."
+                sleep 5
+                ELAPSED=$((ELAPSED + 5))
+              done
+              echo "Keycloak realm {{ .Values.adminModule.keycloakRealm }} готов!"
+      containers:
+        - name: admin-module
+          image: {{ include "artsore-apps.amImage" . }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.adminModule.port }}
+              name: http
+          env:
+            # --- Сервер ---
+            - name: AM_PORT
+              value: {{ .Values.adminModule.port | quote }}
+            - name: AM_LOG_LEVEL
+              value: {{ .Values.adminModule.logLevel | quote }}
+            - name: AM_LOG_FORMAT
+              value: {{ .Values.adminModule.logFormat | quote }}
+            # --- PostgreSQL ---
+            - name: AM_DB_HOST
+              value: postgresql
+            - name: AM_DB_PORT
+              value: {{ .Values.postgresql.port | quote }}
+            - name: AM_DB_NAME
+              value: {{ .Values.postgresql.database | quote }}
+            - name: AM_DB_USER
+              value: {{ .Values.postgresql.user | quote }}
+            - name: AM_DB_PASSWORD
+              value: {{ .Values.postgresql.password | quote }}
+            - name: AM_DB_SSL_MODE
+              value: disable
+            # --- Keycloak ---
+            - name: AM_KEYCLOAK_URL
+              value: {{ include "artsore-apps.keycloakHttpUrl" . | quote }}
+            - name: AM_KEYCLOAK_REALM
+              value: {{ .Values.adminModule.keycloakRealm | quote }}
+            - name: AM_KEYCLOAK_CLIENT_ID
+              value: {{ .Values.adminModule.keycloakClientId | quote }}
+            - name: AM_KEYCLOAK_CLIENT_SECRET
+              value: {{ .Values.adminModule.keycloakClientSecret | quote }}
+            - name: AM_KEYCLOAK_SA_PREFIX
+              value: {{ .Values.adminModule.keycloakSAPrefix | quote }}
+            # --- JWT ---
+            - name: AM_JWT_ROLES_CLAIM
+              value: {{ .Values.adminModule.jwtRolesClaim | quote }}
+            - name: AM_JWT_GROUPS_CLAIM
+              value: {{ .Values.adminModule.jwtGroupsClaim | quote }}
+            # --- Маппинг групп → ролей ---
+            - name: AM_ROLE_ADMIN_GROUPS
+              value: {{ .Values.adminModule.roleAdminGroups | quote }}
+            - name: AM_ROLE_READONLY_GROUPS
+              value: {{ .Values.adminModule.roleReadonlyGroups | quote }}
+            # --- Синхронизация ---
+            - name: AM_SYNC_INTERVAL
+              value: {{ .Values.adminModule.syncInterval | quote }}
+            - name: AM_SYNC_PAGE_SIZE
+              value: {{ .Values.adminModule.syncPageSize | quote }}
+            - name: AM_SA_SYNC_INTERVAL
+              value: {{ .Values.adminModule.saSyncInterval | quote }}
+            # --- TLS (CA для подключения к SE) ---
+            - name: AM_SE_CA_CERT_PATH
+              value: /certs/ca.crt
+            # AM не использует собственный TLS — HTTP внутри кластера,
+            # TLS termination на API Gateway.
+            # --- topologymetrics ---
+            - name: AM_DEPHEALTH_CHECK_INTERVAL
+              value: {{ .Values.adminModule.dephealthCheckInterval | quote }}
+            - name: AM_DEPHEALTH_GROUP
+              value: {{ .Values.adminModule.dephealthGroup | quote }}
+            # --- Graceful shutdown ---
+            - name: AM_SHUTDOWN_TIMEOUT
+              value: {{ .Values.adminModule.shutdownTimeout | quote }}
+          volumeMounts:
+            - name: tls-certs
+              mountPath: /certs
+              readOnly: true
+          resources:
+            {{- toYaml .Values.adminModule.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: {{ .Values.adminModule.port }}
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: {{ .Values.adminModule.port }}
+              scheme: HTTP
+            initialDelaySeconds: 20
+            periodSeconds: 15
+      volumes:
+        # TLS сертификаты из cert-manager (secret из artsore-infra)
+        - name: tls-certs
+          secret:
+            secretName: {{ .Values.tls.secretName }}
+---
+# Service Admin Module
+apiVersion: v1
+kind: Service
+metadata:
+  name: admin-module
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "artsore-apps.labels" . | nindent 4 }}
+    {{- include "artsore-apps.am.selectorLabels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "artsore-apps.am.selectorLabels" . | nindent 4 }}
+  ports:
+    - port: {{ .Values.adminModule.port }}
+      targetPort: {{ .Values.adminModule.port }}
+      name: http

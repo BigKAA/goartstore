@@ -58,10 +58,10 @@ leader/follower репликацию через NFS flock.
 cd src/storage-element
 docker build \
   --platform linux/amd64 \
-  --build-arg VERSION=v1.0.0 \
-  -t harbor.kryukov.lan/library/storage-element:v1.0.0 \
+  --build-arg VERSION=v0.1.0 \
+  -t harbor.kryukov.lan/library/storage-element:v0.1.0 \
   -f Dockerfile .
-docker push harbor.kryukov.lan/library/storage-element:v1.0.0
+docker push harbor.kryukov.lan/library/storage-element:v0.1.0
 ```
 
 ### Деплой standalone SE
@@ -73,7 +73,7 @@ helm install se-rw-01 charts/storage-element \
   --set elementId=se-rw-01 \
   --set mode=rw \
   --set replicaMode=standalone \
-  --set tag=v1.0.0 \
+  --set tag=v0.1.0 \
   --set jwksUrl="https://admin-module.artsore.svc.cluster.local:8000/api/v1/auth/jwks" \
   --set tls.clusterIssuer=dev-ca-issuer
 ```
@@ -87,7 +87,7 @@ helm install se-edit-01 charts/storage-element \
   --set mode=edit \
   --set replicaMode=replicated \
   --set replicas=2 \
-  --set tag=v1.0.0 \
+  --set tag=v0.1.0 \
   --set jwksUrl="https://admin-module.artsore.svc.cluster.local:8000/api/v1/auth/jwks" \
   --set tls.clusterIssuer=dev-ca-issuer \
   --set storageClass=nfs-client

@@ -1,6 +1,6 @@
 # Storage Element — Бриф модуля
 
-**Версия**: 1.0.0
+**Версия**: 0.1.0
 **Дата**: 2026-02-21
 **Статус**: Draft
 **Порты**: 8010-8019
@@ -341,7 +341,7 @@ SE предоставляет endpoint `GET /api/v1/files` для синхрон
 
 ```bash
 # Сборка образа
-docker build -t harbor.kryukov.lan/library/storage-element:v1.0.0 \
+docker build -t harbor.kryukov.lan/library/storage-element:v0.1.0 \
   -f storage-element/Dockerfile .
 
 # Запуск контейнера
@@ -357,7 +357,7 @@ docker run -d \
   -e SE_TLS_CERT=/certs/tls.crt \
   -e SE_TLS_KEY=/certs/tls.key \
   -v /path/to/certs:/certs:ro \
-  harbor.kryukov.lan/library/storage-element:v1.0.0
+  harbor.kryukov.lan/library/storage-element:v0.1.0
 ```
 
 ### Kubernetes (Helm)
@@ -476,14 +476,14 @@ docker run -d \
   -v /mnt/nfs/se-data:/data \
   -e SE_REPLICA_MODE=replicated \
   -e SE_STORAGE_ID=se-moscow-01 \
-  storage-element:v1.0.0
+  storage-element:v0.1.0
 
 # На хосте 2 (потенциальный follower)
 docker run -d \
   -v /mnt/nfs/se-data:/data \
   -e SE_REPLICA_MODE=replicated \
   -e SE_STORAGE_ID=se-moscow-01 \
-  storage-element:v1.0.0
+  storage-element:v0.1.0
 ```
 
 Оба контейнера монтируют один и тот же NFS-том. Leader определяется
