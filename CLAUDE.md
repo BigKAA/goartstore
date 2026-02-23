@@ -22,7 +22,7 @@ Artsore — переработка проекта ArtStore (распределё
 | Ingester Module | 8020-8029 | Streaming upload, валидация, выбор SE, регистрация файлов | ⏳ Не начат |
 | Query Module | 8030-8039 | Поиск (PostgreSQL FTS), LRU cache, proxy download | ⏳ Не начат |
 
-Admin UI отменён. Административный доступ выполняется через API (Keycloak OIDC + API Gateway).
+Admin UI будет встроен непосредственно в Admin Module (стек определится позже). Keycloak-клиент `artsore-admin-ui` (Authorization Code + PKCE) используется для аутентификации администраторов через браузер.
 
 ## Технический стек
 

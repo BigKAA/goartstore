@@ -114,7 +114,7 @@ Elements доступны напрямую по токену (без gateway), �
 
 **Следствия:**
 
-- Входящие запросы от клиентов (Admin UI, SA) проходят через API Gateway —
+- Входящие запросы от клиентов (встроенный Admin UI, SA) проходят через API Gateway —
   TLS termination, CORS и JWT validation на уровне gateway
 - API Gateway проверяет валидность JWT (подпись через JWKS от Keycloak,
   expiration). Сервисы проверяют claims (роли, scopes) для авторизации
@@ -129,7 +129,7 @@ Elements доступны напрямую по токену (без gateway), �
 
 | Домен | IP | Назначение |
 |-------|-----|-----------|
-| `artsore.kryukov.lan` | `192.168.218.180` | Внешний доступ к API Gateway (Admin UI, API) |
+| `artsore.kryukov.lan` | `192.168.218.180` | Внешний доступ к API Gateway (Admin UI встроен в Admin Module, API) |
 
 API Gateway принимает запросы на `artsore.kryukov.lan` и маршрутизирует
 к backend-сервисам. Keycloak доступен через отдельный домен или path
@@ -176,7 +176,7 @@ Admin Module не управляет RSA-ключами и не выдаёт JWT
 | Storage Element | Admin → SE | Discovery (`GET /api/v1/info`), sync (`GET /api/v1/files`), mode transition. Доступ по JWT, напрямую (без gateway) |
 | Ingester Module | Ingester → Admin | Регистрация файлов (`POST /files`), список SE (`GET /storage-elements`). Через API Gateway |
 | Query Module | Query → Admin | Чтение file registry (через shared PostgreSQL), список SE (`GET /storage-elements`). Через API Gateway |
-| Admin UI | UI → Admin | Все административные операции через REST API. Через API Gateway |
+| Admin UI (встроен) | Часть Admin Module | Веб-интерфейс администратора, встроен непосредственно в Admin Module |
 | SE, API Gateway | → Keycloak | JWKS endpoint для валидации JWT |
 
 ---
@@ -290,20 +290,23 @@ Admin Module хранит в своей БД таблицу `role_overrides` —
 
 ### Admin UI — аутентификация через Keycloak (OIDC)
 
-Admin UI использует стандартный **Authorization Code + PKCE** flow:
+Admin UI встроен непосредственно в Admin Module (не отдельный сервис).
+Технологический стек UI определится позже.
+
+Аутентификация использует стандартный **Authorization Code + PKCE** flow:
 
 ```text
-1. Пользователь открывает Admin UI в браузере
-2. Admin UI (или API Gateway) обнаруживает отсутствие сессии
+1. Пользователь открывает Admin UI в браузере (обслуживается Admin Module)
+2. Admin Module обнаруживает отсутствие сессии
    → redirect на Keycloak login page
 3. Пользователь вводит логин/пароль на странице Keycloak
    (форма логина кастомизируется темой Keycloak)
-4. Keycloak redirect обратно на Admin UI с authorization code
-5. Admin UI (backend) обменивает code на JWT через Keycloak token endpoint
+4. Keycloak redirect обратно на Admin Module с authorization code
+5. Admin Module обменивает code на JWT через Keycloak token endpoint
 6. Пользователь аутентифицирован, JWT используется для запросов к API
 ```
 
-Пользователь видит форму логина **Keycloak**, а не Admin UI.
+Пользователь видит форму логина **Keycloak**, а не Admin Module.
 Внешний вид формы настраивается через Keycloak Themes.
 
 ### Keycloak Realm — конфигурация при первом развёртывании
@@ -315,7 +318,7 @@ Admin UI использует стандартный **Authorization Code + PKCE
 | Параметр | Значение | Описание |
 |----------|---------|----------|
 | Realm name | `artsore` | Изолированный realm для системы Artsore |
-| Client для Admin UI | `artsore-admin-ui` (public, Authorization Code + PKCE) | Аутентификация администраторов через браузер |
+| Client для Admin UI (встроен в Admin Module) | `artsore-admin-ui` (public, Authorization Code + PKCE) | Аутентификация администраторов через браузер |
 | Client для Ingester | `artsore-ingester` (confidential, Client Credentials) | M2M токены для Ingester Module |
 | Client для Query | `artsore-query` (confidential, Client Credentials) | M2M токены для Query Module |
 | Client для Admin Module | `artsore-admin-module` (confidential, Client Credentials) | Доступ к Keycloak Admin API для синхронизации SA |
@@ -762,7 +765,7 @@ defer dh.Stop()
 | Количество endpoints | 36 | 29 |
 | Убранные endpoint-группы | — | Auth OAuth (2), Admin Auth login/refresh/change-password (3), JWT Keys (2) |
 | Добавленные endpoint-группы | — | IdP Status (2), role-override (1) |
-| Admin UI аутентификация | POST login/password на Admin Module | OIDC Authorization Code + PKCE через Keycloak |
+| Admin UI аутентификация | POST login/password на Admin Module | OIDC Authorization Code + PKCE через Keycloak (UI встроен в Admin Module) |
 
 ---
 
@@ -773,7 +776,7 @@ defer dh.Stop()
 | 1 | Формат JWT claims от Keycloak | Фиксируется при первом развёртывании realm. Описан в разделе «Keycloak Realm — конфигурация при первом развёртывании». Конфигурируется через `AM_JWT_ROLES_CLAIM` и `AM_JWT_GROUPS_CLAIM` |
 | 2 | SA sync: конфликт при одновременном изменении | Стратегия `last write wins` по полю `updated_at`. Простая, без сложного merge |
 | 3 | Write-back в LDAP | Управление LDAP полностью через Keycloak. Admin Module не взаимодействует с LDAP напрямую |
-| 4 | Admin UI — OIDC flow | Authorization Code + PKCE. Пользователь видит форму логина Keycloak (кастомизируется темой) |
+| 4 | Admin UI — OIDC flow | Authorization Code + PKCE. UI встроен в Admin Module. Пользователь видит форму логина Keycloak (кастомизируется темой) |
 
 ## Приложение C. Открытые вопросы
 
