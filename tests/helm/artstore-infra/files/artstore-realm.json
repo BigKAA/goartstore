@@ -407,11 +407,11 @@
       "enabled": true,
       "clientAuthenticatorType": "client-secret",
       "redirectUris": [
-        "http://localhost:3000/*",
+        "http://localhost:8000/*",
         "https://artstore.kryukov.lan/*"
       ],
       "webOrigins": [
-        "http://localhost:3000",
+        "http://localhost:8000",
         "https://artstore.kryukov.lan"
       ],
       "bearerOnly": false,
@@ -425,7 +425,7 @@
       "protocol": "openid-connect",
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:3000/*##https://artstore.kryukov.lan/*"
+        "post.logout.redirect.uris": "http://localhost:8000/*##https://artstore.kryukov.lan/*"
       },
       "fullScopeAllowed": false,
       "defaultClientScopes": [

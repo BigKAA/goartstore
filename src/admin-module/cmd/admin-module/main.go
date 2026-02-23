@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/stdlib"
@@ -26,6 +27,9 @@ import (
 	"github.com/arturkryukov/artstore/admin-module/internal/seclient"
 	"github.com/arturkryukov/artstore/admin-module/internal/server"
 	"github.com/arturkryukov/artstore/admin-module/internal/service"
+	"github.com/arturkryukov/artstore/admin-module/internal/ui/auth"
+	uihandlers "github.com/arturkryukov/artstore/admin-module/internal/ui/handlers"
+	uimiddleware "github.com/arturkryukov/artstore/admin-module/internal/ui/middleware"
 )
 
 func main() {
@@ -242,14 +246,63 @@ func main() {
 		}
 	}
 
-	// 16. Создание и запуск HTTP-сервера
-	srv := server.New(cfg, logger, apiHandler, jwtAuth)
+	// 16. Admin UI (опционально, если AM_UI_ENABLED=true)
+	var uiComponents *server.UIComponents
+	if cfg.UIEnabled {
+		// Определяем secure cookie: true если Keycloak URL начинается с https
+		secureCookie := strings.HasPrefix(cfg.KeycloakURL, "https")
+
+		// Session Manager — шифрование/дешифрование UI-сессий (AES-256-GCM)
+		sessionMgr, sessionErr := auth.NewSessionManager(cfg.UISessionSecret, secureCookie)
+		if sessionErr != nil {
+			logger.Error("Ошибка создания Session Manager", slog.String("error", sessionErr.Error()))
+			os.Exit(1)
+		}
+
+		if cfg.UISessionSecret == "" {
+			logger.Warn("AM_UI_SESSION_SECRET не задан, UI-сессии не сохраняются между рестартами")
+		}
+
+		// OIDC-клиент для авторизации через Keycloak (PKCE)
+		oidcClient := auth.NewOIDCClient(auth.OIDCConfig{
+			KeycloakURL: cfg.KeycloakURL,
+			Realm:       cfg.KeycloakRealm,
+			ClientID:    cfg.UIOIDCClientID,
+			HTTPClient:  httpClientCA,
+		})
+
+		// Auth handler — login/callback/logout
+		authHandler := uihandlers.NewAuthHandler(
+			oidcClient, sessionMgr,
+			cfg.RoleAdminGroups, cfg.RoleReadonlyGroups,
+			secureCookie,
+			logger,
+		)
+
+		// UI auth middleware — проверка сессии, авто-refresh токенов
+		uiAuthMiddleware := uimiddleware.NewUIAuth(sessionMgr, oidcClient, logger)
+
+		uiComponents = &server.UIComponents{
+			AuthHandler:    authHandler,
+			AuthMiddleware: uiAuthMiddleware,
+		}
+
+		logger.Info("Admin UI инициализирован",
+			slog.String("oidc_client_id", cfg.UIOIDCClientID),
+			slog.Bool("secure_cookie", secureCookie),
+		)
+	} else {
+		logger.Info("Admin UI отключён (AM_UI_ENABLED=false)")
+	}
+
+	// 17. Создание и запуск HTTP-сервера
+	srv := server.New(cfg, logger, apiHandler, jwtAuth, uiComponents)
 	if err := srv.Run(); err != nil {
 		logger.Error("Ошибка сервера", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 
-	// 17. Graceful shutdown фоновых задач
+	// 18. Graceful shutdown фоновых задач
 	logger.Info("Останавливаем фоновые задачи...")
 
 	if dephealthSvc != nil {

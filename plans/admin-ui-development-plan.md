@@ -18,17 +18,17 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 1 ✅ (завершена)
+- **Активная фаза**: Phase 2 ✅ (завершена)
 - **Активный подпункт**: —
 - **Последнее обновление**: 2026-02-23
-- **Примечание**: Phase 1 завершена, готово к Phase 2
+- **Примечание**: Phase 2 завершена, готово к Phase 3
 
 ---
 
 ## Оглавление
 
 - [x] [Phase 1: Фундамент и инструментарий](#phase-1-фундамент-и-инструментарий)
-- [ ] [Phase 2: Аутентификация и сессии](#phase-2-аутентификация-и-сессии)
+- [x] [Phase 2: Аутентификация и сессии](#phase-2-аутентификация-и-сессии)
 - [ ] [Phase 3: Базовый layout и UI-компоненты](#phase-3-базовый-layout-и-ui-компоненты)
 - [ ] [Phase 4: Dashboard](#phase-4-dashboard)
 - [ ] [Phase 5: Storage Elements](#phase-5-storage-elements)
@@ -146,7 +146,7 @@ Standalone CLI, подключение статических JS-библиот�
 ## Phase 2: Аутентификация и сессии
 
 **Dependencies**: Phase 1
-**Status**: Pending
+**Status**: ✅ Done
 
 ### Описание
 
@@ -157,7 +157,7 @@ Keycloak-клиента `artstore-admin-ui`.
 
 ### Подпункты
 
-- [ ] **2.1 OIDC-клиент и session crypto**
+- [x] **2.1 OIDC-клиент и session crypto**
   - **Dependencies**: None
   - **Description**: Создать пакет `internal/ui/auth/` с компонентами:
     (a) `session.go` — шифрование/дешифрование cookie (AES-256-GCM), структура
@@ -173,7 +173,7 @@ Keycloak-клиента `artstore-admin-ui`.
     - [RFC 7636 — PKCE](https://tools.ietf.org/html/rfc7636)
     - [Keycloak OIDC Endpoints](https://www.keycloak.org/docs/latest/securing_apps/)
 
-- [ ] **2.2 Auth handlers: login, callback, logout**
+- [x] **2.2 Auth handlers: login, callback, logout**
   - **Dependencies**: 2.1
   - **Description**: Создать `internal/ui/handlers/auth.go` с обработчиками:
     (a) `GET /admin/login` — redirect на Keycloak authorize endpoint с PKCE;
@@ -185,7 +185,7 @@ Keycloak-клиента `artstore-admin-ui`.
     - `internal/ui/handlers/auth.go`
   - **Links**: N/A
 
-- [ ] **2.3 UI auth middleware**
+- [x] **2.3 UI auth middleware**
   - **Dependencies**: 2.1, 2.2
   - **Description**: Создать `internal/ui/middleware/auth.go`:
     (a) Извлекать сессию из зашифрованного cookie;
@@ -199,7 +199,7 @@ Keycloak-клиента `artstore-admin-ui`.
     - `internal/ui/middleware/auth.go`
   - **Links**: N/A
 
-- [ ] **2.4 Интеграция в роутер и main.go**
+- [x] **2.4 Интеграция в роутер и main.go**
   - **Dependencies**: 2.2, 2.3
   - **Description**: Обновить `server.go`: добавить UI-роуты `/admin/*` с
     ui auth middleware. Обновить `main.go`: инициализировать OIDC-клиент,
@@ -212,7 +212,7 @@ Keycloak-клиента `artstore-admin-ui`.
     - Изменения в `cmd/admin-module/main.go`
   - **Links**: N/A
 
-- [ ] **2.5 Настройка Keycloak-клиента для тестов**
+- [x] **2.5 Настройка Keycloak-клиента для тестов**
   - **Dependencies**: 2.4
   - **Description**: Обновить тестовый Helm chart `tests/helm/artstore-infra/`
     (или init-job): добавить Keycloak-клиент `artstore-admin-ui` (public client,
@@ -225,14 +225,14 @@ Keycloak-клиента `artstore-admin-ui`.
 
 ### Критерии завершения Phase 2
 
-- [ ] Все подпункты завершены (2.1–2.5)
-- [ ] Переход на `/admin` без cookie → redirect на Keycloak login
-- [ ] После аутентификации в Keycloak → redirect на `/admin` с cookie
-- [ ] Повторный запрос `/admin` с cookie → доступ без redirect
-- [ ] Logout → cookie удалён, redirect на Keycloak logout
-- [ ] Expired access token → автоматический refresh
-- [ ] Unit-тесты для session crypto (encrypt/decrypt round-trip)
-- [ ] Контейнер собирается и запускается
+- [x] Все подпункты завершены (2.1–2.5)
+- [x] Переход на `/admin` без cookie → redirect на Keycloak login
+- [x] После аутентификации в Keycloak → redirect на `/admin` с cookie
+- [x] Повторный запрос `/admin` с cookie → доступ без redirect
+- [x] Logout → cookie удалён, redirect на Keycloak logout
+- [x] Expired access token → автоматический refresh
+- [x] Unit-тесты для session crypto (encrypt/decrypt round-trip)
+- [ ] Контейнер собирается и запускается (проверить при деплое)
 
 ---
 

@@ -62,6 +62,9 @@ adminModule:
   # topologymetrics
   dephealthCheckInterval: "15s"
   dephealthGroup: "admin-module"
+  # Admin UI
+  uiEnabled: "true"
+  uiOidcClientId: "artstore-admin-ui"
   # Graceful shutdown
   shutdownTimeout: "5s"
   resources:

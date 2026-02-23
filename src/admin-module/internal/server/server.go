@@ -18,6 +18,9 @@ import (
 	"github.com/arturkryukov/artstore/admin-module/internal/api/generated"
 	"github.com/arturkryukov/artstore/admin-module/internal/api/middleware"
 	"github.com/arturkryukov/artstore/admin-module/internal/config"
+	uihandlers "github.com/arturkryukov/artstore/admin-module/internal/ui/handlers"
+	uimiddleware "github.com/arturkryukov/artstore/admin-module/internal/ui/middleware"
+	"github.com/arturkryukov/artstore/admin-module/internal/ui/static"
 )
 
 // Server — HTTP-сервер Admin Module.
@@ -27,24 +30,40 @@ type Server struct {
 	cfg        *config.Config
 }
 
+// UIComponents — компоненты Admin UI для регистрации маршрутов.
+// Nil означает, что UI отключён (AM_UI_ENABLED=false).
+type UIComponents struct {
+	// AuthHandler — обработчики login/callback/logout.
+	AuthHandler *uihandlers.AuthHandler
+	// AuthMiddleware — middleware проверки UI-сессии.
+	AuthMiddleware *uimiddleware.UIAuth
+}
+
 // New создаёт новый HTTP-сервер с настроенными routes и middleware.
-// handler — реализация generated.ServerInterface (APIHandler на Phase 4).
+// handler — реализация generated.ServerInterface (APIHandler).
 // jwtAuth — JWT middleware (может быть nil для тестирования без auth).
-func New(cfg *config.Config, logger *slog.Logger, handler generated.ServerInterface, jwtAuth *middleware.JWTAuth) *Server {
+// uiComponents — компоненты Admin UI (nil если UI отключён).
+func New(cfg *config.Config, logger *slog.Logger, handler generated.ServerInterface, jwtAuth *middleware.JWTAuth, uiComponents *UIComponents) *Server {
 	router := chi.NewRouter()
 
 	// Глобальные middleware (применяются ко ВСЕМ маршрутам)
 	router.Use(middleware.MetricsMiddleware())
 	router.Use(middleware.RequestLogger(logger))
 
-	// JWT middleware с исключениями для публичных endpoints.
+	// JWT middleware с исключениями для публичных endpoints и UI.
 	// Health и metrics проверяются Kubernetes напрямую, без API Gateway.
+	// /admin/* и /static/* используют cookie-based auth (не JWT Bearer).
 	if jwtAuth != nil {
-		router.Use(jwtAuthWithExclusions(jwtAuth, "/health/", "/metrics"))
+		router.Use(jwtAuthWithExclusions(jwtAuth, "/health/", "/metrics", "/admin", "/static/"))
 	}
 
-	// Все маршруты через HandlerFromMux (oapi-codegen chi-server).
+	// Все API маршруты через HandlerFromMux (oapi-codegen chi-server).
 	generated.HandlerFromMux(handler, router)
+
+	// --- Admin UI маршруты ---
+	if uiComponents != nil {
+		registerUIRoutes(router, uiComponents, logger)
+	}
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.Port),
@@ -59,6 +78,53 @@ func New(cfg *config.Config, logger *slog.Logger, handler generated.ServerInterf
 		logger:     logger,
 		cfg:        cfg,
 	}
+}
+
+// registerUIRoutes регистрирует маршруты Admin UI.
+func registerUIRoutes(router chi.Router, ui *UIComponents, logger *slog.Logger) {
+	// Статические файлы (CSS, JS) — без аутентификации
+	staticFS := static.FileSystem()
+	router.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(staticFS)))
+
+	// Auth endpoints — без UI auth middleware (публичные)
+	router.Get("/admin/login", ui.AuthHandler.HandleLogin)
+	router.Get("/admin/callback", ui.AuthHandler.HandleCallback)
+	router.Post("/admin/logout", ui.AuthHandler.HandleLogout)
+
+	// Защищённые UI маршруты — с UI auth middleware
+	router.Route("/admin", func(r chi.Router) {
+		r.Use(ui.AuthMiddleware.Middleware())
+
+		// Заглушка для главной страницы Admin UI (будет заменена в Phase 3)
+		r.Get("/", func(w http.ResponseWriter, req *http.Request) {
+			session := uimiddleware.SessionFromContext(req.Context())
+			username := "unknown"
+			role := "unknown"
+			if session != nil {
+				username = session.Username
+				role = session.Role
+			}
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			fmt.Fprintf(w, `<!DOCTYPE html>
+<html>
+<head><title>Artstore Admin</title></head>
+<body style="background:#0a0f0a;color:#e8f5e8;font-family:Inter,system-ui,sans-serif;padding:40px">
+<h1 style="color:#22c55e">Artstore Admin UI</h1>
+<p>Добро пожаловать, <strong>%s</strong> (роль: <code>%s</code>)</p>
+<form method="POST" action="/admin/logout">
+<button type="submit" style="background:#ef4444;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer">Logout</button>
+</form>
+<p style="color:#5a7a5a;margin-top:20px">Phase 2 — аутентификация работает. Полный UI в Phase 3.</p>
+</body>
+</html>`, username, role)
+		})
+	})
+
+	logger.Info("Admin UI маршруты зарегистрированы",
+		slog.String("static", "/static/*"),
+		slog.String("auth", "/admin/login, /admin/callback, /admin/logout"),
+		slog.String("protected", "/admin/*"),
+	)
 }
 
 // jwtAuthWithExclusions оборачивает JWTAuth.Middleware(), пропуская указанные пути.
