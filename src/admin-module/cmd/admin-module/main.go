@@ -282,8 +282,14 @@ func main() {
 		// UI auth middleware — проверка сессии, авто-refresh токенов
 		uiAuthMiddleware := uimiddleware.NewUIAuth(sessionMgr, oidcClient, logger)
 
-		// Dashboard handler — страница Dashboard
-		dashboardHandler := uihandlers.NewDashboardHandler(logger)
+		// Dashboard handler — страница Dashboard с реальными данными
+		dashboardHandler := uihandlers.NewDashboardHandler(
+			storageElemsSvc,
+			filesSvc,
+			serviceAcctsSvc,
+			dephealthSvc, // может быть nil — Dashboard обработает gracefully
+			logger,
+		)
 
 		uiComponents = &server.UIComponents{
 			AuthHandler:      authHandler,
