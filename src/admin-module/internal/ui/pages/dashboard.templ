@@ -1,21 +1,209 @@
 package pages
 
 import (
+	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/arturkryukov/artstore/admin-module/internal/ui/components"
 	"github.com/arturkryukov/artstore/admin-module/internal/ui/layouts"
 )
 
-// DashboardData — данные для страницы Dashboard (заглушка Phase 3).
-// В Phase 4 будет заменена на полноценную структуру с реальными метриками.
+// DashboardData — данные для страницы Dashboard.
+// Содержит агрегированные метрики, собранные из сервисов.
 type DashboardData struct {
 	Username string // Имя пользователя из сессии
 	Role     string // Роль пользователя
+
+	// --- Storage Elements ---
+	SETotal       int // Общее количество SE
+	SEOnline      int // SE со статусом online
+	SEOffline     int // SE со статусом offline
+	SEDegraded    int // SE со статусом degraded
+	SEMaintenance int // SE со статусом maintenance
+
+	// --- Хранилище ---
+	StorageTotalBytes int64 // Суммарная ёмкость всех SE (байт)
+	StorageUsedBytes  int64 // Суммарное использование всех SE (байт)
+
+	// --- Файлы ---
+	FilesTotal     int // Общее число активных файлов
+	FilesPermanent int // Файлы с retention permanent
+	FilesTemporary int // Файлы с retention temporary
+
+	// --- Service Accounts ---
+	SATotal     int // Общее число SA
+	SAActive    int // Active SA
+	SASuspended int // Suspended SA
+
+	// --- Зависимости ---
+	Dependencies []DependencyStatus // Статусы зависимостей (PG, KC)
+
+	// --- Список SE (для таблицы и графиков) ---
+	StorageElements []SEItem
 }
 
-// Dashboard — временная страница Dashboard с демонстрацией layout и компонентов.
-// Показывает базовые UI-компоненты для визуальной проверки темы.
+// DependencyStatus — статус зависимости.
+type DependencyStatus struct {
+	Name   string // Имя (PostgreSQL, Keycloak)
+	Status string // online, offline, unavailable
+}
+
+// SEItem — элемент Storage Element для отображения в таблице и графиках.
+type SEItem struct {
+	ID            string
+	Name          string
+	Mode          string // edit, rw, ro, ar
+	Status        string // online, offline, degraded, maintenance
+	CapacityBytes int64
+	UsedBytes     int64
+	FileCount     int
+}
+
+// seStorageChartData — данные для графика использования хранилища.
+type seStorageChartData struct {
+	Names []string  `json:"names"`
+	Used  []float64 `json:"used"`
+	Total []float64 `json:"total"`
+}
+
+// seFilesChartData — данные для графика распределения файлов.
+type seFilesChartData struct {
+	Names  []string `json:"names"`
+	Counts []int    `json:"counts"`
+}
+
+// storageChartJSON формирует JSON-данные для графика использования хранилища по SE.
+func storageChartJSON(items []SEItem) string {
+	data := seStorageChartData{
+		Names: make([]string, 0, len(items)),
+		Used:  make([]float64, 0, len(items)),
+		Total: make([]float64, 0, len(items)),
+	}
+
+	const GB = 1024 * 1024 * 1024
+
+	for _, se := range items {
+		data.Names = append(data.Names, se.Name)
+		data.Used = append(data.Used, float64(se.UsedBytes)/float64(GB))
+		data.Total = append(data.Total, float64(se.CapacityBytes)/float64(GB))
+	}
+
+	b, _ := json.Marshal(data)
+	return string(b)
+}
+
+// filesChartJSON формирует JSON-данные для графика распределения файлов по SE.
+func filesChartJSON(items []SEItem) string {
+	data := seFilesChartData{
+		Names:  make([]string, 0, len(items)),
+		Counts: make([]int, 0, len(items)),
+	}
+
+	for _, se := range items {
+		if se.FileCount > 0 {
+			data.Names = append(data.Names, se.Name)
+			data.Counts = append(data.Counts, se.FileCount)
+		}
+	}
+
+	b, _ := json.Marshal(data)
+	return string(b)
+}
+
+// seSubValue формирует описание для stat_card SE.
+func seSubValue(data DashboardData) string {
+	parts := ""
+	if data.SEOnline > 0 {
+		parts += fmt.Sprintf("%d online", data.SEOnline)
+	}
+	if data.SEOffline > 0 {
+		if parts != "" {
+			parts += " / "
+		}
+		parts += fmt.Sprintf("%d offline", data.SEOffline)
+	}
+	if data.SEDegraded > 0 {
+		if parts != "" {
+			parts += " / "
+		}
+		parts += fmt.Sprintf("%d degraded", data.SEDegraded)
+	}
+	if data.SEMaintenance > 0 {
+		if parts != "" {
+			parts += " / "
+		}
+		parts += fmt.Sprintf("%d maintenance", data.SEMaintenance)
+	}
+	if parts == "" {
+		return "Нет зарегистрированных SE"
+	}
+	return parts
+}
+
+// filesSubValue формирует описание для stat_card файлов.
+func filesSubValue(data DashboardData) string {
+	if data.FilesTotal == 0 {
+		return "Нет файлов в реестре"
+	}
+	return fmt.Sprintf("%d permanent / %d temporary", data.FilesPermanent, data.FilesTemporary)
+}
+
+// saSubValue формирует описание для stat_card SA.
+func saSubValue(data DashboardData) string {
+	if data.SATotal == 0 {
+		return "Нет Service Accounts"
+	}
+	return fmt.Sprintf("%d active / %d suspended", data.SAActive, data.SASuspended)
+}
+
+// storageSubValue формирует описание для stat_card хранилища.
+func storageSubValue(data DashboardData) string {
+	if data.StorageTotalBytes == 0 {
+		return "SE не зарегистрированы"
+	}
+	return fmt.Sprintf("%s из %s используется", formatBytesLocal(data.StorageUsedBytes), formatBytesLocal(data.StorageTotalBytes))
+}
+
+// formatBytesLocal — локальное форматирование байтов (аналог из capacity_bar).
+func formatBytesLocal(bytes int64) string {
+	if bytes < 0 {
+		bytes = 0
+	}
+	const (
+		KB = 1024
+		MB = 1024 * KB
+		GB = 1024 * MB
+		TB = 1024 * GB
+	)
+	switch {
+	case bytes >= TB:
+		return fmt.Sprintf("%.1f TB", float64(bytes)/float64(TB))
+	case bytes >= GB:
+		return fmt.Sprintf("%.1f GB", float64(bytes)/float64(GB))
+	case bytes >= MB:
+		return fmt.Sprintf("%.1f MB", float64(bytes)/float64(MB))
+	case bytes >= KB:
+		return fmt.Sprintf("%.1f KB", float64(bytes)/float64(KB))
+	default:
+		return fmt.Sprintf("%d B", bytes)
+	}
+}
+
+// storagePercent — процент использования хранилища.
+func storagePercent(used, total int64) string {
+	if total <= 0 {
+		return "0"
+	}
+	pct := int(float64(used) / float64(total) * 100)
+	if pct > 100 {
+		pct = 100
+	}
+	return strconv.Itoa(pct)
+}
+
+// Dashboard — страница Dashboard с агрегированными метриками,
+// статусами зависимостей, списком SE и графиками.
 templ Dashboard(data DashboardData) {
 	@layouts.Page(layouts.PageParams{
 		Title:     "Dashboard",
@@ -26,148 +214,282 @@ templ Dashboard(data DashboardData) {
 			{Label: "Dashboard"},
 		},
 	}) {
-		<!-- Карточки метрик (демо) -->
+		<!-- Карточки метрик -->
 		<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
 			@components.StatCard(components.StatCardParams{
 				Label:       "Storage Elements",
-				Value:       "—",
-				SubValue:    "Данные загружаются...",
+				Value:       strconv.Itoa(data.SETotal),
+				SubValue:    seSubValue(data),
 				Icon:        "M21.75 17.25v-.228a4.5 4.5 0 00-.12-1.03l-2.268-9.64a3.375 3.375 0 00-3.285-2.602H7.923a3.375 3.375 0 00-3.285 2.602l-2.268 9.64a4.5 4.5 0 00-.12 1.03v.228m19.5 0a3 3 0 01-3 3H5.25a3 3 0 01-3-3m19.5 0a3 3 0 00-3-3H5.25a3 3 0 00-3 3m16.5 0h.008v.008h-.008v-.008zm-3 0h.008v.008h-.008v-.008z",
 				BorderColor: "border-accent-primary",
 			})
 
 			@components.StatCard(components.StatCardParams{
 				Label:       "Файлы",
-				Value:       "—",
-				SubValue:    "Данные загружаются...",
+				Value:       strconv.Itoa(data.FilesTotal),
+				SubValue:    filesSubValue(data),
 				Icon:        "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z",
 				BorderColor: "border-status-info",
 			})
 
 			@components.StatCard(components.StatCardParams{
 				Label:       "Хранилище",
-				Value:       "—",
-				SubValue:    "Данные загружаются...",
+				Value:       storagePercent(data.StorageUsedBytes, data.StorageTotalBytes) + "%",
+				SubValue:    storageSubValue(data),
 				Icon:        "M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125v-3.75",
 				BorderColor: "border-status-warning",
 			})
 
 			@components.StatCard(components.StatCardParams{
 				Label:       "Service Accounts",
-				Value:       "—",
-				SubValue:    "Данные загружаются...",
+				Value:       strconv.Itoa(data.SATotal),
+				SubValue:    saSubValue(data),
 				Icon:        "M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z",
 				BorderColor: "border-accent-lime",
 			})
 		</div>
 
-		<!-- Бейджи (демо) -->
+		<!-- Общий capacity bar хранилища -->
+		if data.StorageTotalBytes > 0 {
+			<div class="card mb-6">
+				<h2 class="text-lg font-semibold text-text-primary mb-3">Общее хранилище</h2>
+				@components.CapacityBar(components.CapacityBarParams{
+					Used:  data.StorageUsedBytes,
+					Total: data.StorageTotalBytes,
+					Label: "Все Storage Elements",
+				})
+			</div>
+		}
+
+		<!-- Статус зависимостей -->
 		<div class="card mb-6">
-			<h2 class="text-lg font-semibold text-text-primary mb-4">Компоненты: бейджи</h2>
-			<div class="flex flex-wrap gap-3">
-				<div>
-					<p class="text-xs text-text-muted mb-2 uppercase">Статусы SE</p>
-					<div class="flex gap-2">
-						@components.StatusBadge("online")
-						@components.StatusBadge("offline")
-						@components.StatusBadge("degraded")
-						@components.StatusBadge("maintenance")
+			<h2 class="text-lg font-semibold text-text-primary mb-4">Зависимости</h2>
+			<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+				for _, dep := range data.Dependencies {
+					<div class="flex items-center justify-between p-3 bg-bg-elevated rounded-lg">
+						<div class="flex items-center space-x-3">
+							<!-- Иконка зависимости -->
+							if dep.Name == "PostgreSQL" {
+								<div class="w-8 h-8 rounded-lg bg-bg-base flex items-center justify-center">
+									<svg class="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125v-3.75"></path>
+									</svg>
+								</div>
+							} else {
+								<div class="w-8 h-8 rounded-lg bg-bg-base flex items-center justify-center">
+									<svg class="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"></path>
+									</svg>
+								</div>
+							}
+							<span class="text-sm font-medium text-text-primary">{ dep.Name }</span>
+						</div>
+						<!-- Статус бейдж -->
+						if dep.Status == "unavailable" {
+							@components.Badge(components.BadgeNeutral, "N/A")
+						} else {
+							@components.StatusBadge(dep.Status)
+						}
+					</div>
+				}
+			</div>
+		</div>
+
+		<!-- Таблица Storage Elements и графики (только если есть SE) -->
+		if len(data.StorageElements) > 0 {
+			<!-- Таблица SE -->
+			<div class="card mb-6">
+				<div class="flex items-center justify-between mb-4">
+					<h2 class="text-lg font-semibold text-text-primary">Storage Elements</h2>
+					<span class="text-sm text-text-muted">{ strconv.Itoa(len(data.StorageElements)) } зарегистрировано</span>
+				</div>
+				<div class="overflow-x-auto">
+					<table class="w-full text-sm">
+						<thead>
+							<tr class="border-b border-border-primary text-left">
+								<th class="pb-3 pr-4 text-text-muted font-medium">Имя</th>
+								<th class="pb-3 pr-4 text-text-muted font-medium">Режим</th>
+								<th class="pb-3 pr-4 text-text-muted font-medium">Статус</th>
+								<th class="pb-3 pr-4 text-text-muted font-medium min-w-[160px]">Ёмкость</th>
+								<th class="pb-3 pr-4 text-text-muted font-medium text-right">Файлов</th>
+								<th class="pb-3 text-text-muted font-medium"></th>
+							</tr>
+						</thead>
+						<tbody class="divide-y divide-border-primary">
+							for _, se := range data.StorageElements {
+								<tr class="hover:bg-bg-elevated/50 transition-colors">
+									<td class="py-3 pr-4">
+										<span class="text-text-primary font-medium">{ se.Name }</span>
+									</td>
+									<td class="py-3 pr-4">
+										@components.ModeBadge(se.Mode)
+									</td>
+									<td class="py-3 pr-4">
+										@components.StatusBadge(se.Status)
+									</td>
+									<td class="py-3 pr-4">
+										@components.CapacityBar(components.CapacityBarParams{
+											Used:    se.UsedBytes,
+											Total:   se.CapacityBytes,
+											Compact: true,
+										})
+									</td>
+									<td class="py-3 pr-4 text-right">
+										<span class="text-text-secondary">{ strconv.Itoa(se.FileCount) }</span>
+									</td>
+									<td class="py-3 text-right">
+										<a
+											href={ templ.SafeURL(fmt.Sprintf("/admin/storage-elements/%s", se.ID)) }
+											class="text-accent-primary hover:text-accent-hover text-xs"
+										>
+											Подробнее →
+										</a>
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			</div>
+
+			<!-- Графики -->
+			<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+				<!-- График: использование хранилища по SE (horizontal bar chart) -->
+				<div class="card">
+					<h2 class="text-lg font-semibold text-text-primary mb-4">Использование хранилища</h2>
+					<div
+						id="storage-chart"
+						x-data={ fmt.Sprintf("{ chartData: %s }", storageChartJSON(data.StorageElements)) }
+						x-init="
+							if (chartData.names.length > 0) {
+								new ApexCharts(document.querySelector('#storage-chart-container'), {
+									chart: {
+										type: 'bar',
+										height: Math.max(200, chartData.names.length * 50),
+										background: 'transparent',
+										toolbar: { show: false },
+										fontFamily: 'Inter, sans-serif',
+									},
+									plotOptions: {
+										bar: {
+											horizontal: true,
+											barHeight: '60%',
+											borderRadius: 4,
+										},
+									},
+									series: [
+										{ name: 'Используется (GB)', data: chartData.used },
+										{ name: 'Свободно (GB)', data: chartData.total.map((t, i) => Math.max(0, +(t - chartData.used[i]).toFixed(2))) },
+									],
+									colors: ['#22c55e', '#374151'],
+									xaxis: {
+										categories: chartData.names,
+										labels: {
+											style: { colors: '#9ca3af', fontSize: '12px' },
+											formatter: (v) => v.toFixed(1) + ' GB',
+										},
+									},
+									yaxis: {
+										labels: {
+											style: { colors: '#9ca3af', fontSize: '12px' },
+											maxWidth: 120,
+										},
+									},
+									grid: {
+										borderColor: '#374151',
+										strokeDashArray: 4,
+									},
+									legend: {
+										labels: { colors: '#9ca3af' },
+										position: 'top',
+									},
+									tooltip: {
+										theme: 'dark',
+										y: { formatter: (v) => v.toFixed(2) + ' GB' },
+									},
+									dataLabels: { enabled: false },
+									states: {
+										hover: { filter: { type: 'lighten', value: 0.1 } },
+									},
+								}).render();
+							}
+						"
+					>
+						<div id="storage-chart-container"></div>
 					</div>
 				</div>
-				<div>
-					<p class="text-xs text-text-muted mb-2 uppercase">Режимы SE</p>
-					<div class="flex gap-2">
-						@components.ModeBadge("edit")
-						@components.ModeBadge("rw")
-						@components.ModeBadge("ro")
-						@components.ModeBadge("ar")
+
+				<!-- График: распределение файлов по SE (donut chart) -->
+				<div class="card">
+					<h2 class="text-lg font-semibold text-text-primary mb-4">Распределение файлов</h2>
+					<div
+						id="files-chart"
+						x-data={ fmt.Sprintf("{ chartData: %s }", filesChartJSON(data.StorageElements)) }
+						x-init="
+							if (chartData.names.length > 0) {
+								new ApexCharts(document.querySelector('#files-chart-container'), {
+									chart: {
+										type: 'donut',
+										height: 280,
+										background: 'transparent',
+										fontFamily: 'Inter, sans-serif',
+									},
+									series: chartData.counts,
+									labels: chartData.names,
+									colors: ['#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'],
+									legend: {
+										position: 'bottom',
+										labels: { colors: '#9ca3af' },
+									},
+									plotOptions: {
+										pie: {
+											donut: {
+												size: '65%',
+												labels: {
+													show: true,
+													name: { color: '#d1d5db' },
+													value: {
+														color: '#f3f4f6',
+														formatter: (v) => v + ' файлов',
+													},
+													total: {
+														show: true,
+														color: '#9ca3af',
+														label: 'Всего',
+														formatter: (w) => w.globals.seriesTotals.reduce((a, b) => a + b, 0) + ' файлов',
+													},
+												},
+											},
+										},
+									},
+									dataLabels: { enabled: false },
+									stroke: { width: 2, colors: ['#1a1a2e'] },
+									tooltip: {
+										theme: 'dark',
+										y: { formatter: (v) => v + ' файлов' },
+									},
+									states: {
+										hover: { filter: { type: 'lighten', value: 0.1 } },
+									},
+								}).render();
+							} else {
+								$el.querySelector('#files-chart-container').innerHTML = '<p class=\'text-sm text-text-muted text-center py-8\'>Нет файлов для отображения</p>';
+							}
+						"
+					>
+						<div id="files-chart-container"></div>
 					</div>
 				</div>
-				<div>
-					<p class="text-xs text-text-muted mb-2 uppercase">Роли</p>
-					<div class="flex gap-2">
-						@components.RoleBadge("admin")
-						@components.RoleBadge("readonly")
-					</div>
-				</div>
 			</div>
-		</div>
-
-		<!-- Кнопки (демо) -->
-		<div class="card mb-6">
-			<h2 class="text-lg font-semibold text-text-primary mb-4">Компоненты: кнопки</h2>
-			<div class="flex flex-wrap gap-3 items-center">
-				@components.Button(components.ButtonParams{Label: "Primary", Variant: components.ButtonPrimary})
-				@components.Button(components.ButtonParams{Label: "Secondary", Variant: components.ButtonSecondary})
-				@components.Button(components.ButtonParams{Label: "Danger", Variant: components.ButtonDanger})
-				@components.Button(components.ButtonParams{Label: "Ghost", Variant: components.ButtonGhost})
-				@components.Button(components.ButtonParams{Label: "Disabled", Variant: components.ButtonPrimary, Disabled: true})
-				@components.Button(components.ButtonParams{
-					Label:   "С иконкой",
-					Variant: components.ButtonPrimary,
-					Size:    components.ButtonSizeSM,
-					Icon:    "M12 4.5v15m7.5-7.5h-15",
-				})
+		} else {
+			<!-- Пустое состояние: нет SE -->
+			<div class="card mb-6 text-center py-8">
+				<svg class="w-12 h-12 text-text-muted mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M21.75 17.25v-.228a4.5 4.5 0 00-.12-1.03l-2.268-9.64a3.375 3.375 0 00-3.285-2.602H7.923a3.375 3.375 0 00-3.285 2.602l-2.268 9.64a4.5 4.5 0 00-.12 1.03v.228m19.5 0a3 3 0 01-3 3H5.25a3 3 0 01-3-3m19.5 0a3 3 0 00-3-3H5.25a3 3 0 00-3 3m16.5 0h.008v.008h-.008v-.008zm-3 0h.008v.008h-.008v-.008z"></path>
+				</svg>
+				<p class="text-text-secondary font-medium mb-1">Нет зарегистрированных Storage Elements</p>
+				<p class="text-sm text-text-muted">Зарегистрируйте SE через раздел «Storage Elements» в меню навигации</p>
 			</div>
-		</div>
-
-		<!-- Capacity Bar (демо) -->
-		<div class="card mb-6">
-			<h2 class="text-lg font-semibold text-text-primary mb-4">Компоненты: capacity bar</h2>
-			<div class="space-y-4 max-w-lg">
-				@components.CapacityBar(components.CapacityBarParams{
-					Used:  30 * 1024 * 1024 * 1024,
-					Total: 100 * 1024 * 1024 * 1024,
-					Label: "Нормальный уровень",
-				})
-				@components.CapacityBar(components.CapacityBarParams{
-					Used:  78 * 1024 * 1024 * 1024,
-					Total: 100 * 1024 * 1024 * 1024,
-					Label: "Предупреждение (>75%)",
-				})
-				@components.CapacityBar(components.CapacityBarParams{
-					Used:  95 * 1024 * 1024 * 1024,
-					Total: 100 * 1024 * 1024 * 1024,
-					Label: "Критично (>90%)",
-				})
-			</div>
-		</div>
-
-		<!-- Уведомления (демо) -->
-		<div class="card mb-6">
-			<h2 class="text-lg font-semibold text-text-primary mb-4">Компоненты: уведомления</h2>
-			<div class="space-y-3">
-				@components.Alert(components.AlertParams{
-					Variant: components.AlertSuccess,
-					Title:   "Успешно",
-					Message: "Синхронизация SE завершена",
-					Dismissible: true,
-				})
-				@components.Alert(components.AlertParams{
-					Variant: components.AlertWarning,
-					Message: "SE 'archive-01' заполнен на 85%",
-					Dismissible: true,
-				})
-				@components.Alert(components.AlertParams{
-					Variant: components.AlertError,
-					Title:   "Ошибка",
-					Message: "Keycloak недоступен — невозможно синхронизировать Service Accounts",
-				})
-				@components.Alert(components.AlertParams{
-					Variant: components.AlertInfo,
-					Message: fmt.Sprintf("Вы вошли как %s (роль: %s)", data.Username, data.Role),
-				})
-			</div>
-		</div>
-
-		<!-- Информация о Phase 3 -->
-		<div class="card">
-			<h2 class="text-lg font-semibold text-text-primary mb-2">Phase 3 — Layout и компоненты</h2>
-			<p class="text-sm text-text-secondary">
-				Это временная страница для визуальной проверки базового layout, sidebar, header и
-				UI-компонентов. В Phase 4 она будет заменена полноценным Dashboard с реальными данными,
-				графиками и SSE-обновлениями.
-			</p>
-		</div>
+		}
 	}
 }

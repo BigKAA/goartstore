@@ -18,10 +18,10 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 3 ✅ (завершена)
+- **Активная фаза**: Phase 4 ✅ (завершена)
 - **Активный подпункт**: —
 - **Последнее обновление**: 2026-02-23
-- **Примечание**: Phase 3 завершена, готово к Phase 4-7 (могут выполняться параллельно)
+- **Примечание**: Phase 4 завершена, готово к Phase 5-7 (могут выполняться параллельно)
 
 ---
 
@@ -30,7 +30,7 @@
 - [x] [Phase 1: Фундамент и инструментарий](#phase-1-фундамент-и-инструментарий)
 - [x] [Phase 2: Аутентификация и сессии](#phase-2-аутентификация-и-сессии)
 - [x] [Phase 3: Базовый layout и UI-компоненты](#phase-3-базовый-layout-и-ui-компоненты)
-- [ ] [Phase 4: Dashboard](#phase-4-dashboard)
+- [x] [Phase 4: Dashboard](#phase-4-dashboard)
 - [ ] [Phase 5: Storage Elements](#phase-5-storage-elements)
 - [ ] [Phase 6: Файловый менеджер](#phase-6-файловый-менеджер)
 - [ ] [Phase 7: Управление доступом](#phase-7-управление-доступом)
@@ -344,7 +344,7 @@ Keycloak-клиента `artstore-admin-ui`.
 ## Phase 4: Dashboard
 
 **Dependencies**: Phase 3
-**Status**: Pending
+**Status**: ✅ Done
 
 ### Описание
 
@@ -354,7 +354,7 @@ Keycloak-клиента `artstore-admin-ui`.
 
 ### Подпункты
 
-- [ ] **4.1 Dashboard handler и сбор данных**
+- [x] **4.1 Dashboard handler и сбор данных**
   - **Dependencies**: None
   - **Description**: Обновить `internal/ui/handlers/dashboard.go`: собрать данные
     из существующих сервисов — `StorageElementService.ListSE()`,
@@ -365,7 +365,7 @@ Keycloak-клиента `artstore-admin-ui`.
     - Изменения в `internal/ui/handlers/dashboard.go`
   - **Links**: N/A
 
-- [ ] **4.2 Карточки метрик и статус зависимостей**
+- [x] **4.2 Карточки метрик и статус зависимостей**
   - **Dependencies**: 4.1
   - **Description**: Обновить `internal/ui/pages/dashboard.templ`:
     (a) Верхний ряд — 4 stat_card: SE (total, online/offline/degraded),
@@ -377,7 +377,7 @@ Keycloak-клиента `artstore-admin-ui`.
     - Изменения в `internal/ui/pages/dashboard.templ`
   - **Links**: N/A
 
-- [ ] **4.3 Список SE и графики**
+- [x] **4.3 Список SE и графики**
   - **Dependencies**: 4.2
   - **Description**: Дополнить dashboard:
     (a) Компактная таблица SE: имя, mode (badge), status (badge),
@@ -396,13 +396,13 @@ Keycloak-клиента `artstore-admin-ui`.
 
 ### Критерии завершения Phase 4
 
-- [ ] Все подпункты завершены (4.1–4.3)
-- [ ] Dashboard показывает актуальные метрики из БД
-- [ ] Карточки отображают корректные числа (SE, файлы, хранилище, SA)
-- [ ] Статусы зависимостей (PG, KC) отображаются корректно
-- [ ] Список SE с цветовыми бейджами mode/status
-- [ ] Графики рендерятся (bar chart, donut chart)
-- [ ] Контейнер собирается и запускается
+- [x] Все подпункты завершены (4.1–4.3)
+- [x] Dashboard показывает актуальные метрики из БД
+- [x] Карточки отображают корректные числа (SE, файлы, хранилище, SA)
+- [x] Статусы зависимостей (PG, KC) отображаются корректно
+- [x] Список SE с цветовыми бейджами mode/status
+- [x] Графики рендерятся (bar chart, donut chart)
+- [ ] Контейнер собирается и запускается (проверить при деплое)
 
 ---
 
