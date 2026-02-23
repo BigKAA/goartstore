@@ -24,8 +24,8 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 3
-- **Активный подпункт**: 3.1
+- **Активная фаза**: Phase 4
+- **Активный подпункт**: 4.1
 - **Последнее обновление**: 2026-02-23
 - **Примечание**: Phase 1 завершена
 
@@ -37,7 +37,7 @@
 
 - [x] [Phase 1: artsore-infra chart (PG + KC)](#phase-1-artsore-infra-chart-pg--kc)
 - [x] [Phase 2: artsore-se chart (6 SE)](#phase-2-artsore-se-chart-6-se)
-- [ ] [Phase 3: artsore-apps chart (AM)](#phase-3-artsore-apps-chart-am)
+- [x] [Phase 3: artsore-apps chart (AM)](#phase-3-artsore-apps-chart-am)
 - [ ] [Phase 4: Makefile и Init Job](#phase-4-makefile-и-init-job)
 - [ ] [Phase 5: Валидация инфраструктуры](#phase-5-валидация-инфраструктуры)
 
@@ -217,7 +217,7 @@ Helm chart `artsore-se` с набором Storage Elements всех типов. 
 ## Phase 3: artsore-apps chart (AM)
 
 **Dependencies**: Phase 1
-**Status**: Pending
+**Status**: Done
 **Origin**: test-infrastructure-v2.0.0 Phase C
 
 ### Описание
@@ -226,7 +226,7 @@ Helm chart `artsore-apps` с Admin Module для тестовой среды. Д
 
 ### Подпункты
 
-- [ ] **3.1 Создать `Chart.yaml` и `values.yaml`**
+- [x] **3.1 Создать `Chart.yaml` и `values.yaml`**
   - **Dependencies**: None
   - **Description**: Chart.yaml без dependencies. values.yaml:
     - `namespace: artsore-test`
@@ -240,7 +240,7 @@ Helm chart `artsore-apps` с Admin Module для тестовой среды. Д
   - **Links**:
     - `tests/helm/artsore-test/values.yaml` — секция adminModule
 
-- [ ] **3.2 Создать templates**
+- [x] **3.2 Создать templates**
   - **Dependencies**: 3.1
   - **Description**: Перенести и адаптировать:
     - `_helpers.tpl` — labels, amImage, keycloakHttpUrl (через infraReleaseName), adminModuleUrl, am.selectorLabels
@@ -251,7 +251,7 @@ Helm chart `artsore-apps` с Admin Module для тестовой среды. Д
   - **Links**:
     - `tests/helm/artsore-test/templates/admin-module.yaml`
 
-- [ ] **3.3 Lint и template**
+- [x] **3.3 Lint и template**
   - **Dependencies**: 3.2
   - **Description**: `helm lint` + `helm template`
   - **Creates**: N/A
@@ -259,10 +259,10 @@ Helm chart `artsore-apps` с Admin Module для тестовой среды. Д
 
 ### Критерии завершения Phase 3
 
-- [ ] Все подпункты завершены (3.1, 3.2, 3.3)
-- [ ] `helm lint` без ошибок
-- [ ] `helm template` рендерит: AM Deployment (init containers) + AM Service
-- [ ] PG/KC через infraReleaseName, TLS secret из artsore-infra
+- [x] Все подпункты завершены (3.1, 3.2, 3.3)
+- [x] `helm lint` без ошибок
+- [x] `helm template` рендерит: AM Deployment (init containers) + AM Service
+- [x] PG/KC через infraReleaseName, TLS secret из artsore-infra
 
 ---
 
