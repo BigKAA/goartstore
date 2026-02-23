@@ -24,6 +24,7 @@
 | `artsore-ingester` | confidential | Client Credentials | files:\*, storage:read |
 | `artsore-query` | confidential | Client Credentials | files:read, storage:read |
 | `artsore-admin-ui` | public | Auth Code + PKCE | openid, profile, email, groups |
+| `artsore-test-user` | confidential | Password (ROPC) | groups (default) + все scopes (optional) |
 | `artsore-test-init` | confidential | Client Credentials | files:\*, storage:\* |
 
 ### Тестовые секреты
@@ -33,6 +34,7 @@
 | `artsore-admin-module` | `admin-module-test-secret` |
 | `artsore-ingester` | `ingester-test-secret` |
 | `artsore-query` | `query-test-secret` |
+| `artsore-test-user` | `test-user-secret` |
 | `artsore-test-init` | `test-init-secret` |
 
 > **Внимание**: секреты предназначены только для тестовой/dev среды.
@@ -61,6 +63,18 @@ Service account клиента `artsore-admin-module` имеет роли `realm
 - `view-clients` — просмотр клиентов
 - `manage-users` — управление пользователями
 - `view-realm` — просмотр настроек realm
+- `query-users` — поиск пользователей
+- `query-clients` — поиск клиентов
+
+### Protocol Mappers (клиентские)
+
+| Client | Mapper | Claim | Назначение |
+|--------|--------|-------|-----------|
+| `artsore-admin-module` | `client_id` | `client_id` | Идентификация SA в JWT |
+| `artsore-test-user` | `realm roles` | `realm_access.roles` | Роли пользователя в JWT |
+| `artsore-test-user` | `preferred_username` | `preferred_username` | Username в JWT |
+| `artsore-test-user` | `sub` | `sub` | Subject в JWT |
+| `artsore-test-user` | `email` | `email` | Email в JWT |
 
 ## Импорт realm
 
