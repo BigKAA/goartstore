@@ -81,6 +81,11 @@ httproute:
     - /api/v1
     - /health
 
+# --- Prometheus метрики ---
+metrics:
+  enabled: true
+  path: /metrics
+
 # --- Ресурсы контейнера ---
 resources:
   requests:

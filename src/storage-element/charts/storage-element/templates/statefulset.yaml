@@ -17,6 +17,13 @@ spec:
     metadata:
       labels:
         {{- include "se.selectorLabels" . | nindent 8 }}
+      {{- if .Values.metrics.enabled }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ .Values.port | quote }}
+        prometheus.io/path: {{ .Values.metrics.path | quote }}
+        prometheus.io/scheme: {{ .Values.metrics.scheme | quote }}
+      {{- end }}
     spec:
       containers:
         - name: storage-element

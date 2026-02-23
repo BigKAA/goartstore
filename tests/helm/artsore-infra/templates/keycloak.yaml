@@ -22,6 +22,11 @@ spec:
     metadata:
       labels:
         {{- include "artsore-infra.kc.selectorLabels" . | nindent 8 }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9000"
+        prometheus.io/path: "/metrics"
+        prometheus.io/scheme: "https"
     spec:
       containers:
         - name: keycloak

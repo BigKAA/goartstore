@@ -21,6 +21,10 @@ spec:
     metadata:
       labels:
         {{- include "artsore-apps.am.selectorLabels" . | nindent 8 }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ .Values.adminModule.port | quote }}
+        prometheus.io/path: "/metrics"
     spec:
       initContainers:
         # Ожидание готовности PostgreSQL (pg_isready)

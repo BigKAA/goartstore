@@ -24,6 +24,11 @@ spec:
         # Перезапуск pod при изменении ConfigMap или Secret
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
         checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- if .Values.metrics.enabled }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ .Values.port | quote }}
+        prometheus.io/path: {{ .Values.metrics.path | quote }}
+        {{- end }}
     spec:
       containers:
         - name: admin-module

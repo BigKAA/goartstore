@@ -57,6 +57,11 @@ spec:
     metadata:
       labels:
         {{- include "artsore-se.se.selectorLabels" (dict "name" $instance.name "Release" $.Release) | nindent 8 }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ $.Values.seCommon.port | quote }}
+        prometheus.io/path: "/metrics"
+        prometheus.io/scheme: "https"
     spec:
       containers:
         - name: storage-element

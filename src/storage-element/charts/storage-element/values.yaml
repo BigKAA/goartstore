@@ -103,6 +103,12 @@ httproute:
   pathPrefixes:
     - /api/v1
 
+# --- Prometheus метрики ---
+metrics:
+  enabled: true
+  path: /metrics
+  scheme: https
+
 # --- Ресурсы контейнера ---
 resources:
   requests:
