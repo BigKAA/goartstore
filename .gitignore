@@ -1,2 +1,8 @@
 old_artstore/
 .serena/
+
+# Tailwind CSS Standalone CLI (бинарник, скачивается при разработке)
+src/admin-module/tailwindcss
+
+# Артефакты сборки
+src/admin-module/bin/

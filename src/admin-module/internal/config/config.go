@@ -87,6 +87,16 @@ type Config struct {
 	// Группы Keycloak, дающие роль readonly (через запятую)
 	RoleReadonlyGroups []string
 
+	// --- Admin UI ---
+
+	// Включён ли Admin UI (по умолчанию true)
+	UIEnabled bool
+	// Секрет для шифрования UI-сессий (AES-256-GCM).
+	// Если пустой — генерируется автоматически при старте (непостоянный между рестартами).
+	UISessionSecret string
+	// Client ID для OIDC-аутентификации Admin UI через Keycloak
+	UIOIDCClientID string
+
 	// --- Graceful shutdown ---
 
 	// Таймаут graceful shutdown HTTP-сервера
@@ -250,6 +260,20 @@ func Load() (*Config, error) {
 	// AM_ROLE_READONLY_GROUPS — группы для роли readonly (по умолчанию "artstore-viewers")
 	cfg.RoleReadonlyGroups = parseCSV(getEnvDefault("AM_ROLE_READONLY_GROUPS", "artstore-viewers"))
 
+	// --- Admin UI ---
+
+	// AM_UI_ENABLED — включить Admin UI (по умолчанию true)
+	cfg.UIEnabled, err = getEnvBool("AM_UI_ENABLED", true)
+	if err != nil {
+		return nil, fmt.Errorf("AM_UI_ENABLED: %w", err)
+	}
+
+	// AM_UI_SESSION_SECRET — секрет шифрования сессий (опционально, автогенерация)
+	cfg.UISessionSecret = getEnvDefault("AM_UI_SESSION_SECRET", "")
+
+	// AM_UI_OIDC_CLIENT_ID — OIDC Client ID для UI (по умолчанию artstore-admin-ui)
+	cfg.UIOIDCClientID = getEnvDefault("AM_UI_OIDC_CLIENT_ID", "artstore-admin-ui")
+
 	// --- Graceful shutdown ---
 
 	// AM_SHUTDOWN_TIMEOUT — таймаут graceful shutdown (по умолчанию 5s)
@@ -343,6 +367,19 @@ func getEnvDuration(key string, defaultVal time.Duration) (time.Duration, error)
 		return 0, fmt.Errorf("некорректная длительность: %q (используйте формат Go: 30s, 1h, 15m)", val)
 	}
 	return d, nil
+}
+
+// getEnvBool возвращает булево значение переменной окружения или значение по умолчанию.
+func getEnvBool(key string, defaultVal bool) (bool, error) {
+	val := os.Getenv(key)
+	if val == "" {
+		return defaultVal, nil
+	}
+	b, err := strconv.ParseBool(val)
+	if err != nil {
+		return false, fmt.Errorf("некорректное булево значение: %q (допустимые: true, false, 1, 0)", val)
+	}
+	return b, nil
 }
 
 // parseLogLevel преобразует строку уровня логирования в slog.Level.
