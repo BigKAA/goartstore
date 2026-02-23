@@ -30,6 +30,7 @@ import (
 	"github.com/arturkryukov/artstore/admin-module/internal/ui/auth"
 	uihandlers "github.com/arturkryukov/artstore/admin-module/internal/ui/handlers"
 	uimiddleware "github.com/arturkryukov/artstore/admin-module/internal/ui/middleware"
+	uiprometheus "github.com/arturkryukov/artstore/admin-module/internal/ui/prometheus"
 )
 
 func main() {
@@ -305,12 +306,56 @@ func main() {
 			logger,
 		)
 
+		// Access handler — управление доступом (пользователи + SA)
+		accessHandler := uihandlers.NewAccessHandler(
+			adminUsersSvc,
+			serviceAcctsSvc,
+			idpSvc,
+			logger,
+		)
+
+		// UI Settings Service (настройки Admin UI, Prometheus конфигурация)
+		uiSettingsRepo := repository.NewUISettingsRepository(pool)
+		uiSettingsSvc := service.NewUISettingsService(uiSettingsRepo, logger)
+
+		// Prometheus-клиент для UI (опциональные графики latency)
+		promClient := uiprometheus.New(uiSettingsSvc, logger)
+
+		// Monitoring handler — страница мониторинга
+		monitoringHandler := uihandlers.NewMonitoringHandler(
+			storageElemsSvc,
+			filesSvc,
+			dephealthSvc,
+			syncStateRepo,
+			promClient,
+			cfg,
+			logger,
+		)
+
+		// Settings handler — страница настроек (admin only)
+		settingsHandler := uihandlers.NewSettingsHandler(
+			uiSettingsSvc,
+			promClient,
+			logger,
+		)
+
+		// Events handler — SSE endpoints для real-time обновлений
+		eventsHandler := uihandlers.NewEventsHandler(
+			storageElemsSvc,
+			dephealthSvc,
+			logger,
+		)
+
 		uiComponents = &server.UIComponents{
 			AuthHandler:            authHandler,
 			AuthMiddleware:         uiAuthMiddleware,
 			DashboardHandler:       dashboardHandler,
 			StorageElementsHandler: storageElementsHandler,
 			FilesHandler:           filesHandler,
+			AccessHandler:          accessHandler,
+			MonitoringHandler:      monitoringHandler,
+			SettingsHandler:        settingsHandler,
+			EventsHandler:          eventsHandler,
 		}
 
 		logger.Info("Admin UI инициализирован",

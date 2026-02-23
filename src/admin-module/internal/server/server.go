@@ -43,6 +43,14 @@ type UIComponents struct {
 	StorageElementsHandler *uihandlers.StorageElementsHandler
 	// FilesHandler — обработчик страниц файлового реестра.
 	FilesHandler *uihandlers.FilesHandler
+	// AccessHandler — обработчик страницы «Управление доступом».
+	AccessHandler *uihandlers.AccessHandler
+	// MonitoringHandler — обработчик страницы мониторинга.
+	MonitoringHandler *uihandlers.MonitoringHandler
+	// SettingsHandler — обработчик страницы настроек (admin only).
+	SettingsHandler *uihandlers.SettingsHandler
+	// EventsHandler — обработчик SSE endpoints для real-time обновлений.
+	EventsHandler *uihandlers.EventsHandler
 }
 
 // New создаёт новый HTTP-сервер с настроенными routes и middleware.
@@ -134,12 +142,57 @@ func registerUIRoutes(router chi.Router, ui *UIComponents, logger *slog.Logger) 
 			r.Put("/partials/file-update/{id}", f.HandleUpdate)
 			r.Delete("/partials/file-delete/{id}", f.HandleDelete)
 		}
+
+		// --- Управление доступом ---
+		if ui.AccessHandler != nil {
+			a := ui.AccessHandler
+			r.Get("/access", a.HandleAccess)
+
+			// HTMX partials для пользователей
+			r.Get("/partials/users-table", a.HandleUsersTablePartial)
+			r.Get("/partials/user-detail/{id}", a.HandleUserDetail)
+			r.Post("/partials/user-role-override/{id}", a.HandleAddRoleOverride)
+			r.Delete("/partials/user-role-override/{id}", a.HandleRemoveRoleOverride)
+
+			// HTMX partials для SA
+			r.Get("/partials/sa-table", a.HandleSATablePartial)
+			r.Post("/partials/sa-create", a.HandleSACreate)
+			r.Get("/partials/sa-edit-form/{id}", a.HandleSAEditForm)
+			r.Put("/partials/sa-edit/{id}", a.HandleSAEdit)
+			r.Delete("/partials/sa-delete/{id}", a.HandleSADelete)
+			r.Post("/partials/sa-rotate/{id}", a.HandleSARotateSecret)
+			r.Post("/partials/sa-sync", a.HandleSASync)
+		}
+
+		// --- Мониторинг ---
+		if ui.MonitoringHandler != nil {
+			m := ui.MonitoringHandler
+			r.Get("/monitoring", m.HandleMonitoring)
+
+			// HTMX partials для графиков мониторинга
+			r.Get("/partials/monitoring-charts", m.HandleChartsPartial)
+		}
+
+		// --- Настройки (admin only) ---
+		if ui.SettingsHandler != nil {
+			s := ui.SettingsHandler
+			r.Get("/settings", s.HandleSettings)
+
+			// HTMX partials для настроек Prometheus
+			r.Put("/partials/settings-prometheus", s.HandlePrometheusUpdate)
+			r.Post("/partials/settings-prometheus-test", s.HandlePrometheusTest)
+		}
+
+		// --- SSE endpoints для real-time обновлений ---
+		if ui.EventsHandler != nil {
+			r.Get("/events/system-status", ui.EventsHandler.HandleSystemStatus)
+		}
 	})
 
 	logger.Info("Admin UI маршруты зарегистрированы",
 		slog.String("static", "/static/*"),
 		slog.String("auth", "/admin/login, /admin/callback, /admin/logout"),
-		slog.String("protected", "/admin/*"),
+		slog.String("protected", "/admin/*, /admin/access, /admin/monitoring, /admin/settings, /admin/events/*"),
 	)
 }
 
