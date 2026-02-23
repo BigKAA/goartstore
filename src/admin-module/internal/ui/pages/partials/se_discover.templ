@@ -1,0 +1,160 @@
+package partials
+
+import (
+	"fmt"
+
+	"github.com/arturkryukov/artstore/admin-module/internal/ui/components"
+)
+
+// SEDiscoverPreview — данные предпросмотра SE после discover.
+type SEDiscoverPreview struct {
+	URL            string
+	StorageID      string
+	Mode           string
+	Status         string
+	Version        string
+	TotalBytes     int64
+	UsedBytes      int64
+	AvailableBytes int64
+}
+
+// SEDiscoverResult — partial: результат discover (предпросмотр SE).
+templ SEDiscoverResult(preview SEDiscoverPreview) {
+	<div class="space-y-4">
+		<!-- Результат discover -->
+		@components.Alert(components.AlertParams{
+			Variant: components.AlertSuccess,
+			Title:   "SE доступен",
+			Message: fmt.Sprintf("Storage ID: %s, версия: %s", preview.StorageID, preview.Version),
+		})
+
+		<!-- Информация о SE -->
+		<div class="bg-bg-elevated rounded-card p-4 space-y-3">
+			<div class="grid grid-cols-2 gap-3 text-sm">
+				<div>
+					<span class="text-text-muted">Режим:</span>
+					<span class="ml-2">
+						@components.ModeBadge(preview.Mode)
+					</span>
+				</div>
+				<div>
+					<span class="text-text-muted">Статус:</span>
+					<span class="ml-2">
+						@components.StatusBadge(preview.Status)
+					</span>
+				</div>
+				<div>
+					<span class="text-text-muted">Ёмкость:</span>
+					<span class="ml-2 text-text-primary">{ formatDiscoverBytes(preview.TotalBytes) }</span>
+				</div>
+				<div>
+					<span class="text-text-muted">Использовано:</span>
+					<span class="ml-2 text-text-primary">{ formatDiscoverBytes(preview.UsedBytes) }</span>
+				</div>
+			</div>
+
+			@components.CapacityBar(components.CapacityBarParams{
+				Used:  preview.UsedBytes,
+				Total: preview.TotalBytes,
+				Label: "Хранилище",
+			})
+		</div>
+
+		<!-- Форма регистрации -->
+		<div class="border-t border-border-subtle pt-4">
+			<label class="block text-sm font-medium text-text-secondary mb-1">Имя SE</label>
+			<input
+				type="text"
+				name="name"
+				id="register-name"
+				placeholder="Например: se-main-01"
+				class="w-full bg-bg-elevated text-text-primary text-sm rounded-button border border-border-default px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary placeholder:text-text-muted mb-3"
+			/>
+			<input type="hidden" name="url" value={ preview.URL }/>
+			<button
+				class="w-full inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-accent-primary text-bg-base rounded-button hover:bg-accent-light transition-colors gap-1.5"
+				hx-post="/admin/partials/se-register"
+				hx-target="#discover-result"
+				hx-swap="innerHTML"
+				hx-include="#register-name, [name='url']"
+			>
+				<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"></path>
+				</svg>
+				Зарегистрировать
+			</button>
+		</div>
+	</div>
+}
+
+// SEDiscoverError — partial: ошибка discover.
+templ SEDiscoverError(msg string) {
+	@components.Alert(components.AlertParams{
+		Variant:     components.AlertError,
+		Title:       "Ошибка",
+		Message:     msg,
+		Dismissible: true,
+	})
+}
+
+// SERegisterSuccess — partial: успешная регистрация SE.
+templ SERegisterSuccess(name string) {
+	@components.Alert(components.AlertParams{
+		Variant:     components.AlertSuccess,
+		Title:       "SE зарегистрирован",
+		Message:     fmt.Sprintf("Storage Element «%s» успешно зарегистрирован. Обновите страницу для отображения.", name),
+		Dismissible: true,
+	})
+	<!-- Автоматическое обновление таблицы -->
+	<script>
+		setTimeout(function() { window.location.reload(); }, 1500);
+	</script>
+}
+
+// SEAlert — partial: универсальный alert.
+templ SEAlert(variant, msg string) {
+	@components.Alert(components.AlertParams{
+		Variant:     alertVariant(variant),
+		Message:     msg,
+		Dismissible: true,
+	})
+}
+
+// alertVariant преобразует строку в AlertVariant.
+func alertVariant(v string) components.AlertVariant {
+	switch v {
+	case "success":
+		return components.AlertSuccess
+	case "warning":
+		return components.AlertWarning
+	case "error":
+		return components.AlertError
+	default:
+		return components.AlertInfo
+	}
+}
+
+// formatDiscoverBytes — форматирование байтов для discover preview.
+func formatDiscoverBytes(bytes int64) string {
+	if bytes < 0 {
+		bytes = 0
+	}
+	const (
+		KB = 1024
+		MB = 1024 * KB
+		GB = 1024 * MB
+		TB = 1024 * GB
+	)
+	switch {
+	case bytes >= TB:
+		return fmt.Sprintf("%.1f TB", float64(bytes)/float64(TB))
+	case bytes >= GB:
+		return fmt.Sprintf("%.1f GB", float64(bytes)/float64(GB))
+	case bytes >= MB:
+		return fmt.Sprintf("%.1f MB", float64(bytes)/float64(MB))
+	case bytes >= KB:
+		return fmt.Sprintf("%.1f KB", float64(bytes)/float64(KB))
+	default:
+		return fmt.Sprintf("%d B", bytes)
+	}
+}

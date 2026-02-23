@@ -1,0 +1,285 @@
+package pages
+
+import (
+	"fmt"
+	"strconv"
+	"time"
+
+	"github.com/arturkryukov/artstore/admin-module/internal/ui/components"
+	"github.com/arturkryukov/artstore/admin-module/internal/ui/layouts"
+)
+
+// SEFileItem — элемент файла для отображения на странице SE detail.
+type SEFileItem struct {
+	ID               string
+	OriginalFilename string
+	ContentType      string
+	SizeBytes        int64
+	UploadedBy       string
+	UploadedAt       time.Time
+	Status           string
+}
+
+// SEDetailData — данные для страницы деталей SE.
+type SEDetailData struct {
+	Username string
+	Role     string
+
+	ID             string
+	Name           string
+	URL            string
+	StorageID      string
+	Mode           string
+	Status         string
+	CapacityBytes  int64
+	UsedBytes      int64
+	AvailableBytes *int64
+	LastSyncAt     *time.Time
+	LastFileSyncAt *time.Time
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	FileCount      int
+	Files          []SEFileItem
+}
+
+// seDetailFmtTime форматирует время.
+func seDetailFmtTime(t time.Time) string {
+	if t.IsZero() {
+		return "—"
+	}
+	return t.Format("02.01.2006 15:04:05")
+}
+
+// seDetailFmtTimePtr форматирует время (pointer).
+func seDetailFmtTimePtr(t *time.Time) string {
+	if t == nil {
+		return "—"
+	}
+	return t.Format("02.01.2006 15:04:05")
+}
+
+// seDetailFmtAvailable форматирует доступное место.
+func seDetailFmtAvailable(b *int64) string {
+	if b == nil {
+		return "—"
+	}
+	return formatBytesLocal(*b)
+}
+
+// seDetailFileFmtTime форматирует время файла.
+func seDetailFileFmtTime(t time.Time) string {
+	if t.IsZero() {
+		return "—"
+	}
+	return t.Format("02.01.2006 15:04")
+}
+
+// seDetailFileFmtSize форматирует размер файла.
+func seDetailFileFmtSize(bytes int64) string {
+	return formatBytesLocal(bytes)
+}
+
+// SEDetail — страница детальной информации SE.
+templ SEDetail(data SEDetailData) {
+	@layouts.Page(layouts.PageParams{
+		Title:     data.Name,
+		Username:  data.Username,
+		Role:      data.Role,
+		ActiveNav: "storage-elements",
+		Breadcrumbs: []layouts.BreadcrumbItem{
+			{Label: "Storage Elements", URL: "/admin/storage-elements"},
+			{Label: data.Name},
+		},
+	}) {
+		<!-- Заголовок -->
+		<div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+			<div>
+				<h1 class="text-2xl font-bold text-text-primary flex items-center gap-3">
+					{ data.Name }
+					@components.StatusBadge(data.Status)
+					@components.ModeBadge(data.Mode)
+				</h1>
+				<p class="text-sm text-text-muted mt-1 font-mono">{ data.URL }</p>
+			</div>
+			<div class="flex items-center gap-3">
+				if data.Role == "admin" {
+					<!-- Sync -->
+					<button
+						class="inline-flex items-center px-4 py-2 text-sm font-medium text-text-primary bg-bg-elevated rounded-button border border-border-default hover:bg-bg-hover transition-colors gap-1.5"
+						hx-post={ fmt.Sprintf("/admin/partials/se-sync/%s", data.ID) }
+						hx-target="#se-detail-action-result"
+						hx-swap="innerHTML"
+					>
+						<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M2.985 19.644l3.181-3.183"></path>
+						</svg>
+						Синхронизировать
+					</button>
+					<!-- Edit -->
+					<button
+						class="inline-flex items-center px-4 py-2 text-sm font-medium text-text-primary bg-bg-elevated rounded-button border border-border-default hover:bg-bg-hover transition-colors gap-1.5"
+						hx-get={ fmt.Sprintf("/admin/partials/se-edit-form/%s", data.ID) }
+						hx-target="#se-detail-action-result"
+						hx-swap="innerHTML"
+					>
+						<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"></path>
+						</svg>
+						Редактировать
+					</button>
+				}
+				<!-- Back -->
+				@components.LinkButton("/admin/storage-elements", components.ButtonParams{
+					Label:   "← Назад к списку",
+					Variant: components.ButtonGhost,
+					Size:    components.ButtonSizeMD,
+				})
+			</div>
+		</div>
+
+		<!-- Область для результатов действий -->
+		<div id="se-detail-action-result" class="mb-4"></div>
+
+		<!-- Основная информация -->
+		<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+			<!-- Хранилище -->
+			<div class="card col-span-1">
+				<h2 class="text-lg font-semibold text-text-primary mb-4">Хранилище</h2>
+				@components.CapacityBar(components.CapacityBarParams{
+					Used:  data.UsedBytes,
+					Total: data.CapacityBytes,
+					Label: "Использование",
+				})
+				<div class="mt-4 grid grid-cols-2 gap-3 text-sm">
+					<div class="bg-bg-elevated rounded-lg p-3">
+						<p class="text-text-muted text-xs">Общая ёмкость</p>
+						<p class="text-text-primary font-medium">{ formatBytesLocal(data.CapacityBytes) }</p>
+					</div>
+					<div class="bg-bg-elevated rounded-lg p-3">
+						<p class="text-text-muted text-xs">Использовано</p>
+						<p class="text-text-primary font-medium">{ formatBytesLocal(data.UsedBytes) }</p>
+					</div>
+					<div class="bg-bg-elevated rounded-lg p-3">
+						<p class="text-text-muted text-xs">Доступно</p>
+						<p class="text-text-primary font-medium">{ seDetailFmtAvailable(data.AvailableBytes) }</p>
+					</div>
+					<div class="bg-bg-elevated rounded-lg p-3">
+						<p class="text-text-muted text-xs">Файлов</p>
+						<p class="text-text-primary font-medium">{ strconv.Itoa(data.FileCount) }</p>
+					</div>
+				</div>
+			</div>
+
+			<!-- Детали -->
+			<div class="card col-span-2">
+				<h2 class="text-lg font-semibold text-text-primary mb-4">Свойства</h2>
+				<div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+					<div>
+						<p class="text-text-muted text-xs uppercase tracking-wide mb-1">ID</p>
+						<p class="text-text-primary font-mono text-xs">{ data.ID }</p>
+					</div>
+					<div>
+						<p class="text-text-muted text-xs uppercase tracking-wide mb-1">Storage ID</p>
+						<p class="text-text-primary font-mono text-xs">{ data.StorageID }</p>
+					</div>
+					<div>
+						<p class="text-text-muted text-xs uppercase tracking-wide mb-1">URL</p>
+						<p class="text-text-primary font-mono text-xs break-all">{ data.URL }</p>
+					</div>
+					<div>
+						<p class="text-text-muted text-xs uppercase tracking-wide mb-1">Режим</p>
+						<div class="mt-0.5">
+							@components.ModeBadge(data.Mode)
+						</div>
+					</div>
+					<div>
+						<p class="text-text-muted text-xs uppercase tracking-wide mb-1">Статус</p>
+						<div class="mt-0.5">
+							@components.StatusBadge(data.Status)
+						</div>
+					</div>
+					<div>
+						<p class="text-text-muted text-xs uppercase tracking-wide mb-1">Создан</p>
+						<p class="text-text-secondary">{ seDetailFmtTime(data.CreatedAt) }</p>
+					</div>
+					<div>
+						<p class="text-text-muted text-xs uppercase tracking-wide mb-1">Обновлён</p>
+						<p class="text-text-secondary">{ seDetailFmtTime(data.UpdatedAt) }</p>
+					</div>
+					<div>
+						<p class="text-text-muted text-xs uppercase tracking-wide mb-1">Последняя синхр. info</p>
+						<p class="text-text-secondary">{ seDetailFmtTimePtr(data.LastSyncAt) }</p>
+					</div>
+					<div>
+						<p class="text-text-muted text-xs uppercase tracking-wide mb-1">Последняя синхр. файлов</p>
+						<p class="text-text-secondary">{ seDetailFmtTimePtr(data.LastFileSyncAt) }</p>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Таблица файлов -->
+		<div class="card">
+			<div class="flex items-center justify-between mb-4">
+				<h2 class="text-lg font-semibold text-text-primary">
+					Файлы
+					<span class="text-sm text-text-muted font-normal ml-2">({ strconv.Itoa(data.FileCount) })</span>
+				</h2>
+			</div>
+			<div id="se-files-container">
+				@seDetailFilesTable(data)
+			</div>
+		</div>
+	}
+}
+
+// seDetailFilesTable — встроенная таблица файлов для детальной страницы.
+templ seDetailFilesTable(data SEDetailData) {
+	<div class="overflow-x-auto">
+		<table class="w-full text-sm text-left">
+			<thead class="text-xs text-text-secondary uppercase bg-bg-surface border-b border-border-subtle">
+				<tr>
+					<th class="px-4 py-3 font-medium">Имя файла</th>
+					<th class="px-4 py-3 font-medium">Тип</th>
+					<th class="px-4 py-3 font-medium text-right">Размер</th>
+					<th class="px-4 py-3 font-medium">Загружен</th>
+					<th class="px-4 py-3 font-medium">Кем</th>
+					<th class="px-4 py-3 font-medium">Статус</th>
+				</tr>
+			</thead>
+			<tbody class="divide-y divide-border-subtle">
+				if len(data.Files) == 0 {
+					<tr>
+						<td colspan="6" class="px-4 py-8 text-center text-text-muted">
+							Нет файлов на этом SE
+						</td>
+					</tr>
+				}
+				for _, f := range data.Files {
+					<tr class="hover:bg-bg-elevated/50 transition-colors">
+						<td class="px-4 py-3">
+							<span class="text-text-primary font-medium text-xs truncate max-w-[250px] block">
+								{ f.OriginalFilename }
+							</span>
+						</td>
+						<td class="px-4 py-3">
+							<span class="text-text-secondary text-xs">{ f.ContentType }</span>
+						</td>
+						<td class="px-4 py-3 text-right">
+							<span class="text-text-secondary text-xs">{ seDetailFileFmtSize(f.SizeBytes) }</span>
+						</td>
+						<td class="px-4 py-3">
+							<span class="text-text-muted text-xs">{ seDetailFileFmtTime(f.UploadedAt) }</span>
+						</td>
+						<td class="px-4 py-3">
+							<span class="text-text-secondary text-xs">{ f.UploadedBy }</span>
+						</td>
+						<td class="px-4 py-3">
+							@components.StatusBadge(f.Status)
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	</div>
+}

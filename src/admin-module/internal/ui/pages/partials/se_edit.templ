@@ -1,0 +1,123 @@
+package partials
+
+import (
+	"fmt"
+
+	"github.com/arturkryukov/artstore/admin-module/internal/domain/model"
+	"github.com/arturkryukov/artstore/admin-module/internal/ui/components"
+)
+
+// SEEditForm — partial: форма редактирования SE (inline в se-action-result).
+templ SEEditForm(id, name, url string) {
+	<div class="card mb-4">
+		<div class="flex items-center justify-between mb-4">
+			<h3 class="text-lg font-semibold text-text-primary">Редактировать SE</h3>
+			<button
+				class="text-text-muted hover:text-text-primary transition-colors"
+				onclick="document.getElementById('se-action-result').innerHTML = ''"
+			>
+				<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path>
+				</svg>
+			</button>
+		</div>
+		<div class="space-y-3">
+			<div>
+				<label class="block text-sm font-medium text-text-secondary mb-1">Имя</label>
+				<input
+					type="text"
+					name="name"
+					id={ "edit-name-" + id }
+					value={ name }
+					class="w-full bg-bg-elevated text-text-primary text-sm rounded-button border border-border-default px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary"
+				/>
+			</div>
+			<div>
+				<label class="block text-sm font-medium text-text-secondary mb-1">URL</label>
+				<input
+					type="text"
+					name="url"
+					id={ "edit-url-" + id }
+					value={ url }
+					class="w-full bg-bg-elevated text-text-primary text-sm rounded-button border border-border-default px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary"
+				/>
+			</div>
+			<div class="flex items-center justify-end gap-3 pt-2">
+				<button
+					class="px-4 py-2 text-sm font-medium text-text-secondary bg-bg-elevated rounded-button hover:bg-bg-hover transition-colors"
+					onclick="document.getElementById('se-action-result').innerHTML = ''"
+				>
+					Отмена
+				</button>
+				<button
+					class="inline-flex items-center px-4 py-2 text-sm font-medium bg-accent-primary text-bg-base rounded-button hover:bg-accent-light transition-colors"
+					hx-put={ fmt.Sprintf("/admin/partials/se-edit/%s", id) }
+					hx-target="#se-action-result"
+					hx-swap="innerHTML"
+					hx-include={ fmt.Sprintf("#edit-name-%s, #edit-url-%s", id, id) }
+				>
+					Сохранить
+				</button>
+			</div>
+		</div>
+	</div>
+}
+
+// SEEditSuccess — partial: успех редактирования SE.
+templ SEEditSuccess() {
+	@components.Alert(components.AlertParams{
+		Variant:     components.AlertSuccess,
+		Message:     "SE успешно обновлён",
+		Dismissible: true,
+	})
+	<script>
+		setTimeout(function() { window.location.reload(); }, 1000);
+	</script>
+}
+
+// SEDeleteSuccess — partial: успех удаления SE.
+templ SEDeleteSuccess() {
+	@components.Alert(components.AlertParams{
+		Variant:     components.AlertSuccess,
+		Message:     "SE успешно удалён из реестра",
+		Dismissible: true,
+	})
+	<script>
+		setTimeout(function() { window.location.reload(); }, 1000);
+	</script>
+}
+
+// SESyncSuccess — partial: успех синхронизации SE.
+templ SESyncSuccess(result *model.SyncResult) {
+	@components.Alert(components.AlertParams{
+		Variant:     components.AlertSuccess,
+		Title:       "Синхронизация завершена",
+		Message:     fmt.Sprintf("Файлов на SE: %d, добавлено: %d, обновлено: %d, помечено удалёнными: %d", result.FilesOnSE, result.FilesAdded, result.FilesUpdated, result.FilesMarkedDeleted),
+		Dismissible: true,
+	})
+	<script>
+		setTimeout(function() { window.location.reload(); }, 2000);
+	</script>
+}
+
+// SESyncAllSuccess — partial: успех синхронизации всех SE.
+templ SESyncAllSuccess(synced, failed int) {
+	if failed == 0 {
+		@components.Alert(components.AlertParams{
+			Variant:     components.AlertSuccess,
+			Title:       "Синхронизация всех SE завершена",
+			Message:     fmt.Sprintf("Успешно синхронизировано: %d SE", synced),
+			Dismissible: true,
+		})
+	} else {
+		@components.Alert(components.AlertParams{
+			Variant:     components.AlertWarning,
+			Title:       "Синхронизация завершена с ошибками",
+			Message:     fmt.Sprintf("Успешно: %d, с ошибками: %d", synced, failed),
+			Dismissible: true,
+		})
+	}
+	<script>
+		setTimeout(function() { window.location.reload(); }, 2000);
+	</script>
+}
