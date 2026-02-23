@@ -1,0 +1,13 @@
+# ConfigMap с Keycloak realm JSON.
+# Файл artsore-realm.json копируется из deploy/keycloak/ через Makefile target copy-realm
+# в директорию files/ перед helm install.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: artsore-realm
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "artsore-test.labels" . | nindent 4 }}
+data:
+  artsore-realm.json: |
+{{ .Files.Get "files/artsore-realm.json" | indent 4 }}
