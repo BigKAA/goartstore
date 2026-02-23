@@ -1,0 +1,34 @@
+package components
+
+// StatCardParams — параметры карточки метрики
+type StatCardParams struct {
+	Label       string // Подпись метрики (например, "Storage Elements")
+	Value       string // Основное значение (например, "12")
+	SubValue    string // Дополнительная информация (например, "3 online / 1 offline")
+	Icon        string // SVG path (d-attribute, Heroicons 24x24)
+	BorderColor string // CSS-класс цвета левой границы (например, "border-accent-primary")
+}
+
+// StatCard — карточка метрики с значением, подписью, иконкой и цветной левой границей.
+// Используется на Dashboard для отображения ключевых числовых показателей.
+templ StatCard(params StatCardParams) {
+	<div class={ "card border-l-4 flex items-start space-x-4", params.BorderColor }>
+		<!-- Иконка -->
+		if params.Icon != "" {
+			<div class="flex-shrink-0 w-10 h-10 rounded-lg bg-bg-elevated flex items-center justify-center">
+				<svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" d={ params.Icon }></path>
+				</svg>
+			</div>
+		}
+
+		<!-- Значение и подпись -->
+		<div class="flex-1 min-w-0">
+			<p class="text-2xl font-bold text-text-primary">{ params.Value }</p>
+			<p class="text-sm text-text-secondary mt-0.5">{ params.Label }</p>
+			if params.SubValue != "" {
+				<p class="text-xs text-text-muted mt-1">{ params.SubValue }</p>
+			}
+		</div>
+	</div>
+}

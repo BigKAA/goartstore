@@ -1,0 +1,41 @@
+package layouts
+
+// BaseParams — параметры базового HTML-шаблона
+type BaseParams struct {
+	Title string // Заголовок страницы (отображается в <title>)
+}
+
+// Base — корневой HTML5 layout: <head> с мета-тегами, CSS, favicon;
+// <body> с dark-green фоном; JS-библиотеки подключены в конце body.
+// Контент вставляется через children (sidebar + main area).
+templ Base(params BaseParams) {
+	<!DOCTYPE html>
+	<html lang="ru" class="h-full">
+	<head>
+		<meta charset="UTF-8"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+		<meta name="color-scheme" content="dark"/>
+		<title>{ params.Title } — Artstore Admin</title>
+
+		<!-- Tailwind CSS (скомпилированный, embedded) -->
+		<link rel="stylesheet" href="/static/css/output.css"/>
+
+		<!-- Шрифты (Inter + JetBrains Mono) -->
+		<link rel="preconnect" href="https://fonts.googleapis.com"/>
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+		<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"/>
+	</head>
+	<body class="h-full bg-bg-base text-text-primary font-sans antialiased">
+		<!-- Основная структура: sidebar (fixed left) + main content -->
+		<div class="flex h-full">
+			{ children... }
+		</div>
+
+		<!-- JS-библиотеки (в конце body для быстрой загрузки) -->
+		<script src="/static/js/htmx.min.js"></script>
+		<script src="/static/js/htmx-sse.js"></script>
+		<script src="/static/js/alpine.min.js" defer></script>
+		<script src="/static/js/apexcharts.min.js"></script>
+	</body>
+	</html>
+}

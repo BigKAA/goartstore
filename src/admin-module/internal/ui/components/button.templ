@@ -1,0 +1,122 @@
+package components
+
+// ButtonVariant — вариант оформления кнопки
+type ButtonVariant string
+
+const (
+	ButtonPrimary   ButtonVariant = "primary"
+	ButtonSecondary ButtonVariant = "secondary"
+	ButtonDanger    ButtonVariant = "danger"
+	ButtonGhost     ButtonVariant = "ghost" // Прозрачная кнопка (только текст)
+)
+
+// ButtonSize — размер кнопки
+type ButtonSize string
+
+const (
+	ButtonSizeSM ButtonSize = "sm"
+	ButtonSizeMD ButtonSize = "md"
+	ButtonSizeLG ButtonSize = "lg"
+)
+
+// ButtonParams — параметры кнопки
+type ButtonParams struct {
+	Label    string        // Текст кнопки
+	Variant  ButtonVariant // Вариант оформления (primary, secondary, danger, ghost)
+	Size     ButtonSize    // Размер (sm, md, lg)
+	Icon     string        // SVG path (опционально, Heroicons)
+	Disabled bool          // Неактивная кнопка
+	Type     string        // HTML type атрибут (button, submit, reset). По умолчанию "button"
+}
+
+// Button — кнопка с вариантами оформления, размерами и опциональной иконкой.
+templ Button(params ButtonParams) {
+	<button
+		type={ buttonType(params.Type) }
+		disabled?={ params.Disabled }
+		class={ buttonClasses(params) }
+	>
+		if params.Icon != "" {
+			<svg class={ buttonIconSize(params.Size) } fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+				<path stroke-linecap="round" stroke-linejoin="round" d={ params.Icon }></path>
+			</svg>
+		}
+		if params.Label != "" {
+			{ params.Label }
+		}
+		{ children... }
+	</button>
+}
+
+// LinkButton — кнопка-ссылка (тег <a> со стилями кнопки)
+templ LinkButton(href string, params ButtonParams) {
+	<a
+		href={ templ.SafeURL(href) }
+		class={ buttonClasses(params) }
+	>
+		if params.Icon != "" {
+			<svg class={ buttonIconSize(params.Size) } fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+				<path stroke-linecap="round" stroke-linejoin="round" d={ params.Icon }></path>
+			</svg>
+		}
+		if params.Label != "" {
+			{ params.Label }
+		}
+	</a>
+}
+
+// buttonType — тип кнопки (по умолчанию "button")
+func buttonType(t string) string {
+	if t == "" {
+		return "button"
+	}
+	return t
+}
+
+// buttonClasses — формирование CSS-классов кнопки
+func buttonClasses(params ButtonParams) string {
+	base := "inline-flex items-center justify-center font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent-primary/50"
+
+	// Disabled
+	if params.Disabled {
+		base += " disabled:opacity-50 disabled:cursor-not-allowed"
+	}
+
+	// Размер
+	switch params.Size {
+	case ButtonSizeSM:
+		base += " px-2.5 py-1.5 text-xs rounded-button gap-1"
+	case ButtonSizeLG:
+		base += " px-6 py-3 text-base rounded-button gap-2"
+	default: // md
+		base += " px-4 py-2 text-sm rounded-button gap-1.5"
+	}
+
+	// Вариант оформления
+	switch params.Variant {
+	case ButtonPrimary:
+		base += " bg-accent-primary text-bg-base hover:bg-accent-light active:bg-accent-bright"
+	case ButtonSecondary:
+		base += " bg-bg-elevated text-text-primary border border-accent-primary hover:bg-bg-hover active:bg-bg-surface"
+	case ButtonDanger:
+		base += " bg-status-error text-white hover:bg-red-600 active:bg-red-700"
+	case ButtonGhost:
+		base += " text-text-secondary hover:text-text-primary hover:bg-bg-hover"
+	default: // primary
+		base += " bg-accent-primary text-bg-base hover:bg-accent-light active:bg-accent-bright"
+	}
+
+	return base
+}
+
+// buttonIconSize — размер иконки в зависимости от размера кнопки
+func buttonIconSize(size ButtonSize) string {
+	switch size {
+	case ButtonSizeSM:
+		return "w-3.5 h-3.5"
+	case ButtonSizeLG:
+		return "w-5 h-5"
+	default:
+		return "w-4 h-4"
+	}
+}

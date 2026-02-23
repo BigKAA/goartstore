@@ -18,10 +18,10 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 2 ✅ (завершена)
+- **Активная фаза**: Phase 3 ✅ (завершена)
 - **Активный подпункт**: —
 - **Последнее обновление**: 2026-02-23
-- **Примечание**: Phase 2 завершена, готово к Phase 3
+- **Примечание**: Phase 3 завершена, готово к Phase 4-7 (могут выполняться параллельно)
 
 ---
 
@@ -29,7 +29,7 @@
 
 - [x] [Phase 1: Фундамент и инструментарий](#phase-1-фундамент-и-инструментарий)
 - [x] [Phase 2: Аутентификация и сессии](#phase-2-аутентификация-и-сессии)
-- [ ] [Phase 3: Базовый layout и UI-компоненты](#phase-3-базовый-layout-и-ui-компоненты)
+- [x] [Phase 3: Базовый layout и UI-компоненты](#phase-3-базовый-layout-и-ui-компоненты)
 - [ ] [Phase 4: Dashboard](#phase-4-dashboard)
 - [ ] [Phase 5: Storage Elements](#phase-5-storage-elements)
 - [ ] [Phase 6: Файловый менеджер](#phase-6-файловый-менеджер)
@@ -239,7 +239,7 @@ Keycloak-клиента `artstore-admin-ui`.
 ## Phase 3: Базовый layout и UI-компоненты
 
 **Dependencies**: Phase 2
-**Status**: Pending
+**Status**: ✅ Done
 
 ### Описание
 
@@ -250,7 +250,7 @@ Keycloak-клиента `artstore-admin-ui`.
 
 ### Подпункты
 
-- [ ] **3.1 Base layout**
+- [x] **3.1 Base layout**
   - **Dependencies**: None
   - **Description**: Создать `internal/ui/layouts/base.templ` — HTML5 shell:
     `<head>` (meta, tailwind CSS, favicon), `<body>` (dark bg-base),
@@ -263,7 +263,7 @@ Keycloak-клиента `artstore-admin-ui`.
     - `internal/ui/layouts/page.templ`
   - **Links**: N/A
 
-- [ ] **3.2 Sidebar и header**
+- [x] **3.2 Sidebar и header**
   - **Dependencies**: 3.1
   - **Description**: Создать `internal/ui/layouts/sidebar.templ` — боковая
     навигация с пунктами: Dashboard, Мониторинг, Storage Elements, Файлы,
@@ -277,7 +277,7 @@ Keycloak-клиента `artstore-admin-ui`.
     - `internal/ui/layouts/header.templ`
   - **Links**: N/A
 
-- [ ] **3.3 Базовые UI-компоненты (часть 1)**
+- [x] **3.3 Базовые UI-компоненты (часть 1)**
   - **Dependencies**: 3.1
   - **Description**: Создать переиспользуемые Templ-компоненты:
     (a) `stat_card.templ` — карточка метрики (значение, подпись, иконка,
@@ -295,7 +295,7 @@ Keycloak-клиента `artstore-admin-ui`.
     - `internal/ui/components/alert.templ`
   - **Links**: N/A
 
-- [ ] **3.4 Базовые UI-компоненты (часть 2)**
+- [x] **3.4 Базовые UI-компоненты (часть 2)**
   - **Dependencies**: 3.1
   - **Description**: Создать компоненты для работы с данными:
     (a) `data_table.templ` — базовая таблица с заголовками, строками,
@@ -316,7 +316,7 @@ Keycloak-клиента `artstore-admin-ui`.
     - `internal/ui/components/confirm_dialog.templ`
   - **Links**: N/A
 
-- [ ] **3.5 Страница-заглушка и проверка layout**
+- [x] **3.5 Страница-заглушка и проверка layout**
   - **Dependencies**: 3.1, 3.2, 3.3, 3.4
   - **Description**: Создать временную страницу Dashboard (`internal/ui/pages/
     dashboard.templ`) с использованием base layout, sidebar, header и нескольких
@@ -331,13 +331,13 @@ Keycloak-клиента `artstore-admin-ui`.
 
 ### Критерии завершения Phase 3
 
-- [ ] Все подпункты завершены (3.1–3.5)
-- [ ] Страница `/admin/` отображается с sidebar, header и компонентами
-- [ ] Тёмная зелёная тема визуально корректна (цвета из спецификации)
-- [ ] Sidebar подсвечивает активный пункт
-- [ ] Sidebar сворачивается на мобильных (responsive)
-- [ ] Модальное окно открывается/закрывается корректно (Alpine.js)
-- [ ] Контейнер собирается и запускается
+- [x] Все подпункты завершены (3.1–3.5)
+- [x] Страница `/admin/` отображается с sidebar, header и компонентами
+- [x] Тёмная зелёная тема визуально корректна (цвета из спецификации)
+- [x] Sidebar подсвечивает активный пункт
+- [x] Sidebar сворачивается на мобильных (responsive)
+- [x] Модальное окно открывается/закрывается корректно (Alpine.js)
+- [ ] Контейнер собирается и запускается (проверить при деплое)
 
 ---
 

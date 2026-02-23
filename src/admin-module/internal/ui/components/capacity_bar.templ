@@ -1,0 +1,107 @@
+package components
+
+import "fmt"
+
+// CapacityBarParams — параметры progress bar ёмкости
+type CapacityBarParams struct {
+	Used    int64  // Использовано (байт)
+	Total   int64  // Всего (байт)
+	Label   string // Подпись (опционально, например "Хранилище")
+	Compact bool   // Компактный вид (без подписи и деталей)
+}
+
+// CapacityBar — progress bar (used/total) с процентом.
+// Показывает занятое/свободное место с цветовой индикацией уровня заполнения.
+templ CapacityBar(params CapacityBarParams) {
+	<div>
+		if !params.Compact && params.Label != "" {
+			<div class="flex items-center justify-between mb-1">
+				<span class="text-sm text-text-secondary">{ params.Label }</span>
+				<span class="text-sm text-text-muted">
+					{ formatBytes(params.Used) } / { formatBytes(params.Total) }
+				</span>
+			</div>
+		}
+
+		<!-- Progress bar -->
+		<div class={ capacityBarHeight(params.Compact) }>
+			<div
+				class={ capacityBarFill(params.Used, params.Total) }
+				style={ fmt.Sprintf("width: %d%%", capacityPercent(params.Used, params.Total)) }
+			></div>
+		</div>
+
+		if !params.Compact {
+			<div class="flex items-center justify-between mt-1">
+				<span class="text-xs text-text-muted">
+					{ fmt.Sprintf("%d%%", capacityPercent(params.Used, params.Total)) } занято
+				</span>
+				<span class="text-xs text-text-muted">
+					{ formatBytes(params.Total - params.Used) } свободно
+				</span>
+			</div>
+		}
+	</div>
+}
+
+// capacityPercent — процент заполнения (0-100)
+func capacityPercent(used, total int64) int {
+	if total <= 0 {
+		return 0
+	}
+	pct := int(float64(used) / float64(total) * 100)
+	if pct > 100 {
+		return 100
+	}
+	return pct
+}
+
+// capacityBarHeight — CSS-классы контейнера bar (компактный или стандартный)
+func capacityBarHeight(compact bool) string {
+	if compact {
+		return "w-full bg-bg-elevated rounded-full h-1.5 overflow-hidden"
+	}
+	return "w-full bg-bg-elevated rounded-full h-2.5 overflow-hidden"
+}
+
+// capacityBarFill — CSS-классы заполненной части (цвет зависит от %)
+func capacityBarFill(used, total int64) string {
+	pct := capacityPercent(used, total)
+	base := "h-full rounded-full transition-all duration-500"
+
+	switch {
+	case pct >= 90:
+		return base + " bg-status-error" // Критично (>90%)
+	case pct >= 75:
+		return base + " bg-status-warning" // Предупреждение (>75%)
+	default:
+		return base + " bg-accent-primary" // Нормально
+	}
+}
+
+// formatBytes — форматирование байтов в человеко-читаемый вид
+func formatBytes(bytes int64) string {
+	if bytes < 0 {
+		bytes = 0
+	}
+
+	const (
+		KB = 1024
+		MB = 1024 * KB
+		GB = 1024 * MB
+		TB = 1024 * GB
+	)
+
+	switch {
+	case bytes >= TB:
+		return fmt.Sprintf("%.1f TB", float64(bytes)/float64(TB))
+	case bytes >= GB:
+		return fmt.Sprintf("%.1f GB", float64(bytes)/float64(GB))
+	case bytes >= MB:
+		return fmt.Sprintf("%.1f MB", float64(bytes)/float64(MB))
+	case bytes >= KB:
+		return fmt.Sprintf("%.1f KB", float64(bytes)/float64(KB))
+	default:
+		return fmt.Sprintf("%d B", bytes)
+	}
+}

@@ -282,9 +282,13 @@ func main() {
 		// UI auth middleware — проверка сессии, авто-refresh токенов
 		uiAuthMiddleware := uimiddleware.NewUIAuth(sessionMgr, oidcClient, logger)
 
+		// Dashboard handler — страница Dashboard
+		dashboardHandler := uihandlers.NewDashboardHandler(logger)
+
 		uiComponents = &server.UIComponents{
-			AuthHandler:    authHandler,
-			AuthMiddleware: uiAuthMiddleware,
+			AuthHandler:      authHandler,
+			AuthMiddleware:   uiAuthMiddleware,
+			DashboardHandler: dashboardHandler,
 		}
 
 		logger.Info("Admin UI инициализирован",

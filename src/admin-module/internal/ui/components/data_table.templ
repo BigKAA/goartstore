@@ -1,0 +1,157 @@
+package components
+
+import "fmt"
+
+// TableColumn — описание колонки таблицы
+type TableColumn struct {
+	Key      string // Идентификатор колонки (для сортировки)
+	Label    string // Заголовок колонки
+	Sortable bool   // Можно ли сортировать по этой колонке
+	Width    string // CSS-класс ширины (опционально, например "w-32")
+	Align    string // Выравнивание: "left" (по умолчанию), "center", "right"
+}
+
+// DataTableParams — параметры таблицы данных
+type DataTableParams struct {
+	Columns  []TableColumn // Колонки
+	SortKey  string        // Текущий ключ сортировки
+	SortDir  string        // Направление сортировки: "asc" или "desc"
+	SortURL  string        // Базовый URL для сортировки (HTMX hx-get)
+	TargetID string        // ID элемента для HTMX swap (по умолчанию "table-body")
+	Empty    bool          // Нет данных
+}
+
+// DataTable — таблица данных с заголовками, сортировкой, чередующимися строками.
+// Строки таблицы передаются как children.
+templ DataTable(params DataTableParams) {
+	<div class="overflow-x-auto rounded-card border border-border-subtle">
+		<table class="w-full text-sm text-left">
+			<!-- Заголовок таблицы -->
+			<thead class="text-xs text-text-secondary uppercase bg-bg-surface border-b border-border-subtle">
+				<tr>
+					for _, col := range params.Columns {
+						<th class={ tableHeaderClasses(col) }>
+							if col.Sortable && params.SortURL != "" {
+								@sortableHeader(col, params)
+							} else {
+								{ col.Label }
+							}
+						</th>
+					}
+				</tr>
+			</thead>
+
+			<!-- Тело таблицы -->
+			<tbody id={ tableBodyID(params.TargetID) }>
+				if params.Empty {
+					<tr>
+						<td
+							colspan={ colSpan(len(params.Columns)) }
+							class="px-4 py-8 text-center text-text-muted"
+						>
+							Нет данных для отображения
+						</td>
+					</tr>
+				} else {
+					{ children... }
+				}
+			</tbody>
+		</table>
+	</div>
+}
+
+// TableRow — строка таблицы с чередующимися цветами и hover-эффектом
+templ TableRow() {
+	<tr class="table-row table-row-alt">
+		{ children... }
+	</tr>
+}
+
+// TableCell — ячейка таблицы
+templ TableCell(align string) {
+	<td class={ tableCellClasses(align) }>
+		{ children... }
+	</td>
+}
+
+// sortableHeader — заголовок колонки с возможностью сортировки
+templ sortableHeader(col TableColumn, params DataTableParams) {
+	<button
+		class="flex items-center space-x-1 hover:text-text-primary transition-colors group"
+		hx-get={ sortURL(params.SortURL, col.Key, params.SortKey, params.SortDir) }
+		hx-target={ "#" + tableBodyID(params.TargetID) }
+		hx-swap="innerHTML"
+	>
+		<span>{ col.Label }</span>
+		<span class="text-text-muted group-hover:text-text-secondary">
+			if params.SortKey == col.Key && params.SortDir == "asc" {
+				<!-- Стрелка вверх (active) -->
+				<svg class="w-3.5 h-3.5 text-accent-primary" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5"></path>
+				</svg>
+			} else if params.SortKey == col.Key && params.SortDir == "desc" {
+				<!-- Стрелка вниз (active) -->
+				<svg class="w-3.5 h-3.5 text-accent-primary" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"></path>
+				</svg>
+			} else {
+				<!-- Стрелки вверх/вниз (inactive) -->
+				<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9"></path>
+				</svg>
+			}
+		</span>
+	</button>
+}
+
+// tableHeaderClasses — CSS-классы заголовка колонки
+func tableHeaderClasses(col TableColumn) string {
+	base := "px-4 py-3 font-medium"
+	if col.Width != "" {
+		base += " " + col.Width
+	}
+	switch col.Align {
+	case "center":
+		base += " text-center"
+	case "right":
+		base += " text-right"
+	default:
+		base += " text-left"
+	}
+	return base
+}
+
+// tableCellClasses — CSS-классы ячейки
+func tableCellClasses(align string) string {
+	base := "px-4 py-3"
+	switch align {
+	case "center":
+		return base + " text-center"
+	case "right":
+		return base + " text-right"
+	default:
+		return base
+	}
+}
+
+// tableBodyID — ID тела таблицы
+func tableBodyID(targetID string) string {
+	if targetID != "" {
+		return targetID
+	}
+	return "table-body"
+}
+
+// colSpan — colspan для пустой строки
+func colSpan(n int) string {
+	return fmt.Sprintf("%d", n)
+}
+
+// sortURL — URL для сортировки (переключение направления)
+func sortURL(baseURL, colKey, currentKey, currentDir string) string {
+	dir := "asc"
+	if colKey == currentKey && currentDir == "asc" {
+		dir = "desc"
+	}
+	return fmt.Sprintf("%s?sort=%s&order=%s", baseURL, colKey, dir)
+}

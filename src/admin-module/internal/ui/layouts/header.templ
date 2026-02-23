@@ -1,0 +1,77 @@
+package layouts
+
+// HeaderParams — параметры верхней панели
+type HeaderParams struct {
+	Title    string // Заголовок текущей страницы
+	Username string // Имя пользователя
+	Role     string // Роль: "admin" или "readonly"
+}
+
+// Header — верхняя панель: заголовок страницы, имя пользователя, бейдж роли, кнопка logout
+templ Header(params HeaderParams) {
+	<header class="sticky top-0 z-20 flex items-center justify-between h-16 px-6 bg-bg-surface/80 backdrop-blur-sm border-b border-border-subtle">
+		<!-- Заголовок страницы -->
+		<h1 class="text-xl font-semibold text-text-primary truncate">
+			{ params.Title }
+		</h1>
+
+		<!-- Информация о пользователе + logout -->
+		<div class="flex items-center space-x-4">
+			<!-- Имя и роль -->
+			<div class="flex items-center space-x-2">
+				<!-- Аватар (инициалы) -->
+				<div class="w-8 h-8 rounded-full bg-accent-primary/20 flex items-center justify-center">
+					<span class="text-sm font-medium text-accent-primary">
+						{ userInitial(params.Username) }
+					</span>
+				</div>
+
+				<!-- Имя пользователя -->
+				<span class="hidden sm:inline text-sm text-text-primary">
+					{ params.Username }
+				</span>
+
+				<!-- Бейдж роли -->
+				if params.Role == "admin" {
+					<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-accent-primary/20 text-accent-primary">
+						admin
+					</span>
+				} else {
+					<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-status-info/20 text-status-info">
+						{ params.Role }
+					</span>
+				}
+			</div>
+
+			<!-- Кнопка Logout -->
+			<form method="POST" action="/admin/logout">
+				<button
+					type="submit"
+					class="flex items-center px-3 py-1.5 rounded-button text-sm text-text-secondary
+					       hover:text-status-error hover:bg-status-error/10 transition-colors"
+					title="Выйти"
+				>
+					<svg class="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"></path>
+					</svg>
+					<span class="hidden sm:inline">Выйти</span>
+				</button>
+			</form>
+		</div>
+	</header>
+}
+
+// userInitial — возвращает первую букву имени пользователя (заглавную)
+func userInitial(username string) string {
+	if username == "" {
+		return "?"
+	}
+	// Берём первый rune для корректной работы с Unicode
+	for _, r := range username {
+		if r >= 'a' && r <= 'z' {
+			return string(r - 32) // upper case
+		}
+		return string(r)
+	}
+	return "?"
+}
