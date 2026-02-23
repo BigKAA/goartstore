@@ -3,4 +3,4 @@ name: se-test
 description: Тестовая среда Storage Element — 6 экземпляров SE + JWKS Mock Server
 type: application
 version: 0.1.0
-appVersion: "1.0.0"
+appVersion: "0.1.0"

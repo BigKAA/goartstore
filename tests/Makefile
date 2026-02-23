@@ -17,8 +17,8 @@
 # Переменные
 # -----------------------------------------------------------------------------
 DOCKER_REGISTRY ?= harbor.kryukov.lan/library
-AM_TAG          ?= v2.0.0-1
-SE_TAG          ?= v1.0.0-1
+AM_TAG          ?= v0.1.0-1
+SE_TAG          ?= v0.1.0-1
 NAMESPACE       ?= artsore-test
 HELM_CHART      := helm/artsore-test
 HELM_RELEASE    := artsore-test

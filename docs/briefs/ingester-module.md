@@ -1,6 +1,6 @@
 # Ingester Module — Бриф модуля
 
-**Версия**: 1.0.0
+**Версия**: 0.1.0
 **Дата**: 2026-02-21
 **Статус**: Draft
 **Порты**: 8020-8029
@@ -323,7 +323,7 @@ Ingester получает JWT token при старте и обновляет е
 
 ```bash
 # Сборка образа
-docker build -t harbor.kryukov.lan/library/ingester-module:v1.0.0 \
+docker build -t harbor.kryukov.lan/library/ingester-module:v0.1.0 \
   -f ingester-module/Dockerfile .
 
 # Запуск контейнера
@@ -336,7 +336,7 @@ docker run -d \
   -e IG_CLIENT_SECRET=cs_secret_value_here \
   -e IG_SE_CA_CERT_PATH=/certs/ca.crt \
   -v /path/to/ca-certs:/certs:ro \
-  harbor.kryukov.lan/library/ingester-module:v1.0.0
+  harbor.kryukov.lan/library/ingester-module:v0.1.0
 ```
 
 ### Kubernetes (Helm)

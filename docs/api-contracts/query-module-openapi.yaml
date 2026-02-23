@@ -51,7 +51,7 @@ info:
 
     Для поиска и скачивания необходим scope `files:read` (SA) или
     роль `admin`/`readonly` (Admin User).
-  version: 1.0.0
+  version: 0.1.0
   contact:
     name: Artsore Team
   license:

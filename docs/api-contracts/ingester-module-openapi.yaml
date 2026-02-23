@@ -44,7 +44,7 @@ info:
 
     Для загрузки файлов необходим scope `files:write` (SA) или роль `admin`
     (Admin User).
-  version: 1.0.0
+  version: 0.1.0
   contact:
     name: Artsore Team
   license:

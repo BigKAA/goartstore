@@ -13,11 +13,11 @@ registry: harbor.kryukov.lan/library
 
 # Образ Admin Module
 amImage: admin-module
-amTag: v2.0.0-1
+amTag: v0.1.0-1
 
 # Образ Storage Element
 seImage: storage-element
-seTag: v1.0.0-1
+seTag: v0.1.0-1
 
 imagePullPolicy: Always
 

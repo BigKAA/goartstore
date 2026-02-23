@@ -1,5 +1,5 @@
 -- 001_initial_schema.down.sql
--- Откат начальной схемы Admin Module v2.0.0.
+-- Откат начальной схемы Admin Module.
 
 DROP TABLE IF EXISTS sync_state;
 DROP TABLE IF EXISTS role_overrides;

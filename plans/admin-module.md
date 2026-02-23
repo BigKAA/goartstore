@@ -1,8 +1,8 @@
-# План разработки: Admin Module (Go) v2.0.0
+# План разработки: Admin Module (Go)
 
 ## Контекст
 
-Admin Module — управляющий модуль системы Artsore, отвечающий за реестр Storage Elements, файловый реестр, управление Service Accounts и локальные дополнения ролей пользователей. В v2.0.0 аутентификация полностью делегирована Keycloak (IdP). Admin Module не выдаёт JWT и не управляет ключами — он получает JWT от API Gateway, проверяет claims и принимает решения по авторизации. OpenAPI-спецификация обновлена до v2.0.0 (29 endpoints). Технический дизайн зафиксирован в `docs/design/admin-module-design.md`.
+Admin Module — управляющий модуль системы Artsore, отвечающий за реестр Storage Elements, файловый реестр, управление Service Accounts и локальные дополнения ролей пользователей. В v0.1.0 аутентификация полностью делегирована Keycloak (IdP). Admin Module не выдаёт JWT и не управляет ключами — он получает JWT от API Gateway, проверяет claims и принимает решения по авторизации. OpenAPI-спецификация обновлена до v0.1.0 (29 endpoints). Технический дизайн зафиксирован в `docs/design/admin-module-design.md`.
 
 ## Метаданные
 
@@ -100,14 +100,14 @@ src/admin-module/
 - `feature/am-phase-5-background`
 - `feature/am-phase-6-helm`
 
-Commits: `feat(admin-module): <subject>`. Теги образов: `v2.0.0-N`.
+Commits: `feat(admin-module): <subject>`. Теги образов: `v0.1.0-N`.
 
 ## Ключевые файлы-источники
 
 | Файл | Назначение |
 |------|-----------|
-| `docs/api-contracts/admin-module-openapi.yaml` | OpenAPI контракт v2.0.0 (29 endpoints) |
-| `docs/briefs/admin-module.md` | Бриф v2.0.0: архитектура, Keycloak, RBAC, sync |
+| `docs/api-contracts/admin-module-openapi.yaml` | OpenAPI контракт v0.1.0 (29 endpoints) |
+| `docs/briefs/admin-module.md` | Бриф v0.1.0: архитектура, Keycloak, RBAC, sync |
 | `docs/design/admin-module-design.md` | Технический дизайн: структура, DB schema, компоненты |
 | `src/storage-element/` | Референс Go-паттернов (config, middleware, server, handlers) |
 | `src/storage-element/internal/config/config.go` | Паттерн config из env vars |
@@ -124,17 +124,17 @@ Commits: `feat(admin-module): <subject>`. Теги образов: `v2.0.0-N`.
 
 ### Описание
 
-Создание фундамента Go-модуля: структура директорий, конфигурация из env vars, кодогенерация из OpenAPI v2.0.0, скелет HTTP-сервера с health endpoints, Docker-образ. По завершении сервер запускается в Docker и отвечает на health probes.
+Создание фундамента Go-модуля: структура директорий, конфигурация из env vars, кодогенерация из OpenAPI v0.1.0, скелет HTTP-сервера с health endpoints, Docker-образ. По завершении сервер запускается в Docker и отвечает на health probes.
 
 ### Подпункты
 
-- [x] **1.0 Финализация OpenAPI v2.0.0 контракта**
+- [x] **1.0 Финализация OpenAPI v0.1.0 контракта**
   - **Dependencies**: None
-  - **Description**: Ревизия и финализация `docs/api-contracts/admin-module-openapi.yaml` (v2.0.0). Контракт был обновлён с v1.0.0 (36 endpoints) до v2.0.0 (29 endpoints) в ходе проектирования: удалены self-managed auth endpoints, добавлены role-override, IdP status, SA sync. Шаг включает: (1) верификация соответствия спецификации брифу v2.0.0 и техническому дизайну, (2) проверка всех schemas (CurrentUser, AdminUser, ServiceAccount, StorageElement, FileRecord, IdpStatus, SASyncResult, ErrorResponse и др.), (3) проверка security requirements (bearerAuth на всех endpoints кроме health/metrics), (4) валидация спецификации (`npx @redocly/cli lint`), (5) commit финальной версии. Это блокирующий шаг — кодогенерация (1.2) зависит от стабильного контракта.
+  - **Description**: Ревизия и финализация `docs/api-contracts/admin-module-openapi.yaml` (v0.1.0). Контракт был обновлён с версии старого проекта (36 endpoints) до текущей (29 endpoints) в ходе проектирования: удалены self-managed auth endpoints, добавлены role-override, IdP status, SA sync. Шаг включает: (1) верификация соответствия спецификации брифу v0.1.0 и техническому дизайну, (2) проверка всех schemas (CurrentUser, AdminUser, ServiceAccount, StorageElement, FileRecord, IdpStatus, SASyncResult, ErrorResponse и др.), (3) проверка security requirements (bearerAuth на всех endpoints кроме health/metrics), (4) валидация спецификации (`npx @redocly/cli lint`), (5) commit финальной версии. Это блокирующий шаг — кодогенерация (1.2) зависит от стабильного контракта.
   - **Creates**:
     - `docs/api-contracts/admin-module-openapi.yaml` (обновление/финализация)
   - **Links**:
-    - `docs/briefs/admin-module.md` — бриф v2.0.0 (источник требований)
+    - `docs/briefs/admin-module.md` — бриф v0.1.0 (источник требований)
     - `docs/design/admin-module-design.md` — технический дизайн (детали schemas и endpoints)
 
 - [x] **1.1 Структура проекта и конфигурация**
@@ -149,9 +149,9 @@ Commits: `feat(admin-module): <subject>`. Теги образов: `v2.0.0-N`.
     - `src/storage-element/internal/config/config.go` — паттерн
     - `docs/briefs/admin-module.md` (раздел 8. Конфигурация)
 
-- [x] **1.2 Кодогенерация из OpenAPI v2.0.0 (oapi-codegen)**
+- [x] **1.2 Кодогенерация из OpenAPI v0.1.0 (oapi-codegen)**
   - **Dependencies**: 1.0, 1.1
-  - **Description**: Конфигурация oapi-codegen: генерация Go-типов (`types.gen.go`) и chi-server интерфейса `ServerInterface` (`server.gen.go`) из `docs/api-contracts/admin-module-openapi.yaml` (v2.0.0, 29 endpoints). Makefile target `generate`. Заглушка `stub.go`, реализующая `ServerInterface` с ответами 501. Паттерн: `src/storage-element/oapi-codegen-*.yaml`.
+  - **Description**: Конфигурация oapi-codegen: генерация Go-типов (`types.gen.go`) и chi-server интерфейса `ServerInterface` (`server.gen.go`) из `docs/api-contracts/admin-module-openapi.yaml` (v0.1.0, 29 endpoints). Makefile target `generate`. Заглушка `stub.go`, реализующая `ServerInterface` с ответами 501. Паттерн: `src/storage-element/oapi-codegen-*.yaml`.
   - **Creates**:
     - `src/admin-module/oapi-codegen-types.yaml`
     - `src/admin-module/oapi-codegen-server.yaml`
@@ -160,7 +160,7 @@ Commits: `feat(admin-module): <subject>`. Теги образов: `v2.0.0-N`.
     - `src/admin-module/internal/api/handlers/stub.go`
     - `src/admin-module/Makefile`
   - **Links**:
-    - `docs/api-contracts/admin-module-openapi.yaml` — OpenAPI v2.0.0
+    - `docs/api-contracts/admin-module-openapi.yaml` — OpenAPI v0.1.0
     - `src/storage-element/oapi-codegen-types.yaml` — паттерн
     - [oapi-codegen](https://github.com/oapi-codegen/oapi-codegen)
 
@@ -193,8 +193,8 @@ Commits: `feat(admin-module): <subject>`. Теги образов: `v2.0.0-N`.
 
 - [x] `go build ./...` компилируется без ошибок
 - [x] `go test ./...` проходит (unit-тесты config)
-- [x] `make generate` генерирует код из OpenAPI v2.0.0
-- [x] Docker-образ собирается (`make docker-build TAG=v2.0.0-1`)
+- [x] `make generate` генерирует код из OpenAPI v0.1.0
+- [x] Docker-образ собирается (`make docker-build TAG=v0.1.0-1`)
 - [x] `docker compose up` запускает PostgreSQL + Keycloak + Admin Module
 - [x] `curl http://localhost:8000/health/live` = `{"status":"ok",...}`
 - [x] Все endpoints кроме health возвращают 501 Not Implemented
@@ -381,7 +381,7 @@ HTTP-клиенты для Keycloak Admin API и Storage Elements, JWT middlewar
 
 ### Критерии завершения Phase 4
 
-- [x] Все 29 endpoints реализованы и соответствуют OpenAPI v2.0.0
+- [x] Все 29 endpoints реализованы и соответствуют OpenAPI v0.1.0
 - [x] JWT claims-based авторизация работает (роли + scopes)
 - [x] Role overrides применяются корректно (повышение, не понижение)
 - [x] SA CRUD синхронизируется с Keycloak
@@ -589,4 +589,4 @@ Phase 1 (Infrastructure) → Phase 2 (Database + Domain) → Phase 3 (Clients + 
 - **Graceful shutdown**: остановка HTTP → фоновые задачи (storage sync, SA sync) → topologymetrics → DB close
 - **Без TLS для API**: HTTP внутри кластера, TLS termination на API Gateway. TLS client для исходящих к SE (AM_SE_CA_CERT_PATH)
 - **Health /ready**: проверяет PostgreSQL (ping) + Keycloak (realm info GET)
-- **OpenAPI v2.0.0**: спецификация уже обновлена и зафиксирована
+- **OpenAPI v0.1.0**: спецификация уже обновлена и зафиксирована

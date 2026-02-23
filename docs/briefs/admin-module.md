@@ -1,6 +1,6 @@
 # Admin Module — Бриф модуля
 
-**Версия**: 2.0.0
+**Версия**: 0.1.0
 **Дата**: 2026-02-22
 **Статус**: Draft
 **Порты**: 8000-8009
@@ -636,7 +636,7 @@ realm). Admin Module не создаёт пользователей.
 
 ```bash
 # Сборка образа
-docker build -t harbor.kryukov.lan/library/admin-module:v2.0.0 \
+docker build -t harbor.kryukov.lan/library/admin-module:v0.1.0 \
   -f admin-module/Dockerfile .
 
 # Запуск контейнера
@@ -654,7 +654,7 @@ docker run -d \
   -e AM_KEYCLOAK_CLIENT_SECRET=secret \
   -e AM_SE_CA_CERT_PATH=/certs/ca.crt \
   -v /path/to/ca-certs:/certs:ro \
-  harbor.kryukov.lan/library/admin-module:v2.0.0
+  harbor.kryukov.lan/library/admin-module:v0.1.0
 ```
 
 ### Kubernetes (Helm)
@@ -747,9 +747,9 @@ defer dh.Stop()
 
 ---
 
-## Приложение A. Отличия от v1.0.0
+## Приложение A. Отличия от старого проекта (Python/FastAPI)
 
-| Аспект | v1.0.0 | v2.0.0 |
+| Аспект | Старый проект | Текущая версия |
 |--------|--------|--------|
 | Аутентификация | Admin Module выдаёт JWT | Keycloak выдаёт JWT |
 | JWT ключи | Управляются Admin Module | Управляются Keycloak |
