@@ -298,11 +298,19 @@ func main() {
 			logger,
 		)
 
+		// Files handler — файловый реестр
+		filesHandler := uihandlers.NewFilesHandler(
+			filesSvc,
+			storageElemsSvc,
+			logger,
+		)
+
 		uiComponents = &server.UIComponents{
 			AuthHandler:            authHandler,
 			AuthMiddleware:         uiAuthMiddleware,
 			DashboardHandler:       dashboardHandler,
 			StorageElementsHandler: storageElementsHandler,
+			FilesHandler:           filesHandler,
 		}
 
 		logger.Info("Admin UI инициализирован",
