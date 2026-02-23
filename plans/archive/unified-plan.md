@@ -5,7 +5,7 @@
 - **Версия плана**: 1.0.0
 - **Дата создания**: 2026-02-23
 - **Последнее обновление**: 2026-02-23
-- **Статус**: In Progress
+- **Статус**: Completed
 - **Объединяет**:
   - `plans/test-infrastructure-v2.0.0.md` (Phase A-F) → Phase 1-5, 8
   - `plans/admin-module.md` (Phase 6.2, 6.4, 6.5) → Phase 6-8
@@ -24,10 +24,10 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 7
-- **Активный подпункт**: 7.3 (Pending — запуск и отладка тестов)
+- **Активная фаза**: Completed
+- **Активный подпункт**: —
 - **Последнее обновление**: 2026-02-23
-- **Примечание**: Phase 1-5 завершены. Обнаружены и исправлены: dephealth KC health path, AM HTTP probes, SE scopes (scope vs scopes), KC clientScopeMappings, Init Job image/KC readiness check
+- **Примечание**: Все фазы завершены. Phase 7.3: все 30 тестов PASS. Phase 8.1: production deploy через API Gateway верифицирован. Исправления: HTTP vs HTTPS для AM, KC protocol mappers (realm roles, sub, preferred_username, client_id), frontendUrl для JWT issuer, SA name unique constraint (migration 002), SIGPIPE в metrics тесте
 
 ---
 
@@ -43,9 +43,9 @@
 
 **Admin Module (приоритет 2):**
 
-- [ ] [Phase 6: Production Helm chart для AM](#phase-6-production-helm-chart-для-am)
-- [ ] [Phase 7: Интеграционные тесты AM](#phase-7-интеграционные-тесты-am)
-- [ ] [Phase 8: Финализация и очистка](#phase-8-финализация-и-очистка)
+- [x] [Phase 6: Production Helm chart для AM](#phase-6-production-helm-chart-для-am)
+- [x] [Phase 7: Интеграционные тесты AM](#phase-7-интеграционные-тесты-am)
+- [x] [Phase 8: Финализация и очистка](#phase-8-финализация-и-очистка)
 
 ---
 
@@ -378,7 +378,7 @@ Helm chart `artsore-apps` с Admin Module для тестовой среды. Д
 ## Phase 6: Production Helm chart для AM
 
 **Dependencies**: Phase 5
-**Status**: Pending
+**Status**: Done
 **Origin**: admin-module.md Phase 6.2
 
 ### Описание
@@ -425,7 +425,7 @@ Helm chart для production-деплоя Admin Module: Deployment, Service, HTT
 ## Phase 7: Интеграционные тесты AM
 
 **Dependencies**: Phase 5
-**Status**: In Progress
+**Status**: Done
 **Origin**: admin-module.md Phase 6.4
 
 ### Описание
@@ -467,27 +467,27 @@ Helm chart для production-деплоя Admin Module: Deployment, Service, HTT
     - `tests/Makefile` (дополнить)
   - **Links**: N/A
 
-- [ ] **7.3 Запуск тестов и отладка**
+- [x] **7.3 Запуск тестов и отладка**
   - **Dependencies**: 7.2
-  - **Description**: `make port-forward-start && make test-am` — все тесты PASS. Отладка и исправление найденных проблем в AM или тестах
+  - **Description**: `make port-forward-start && make test-am` — все 30 тестов PASS. Исправлены: HTTP/HTTPS для AM URL, KC protocol mappers, JWT issuer (frontendUrl), SA name unique constraint, SIGPIPE в metrics тесте
   - **Creates**: N/A
   - **Links**: N/A
 
 ### Критерии завершения Phase 7
 
-- [ ] Все подпункты завершены (7.1, 7.2, 7.3)
-- [ ] Все ~25-30 тестов проходят
-- [ ] `make test-am` — zero failures
-- [ ] JWT авторизация end-to-end (KC → AM)
-- [ ] Sync SE → файловый реестр обновляется
-- [ ] Sync SA → согласованность с Keycloak
+- [x] Все подпункты завершены (7.1, 7.2, 7.3)
+- [x] Все 30 тестов проходят (8/8 groups)
+- [x] `make test-am` — zero failures
+- [x] JWT авторизация end-to-end (KC → AM)
+- [x] Sync SE → файловый реестр обновляется
+- [x] Sync SA → согласованность с Keycloak
 
 ---
 
 ## Phase 8: Финализация и очистка
 
 **Dependencies**: Phase 6, Phase 7
-**Status**: Pending
+**Status**: Done
 **Origin**: admin-module.md Phase 6.5 + test-infrastructure-v2.0.0 Phase F
 
 ### Описание
@@ -496,16 +496,17 @@ Helm chart для production-деплоя Admin Module: Deployment, Service, HTT
 
 ### Подпункты
 
-- [ ] **8.1 Деплой через production Helm chart**
+- [x] **8.1 Деплой через production Helm chart**
   - **Dependencies**: None
   - **Description**: Деплой AM через production chart `src/admin-module/charts/admin-module/`:
-    - Сборка Docker-образа, push в Harbor
-    - `helm install` в namespace с настроенным PG + KC (или использовать artsore-test infra)
-    - Проверка: все endpoints через API Gateway (`artsore.kryukov.lan`)
-    - HTTPRoute корректно маршрутизирует
-  - **Creates**: N/A
+    - Docker-образ `harbor.kryukov.lan/library/admin-module:v0.1.0-2` собран и отправлен
+    - `helm install admin-module-prod` в namespace artsore-test с values-prod.yaml
+    - Проверка: health/live, health/ready, /api/v1/* через API Gateway — OK
+    - HTTPRoute корректно маршрутизирует (hostname `artsore.kryukov.lan`)
+  - **Creates**:
+    - `src/admin-module/charts/admin-module/values-prod.yaml`
   - **Links**:
-    - Harbor: `harbor.kryukov.lan/library/admin-module`
+    - Harbor: `harbor.kryukov.lan/library/admin-module:v0.1.0-2`
     - API Gateway: `artsore.kryukov.lan` → 192.168.218.180
 
 - [x] **8.2 Удалить старый chart и архивировать планы**
@@ -532,11 +533,11 @@ Helm chart для production-деплоя Admin Module: Deployment, Service, HTT
 
 ### Критерии завершения Phase 8
 
-- [ ] Все подпункты завершены (8.1, 8.2, 8.3)
-- [ ] AM работает за API Gateway
-- [ ] `tests/helm/artsore-test/` удалён
-- [ ] Старые планы в архиве
-- [ ] CLAUDE.md и README актуальны
+- [x] Все подпункты завершены (8.1, 8.2, 8.3)
+- [x] AM работает за API Gateway (health + API endpoints верифицированы)
+- [x] `tests/helm/artsore-test/` удалён
+- [x] Старые планы в архиве
+- [x] CLAUDE.md и README актуальны
 
 ---
 

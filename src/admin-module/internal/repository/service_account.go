@@ -65,7 +65,7 @@ func (r *serviceAccountRepo) Create(ctx context.Context, sa *model.ServiceAccoun
 	).Scan(&sa.CreatedAt, &sa.UpdatedAt)
 	if err != nil {
 		if isUniqueViolation(err) {
-			return fmt.Errorf("%w: client_id уже существует", ErrConflict)
+			return fmt.Errorf("%w: сервисный аккаунт с таким именем уже существует", ErrConflict)
 		}
 		return fmt.Errorf("ошибка создания SA: %w", err)
 	}

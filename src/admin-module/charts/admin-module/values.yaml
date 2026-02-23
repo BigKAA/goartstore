@@ -76,7 +76,7 @@ httproute:
   enabled: false
   gatewayName: eg
   gatewayNamespace: envoy-gateway-system
-  hostname: "artsore.kryukov.lan"
+  hostname: "artstore.kryukov.lan"
   pathPrefixes:
     - /api/v1
     - /health

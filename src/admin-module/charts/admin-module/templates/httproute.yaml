@@ -1,6 +1,6 @@
 {{- if and .Values.httproute .Values.httproute.enabled }}
 # Gateway API HTTPRoute для внешнего доступа к Admin Module
-# Маршрутизация /api/v1/* и /health/* через artsore.kryukov.lan
+# Маршрутизация /api/v1/* и /health/* через artstore.kryukov.lan
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:

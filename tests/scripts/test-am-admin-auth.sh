@@ -13,7 +13,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib.sh"
 
-: "${AM_URL:=https://localhost:18000}"
+: "${AM_URL:=http://localhost:18000}"
 : "${KC_TOKEN_URL:=https://localhost:18080/realms/artsore/protocol/openid-connect/token}"
 : "${KC_TEST_USER_CLIENT_ID:=artsore-test-user}"
 : "${KC_TEST_USER_CLIENT_SECRET:=test-user-secret}"

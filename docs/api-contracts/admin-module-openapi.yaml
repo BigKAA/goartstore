@@ -78,7 +78,7 @@ servers:
     description: API Gateway (внешний доступ)
     variables:
       host:
-        default: artsore.kryukov.lan
+        default: artstore.kryukov.lan
   - url: http://{host}:{port}
     description: Admin Module instance (прямой доступ, health/metrics)
     variables:

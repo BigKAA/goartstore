@@ -52,8 +52,8 @@ print_summary() {
 # ---- Утилиты для работы с ответами ----
 # Формат ответа: "<http_code> <response_body>"
 
-get_response_code() { echo "$1" | awk '{print $1}'; }
-get_response_body() { echo "$1" | cut -d' ' -f2-; }
+get_response_code() { echo "$1" | head -1 | awk '{print $1}'; }
+get_response_body() { local first_line; first_line=$(echo "$1" | head -1 | cut -d' ' -f2-); local rest; rest=$(echo "$1" | tail -n +2); if [[ -n "$rest" ]]; then printf '%s\n%s' "$first_line" "$rest"; else printf '%s' "$first_line"; fi; }
 
 # ---- Основные функции ----
 

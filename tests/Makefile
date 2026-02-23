@@ -16,7 +16,7 @@
 # Переменные
 # -----------------------------------------------------------------------------
 DOCKER_REGISTRY ?= harbor.kryukov.lan/library
-AM_TAG          ?= v0.1.0-1
+AM_TAG          ?= v0.1.0-2
 SE_TAG          ?= v0.1.0-1
 NAMESPACE       ?= artsore-test
 AM_PORT         ?= 8000
@@ -60,7 +60,7 @@ PF_SE_AR        := 18015:$(SE_PORT)
 # Переменные окружения для тестовых скриптов
 export KC_URL         := https://localhost:18080
 export KC_TOKEN_URL   := https://localhost:18080/realms/artsore/protocol/openid-connect/token
-export AM_URL         := https://localhost:18000
+export AM_URL         := http://localhost:18000
 export SE_EDIT_1_URL  := https://localhost:18010
 export SE_EDIT_2_URL  := https://localhost:18011
 export SE_RW_1_URL    := https://localhost:18012
@@ -81,7 +81,7 @@ export KC_SA_CLIENT_ID            := artsore-admin-module
 export KC_SA_CLIENT_SECRET        := admin-module-test-secret
 
 .PHONY: help docker-build docker-build-am docker-build-se docker-push-am docker-push-se \
-        copy-realm infra-up infra-down se-up se-down apps-up apps-down \
+        copy-realm infra-up infra-down kc-setup se-up se-down apps-up apps-down \
         init-data init-data-clean test-env-up test-env-down \
         test-env-status test-env-logs \
         port-forward-start port-forward-stop port-forward-status \
@@ -202,6 +202,30 @@ infra-up: copy-realm
 	@kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=keycloak \
 		-n $(NAMESPACE) --timeout=300s
 	@echo ">>> artsore-infra развёрнут"
+	@$(MAKE) --no-print-directory kc-setup
+
+## kc-setup: Настроить Keycloak realm (frontendUrl для корректного JWT issuer)
+## Использует port-forward (в KC образе нет curl)
+kc-setup:
+	@echo ">>> Настройка Keycloak realm frontendUrl..."
+	@KC_SVC="$(INFRA_RELEASE)-keycloak.$(NAMESPACE).svc.cluster.local"; \
+	KC_INTERNAL="http://$$KC_SVC:8080"; \
+	KC_LOCAL_PORT=19080; \
+	kubectl port-forward -n $(NAMESPACE) svc/$(INFRA_RELEASE)-keycloak $$KC_LOCAL_PORT:8080 &>/dev/null & \
+	KC_PF_PID=$$!; \
+	sleep 2; \
+	KC_ADMIN_TOKEN=$$(curl -sf http://localhost:$$KC_LOCAL_PORT/realms/master/protocol/openid-connect/token \
+		-d "grant_type=password&client_id=admin-cli&username=admin&password=admin" | jq -r '.access_token'); \
+	if [ -n "$$KC_ADMIN_TOKEN" ] && [ "$$KC_ADMIN_TOKEN" != "null" ]; then \
+		curl -sf -X PUT http://localhost:$$KC_LOCAL_PORT/admin/realms/artsore \
+			-H "Authorization: Bearer $$KC_ADMIN_TOKEN" \
+			-H "Content-Type: application/json" \
+			-d "{\"attributes\": {\"frontendUrl\": \"$$KC_INTERNAL\"}}" && \
+		echo ">>> frontendUrl установлен: $$KC_INTERNAL"; \
+	else \
+		echo ">>> WARN: не удалось получить admin-токен KC, frontendUrl не настроен"; \
+	fi; \
+	kill $$KC_PF_PID 2>/dev/null || true
 
 ## infra-down: Удалить artsore-infra
 infra-down:

@@ -323,7 +323,23 @@
         "admin:write",
         "groups"
       ],
-      "optionalClientScopes": []
+      "optionalClientScopes": [],
+      "protocolMappers": [
+        {
+          "name": "client_id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usersessionmodel-note-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.session.note": "client_id",
+            "claim.name": "client_id",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
     },
     {
       "clientId": "artsore-ingester",
@@ -392,11 +408,11 @@
       "clientAuthenticatorType": "client-secret",
       "redirectUris": [
         "http://localhost:3000/*",
-        "https://artsore.kryukov.lan/*"
+        "https://artstore.kryukov.lan/*"
       ],
       "webOrigins": [
         "http://localhost:3000",
-        "https://artsore.kryukov.lan"
+        "https://artstore.kryukov.lan"
       ],
       "bearerOnly": false,
       "consentRequired": false,
@@ -409,7 +425,7 @@
       "protocol": "openid-connect",
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:3000/*##https://artsore.kryukov.lan/*"
+        "post.logout.redirect.uris": "http://localhost:3000/*##https://artstore.kryukov.lan/*"
       },
       "fullScopeAllowed": false,
       "defaultClientScopes": [
@@ -426,6 +442,95 @@
         "admin:read",
         "admin:write",
         "offline_access"
+      ]
+    },
+    {
+      "clientId": "artsore-test-user",
+      "name": "Test User Client",
+      "description": "Клиент для интеграционных тестов — получение JWT пользователей через Resource Owner Password Credentials flow",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "test-user-secret",
+      "redirectUris": [],
+      "webOrigins": [],
+      "bearerOnly": false,
+      "consentRequired": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "publicClient": false,
+      "frontchannelLogout": false,
+      "protocol": "openid-connect",
+      "attributes": {
+        "access.token.lifespan": "300",
+        "client.secret.creation.time": "0"
+      },
+      "fullScopeAllowed": true,
+      "defaultClientScopes": [
+        "groups"
+      ],
+      "optionalClientScopes": [
+        "files:read",
+        "files:write",
+        "storage:read",
+        "storage:write",
+        "admin:read",
+        "admin:write"
+      ],
+      "protocolMappers": [
+        {
+          "name": "realm roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "realm_access.roles",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "preferred_username",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "username",
+            "claim.name": "preferred_username",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "sub",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-sub-mapper",
+          "consentRequired": false,
+          "config": {
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "email",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "email",
+            "claim.name": "email",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
       ]
     },
     {

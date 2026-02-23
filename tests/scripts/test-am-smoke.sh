@@ -14,7 +14,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib.sh"
 
-: "${AM_URL:=https://localhost:18000}"
+: "${AM_URL:=http://localhost:18000}"
 
 log_info "=== AM Smoke Tests (1-3) ==="
 
@@ -57,19 +57,20 @@ fi
 
 # ---------- Тест 3: GET /metrics ----------
 log_info "Тест 3: GET /metrics"
-RESPONSE=$(http_get "$AM_URL" "" "/metrics")
-CODE=$(get_response_code "$RESPONSE")
-BODY=$(get_response_body "$RESPONSE")
+# Прямой curl — metrics endpoint возвращает большой Prometheus-формат,
+# стандартный http_get вызывает SIGPIPE при парсинге многострочного ответа
+METRICS_TMP=$(mktemp)
+METRICS_CODE=$(curl $CURL_OPTS -w "%{http_code}" -o "$METRICS_TMP" "${AM_URL}/metrics") || METRICS_CODE="000"
 
-if [[ "$CODE" == "200" ]]; then
-    # Проверяем наличие типичных Prometheus-метрик
-    if echo "$BODY" | grep -q "go_goroutines"; then
+if [[ "$METRICS_CODE" == "200" ]]; then
+    if grep -q "go_goroutines" "$METRICS_TMP"; then
         test_pass "Тест 3: metrics → 200, Prometheus-формат"
     else
         test_fail "Тест 3: metrics → 200, но не содержит go_goroutines"
     fi
 else
-    test_fail "Тест 3: metrics → HTTP ${CODE} (ожидался 200)"
+    test_fail "Тест 3: metrics → HTTP ${METRICS_CODE} (ожидался 200)"
 fi
+rm -f "$METRICS_TMP"
 
 print_summary

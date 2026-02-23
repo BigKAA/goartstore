@@ -1,0 +1,40 @@
+# Production values для деплоя Admin Module
+# Использует инфраструктуру из artsore-test namespace
+
+tag: v0.1.0-2
+
+# PostgreSQL — используем PG из artsore-test
+database:
+  host: postgresql.artsore-test.svc.cluster.local
+  port: 5432
+  name: artsore
+  user: artsore
+  password: artsore-test-password
+  sslMode: disable
+
+# Keycloak — используем KC из artsore-test
+keycloak:
+  url: "http://artsore-infra-keycloak.artsore-test.svc.cluster.local:8080"
+  realm: artsore
+  clientId: artsore-admin-module
+  clientSecret: admin-module-test-secret
+  saPrefix: "sa_"
+
+# TLS — CA-сертификат для подключения к SE
+tls:
+  caSecret: artsore-test-tls
+
+# HTTPRoute — включаем для внешнего доступа через API Gateway
+httproute:
+  enabled: true
+  gatewayName: eg
+  gatewayNamespace: envoy-gateway-system
+  hostname: "artstore.kryukov.lan"
+  pathPrefixes:
+    - /api/v1
+    - /health
+
+# Sync — более частая синхронизация для тестирования
+sync:
+  interval: "5m"
+  saInterval: "5m"
