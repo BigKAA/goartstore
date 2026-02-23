@@ -15,6 +15,7 @@ package service
 import (
 	"context"
 	"log/slog"
+	"net/url"
 	"time"
 
 	"github.com/BigKAA/topologymetrics/sdk-go/dephealth"
@@ -72,11 +73,21 @@ func newDephealthService(
 	logger *slog.Logger,
 	extraOpts ...dephealth.Option,
 ) (*DephealthService, error) {
+	// Извлекаем path из JWKS URL для health check.
+	// По умолчанию dephealth проверяет /health, но у Keycloak этот endpoint
+	// доступен только на management порту (9000). Используем path самого JWKS URL —
+	// это подтверждает доступность realm и OIDC endpoints.
+	healthPath := "/health"
+	if parsed, parseErr := url.Parse(jwksURL); parseErr == nil && parsed.Path != "" {
+		healthPath = parsed.Path
+	}
+
 	// Собираем опции: встроенный HTTP checker с per-dependency интервалом
 	opts := []dephealth.Option{
 		dephealth.WithLogger(logger),
 		dephealth.HTTP(depName,
 			dephealth.FromURL(jwksURL),
+			dephealth.WithHTTPHealthPath(healthPath),
 			dephealth.CheckInterval(checkInterval),
 			dephealth.Critical(true),
 			dephealth.WithHTTPTLSSkipVerify(true), // Dev-среда: self-signed сертификаты

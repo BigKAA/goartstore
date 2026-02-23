@@ -203,7 +203,7 @@ data:
     while [[ $KC_ELAPSED -lt $KC_TIMEOUT ]]; do
         HTTP_CODE=$(curl $CURL_OPTS -o /dev/null -w "%{http_code}" \
             "${KC_TOKEN_ENDPOINT}" 2>/dev/null) || HTTP_CODE="000"
-        if [[ "$HTTP_CODE" == "400" || "$HTTP_CODE" == "401" || "$HTTP_CODE" == "200" ]]; then
+        if [[ "$HTTP_CODE" == "400" || "$HTTP_CODE" == "401" || "$HTTP_CODE" == "200" || "$HTTP_CODE" == "405" ]]; then
             KC_READY=true; break
         fi
         sleep 3; KC_ELAPSED=$((KC_ELAPSED + 3))
@@ -356,11 +356,10 @@ spec:
       restartPolicy: Never
       containers:
         - name: init
-          image: alpine:3.19
+          image: harbor.kryukov.lan/library/artsore-tools:latest
           command:
-            - /bin/sh
-            - -c
-            - apk add --no-cache bash curl jq && exec /bin/bash /scripts/init-data.sh
+            - /bin/bash
+            - /scripts/init-data.sh
           env:
             # Keycloak token endpoint (HTTP — через infraReleaseName)
             - name: KC_TOKEN_ENDPOINT
@@ -370,9 +369,9 @@ spec:
               value: artsore-test-init
             - name: KC_CLIENT_SECRET
               value: test-init-secret
-            # Admin Module URL
+            # Admin Module URL (HTTP — AM без TLS, termination на Gateway)
             - name: AM_URL
-              value: "https://admin-module.${NAMESPACE}.svc.cluster.local:${AM_PORT}"
+              value: "http://admin-module.${NAMESPACE}.svc.cluster.local:${AM_PORT}"
             # SE URLs
             - name: SE_EDIT_1_URL
               value: "https://se-edit-1.${NAMESPACE}.svc.cluster.local:${SE_PORT}"

@@ -103,7 +103,7 @@ func TestJWTAuth_ValidToken(t *testing.T) {
 			NotBefore: jwt.NewNumericDate(time.Now().Add(-time.Minute)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
-		Scopes: []string{"files:read", "files:write"},
+		ScopeArray: []string{"files:read", "files:write"},
 	}
 
 	tokenString, err := generateTestToken(key, claims)
@@ -154,7 +154,7 @@ func TestJWTAuth_ExpiredToken(t *testing.T) {
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(-time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now().Add(-2 * time.Hour)),
 		},
-		Scopes: []string{"files:read"},
+		ScopeArray: []string{"files:read"},
 	}
 
 	tokenString, _ := generateTestToken(key, claims)

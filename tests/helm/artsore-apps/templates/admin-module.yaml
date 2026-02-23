@@ -64,7 +64,7 @@ spec:
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           ports:
             - containerPort: {{ .Values.adminModule.port }}
-              name: https
+              name: http
           env:
             # --- Сервер ---
             - name: AM_PORT
@@ -117,11 +117,8 @@ spec:
             # --- TLS (CA для подключения к SE) ---
             - name: AM_SE_CA_CERT_PATH
               value: /certs/ca.crt
-            # --- TLS (собственный сертификат) ---
-            - name: AM_TLS_CERT
-              value: /certs/tls.crt
-            - name: AM_TLS_KEY
-              value: /certs/tls.key
+            # AM не использует собственный TLS — HTTP внутри кластера,
+            # TLS termination на API Gateway.
             # --- topologymetrics ---
             - name: AM_DEPHEALTH_CHECK_INTERVAL
               value: {{ .Values.adminModule.dephealthCheckInterval | quote }}
@@ -140,14 +137,14 @@ spec:
             httpGet:
               path: /health/live
               port: {{ .Values.adminModule.port }}
-              scheme: HTTPS
+              scheme: HTTP
             initialDelaySeconds: 30
             periodSeconds: 30
           readinessProbe:
             httpGet:
               path: /health/ready
               port: {{ .Values.adminModule.port }}
-              scheme: HTTPS
+              scheme: HTTP
             initialDelaySeconds: 20
             periodSeconds: 15
       volumes:
@@ -172,4 +169,4 @@ spec:
   ports:
     - port: {{ .Values.adminModule.port }}
       targetPort: {{ .Values.adminModule.port }}
-      name: https
+      name: http

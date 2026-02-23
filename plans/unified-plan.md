@@ -24,10 +24,10 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 5
-- **Активный подпункт**: 5.1
+- **Активная фаза**: Phase 6
+- **Активный подпункт**: 6.1
 - **Последнее обновление**: 2026-02-23
-- **Примечание**: Phase 1 завершена
+- **Примечание**: Phase 1-5 завершены. Обнаружены и исправлены: dephealth KC health path, AM HTTP probes, SE scopes (scope vs scopes), KC clientScopeMappings, Init Job image/KC readiness check
 
 ---
 
@@ -39,7 +39,7 @@
 - [x] [Phase 2: artsore-se chart (6 SE)](#phase-2-artsore-se-chart-6-se)
 - [x] [Phase 3: artsore-apps chart (AM)](#phase-3-artsore-apps-chart-am)
 - [x] [Phase 4: Makefile и Init Job](#phase-4-makefile-и-init-job)
-- [ ] [Phase 5: Валидация инфраструктуры](#phase-5-валидация-инфраструктуры)
+- [x] [Phase 5: Валидация инфраструктуры](#phase-5-валидация-инфраструктуры)
 
 **Admin Module (приоритет 2):**
 
@@ -88,7 +88,7 @@ tests/helm/
 ### Ключевые архитектурные решения
 
 - **Certificate ownership**: artsore-infra создаёт один Certificate с dnsNames для ВСЕХ сервисов (PG, KC, AM, SE) + FQDN формат. Остальные chart-ы используют TLS secret по имени
-- **infraReleaseName**: artsore-se и artsore-apps содержат параметр `infraReleaseName: artsore-infra` для формирования имён сервисов KC/PG (Bitnami KC создаёт service `<release>-keycloak`)
+- **infraReleaseName**: artsore-se и artsore-apps содержат параметр `infraReleaseName: artsore-infra` для формирования имён сервисов KC/PG (KC service = `<release>-keycloak`)
 - **Init Job = отдельная команда**: `make init-data` вместо Helm hooks. Может быть перезапущен
 - **Namespace**: artsore-infra создаёт namespace, остальные chart-ы используют `--namespace artsore-test`
 
@@ -102,19 +102,19 @@ tests/helm/
 
 ### Описание
 
-Создание Helm chart `artsore-infra` с PostgreSQL и Keycloak (Bitnami subchart). Базовый слой инфраструктуры — деплоится первым, живёт постоянно.
+Создание Helm chart `artsore-infra` с PostgreSQL и Keycloak (official image `quay.io/keycloak/keycloak:26.1`). Базовый слой инфраструктуры — деплоится первым, живёт постоянно.
 
-Chart создаёт: Namespace, Certificate, PostgreSQL (ConfigMap + PVC + Deployment + Service), Realm ConfigMap. Keycloak — через Bitnami subchart.
+Chart создаёт: Namespace, Certificate, PostgreSQL (ConfigMap + PVC + Deployment + Service), Keycloak (Deployment + Service), Realm ConfigMap.
 
 ### Подпункты
 
 - [x] **1.1 Создать `Chart.yaml` и `values.yaml`**
   - **Dependencies**: None
-  - **Description**: Chart.yaml с Bitnami Keycloak dependency. values.yaml:
+  - **Description**: Chart.yaml (без внешних dependencies). values.yaml:
     - `namespace: artsore-test`
     - `tls:` clusterIssuer, secretName
     - `postgresql:` image, port, user, password, database, dataSize, resources
-    - `keycloak:` Bitnami subchart values (production: false, externalDatabase, tls, realm import)
+    - `keycloak:` image, adminUser/Password, database (host, port, name, user, password), resources
     - `storageClass: nfs-client`
   - **Creates**:
     - `tests/helm/artsore-infra/Chart.yaml`
@@ -142,7 +142,7 @@ Chart создаёт: Namespace, Certificate, PostgreSQL (ConfigMap + PVC + Depl
 
 - [x] **1.3 Lint и template**
   - **Dependencies**: 1.2
-  - **Description**: Скопировать realm.json в `files/`, `helm dependency update`, `helm lint` + `helm template`
+  - **Description**: Скопировать realm.json в `files/`, `helm lint` + `helm template`
   - **Creates**: N/A
   - **Links**: N/A
 
@@ -150,7 +150,7 @@ Chart создаёт: Namespace, Certificate, PostgreSQL (ConfigMap + PVC + Depl
 
 - [x] Все подпункты завершены (1.1, 1.2, 1.3)
 - [x] `helm lint` без ошибок
-- [x] `helm template` рендерит: Namespace, Certificate, PG (ConfigMap+PVC+Deployment+Service), Realm ConfigMap + Keycloak resources
+- [x] `helm template` рендерит: Namespace, Certificate, PG (ConfigMap+PVC+Deployment+Service), KC (Deployment+Service), Realm ConfigMap
 - [x] Certificate включает dnsNames для ВСЕХ сервисов + FQDN формат
 
 ---
@@ -312,16 +312,16 @@ Helm chart `artsore-apps` с Admin Module для тестовой среды. Д
 
 - [x] Все подпункты завершены (4.1, 4.2)
 - [x] `make help` показывает все targets
-- [ ] `make infra-up`, `make se-up`, `make apps-up` работают по отдельности
-- [ ] `make test-env-up` разворачивает всё одной командой
-- [ ] `make init-data` запускает Init Job отдельно
+- [x] `make infra-up`, `make se-up`, `make apps-up` работают по отдельности
+- [ ] `make test-env-up` разворачивает всё одной командой (не тестировалось в Phase 5)
+- [x] `make init-data` запускает Init Job отдельно
 
 ---
 
 ## Phase 5: Валидация инфраструктуры
 
 **Dependencies**: Phase 4
-**Status**: Pending
+**Status**: Done
 **Origin**: test-infrastructure-v2.0.0 Phase E
 
 ### Описание
@@ -330,37 +330,37 @@ Helm chart `artsore-apps` с Admin Module для тестовой среды. Д
 
 ### Подпункты
 
-- [ ] **5.1 Lint и template всех chart-ов**
+- [x] **5.1 Lint и template всех chart-ов**
   - **Dependencies**: None
   - **Description**: `helm lint` + `helm template` для всех трёх chart-ов. Проверить количество ресурсов
   - **Creates**: N/A
   - **Links**: N/A
 
-- [ ] **5.2 Деплой инфраструктуры**
+- [x] **5.2 Деплой инфраструктуры**
   - **Dependencies**: 5.1
   - **Description**: `make infra-up` → PG Running (2 БД), KC Running (realm imported), Certificate + TLS secret
   - **Creates**: N/A
   - **Links**: N/A
 
-- [ ] **5.3 Деплой SE**
+- [x] **5.3 Деплой SE**
   - **Dependencies**: 5.2
   - **Description**: `make se-up` → 8 SE pods Running (4 standalone + 2×2 replicated), health probes OK, JWKS fetched
   - **Creates**: N/A
   - **Links**: N/A
 
-- [ ] **5.4 Деплой AM**
+- [x] **5.4 Деплой AM**
   - **Dependencies**: 5.2
   - **Description**: `make apps-up` → AM pod Running (init containers OK), health/ready OK, подключён к PG и KC
   - **Creates**: N/A
   - **Links**: N/A
 
-- [ ] **5.5 Init Job и end-to-end**
+- [x] **5.5 Init Job и end-to-end**
   - **Dependencies**: 5.3, 5.4
   - **Description**: `make init-data` → Job Complete, файлы загружены, se-ro в mode `ro`, se-ar в mode `ar`, токены работают
   - **Creates**: N/A
   - **Links**: N/A
 
-- [ ] **5.6 Проверка независимого lifecycle**
+- [x] **5.6 Проверка независимого lifecycle**
   - **Dependencies**: 5.5
   - **Description**: `make apps-down` → infra+SE работают → `make apps-up` → AM подключается. `make se-down` → infra работает → `make se-up` → SE поднимаются
   - **Creates**: N/A
@@ -368,10 +368,10 @@ Helm chart `artsore-apps` с Admin Module для тестовой среды. Д
 
 ### Критерии завершения Phase 5
 
-- [ ] Все подпункты завершены (5.1 — 5.6)
-- [ ] Все компоненты Running
-- [ ] Init Job Complete, токены end-to-end
-- [ ] Независимый lifecycle подтверждён
+- [x] Все подпункты завершены (5.1 — 5.6)
+- [x] Все компоненты Running
+- [x] Init Job Complete, токены end-to-end
+- [x] Независимый lifecycle подтверждён
 
 ---
 

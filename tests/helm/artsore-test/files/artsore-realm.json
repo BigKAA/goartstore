@@ -314,6 +314,7 @@
       },
       "fullScopeAllowed": false,
       "defaultClientScopes": [
+        "roles",
         "files:read",
         "files:write",
         "storage:read",
@@ -518,12 +519,30 @@
           "manage-clients",
           "view-clients",
           "manage-users",
-          "view-realm"
+          "view-realm",
+          "query-users",
+          "query-clients"
         ]
       }
     }
   ],
   "scopeMappings": [],
+  "clientScopeMappings": {
+    "realm-management": [
+      {
+        "client": "artsore-admin-module",
+        "roles": [
+          "view-users",
+          "manage-clients",
+          "view-clients",
+          "manage-users",
+          "view-realm",
+          "query-users",
+          "query-clients"
+        ]
+      }
+    ]
+  },
   "browserSecurityHeaders": {
     "contentSecurityPolicyReportOnly": "",
     "xContentTypeOptions": "nosniff",

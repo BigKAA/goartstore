@@ -33,10 +33,25 @@ const (
 )
 
 // Claims — структура JWT claims для Storage Element.
+// Поддерживает два формата scopes:
+//   - Keycloak стандартный: "scope" (пробело-разделённая строка)
+//   - Кастомный: "scopes" (массив строк)
 type Claims struct {
 	jwt.RegisteredClaims
-	// Scopes — массив scope'ов (например, ["files:read", "files:write"])
-	Scopes []string `json:"scopes"`
+	// ScopeString — стандартный OAuth2 claim (пробело-разделённая строка)
+	ScopeString string `json:"scope"`
+	// ScopeArray — кастомный claim (массив строк), альтернативный формат
+	ScopeArray []string `json:"scopes"`
+}
+
+// Scopes возвращает объединённый список scope'ов из обоих форматов.
+func (c *Claims) Scopes() []string {
+	var result []string
+	if c.ScopeString != "" {
+		result = append(result, strings.Split(c.ScopeString, " ")...)
+	}
+	result = append(result, c.ScopeArray...)
+	return result
 }
 
 // JWTAuth — middleware для JWT-аутентификации через JWKS.
@@ -181,7 +196,7 @@ func (j *JWTAuth) Middleware() func(http.Handler) http.Handler {
 
 			// Помещаем claims в контекст
 			ctx := context.WithValue(r.Context(), ContextKeySubject, subject)
-			ctx = context.WithValue(ctx, ContextKeyScopes, claims.Scopes)
+			ctx = context.WithValue(ctx, ContextKeyScopes, claims.Scopes())
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
