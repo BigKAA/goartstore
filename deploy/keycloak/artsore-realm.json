@@ -429,6 +429,45 @@
       ]
     },
     {
+      "clientId": "artsore-test-user",
+      "name": "Test User Client",
+      "description": "Клиент для интеграционных тестов — получение JWT пользователей через Resource Owner Password Credentials flow",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "test-user-secret",
+      "redirectUris": [],
+      "webOrigins": [],
+      "bearerOnly": false,
+      "consentRequired": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "publicClient": false,
+      "frontchannelLogout": false,
+      "protocol": "openid-connect",
+      "attributes": {
+        "access.token.lifespan": "300",
+        "client.secret.creation.time": "0"
+      },
+      "fullScopeAllowed": false,
+      "defaultClientScopes": [
+        "openid",
+        "profile",
+        "email",
+        "roles",
+        "groups"
+      ],
+      "optionalClientScopes": [
+        "files:read",
+        "files:write",
+        "storage:read",
+        "storage:write",
+        "admin:read",
+        "admin:write"
+      ]
+    },
+    {
       "clientId": "artsore-test-init",
       "name": "Test Init Client",
       "description": "Клиент для инициализации тестовой среды (загрузка файлов, mode transitions)",

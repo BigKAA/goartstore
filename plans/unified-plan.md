@@ -24,8 +24,8 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 6
-- **Активный подпункт**: 6.1 (Done)
+- **Активная фаза**: Phase 7
+- **Активный подпункт**: 7.3 (Pending — запуск и отладка тестов)
 - **Последнее обновление**: 2026-02-23
 - **Примечание**: Phase 1-5 завершены. Обнаружены и исправлены: dephealth KC health path, AM HTTP probes, SE scopes (scope vs scopes), KC clientScopeMappings, Init Job image/KC readiness check
 
@@ -425,7 +425,7 @@ Helm chart для production-деплоя Admin Module: Deployment, Service, HTT
 ## Phase 7: Интеграционные тесты AM
 
 **Dependencies**: Phase 5
-**Status**: Pending
+**Status**: In Progress
 **Origin**: admin-module.md Phase 6.4
 
 ### Описание
@@ -434,7 +434,7 @@ Helm chart для production-деплоя Admin Module: Deployment, Service, HTT
 
 ### Подпункты
 
-- [ ] **7.1 Создать тестовые скрипты**
+- [x] **7.1 Создать тестовые скрипты**
   - **Dependencies**: None
   - **Description**: Тесты в `tests/scripts/` (используют port-forward к AM из artsore-test). Используют `tests/scripts/lib.sh`. ~25-30 тестовых сценариев:
     - **Smoke** (1-3): health live, health ready, metrics
@@ -460,7 +460,7 @@ Helm chart для production-деплоя Admin Module: Deployment, Service, HTT
     - `docs/api-contracts/admin-module-openapi.yaml` — API контракт
     - `tests/scripts/lib.sh` — общая библиотека утилит
 
-- [ ] **7.2 Добавить target test-am в Makefile**
+- [x] **7.2 Добавить target test-am в Makefile**
   - **Dependencies**: 7.1
   - **Description**: Добавить `make test-am` в `tests/Makefile`. Требует port-forward-start
   - **Creates**:
@@ -508,7 +508,7 @@ Helm chart для production-деплоя Admin Module: Deployment, Service, HTT
     - Harbor: `harbor.kryukov.lan/library/admin-module`
     - API Gateway: `artsore.kryukov.lan` → 192.168.218.180
 
-- [ ] **8.2 Удалить старый chart и архивировать планы**
+- [x] **8.2 Удалить старый chart и архивировать планы**
   - **Dependencies**: 8.1
   - **Description**:
     - Удалить `tests/helm/artsore-test/`
@@ -519,7 +519,7 @@ Helm chart для production-деплоя Admin Module: Deployment, Service, HTT
   - **Creates**: N/A
   - **Links**: N/A
 
-- [ ] **8.3 Обновить документацию**
+- [x] **8.3 Обновить документацию**
   - **Dependencies**: 8.2
   - **Description**:
     - Обновить `CLAUDE.md` — описать три chart-а, новые Makefile targets

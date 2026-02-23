@@ -91,6 +91,44 @@ get_token_from_keycloak() {
     echo "$body" | jq -r '.access_token'
 }
 
+# get_user_token — получить JWT пользователя из Keycloak через Resource Owner Password Credentials flow
+# Аргументы: $1=token_endpoint, $2=client_id, $3=client_secret, $4=username, $5=password
+# Возвращает: access_token через stdout
+get_user_token() {
+    local endpoint="$1"
+    local client_id="$2"
+    local client_secret="$3"
+    local username="$4"
+    local password="$5"
+
+    local tmpout
+    tmpout=$(mktemp)
+    local http_code
+    http_code=$(curl $CURL_OPTS -w "%{http_code}" -o "$tmpout" \
+        -X POST \
+        -d "grant_type=password" \
+        -d "client_id=${client_id}" \
+        -d "client_secret=${client_secret}" \
+        -d "username=${username}" \
+        -d "password=${password}" \
+        "${endpoint}") || true
+
+    local body
+    body=$(cat "$tmpout")
+    rm -f "$tmpout"
+
+    if [[ "$http_code" != "200" ]]; then
+        log_fail "get_user_token: HTTP ${http_code} от ${endpoint} (user=${username})"
+        if echo "$body" | jq . >/dev/null 2>&1; then
+            log_fail "  Ответ: $(echo "$body" | jq -c '.')"
+        fi
+        echo ""
+        return 1
+    fi
+
+    echo "$body" | jq -r '.access_token'
+}
+
 # wait_ready — дождаться готовности сервиса (GET /health/ready → 200)
 # Аргументы: $1=url, $2=timeout(секунды)
 wait_ready() {
@@ -284,6 +322,37 @@ http_patch() {
 
     local curl_args=($CURL_OPTS -w "%{http_code}" -o "$tmpout"
         -X PATCH
+        -H "Content-Type: application/json")
+    if [[ -n "$token" ]]; then
+        curl_args+=(-H "Authorization: Bearer ${token}")
+    fi
+    if [[ -n "$data" ]]; then
+        curl_args+=(-d "$data")
+    fi
+
+    http_code=$(curl "${curl_args[@]}" "${base_url}${path}") || http_code="000"
+
+    local body
+    body=$(cat "$tmpout")
+    rm -f "$tmpout"
+
+    echo "${http_code} ${body}"
+}
+
+# http_put — PUT запрос с JSON телом
+# Аргументы: $1=base_url, $2=token, $3=path, $4=json_data
+http_put() {
+    local base_url="$1"
+    local token="$2"
+    local path="$3"
+    local data="$4"
+
+    local tmpout
+    tmpout=$(mktemp)
+    local http_code
+
+    local curl_args=($CURL_OPTS -w "%{http_code}" -o "$tmpout"
+        -X PUT
         -H "Content-Type: application/json")
     if [[ -n "$token" ]]; then
         curl_args+=(-H "Authorization: Bearer ${token}")

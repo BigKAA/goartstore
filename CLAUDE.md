@@ -161,7 +161,40 @@ src/<module>/
 - Тестировать в кластере Kubernetes
 - Unit-тесты: `go test ./...` в директории модуля
 - Интеграционные тесты: bash-скрипты в `tests/scripts/` (curl + assertions)
-- Тестовое окружение разворачивается через Helm chart в `tests/helm/`
+- Тестовое окружение разворачивается через три Helm chart-а в `tests/helm/`
+
+### Тестовая инфраструктура (три Helm chart-а)
+
+```
+tests/helm/
+├── artsore-infra/     — PG + KC (базовый слой)
+├── artsore-se/        — 6 Storage Elements всех типов
+├── artsore-apps/      — Admin Module
+└── init-job/          — standalone Job (загрузка данных)
+```
+
+Все три chart-а деплоятся в один namespace `artsore-test`.
+
+### Makefile targets (из `tests/`)
+
+```
+make infra-up / infra-down     — PG + KC
+make se-up / se-down           — 6 SE
+make apps-up / apps-down       — AM
+make test-env-up / test-env-down — всё сразу (последовательно)
+make init-data                 — Init Job (загрузка тестовых данных)
+make port-forward-start / stop — port-forward ко всем сервисам
+make test-am                   — интеграционные тесты AM (~30 тестов)
+make test-all                  — все интеграционные тесты
+```
+
+### Keycloak тестовые клиенты
+
+| Клиент | Тип | Назначение |
+|--------|-----|------------|
+| `artsore-test-user` (secret: `test-user-secret`) | Password grant | JWT пользователей (admin/viewer) |
+| `artsore-admin-module` (secret: `admin-module-test-secret`) | Client credentials | JWT service account AM |
+| `artsore-test-init` (secret: `test-init-secret`) | Client credentials | Инициализация тестовых данных |
 
 ## Ключевые документы
 
@@ -171,7 +204,7 @@ src/<module>/
 | API-контракты | `docs/api-contracts/*.yaml` | OpenAPI спецификации всех модулей |
 | Брифы модулей | `docs/briefs/*.md` | Краткие описания архитектуры модулей |
 | Дизайн Admin Module | `docs/design/admin-module-design.md` | Техдизайн: схема БД, компоненты, потоки |
-| План Admin Module | `plans/admin-module.md` | Активный план (Phase 5-6 pending) |
+| План разработки | `plans/unified-plan.md` | Объединённый план (Phase 7-8) |
 | План SE (архив) | `plans/archive/storage-element-development-plan.md` | Завершённый план SE |
 
 ## Справка по старому проекту (old_artstore/)

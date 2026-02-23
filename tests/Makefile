@@ -21,6 +21,7 @@ SE_TAG          ?= v0.1.0-1
 NAMESPACE       ?= artsore-test
 AM_PORT         ?= 8000
 SE_PORT         ?= 8010
+TEST_AM_ARGS    ?=
 
 # Helm chart-ы и release names
 INFRA_CHART     := helm/artsore-infra
@@ -69,13 +70,23 @@ export SE_AR_URL      := https://localhost:18015
 export K8S_NAMESPACE  := $(NAMESPACE)
 export CURL_OPTS      := -k -s --connect-timeout 5
 
+# Keycloak тестовые клиенты (для получения JWT)
+export KC_TEST_USER_CLIENT_ID     := artsore-test-user
+export KC_TEST_USER_CLIENT_SECRET := test-user-secret
+export KC_ADMIN_USERNAME          := admin
+export KC_ADMIN_PASSWORD          := admin
+export KC_VIEWER_USERNAME         := viewer
+export KC_VIEWER_PASSWORD         := viewer
+export KC_SA_CLIENT_ID            := artsore-admin-module
+export KC_SA_CLIENT_SECRET        := admin-module-test-secret
+
 .PHONY: help docker-build docker-build-am docker-build-se docker-push-am docker-push-se \
         copy-realm infra-up infra-down se-up se-down apps-up apps-down \
         init-data init-data-clean test-env-up test-env-down \
         test-env-status test-env-logs \
         port-forward-start port-forward-stop port-forward-status \
         port-forward-infra port-forward-se port-forward-apps \
-        test-all clean
+        test-am test-all clean
 
 # -----------------------------------------------------------------------------
 # Справка
@@ -114,6 +125,7 @@ help:
 	@echo "  port-forward-status  Показать статус port-forward"
 	@echo ""
 	@echo "Тесты (требуют port-forward-start):"
+	@echo "  test-am              Запустить интеграционные тесты Admin Module"
 	@echo "  test-all             Запустить все интеграционные тесты"
 	@echo ""
 	@echo "Очистка:"
@@ -391,10 +403,15 @@ port-forward-status:
 # Интеграционные тесты
 # -----------------------------------------------------------------------------
 
+## test-am: Запустить интеграционные тесты Admin Module
+test-am:
+	@echo ">>> Запуск интеграционных тестов Admin Module..."
+	@$(SCRIPTS_DIR)/test-am-all.sh $(TEST_AM_ARGS)
+
 ## test-all: Запустить все интеграционные тесты
-test-all:
-	@echo ">>> Интеграционные тесты пока не реализованы"
-	@echo "  Реализация будет в Phase 7"
+test-all: test-am
+	@echo ""
+	@echo ">>> Все интеграционные тесты завершены"
 
 # -----------------------------------------------------------------------------
 # Очистка
