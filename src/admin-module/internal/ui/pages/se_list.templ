@@ -1,0 +1,419 @@
+package pages
+
+import (
+	"fmt"
+	"strconv"
+	"time"
+
+	"github.com/arturkryukov/artstore/admin-module/internal/ui/components"
+	"github.com/arturkryukov/artstore/admin-module/internal/ui/layouts"
+)
+
+// SEListItem — элемент списка SE для отображения в таблице.
+type SEListItem struct {
+	ID            string
+	Name          string
+	URL           string
+	Mode          string // edit, rw, ro, ar
+	Status        string // online, offline, degraded, maintenance
+	CapacityBytes int64
+	UsedBytes     int64
+	FileCount     int
+	LastSyncAt    *time.Time
+}
+
+// SEListFilters — текущие значения фильтров.
+type SEListFilters struct {
+	Mode   string // Фильтр по режиму (пустая строка = все)
+	Status string // Фильтр по статусу (пустая строка = все)
+	Search string // Поисковый запрос
+}
+
+// SEListData — данные для страницы списка SE.
+type SEListData struct {
+	Username string
+	Role     string
+
+	Items   []SEListItem
+	Filters SEListFilters
+
+	SortKey    string // Ключ сортировки
+	SortDir    string // Направление: asc/desc
+	Page       int    // Текущая страница
+	TotalPages int    // Всего страниц
+	TotalItems int    // Всего элементов
+	PageSize   int    // Размер страницы
+}
+
+// seLastSync форматирует время последней синхронизации (внутреннее использование).
+func seLastSync(t *time.Time) string {
+	return SELastSyncFmt(t)
+}
+
+// SELastSyncFmt форматирует время последней синхронизации (экспортированная).
+func SELastSyncFmt(t *time.Time) string {
+	if t == nil {
+		return "—"
+	}
+	return t.Format("02.01.2006 15:04")
+}
+
+// SEList — страница списка Storage Elements с фильтрами, поиском и пагинацией.
+templ SEList(data SEListData) {
+	@layouts.Page(layouts.PageParams{
+		Title:     "Storage Elements",
+		Username:  data.Username,
+		Role:      data.Role,
+		ActiveNav: "storage-elements",
+		Breadcrumbs: []layouts.BreadcrumbItem{
+			{Label: "Storage Elements"},
+		},
+	}) {
+		<!-- Заголовок и кнопки действий -->
+		<div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+			<div>
+				<h1 class="text-2xl font-bold text-text-primary">Storage Elements</h1>
+				<p class="text-sm text-text-muted mt-1">
+					Управление зарегистрированными Storage Elements
+					<span class="text-text-secondary">({ strconv.Itoa(data.TotalItems) } всего)</span>
+				</p>
+			</div>
+			if data.Role == "admin" {
+				<div class="flex items-center gap-3"
+					x-data="{ showDiscover: false, showSyncAllConfirm: false }"
+				>
+					<!-- Кнопка Sync All -->
+					<button
+						class="inline-flex items-center px-4 py-2 text-sm font-medium text-text-primary bg-bg-elevated rounded-button border border-border-default hover:bg-bg-hover transition-colors gap-1.5"
+						x-on:click="showSyncAllConfirm = true"
+					>
+						<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M2.985 19.644l3.181-3.183"></path>
+						</svg>
+						Синхронизировать всё
+					</button>
+
+					<!-- Кнопка Добавить SE -->
+					<button
+						class="inline-flex items-center px-4 py-2 text-sm font-medium bg-accent-primary text-bg-base rounded-button hover:bg-accent-light transition-colors gap-1.5"
+						x-on:click="showDiscover = true"
+					>
+						<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"></path>
+						</svg>
+						Добавить SE
+					</button>
+
+					<!-- Modal: Discover SE -->
+					@components.Modal(components.ModalParams{
+						ID:    "showDiscover",
+						Title: "Добавить Storage Element",
+						Size:  components.ModalSizeLG,
+					}) {
+						<div id="discover-content">
+							<!-- Форма ввода URL -->
+							<div class="space-y-4">
+								<div>
+									<label class="block text-sm font-medium text-text-secondary mb-1">URL Storage Element</label>
+									<div class="flex gap-2">
+										<input
+											type="text"
+											name="url"
+											id="discover-url"
+											placeholder="https://se1.example.com"
+											class="flex-1 bg-bg-elevated text-text-primary text-sm rounded-button border border-border-default px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary placeholder:text-text-muted"
+										/>
+										<button
+											class="inline-flex items-center px-4 py-2 text-sm font-medium bg-accent-primary text-bg-base rounded-button hover:bg-accent-light transition-colors gap-1.5"
+											hx-post="/admin/partials/se-discover"
+											hx-target="#discover-result"
+											hx-swap="innerHTML"
+											hx-include="#discover-url"
+											hx-indicator="#discover-spinner"
+										>
+											<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"></path>
+											</svg>
+											Проверить
+										</button>
+									</div>
+									<p class="text-xs text-text-muted mt-1">Введите URL Storage Element для проверки доступности</p>
+								</div>
+								<!-- Спиннер загрузки -->
+								<div id="discover-spinner" class="htmx-indicator text-center py-4">
+									<svg class="animate-spin h-6 w-6 text-accent-primary mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+										<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+										<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+									</svg>
+									<p class="text-sm text-text-muted mt-2">Подключение к SE...</p>
+								</div>
+								<!-- Результат discover -->
+								<div id="discover-result"></div>
+							</div>
+						</div>
+					}
+
+					<!-- Confirm: Sync All -->
+					@components.ConfirmDialog(components.ConfirmDialogParams{
+						ID:          "showSyncAllConfirm",
+						Title:       "Синхронизировать все SE?",
+						Message:     "Будет выполнена синхронизация всех зарегистрированных Storage Elements. Это может занять некоторое время.",
+						ConfirmText: "Синхронизировать",
+					}) {
+						<button
+							class="inline-flex items-center px-4 py-2 text-sm font-medium bg-accent-primary text-bg-base rounded-button hover:bg-accent-light transition-colors"
+							hx-post="/admin/partials/se-sync-all"
+							hx-target="#se-action-result"
+							hx-swap="innerHTML"
+							x-on:click="showSyncAllConfirm = false"
+						>
+							Синхронизировать
+						</button>
+					}
+				</div>
+			}
+		</div>
+
+		<!-- Область для результатов действий (alert) -->
+		<div id="se-action-result" class="mb-4"></div>
+
+		<!-- Фильтры -->
+		@components.FilterBar(components.FilterBarParams{
+			Filters: []components.FilterSelect{
+				{
+					Name:  "mode",
+					Label: "Режим",
+					Options: []components.FilterOption{
+						{Value: "", Label: "Все режимы", Selected: data.Filters.Mode == ""},
+						{Value: "edit", Label: "edit", Selected: data.Filters.Mode == "edit"},
+						{Value: "rw", Label: "rw", Selected: data.Filters.Mode == "rw"},
+						{Value: "ro", Label: "ro", Selected: data.Filters.Mode == "ro"},
+						{Value: "ar", Label: "ar", Selected: data.Filters.Mode == "ar"},
+					},
+				},
+				{
+					Name:  "status",
+					Label: "Статус",
+					Options: []components.FilterOption{
+						{Value: "", Label: "Все статусы", Selected: data.Filters.Status == ""},
+						{Value: "online", Label: "Online", Selected: data.Filters.Status == "online"},
+						{Value: "offline", Label: "Offline", Selected: data.Filters.Status == "offline"},
+						{Value: "degraded", Label: "Degraded", Selected: data.Filters.Status == "degraded"},
+						{Value: "maintenance", Label: "Maintenance", Selected: data.Filters.Status == "maintenance"},
+					},
+				},
+			},
+			SearchName:  "q",
+			SearchLabel: "Поиск по имени или URL...",
+			SearchValue: data.Filters.Search,
+			ActionURL:   "/admin/partials/se-table",
+			TargetID:    "se-table-container",
+		})
+
+		<!-- Таблица SE -->
+		<div id="se-table-container">
+			@seTableContent(data)
+		</div>
+	}
+}
+
+// seTableContent — содержимое таблицы SE (используется и в full page, и в partial).
+templ seTableContent(data SEListData) {
+	<div class="card">
+		<div class="overflow-x-auto">
+			<table class="w-full text-sm text-left">
+				<thead class="text-xs text-text-secondary uppercase bg-bg-surface border-b border-border-subtle">
+					<tr>
+						<th class="px-4 py-3 font-medium">
+							@seColSort("name", "Имя", data.SortKey, data.SortDir)
+						</th>
+						<th class="px-4 py-3 font-medium">URL</th>
+						<th class="px-4 py-3 font-medium">Режим</th>
+						<th class="px-4 py-3 font-medium">Статус</th>
+						<th class="px-4 py-3 font-medium min-w-[160px]">Ёмкость</th>
+						<th class="px-4 py-3 font-medium text-right">Файлов</th>
+						<th class="px-4 py-3 font-medium">Последняя синхр.</th>
+						if data.Role == "admin" {
+							<th class="px-4 py-3 font-medium text-right">Действия</th>
+						}
+					</tr>
+				</thead>
+				<tbody class="divide-y divide-border-subtle">
+					if len(data.Items) == 0 {
+						<tr>
+							<td
+								colspan={ seColCount(data.Role) }
+								class="px-4 py-8 text-center text-text-muted"
+							>
+								Нет Storage Elements для отображения
+							</td>
+						</tr>
+					}
+					for _, se := range data.Items {
+						<tr class="hover:bg-bg-elevated/50 transition-colors"
+							x-data={ fmt.Sprintf("{ showEditModal_%s: false, showDeleteConfirm_%s: false }", SafeID(se.ID), SafeID(se.ID)) }
+						>
+							<td class="px-4 py-3">
+								<a
+									href={ templ.SafeURL(fmt.Sprintf("/admin/storage-elements/%s", se.ID)) }
+									class="text-accent-primary hover:text-accent-hover font-medium"
+								>
+									{ se.Name }
+								</a>
+							</td>
+							<td class="px-4 py-3">
+								<span class="text-text-secondary text-xs font-mono truncate max-w-[200px] block">{ se.URL }</span>
+							</td>
+							<td class="px-4 py-3">
+								@components.ModeBadge(se.Mode)
+							</td>
+							<td class="px-4 py-3">
+								@components.StatusBadge(se.Status)
+							</td>
+							<td class="px-4 py-3">
+								@components.CapacityBar(components.CapacityBarParams{
+									Used:    se.UsedBytes,
+									Total:   se.CapacityBytes,
+									Compact: true,
+								})
+							</td>
+							<td class="px-4 py-3 text-right">
+								<span class="text-text-secondary">{ strconv.Itoa(se.FileCount) }</span>
+							</td>
+							<td class="px-4 py-3">
+								<span class="text-text-muted text-xs">{ seLastSync(se.LastSyncAt) }</span>
+							</td>
+							if data.Role == "admin" {
+								<td class="px-4 py-3 text-right">
+									<div class="flex items-center justify-end gap-1">
+										<!-- Sync -->
+										<button
+											class="p-1.5 text-text-muted hover:text-accent-primary transition-colors rounded-button hover:bg-bg-hover"
+											title="Синхронизировать"
+											hx-post={ fmt.Sprintf("/admin/partials/se-sync/%s", se.ID) }
+											hx-target="#se-action-result"
+											hx-swap="innerHTML"
+										>
+											<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M2.985 19.644l3.181-3.183"></path>
+											</svg>
+										</button>
+										<!-- Edit -->
+										<button
+											class="p-1.5 text-text-muted hover:text-status-info transition-colors rounded-button hover:bg-bg-hover"
+											title="Редактировать"
+											hx-get={ fmt.Sprintf("/admin/partials/se-edit-form/%s", se.ID) }
+											hx-target="#se-action-result"
+											hx-swap="innerHTML"
+										>
+											<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"></path>
+											</svg>
+										</button>
+										<!-- Delete -->
+										<button
+											class="p-1.5 text-text-muted hover:text-status-error transition-colors rounded-button hover:bg-bg-hover"
+											title="Удалить"
+											x-on:click={ fmt.Sprintf("showDeleteConfirm_%s = true", SafeID(se.ID)) }
+										>
+											<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"></path>
+											</svg>
+										</button>
+
+										<!-- Confirm Dialog: Delete -->
+										@components.ConfirmDialog(components.ConfirmDialogParams{
+											ID:          fmt.Sprintf("showDeleteConfirm_%s", SafeID(se.ID)),
+											Title:       "Удалить Storage Element?",
+											Message:     fmt.Sprintf("SE «%s» будет удалён из реестра. Физические файлы на SE не будут затронуты.", se.Name),
+											ConfirmText: "Удалить",
+											Danger:      true,
+										}) {
+											<button
+												class="inline-flex items-center px-4 py-2 text-sm font-medium bg-status-error text-white rounded-button hover:bg-red-600 transition-colors"
+												hx-delete={ fmt.Sprintf("/admin/partials/se-delete/%s", se.ID) }
+												hx-target="#se-action-result"
+												hx-swap="innerHTML"
+												x-on:click={ fmt.Sprintf("showDeleteConfirm_%s = false", SafeID(se.ID)) }
+											>
+												Удалить
+											</button>
+										}
+									</div>
+								</td>
+							}
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+
+		<!-- Пагинация -->
+		@components.Pagination(components.PaginationParams{
+			CurrentPage: data.Page,
+			TotalPages:  data.TotalPages,
+			TotalItems:  data.TotalItems,
+			PageSize:    data.PageSize,
+			BaseURL:     "/admin/partials/se-table",
+			TargetID:    "se-table-container",
+		})
+	</div>
+}
+
+// seColSort — кнопка сортировки в заголовке колонки.
+templ seColSort(key, label, sortKey, sortDir string) {
+	<button
+		class="flex items-center space-x-1 hover:text-text-primary transition-colors group"
+		hx-get={ seSortURL(key, sortKey, sortDir) }
+		hx-target="#se-table-container"
+		hx-swap="innerHTML"
+	>
+		<span>{ label }</span>
+		<span class="text-text-muted group-hover:text-text-secondary">
+			if sortKey == key && sortDir == "asc" {
+				<svg class="w-3.5 h-3.5 text-accent-primary" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5"></path>
+				</svg>
+			} else if sortKey == key && sortDir == "desc" {
+				<svg class="w-3.5 h-3.5 text-accent-primary" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"></path>
+				</svg>
+			} else {
+				<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9"></path>
+				</svg>
+			}
+		</span>
+	</button>
+}
+
+// seSortURL формирует URL для сортировки.
+func seSortURL(key, currentKey, currentDir string) string {
+	dir := "asc"
+	if key == currentKey && currentDir == "asc" {
+		dir = "desc"
+	}
+	return fmt.Sprintf("/admin/partials/se-table?sort=%s&order=%s", key, dir)
+}
+
+// seColCount возвращает количество колонок (для colspan).
+func seColCount(role string) string {
+	if role == "admin" {
+		return "8"
+	}
+	return "7"
+}
+
+// SafeID заменяет дефисы в UUID на подчёркивания (для Alpine.js переменных).
+// Экспортированная функция для использования в partials.
+func SafeID(id string) string {
+	result := make([]byte, len(id))
+	for i := 0; i < len(id); i++ {
+		if id[i] == '-' {
+			result[i] = '_'
+		} else {
+			result[i] = id[i]
+		}
+	}
+	return string(result)
+}

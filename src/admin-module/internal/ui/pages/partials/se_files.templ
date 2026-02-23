@@ -1,0 +1,109 @@
+package partials
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/arturkryukov/artstore/admin-module/internal/ui/components"
+	"github.com/arturkryukov/artstore/admin-module/internal/ui/pages"
+)
+
+// SEFilesData — данные для partial таблицы файлов SE.
+type SEFilesData struct {
+	SEID       string
+	Files      []pages.SEFileItem
+	Page       int
+	TotalPages int
+	TotalItems int
+	PageSize   int
+}
+
+// SEFilesTable — partial: таблица файлов SE с пагинацией.
+templ SEFilesTable(data SEFilesData) {
+	<div class="overflow-x-auto">
+		<table class="w-full text-sm text-left">
+			<thead class="text-xs text-text-secondary uppercase bg-bg-surface border-b border-border-subtle">
+				<tr>
+					<th class="px-4 py-3 font-medium">Имя файла</th>
+					<th class="px-4 py-3 font-medium">Тип</th>
+					<th class="px-4 py-3 font-medium text-right">Размер</th>
+					<th class="px-4 py-3 font-medium">Загружен</th>
+					<th class="px-4 py-3 font-medium">Кем</th>
+					<th class="px-4 py-3 font-medium">Статус</th>
+				</tr>
+			</thead>
+			<tbody class="divide-y divide-border-subtle">
+				if len(data.Files) == 0 {
+					<tr>
+						<td colspan="6" class="px-4 py-8 text-center text-text-muted">
+							Нет файлов на этом SE
+						</td>
+					</tr>
+				}
+				for _, f := range data.Files {
+					<tr class="hover:bg-bg-elevated/50 transition-colors">
+						<td class="px-4 py-3">
+							<span class="text-text-primary font-medium text-xs truncate max-w-[200px] block">
+								{ f.OriginalFilename }
+							</span>
+						</td>
+						<td class="px-4 py-3">
+							<span class="text-text-secondary text-xs">{ f.ContentType }</span>
+						</td>
+						<td class="px-4 py-3 text-right">
+							<span class="text-text-secondary text-xs">{ formatFileSize(f.SizeBytes) }</span>
+						</td>
+						<td class="px-4 py-3">
+							<span class="text-text-muted text-xs">{ formatFileTime(f.UploadedAt) }</span>
+						</td>
+						<td class="px-4 py-3">
+							<span class="text-text-secondary text-xs">{ f.UploadedBy }</span>
+						</td>
+						<td class="px-4 py-3">
+							@components.StatusBadge(f.Status)
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	</div>
+
+	@components.Pagination(components.PaginationParams{
+		CurrentPage: data.Page,
+		TotalPages:  data.TotalPages,
+		TotalItems:  data.TotalItems,
+		PageSize:    data.PageSize,
+		BaseURL:     fmt.Sprintf("/admin/partials/se-files/%s", data.SEID),
+		TargetID:    "se-files-container",
+	})
+}
+
+// formatFileSize форматирует размер файла.
+func formatFileSize(bytes int64) string {
+	if bytes < 0 {
+		bytes = 0
+	}
+	const (
+		KB = 1024
+		MB = 1024 * KB
+		GB = 1024 * MB
+	)
+	switch {
+	case bytes >= GB:
+		return fmt.Sprintf("%.1f GB", float64(bytes)/float64(GB))
+	case bytes >= MB:
+		return fmt.Sprintf("%.1f MB", float64(bytes)/float64(MB))
+	case bytes >= KB:
+		return fmt.Sprintf("%.1f KB", float64(bytes)/float64(KB))
+	default:
+		return fmt.Sprintf("%d B", bytes)
+	}
+}
+
+// formatFileTime форматирует время загрузки файла.
+func formatFileTime(t time.Time) string {
+	if t.IsZero() {
+		return "—"
+	}
+	return t.Format("02.01.2006 15:04")
+}

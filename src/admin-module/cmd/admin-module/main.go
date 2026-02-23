@@ -291,10 +291,18 @@ func main() {
 			logger,
 		)
 
+		// Storage Elements handler — управление SE
+		storageElementsHandler := uihandlers.NewStorageElementsHandler(
+			storageElemsSvc,
+			filesSvc,
+			logger,
+		)
+
 		uiComponents = &server.UIComponents{
-			AuthHandler:      authHandler,
-			AuthMiddleware:   uiAuthMiddleware,
-			DashboardHandler: dashboardHandler,
+			AuthHandler:            authHandler,
+			AuthMiddleware:         uiAuthMiddleware,
+			DashboardHandler:       dashboardHandler,
+			StorageElementsHandler: storageElementsHandler,
 		}
 
 		logger.Info("Admin UI инициализирован",

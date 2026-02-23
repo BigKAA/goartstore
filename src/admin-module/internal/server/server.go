@@ -39,6 +39,8 @@ type UIComponents struct {
 	AuthMiddleware *uimiddleware.UIAuth
 	// DashboardHandler — обработчик страницы Dashboard.
 	DashboardHandler *uihandlers.DashboardHandler
+	// StorageElementsHandler — обработчик страниц Storage Elements.
+	StorageElementsHandler *uihandlers.StorageElementsHandler
 }
 
 // New создаёт новый HTTP-сервер с настроенными routes и middleware.
@@ -99,6 +101,24 @@ func registerUIRoutes(router chi.Router, ui *UIComponents, logger *slog.Logger) 
 
 		// Dashboard (главная страница Admin UI)
 		r.Get("/", ui.DashboardHandler.HandleDashboard)
+
+		// --- Storage Elements ---
+		if ui.StorageElementsHandler != nil {
+			se := ui.StorageElementsHandler
+			r.Get("/storage-elements", se.HandleList)
+			r.Get("/storage-elements/{id}", se.HandleDetail)
+
+			// HTMX partials для SE
+			r.Get("/partials/se-table", se.HandleTablePartial)
+			r.Post("/partials/se-discover", se.HandleDiscover)
+			r.Post("/partials/se-register", se.HandleRegister)
+			r.Get("/partials/se-edit-form/{id}", se.HandleEditForm)
+			r.Put("/partials/se-edit/{id}", se.HandleEdit)
+			r.Delete("/partials/se-delete/{id}", se.HandleDelete)
+			r.Post("/partials/se-sync/{id}", se.HandleSync)
+			r.Post("/partials/se-sync-all", se.HandleSyncAll)
+			r.Get("/partials/se-files/{id}", se.HandleFilesPartial)
+		}
 	})
 
 	logger.Info("Admin UI маршруты зарегистрированы",
