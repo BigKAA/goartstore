@@ -1,0 +1,113 @@
+package partials
+
+import (
+	"fmt"
+	"strings"
+)
+
+// SAEditForm — partial: форма редактирования SA (inline card).
+templ SAEditForm(id, name, description string, scopes []string, status string) {
+	<div class="card mb-4">
+		<div class="flex items-center justify-between mb-4">
+			<h3 class="text-lg font-semibold text-text-primary">Редактировать SA</h3>
+			<button
+				class="text-text-muted hover:text-text-primary transition-colors"
+				onclick="document.getElementById('access-action-result').innerHTML = ''"
+			>
+				<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path>
+				</svg>
+			</button>
+		</div>
+		<div class="space-y-3">
+			<div>
+				<label class="block text-sm font-medium text-text-secondary mb-1">Имя</label>
+				<input
+					type="text"
+					name="name"
+					id={ "sa-edit-name-" + id }
+					value={ name }
+					class="w-full bg-bg-elevated text-text-primary text-sm rounded-button border border-border-default px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary"
+				/>
+			</div>
+			<div>
+				<label class="block text-sm font-medium text-text-secondary mb-1">Описание</label>
+				<textarea
+					name="description"
+					id={ "sa-edit-desc-" + id }
+					rows="2"
+					class="w-full bg-bg-elevated text-text-primary text-sm rounded-button border border-border-default px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary resize-y"
+				>{ description }</textarea>
+			</div>
+			<div>
+				<label class="block text-sm font-medium text-text-secondary mb-2">Scopes</label>
+				<div class="grid grid-cols-2 gap-2">
+					@saEditScopeCheckbox(id, "files:read", "files:read", "Чтение файлов", hasScope(scopes, "files:read"))
+					@saEditScopeCheckbox(id, "files:write", "files:write", "Запись файлов", hasScope(scopes, "files:write"))
+					@saEditScopeCheckbox(id, "storage:read", "storage:read", "Чтение SE", hasScope(scopes, "storage:read"))
+					@saEditScopeCheckbox(id, "storage:write", "storage:write", "Управление SE", hasScope(scopes, "storage:write"))
+				</div>
+			</div>
+			<div>
+				<label class="block text-sm font-medium text-text-secondary mb-1">Статус</label>
+				<select
+					name="status"
+					id={ "sa-edit-status-" + id }
+					class="w-full bg-bg-elevated text-text-primary text-sm rounded-button border border-border-default px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary"
+				>
+					<option value="active" selected?={ status == "active" }>Active</option>
+					<option value="suspended" selected?={ status == "suspended" }>Suspended</option>
+				</select>
+			</div>
+			<div class="flex items-center justify-end gap-3 pt-2">
+				<button
+					class="px-4 py-2 text-sm font-medium text-text-secondary bg-bg-elevated rounded-button hover:bg-bg-hover transition-colors"
+					onclick="document.getElementById('access-action-result').innerHTML = ''"
+				>
+					Отмена
+				</button>
+				<button
+					class="inline-flex items-center px-4 py-2 text-sm font-medium bg-accent-primary text-bg-base rounded-button hover:bg-accent-light transition-colors"
+					hx-put={ fmt.Sprintf("/admin/partials/sa-edit/%s", id) }
+					hx-target="#access-action-result"
+					hx-swap="innerHTML"
+					hx-include={ saEditInclude(id) }
+				>
+					Сохранить
+				</button>
+			</div>
+		</div>
+	</div>
+}
+
+// saEditScopeCheckbox — чекбокс scope в форме редактирования.
+templ saEditScopeCheckbox(saID, name, value, label string, checked bool) {
+	<label class="flex items-center gap-2 text-sm text-text-secondary cursor-pointer hover:text-text-primary transition-colors">
+		<input
+			type="checkbox"
+			name="scopes"
+			value={ value }
+			checked?={ checked }
+			class="w-4 h-4 rounded border-border-default bg-bg-elevated text-accent-primary focus:ring-accent-primary/50"
+		/>
+		<span>{ label }</span>
+	</label>
+}
+
+// hasScope проверяет наличие scope в списке.
+func hasScope(scopes []string, scope string) bool {
+	for _, s := range scopes {
+		if s == scope {
+			return true
+		}
+	}
+	return false
+}
+
+// saEditInclude — формирует CSS selector для hx-include.
+func saEditInclude(id string) string {
+	return fmt.Sprintf("#sa-edit-name-%s, #sa-edit-desc-%s, #sa-edit-status-%s, [name='scopes']", id, id, id)
+}
+
+// Ensure strings is used
+var _ = strings.TrimSpace

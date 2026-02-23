@@ -1,0 +1,175 @@
+package partials
+
+import (
+	"fmt"
+
+	"github.com/arturkryukov/artstore/admin-module/internal/ui/components"
+	"github.com/arturkryukov/artstore/admin-module/internal/ui/pages"
+)
+
+// UsersTableData — данные для partial таблицы пользователей.
+type UsersTableData struct {
+	Items      []pages.UserListItem
+	Role       string // Роль текущего пользователя
+	Page       int
+	TotalPages int
+	TotalItems int
+	PageSize   int
+}
+
+// UsersTableBody — partial: тело таблицы пользователей + пагинация (без layout).
+templ UsersTableBody(data UsersTableData) {
+	<div class="card">
+		<div class="overflow-x-auto">
+			<table class="w-full text-sm text-left">
+				<thead class="text-xs text-text-secondary uppercase bg-bg-surface border-b border-border-subtle">
+					<tr>
+						<th class="px-4 py-3 font-medium">Пользователь</th>
+						<th class="px-4 py-3 font-medium">Email</th>
+						<th class="px-4 py-3 font-medium">Группы</th>
+						<th class="px-4 py-3 font-medium">Роль (IdP)</th>
+						<th class="px-4 py-3 font-medium">Итоговая роль</th>
+						<th class="px-4 py-3 font-medium">Статус</th>
+						if data.Role == "admin" {
+							<th class="px-4 py-3 font-medium text-right">Действия</th>
+						}
+					</tr>
+				</thead>
+				<tbody class="divide-y divide-border-subtle">
+					if len(data.Items) == 0 {
+						<tr>
+							<td
+								colspan={ usersPartialColCount(data.Role) }
+								class="px-4 py-8 text-center text-text-muted"
+							>
+								Нет пользователей для отображения
+							</td>
+						</tr>
+					}
+					for _, user := range data.Items {
+						<tr class="hover:bg-bg-elevated/50 transition-colors">
+							<td class="px-4 py-3">
+								<div class="flex flex-col">
+									<span class="font-medium text-text-primary">{ user.Username }</span>
+									if user.FirstName != "" || user.LastName != "" {
+										<span class="text-xs text-text-muted">{ user.FirstName } { user.LastName }</span>
+									}
+								</div>
+							</td>
+							<td class="px-4 py-3">
+								<span class="text-text-secondary text-xs">{ user.Email }</span>
+							</td>
+							<td class="px-4 py-3">
+								<div class="flex flex-wrap gap-1">
+									for _, group := range user.Groups {
+										<span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-bg-elevated text-text-muted">
+											{ group }
+										</span>
+									}
+									if len(user.Groups) == 0 {
+										<span class="text-text-muted text-xs">—</span>
+									}
+								</div>
+							</td>
+							<td class="px-4 py-3">
+								@usersPartialRoleBadge(user.IdpRole)
+							</td>
+							<td class="px-4 py-3">
+								<div class="flex items-center gap-1.5">
+									@components.RoleBadge(user.EffectiveRole)
+									if user.RoleOverride != nil {
+										<span class="text-xs text-accent-primary" title="Роль повышена через override">+</span>
+									}
+								</div>
+							</td>
+							<td class="px-4 py-3">
+								if user.Enabled {
+									@components.Badge(components.BadgeSuccess, "Активен")
+								} else {
+									@components.Badge(components.BadgeError, "Отключён")
+								}
+							</td>
+							if data.Role == "admin" {
+								<td class="px-4 py-3 text-right">
+									<div class="flex items-center justify-end gap-1">
+										<button
+											class="p-1.5 text-text-muted hover:text-accent-primary transition-colors rounded-button hover:bg-bg-hover"
+											title="Подробнее"
+											hx-get={ fmt.Sprintf("/admin/partials/user-detail/%s", user.ID) }
+											hx-target="#access-action-result"
+											hx-swap="innerHTML"
+										>
+											<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"></path>
+												<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+											</svg>
+										</button>
+										if user.EffectiveRole != "admin" {
+											<button
+												class="p-1.5 text-text-muted hover:text-status-info transition-colors rounded-button hover:bg-bg-hover"
+												title="Повысить до admin"
+												hx-post={ fmt.Sprintf("/admin/partials/user-role-override/%s", user.ID) }
+												hx-target="#access-action-result"
+												hx-swap="innerHTML"
+												hx-confirm="Повысить роль пользователя до admin?"
+											>
+												<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+													<path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18"></path>
+												</svg>
+											</button>
+										}
+										if user.RoleOverride != nil {
+											<button
+												class="p-1.5 text-text-muted hover:text-status-warning transition-colors rounded-button hover:bg-bg-hover"
+												title="Убрать дополнение роли"
+												hx-delete={ fmt.Sprintf("/admin/partials/user-role-override/%s", user.ID) }
+												hx-target="#access-action-result"
+												hx-swap="innerHTML"
+												hx-confirm="Убрать дополнение роли?"
+											>
+												<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+													<path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3"></path>
+												</svg>
+											</button>
+										}
+									</div>
+								</td>
+							}
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+
+		@components.Pagination(components.PaginationParams{
+			CurrentPage: data.Page,
+			TotalPages:  data.TotalPages,
+			TotalItems:  data.TotalItems,
+			PageSize:    data.PageSize,
+			BaseURL:     "/admin/partials/users-table",
+			TargetID:    "users-table-container",
+		})
+	</div>
+}
+
+// usersPartialColCount — количество колонок.
+func usersPartialColCount(role string) string {
+	if role == "admin" {
+		return "7"
+	}
+	return "6"
+}
+
+// usersPartialRoleBadge — бейдж роли IdP.
+templ usersPartialRoleBadge(role string) {
+	if role == "admin" {
+		@components.RoleBadge("admin")
+	} else if role == "readonly" {
+		@components.RoleBadge("readonly")
+	} else if role == "" {
+		<span class="text-xs text-text-muted">—</span>
+	} else {
+		@components.Badge(components.BadgeNeutral, role)
+	}
+}
+

@@ -1,0 +1,724 @@
+package pages
+
+import (
+	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/arturkryukov/artstore/admin-module/internal/ui/components"
+	"github.com/arturkryukov/artstore/admin-module/internal/ui/layouts"
+)
+
+// UserListItem — элемент списка пользователей для отображения.
+type UserListItem struct {
+	ID            string
+	Username      string
+	Email         string
+	FirstName     string
+	LastName      string
+	Enabled       bool
+	Groups        []string
+	IdpRole       string
+	RoleOverride  *string
+	EffectiveRole string
+	CreatedAt     time.Time
+}
+
+// SAListItem — элемент списка Service Accounts для отображения.
+type SAListItem struct {
+	ID           string
+	ClientID     string
+	Name         string
+	Description  *string
+	Scopes       []string
+	Status       string
+	Source       string
+	LastSyncedAt *time.Time
+	CreatedAt    time.Time
+}
+
+// UsersFilters — текущие значения фильтров пользователей.
+type UsersFilters struct {
+	Role   string // admin, readonly
+	Status string // enabled, disabled
+	Search string
+}
+
+// SAFilters — текущие значения фильтров SA.
+type SAFilters struct {
+	Status string // active, suspended
+	Search string
+}
+
+// AccessData — данные для страницы Управление доступом.
+type AccessData struct {
+	Username  string
+	Role      string
+	ActiveTab string // "users" или "sa"
+
+	// Пользователи
+	Users           []UserListItem
+	UsersFilters    UsersFilters
+	UsersPage       int
+	UsersTotalPages int
+	UsersTotalItems int
+	UsersTotal      int // Общее количество в Keycloak
+
+	// Service Accounts
+	ServiceAccounts []SAListItem
+	SAFilters       SAFilters
+	SAPage          int
+	SATotalPages    int
+	SATotalItems    int
+
+	// IdP статус
+	IDPConnected    bool
+	IDPRealm        string
+	IDPUsersCount   *int
+	IDPClientsCount *int
+	IDPLastSyncAt   *time.Time
+	IDPError        *string
+}
+
+// Access — страница «Управление доступом» с табами.
+templ Access(data AccessData) {
+	@layouts.Page(layouts.PageParams{
+		Title:     "Управление доступом",
+		Username:  data.Username,
+		Role:      data.Role,
+		ActiveNav: "access",
+		Breadcrumbs: []layouts.BreadcrumbItem{
+			{Label: "Управление доступом"},
+		},
+	}) {
+		<!-- Заголовок -->
+		<div class="mb-6">
+			<h1 class="text-2xl font-bold text-text-primary">Управление доступом</h1>
+			<p class="text-sm text-text-muted mt-1">
+				Пользователи и Service Accounts
+			</p>
+		</div>
+
+		<!-- Табы -->
+		<div x-data={ fmt.Sprintf("{ activeTab: '%s' }", data.ActiveTab) }>
+			<!-- Tab кнопки -->
+			<div class="flex border-b border-border-subtle mb-6">
+				<button
+					class="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px"
+					x-bind:class="activeTab === 'users' ? 'border-accent-primary text-accent-primary' : 'border-transparent text-text-muted hover:text-text-primary hover:border-border-default'"
+					x-on:click="activeTab = 'users'"
+				>
+					<div class="flex items-center gap-2">
+						<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"></path>
+						</svg>
+						Пользователи
+						<span class="text-xs bg-bg-elevated px-1.5 py-0.5 rounded-full text-text-muted">{ strconv.Itoa(data.UsersTotal) }</span>
+					</div>
+				</button>
+				<button
+					class="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px"
+					x-bind:class="activeTab === 'sa' ? 'border-accent-primary text-accent-primary' : 'border-transparent text-text-muted hover:text-text-primary hover:border-border-default'"
+					x-on:click="activeTab = 'sa'"
+				>
+					<div class="flex items-center gap-2">
+						<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"></path>
+						</svg>
+						Service Accounts
+						<span class="text-xs bg-bg-elevated px-1.5 py-0.5 rounded-full text-text-muted">{ strconv.Itoa(data.SATotalItems) }</span>
+					</div>
+				</button>
+			</div>
+
+			<!-- Область для результатов действий (alert) -->
+			<div id="access-action-result" class="mb-4"></div>
+
+			<!-- Tab: Пользователи -->
+			<div x-show="activeTab === 'users'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
+				@usersTab(data)
+			</div>
+
+			<!-- Tab: Service Accounts -->
+			<div x-show="activeTab === 'sa'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
+				@saTab(data)
+			</div>
+		</div>
+	}
+}
+
+// usersTab — содержимое таба «Пользователи».
+templ usersTab(data AccessData) {
+	<!-- Фильтры -->
+	@components.FilterBar(components.FilterBarParams{
+		Filters: []components.FilterSelect{
+			{
+				Name:  "role",
+				Label: "Роль",
+				Options: []components.FilterOption{
+					{Value: "", Label: "Все роли", Selected: data.UsersFilters.Role == ""},
+					{Value: "admin", Label: "Admin", Selected: data.UsersFilters.Role == "admin"},
+					{Value: "readonly", Label: "Readonly", Selected: data.UsersFilters.Role == "readonly"},
+				},
+			},
+			{
+				Name:  "user_status",
+				Label: "Статус",
+				Options: []components.FilterOption{
+					{Value: "", Label: "Все", Selected: data.UsersFilters.Status == ""},
+					{Value: "enabled", Label: "Активные", Selected: data.UsersFilters.Status == "enabled"},
+					{Value: "disabled", Label: "Отключённые", Selected: data.UsersFilters.Status == "disabled"},
+				},
+			},
+		},
+		SearchName:  "user_q",
+		SearchLabel: "Поиск по имени или email...",
+		SearchValue: data.UsersFilters.Search,
+		ActionURL:   "/admin/partials/users-table",
+		TargetID:    "users-table-container",
+	})
+
+	<!-- Таблица пользователей -->
+	<div id="users-table-container">
+		@usersTableContent(data)
+	</div>
+}
+
+// usersTableContent — содержимое таблицы пользователей.
+templ usersTableContent(data AccessData) {
+	<div class="card">
+		<div class="overflow-x-auto">
+			<table class="w-full text-sm text-left">
+				<thead class="text-xs text-text-secondary uppercase bg-bg-surface border-b border-border-subtle">
+					<tr>
+						<th class="px-4 py-3 font-medium">Пользователь</th>
+						<th class="px-4 py-3 font-medium">Email</th>
+						<th class="px-4 py-3 font-medium">Группы</th>
+						<th class="px-4 py-3 font-medium">Роль (IdP)</th>
+						<th class="px-4 py-3 font-medium">Итоговая роль</th>
+						<th class="px-4 py-3 font-medium">Статус</th>
+						if data.Role == "admin" {
+							<th class="px-4 py-3 font-medium text-right">Действия</th>
+						}
+					</tr>
+				</thead>
+				<tbody class="divide-y divide-border-subtle">
+					if len(data.Users) == 0 {
+						<tr>
+							<td
+								colspan={ usersColCount(data.Role) }
+								class="px-4 py-8 text-center text-text-muted"
+							>
+								Нет пользователей для отображения
+							</td>
+						</tr>
+					}
+					for _, user := range data.Users {
+						<tr class="hover:bg-bg-elevated/50 transition-colors">
+							<td class="px-4 py-3">
+								<div class="flex flex-col">
+									<span class="font-medium text-text-primary">{ user.Username }</span>
+									if user.FirstName != "" || user.LastName != "" {
+										<span class="text-xs text-text-muted">{ user.FirstName } { user.LastName }</span>
+									}
+								</div>
+							</td>
+							<td class="px-4 py-3">
+								<span class="text-text-secondary text-xs">{ user.Email }</span>
+							</td>
+							<td class="px-4 py-3">
+								<div class="flex flex-wrap gap-1">
+									for _, group := range user.Groups {
+										<span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-bg-elevated text-text-muted">
+											{ group }
+										</span>
+									}
+									if len(user.Groups) == 0 {
+										<span class="text-text-muted text-xs">—</span>
+									}
+								</div>
+							</td>
+							<td class="px-4 py-3">
+								@accessRoleBadge(user.IdpRole)
+							</td>
+							<td class="px-4 py-3">
+								<div class="flex items-center gap-1.5">
+									@components.RoleBadge(user.EffectiveRole)
+									if user.RoleOverride != nil {
+										<span class="text-xs text-accent-primary" title="Роль повышена через override">+</span>
+									}
+								</div>
+							</td>
+							<td class="px-4 py-3">
+								if user.Enabled {
+									@components.Badge(components.BadgeSuccess, "Активен")
+								} else {
+									@components.Badge(components.BadgeError, "Отключён")
+								}
+							</td>
+							if data.Role == "admin" {
+								<td class="px-4 py-3 text-right">
+									<div class="flex items-center justify-end gap-1">
+										<!-- Детали -->
+										<button
+											class="p-1.5 text-text-muted hover:text-accent-primary transition-colors rounded-button hover:bg-bg-hover"
+											title="Подробнее"
+											hx-get={ fmt.Sprintf("/admin/partials/user-detail/%s", user.ID) }
+											hx-target="#access-action-result"
+											hx-swap="innerHTML"
+										>
+											<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"></path>
+												<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+											</svg>
+										</button>
+										<!-- Повысить роль (если не admin) -->
+										if user.EffectiveRole != "admin" {
+											<button
+												class="p-1.5 text-text-muted hover:text-status-info transition-colors rounded-button hover:bg-bg-hover"
+												title="Повысить до admin"
+												hx-post={ fmt.Sprintf("/admin/partials/user-role-override/%s", user.ID) }
+												hx-target="#access-action-result"
+												hx-swap="innerHTML"
+												hx-confirm="Повысить роль пользователя до admin?"
+											>
+												<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+													<path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18"></path>
+												</svg>
+											</button>
+										}
+										<!-- Убрать override (если есть) -->
+										if user.RoleOverride != nil {
+											<button
+												class="p-1.5 text-text-muted hover:text-status-warning transition-colors rounded-button hover:bg-bg-hover"
+												title="Убрать дополнение роли"
+												hx-delete={ fmt.Sprintf("/admin/partials/user-role-override/%s", user.ID) }
+												hx-target="#access-action-result"
+												hx-swap="innerHTML"
+												hx-confirm="Убрать дополнение роли? Будет использоваться только роль из IdP."
+											>
+												<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+													<path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3"></path>
+												</svg>
+											</button>
+										}
+									</div>
+								</td>
+							}
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+
+		<!-- Пагинация -->
+		@components.Pagination(components.PaginationParams{
+			CurrentPage: data.UsersPage,
+			TotalPages:  data.UsersTotalPages,
+			TotalItems:  data.UsersTotalItems,
+			PageSize:    20,
+			BaseURL:     "/admin/partials/users-table",
+			TargetID:    "users-table-container",
+		})
+	</div>
+}
+
+// saTab — содержимое таба «Service Accounts».
+templ saTab(data AccessData) {
+	<!-- Блок статуса IdP -->
+	<div class="card mb-4 p-4">
+		<div class="flex flex-wrap items-center justify-between gap-4">
+			<div class="flex items-center gap-3">
+				<div class="flex items-center gap-2">
+					<span class="text-sm text-text-secondary">Identity Provider:</span>
+					if data.IDPConnected {
+						@components.Badge(components.BadgeSuccess, "Connected")
+					} else {
+						@components.Badge(components.BadgeError, "Disconnected")
+					}
+				</div>
+				<span class="text-xs text-text-muted">Realm: { data.IDPRealm }</span>
+				if data.IDPUsersCount != nil {
+					<span class="text-xs text-text-muted">| Users: { strconv.Itoa(*data.IDPUsersCount) }</span>
+				}
+				if data.IDPClientsCount != nil {
+					<span class="text-xs text-text-muted">| SA Clients: { strconv.Itoa(*data.IDPClientsCount) }</span>
+				}
+				if data.IDPLastSyncAt != nil {
+					<span class="text-xs text-text-muted">| Last sync: { data.IDPLastSyncAt.Format("02.01.2006 15:04") }</span>
+				}
+			</div>
+			if data.IDPError != nil {
+				<span class="text-xs text-status-error">{ *data.IDPError }</span>
+			}
+		</div>
+	</div>
+
+	<!-- Кнопки действий -->
+	if data.Role == "admin" {
+		<div class="flex flex-wrap items-center justify-between gap-4 mb-4"
+			x-data="{ showCreateSA: false, showSyncConfirm: false }"
+		>
+			<div></div>
+			<div class="flex items-center gap-3">
+				<!-- Кнопка Sync SA -->
+				<button
+					class="inline-flex items-center px-4 py-2 text-sm font-medium text-text-primary bg-bg-elevated rounded-button border border-border-default hover:bg-bg-hover transition-colors gap-1.5"
+					x-on:click="showSyncConfirm = true"
+				>
+					<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M2.985 19.644l3.181-3.183"></path>
+					</svg>
+					Синхронизировать SA
+				</button>
+
+				<!-- Кнопка Создать SA -->
+				<button
+					class="inline-flex items-center px-4 py-2 text-sm font-medium bg-accent-primary text-bg-base rounded-button hover:bg-accent-light transition-colors gap-1.5"
+					x-on:click="showCreateSA = true"
+				>
+					<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"></path>
+					</svg>
+					Создать SA
+				</button>
+
+				<!-- Modal: Создание SA -->
+				@components.Modal(components.ModalParams{
+					ID:    "showCreateSA",
+					Title: "Создать Service Account",
+					Size:  components.ModalSizeLG,
+				}) {
+					<div id="sa-create-content">
+						<div class="space-y-4">
+							<div>
+								<label class="block text-sm font-medium text-text-secondary mb-1">Имя</label>
+								<input
+									type="text"
+									name="name"
+									id="sa-create-name"
+									placeholder="my-service"
+									class="w-full bg-bg-elevated text-text-primary text-sm rounded-button border border-border-default px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary placeholder:text-text-muted"
+								/>
+								<p class="text-xs text-text-muted mt-1">Client ID будет сгенерирован автоматически (sa_name_random)</p>
+							</div>
+							<div>
+								<label class="block text-sm font-medium text-text-secondary mb-1">Описание</label>
+								<textarea
+									name="description"
+									id="sa-create-desc"
+									rows="2"
+									placeholder="Назначение этого SA..."
+									class="w-full bg-bg-elevated text-text-primary text-sm rounded-button border border-border-default px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary resize-y placeholder:text-text-muted"
+								></textarea>
+							</div>
+							<div>
+								<label class="block text-sm font-medium text-text-secondary mb-2">Scopes</label>
+								<div class="grid grid-cols-2 gap-2">
+									@saCreateScopeCheckbox("files:read", "files:read", "Чтение файлов")
+									@saCreateScopeCheckbox("files:write", "files:write", "Запись файлов")
+									@saCreateScopeCheckbox("storage:read", "storage:read", "Чтение SE")
+									@saCreateScopeCheckbox("storage:write", "storage:write", "Управление SE")
+								</div>
+							</div>
+							<!-- Результат создания (подменяется HTMX) -->
+							<div id="sa-create-result"></div>
+							<div class="flex items-center justify-end gap-3 pt-2">
+								<button
+									class="px-4 py-2 text-sm font-medium text-text-secondary bg-bg-elevated rounded-button hover:bg-bg-hover transition-colors"
+									x-on:click="showCreateSA = false"
+								>
+									Отмена
+								</button>
+								<button
+									class="inline-flex items-center px-4 py-2 text-sm font-medium bg-accent-primary text-bg-base rounded-button hover:bg-accent-light transition-colors"
+									hx-post="/admin/partials/sa-create"
+									hx-target="#sa-create-result"
+									hx-swap="innerHTML"
+									hx-include="#sa-create-name, #sa-create-desc, [name='scopes']"
+								>
+									Создать
+								</button>
+							</div>
+						</div>
+					</div>
+				}
+
+				<!-- Confirm: Sync SA -->
+				@components.ConfirmDialog(components.ConfirmDialogParams{
+					ID:          "showSyncConfirm",
+					Title:       "Синхронизировать Service Accounts?",
+					Message:     "Будет выполнена полная синхронизация SA между локальной БД и Keycloak.",
+					ConfirmText: "Синхронизировать",
+				}) {
+					<button
+						class="inline-flex items-center px-4 py-2 text-sm font-medium bg-accent-primary text-bg-base rounded-button hover:bg-accent-light transition-colors"
+						hx-post="/admin/partials/sa-sync"
+						hx-target="#access-action-result"
+						hx-swap="innerHTML"
+						x-on:click="showSyncConfirm = false"
+					>
+						Синхронизировать
+					</button>
+				}
+			</div>
+		</div>
+	}
+
+	<!-- Фильтры SA -->
+	@components.FilterBar(components.FilterBarParams{
+		Filters: []components.FilterSelect{
+			{
+				Name:  "sa_status",
+				Label: "Статус",
+				Options: []components.FilterOption{
+					{Value: "", Label: "Все", Selected: data.SAFilters.Status == ""},
+					{Value: "active", Label: "Active", Selected: data.SAFilters.Status == "active"},
+					{Value: "suspended", Label: "Suspended", Selected: data.SAFilters.Status == "suspended"},
+				},
+			},
+		},
+		SearchName:  "sa_q",
+		SearchLabel: "Поиск по имени или client_id...",
+		SearchValue: data.SAFilters.Search,
+		ActionURL:   "/admin/partials/sa-table",
+		TargetID:    "sa-table-container",
+	})
+
+	<!-- Таблица SA -->
+	<div id="sa-table-container">
+		@saTableContent(data)
+	</div>
+}
+
+// saTableContent — содержимое таблицы SA.
+templ saTableContent(data AccessData) {
+	<div class="card">
+		<div class="overflow-x-auto">
+			<table class="w-full text-sm text-left">
+				<thead class="text-xs text-text-secondary uppercase bg-bg-surface border-b border-border-subtle">
+					<tr>
+						<th class="px-4 py-3 font-medium">Client ID</th>
+						<th class="px-4 py-3 font-medium">Имя</th>
+						<th class="px-4 py-3 font-medium">Scopes</th>
+						<th class="px-4 py-3 font-medium">Статус</th>
+						<th class="px-4 py-3 font-medium">Источник</th>
+						<th class="px-4 py-3 font-medium">Последняя синхр.</th>
+						if data.Role == "admin" {
+							<th class="px-4 py-3 font-medium text-right">Действия</th>
+						}
+					</tr>
+				</thead>
+				<tbody class="divide-y divide-border-subtle">
+					if len(data.ServiceAccounts) == 0 {
+						<tr>
+							<td
+								colspan={ saColCount(data.Role) }
+								class="px-4 py-8 text-center text-text-muted"
+							>
+								Нет Service Accounts для отображения
+							</td>
+						</tr>
+					}
+					for _, sa := range data.ServiceAccounts {
+						<tr class="hover:bg-bg-elevated/50 transition-colors"
+							x-data={ fmt.Sprintf("{ showDeleteConfirm_%s: false, showRotateConfirm_%s: false }", SafeID(sa.ID), SafeID(sa.ID)) }
+						>
+							<td class="px-4 py-3">
+								<span class="text-text-primary font-mono text-xs">{ sa.ClientID }</span>
+							</td>
+							<td class="px-4 py-3">
+								<div class="flex flex-col">
+									<span class="font-medium text-text-primary">{ sa.Name }</span>
+									if sa.Description != nil && *sa.Description != "" {
+										<span class="text-xs text-text-muted truncate max-w-[200px]">{ *sa.Description }</span>
+									}
+								</div>
+							</td>
+							<td class="px-4 py-3">
+								<div class="flex flex-wrap gap-1">
+									for _, scope := range sa.Scopes {
+										@components.Badge(scopeVariant(scope), scope)
+									}
+									if len(sa.Scopes) == 0 {
+										<span class="text-text-muted text-xs">—</span>
+									}
+								</div>
+							</td>
+							<td class="px-4 py-3">
+								@saStatusBadge(sa.Status)
+							</td>
+							<td class="px-4 py-3">
+								@saSourceBadge(sa.Source)
+							</td>
+							<td class="px-4 py-3">
+								<span class="text-text-muted text-xs">{ SELastSyncFmt(sa.LastSyncedAt) }</span>
+							</td>
+							if data.Role == "admin" {
+								<td class="px-4 py-3 text-right">
+									<div class="flex items-center justify-end gap-1">
+										<!-- Edit -->
+										<button
+											class="p-1.5 text-text-muted hover:text-status-info transition-colors rounded-button hover:bg-bg-hover"
+											title="Редактировать"
+											hx-get={ fmt.Sprintf("/admin/partials/sa-edit-form/%s", sa.ID) }
+											hx-target="#access-action-result"
+											hx-swap="innerHTML"
+										>
+											<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"></path>
+											</svg>
+										</button>
+										<!-- Rotate Secret -->
+										<button
+											class="p-1.5 text-text-muted hover:text-status-warning transition-colors rounded-button hover:bg-bg-hover"
+											title="Ротация секрета"
+											x-on:click={ fmt.Sprintf("showRotateConfirm_%s = true", SafeID(sa.ID)) }
+										>
+											<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"></path>
+											</svg>
+										</button>
+										<!-- Delete -->
+										<button
+											class="p-1.5 text-text-muted hover:text-status-error transition-colors rounded-button hover:bg-bg-hover"
+											title="Удалить"
+											x-on:click={ fmt.Sprintf("showDeleteConfirm_%s = true", SafeID(sa.ID)) }
+										>
+											<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"></path>
+											</svg>
+										</button>
+
+										<!-- Confirm: Rotate Secret -->
+										@components.ConfirmDialog(components.ConfirmDialogParams{
+											ID:          fmt.Sprintf("showRotateConfirm_%s", SafeID(sa.ID)),
+											Title:       "Ротация секрета?",
+											Message:     fmt.Sprintf("Текущий секрет SA «%s» будет аннулирован. Все сервисы, использующие этот секрет, перестанут работать до обновления.", sa.Name),
+											ConfirmText: "Ротировать",
+											Danger:      true,
+										}) {
+											<button
+												class="inline-flex items-center px-4 py-2 text-sm font-medium bg-status-warning text-bg-base rounded-button hover:opacity-90 transition-opacity"
+												hx-post={ fmt.Sprintf("/admin/partials/sa-rotate/%s", sa.ID) }
+												hx-target="#access-action-result"
+												hx-swap="innerHTML"
+												x-on:click={ fmt.Sprintf("showRotateConfirm_%s = false", SafeID(sa.ID)) }
+											>
+												Ротировать
+											</button>
+										}
+
+										<!-- Confirm: Delete -->
+										@components.ConfirmDialog(components.ConfirmDialogParams{
+											ID:          fmt.Sprintf("showDeleteConfirm_%s", SafeID(sa.ID)),
+											Title:       "Удалить Service Account?",
+											Message:     fmt.Sprintf("SA «%s» будет удалён из локальной БД и Keycloak. Все сервисы, использующие этот SA, перестанут работать.", sa.Name),
+											ConfirmText: "Удалить",
+											Danger:      true,
+										}) {
+											<button
+												class="inline-flex items-center px-4 py-2 text-sm font-medium bg-status-error text-white rounded-button hover:bg-red-600 transition-colors"
+												hx-delete={ fmt.Sprintf("/admin/partials/sa-delete/%s", sa.ID) }
+												hx-target="#access-action-result"
+												hx-swap="innerHTML"
+												x-on:click={ fmt.Sprintf("showDeleteConfirm_%s = false", SafeID(sa.ID)) }
+											>
+												Удалить
+											</button>
+										}
+									</div>
+								</td>
+							}
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+
+		<!-- Пагинация -->
+		@components.Pagination(components.PaginationParams{
+			CurrentPage: data.SAPage,
+			TotalPages:  data.SATotalPages,
+			TotalItems:  data.SATotalItems,
+			PageSize:    20,
+			BaseURL:     "/admin/partials/sa-table",
+			TargetID:    "sa-table-container",
+		})
+	</div>
+}
+
+// saCreateScopeCheckbox — чекбокс для scope при создании SA.
+templ saCreateScopeCheckbox(name, value, label string) {
+	<label class="flex items-center gap-2 text-sm text-text-secondary cursor-pointer hover:text-text-primary transition-colors">
+		<input
+			type="checkbox"
+			name="scopes"
+			value={ value }
+			class="w-4 h-4 rounded border-border-default bg-bg-elevated text-accent-primary focus:ring-accent-primary/50"
+		/>
+		<span>{ label }</span>
+	</label>
+}
+
+// --- Вспомогательные функции ---
+
+// usersColCount возвращает количество колонок таблицы пользователей.
+func usersColCount(role string) string {
+	if role == "admin" {
+		return "7"
+	}
+	return "6"
+}
+
+// saColCount возвращает количество колонок таблицы SA.
+func saColCount(role string) string {
+	if role == "admin" {
+		return "7"
+	}
+	return "6"
+}
+
+// accessRoleBadge — бейдж роли из IdP (может быть пустой).
+templ accessRoleBadge(role string) {
+	if role == "admin" {
+		@components.RoleBadge("admin")
+	} else if role == "readonly" {
+		@components.RoleBadge("readonly")
+	} else if role == "" {
+		<span class="text-xs text-text-muted">—</span>
+	} else {
+		@components.Badge(components.BadgeNeutral, role)
+	}
+}
+
+// scopeVariant возвращает вариант бейджа для scope.
+func scopeVariant(scope string) components.BadgeVariant {
+	if strings.Contains(scope, "write") {
+		return components.BadgeWarning
+	}
+	return components.BadgeInfo
+}
+
+// saStatusBadge — бейдж статуса SA.
+templ saStatusBadge(status string) {
+	if status == "active" {
+		@components.Badge(components.BadgeSuccess, "Active")
+	} else if status == "suspended" {
+		@components.Badge(components.BadgeError, "Suspended")
+	} else {
+		@components.Badge(components.BadgeNeutral, status)
+	}
+}
+
+// saSourceBadge — бейдж источника SA.
+templ saSourceBadge(source string) {
+	if source == "local" {
+		@components.Badge(components.BadgeInfo, "Local")
+	} else if source == "keycloak" {
+		@components.Badge(components.BadgeNeutral, "Keycloak")
+	} else {
+		@components.Badge(components.BadgeNeutral, source)
+	}
+}
