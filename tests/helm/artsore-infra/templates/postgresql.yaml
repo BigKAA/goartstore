@@ -12,7 +12,7 @@ metadata:
 data:
   # Скрипт выполняется при первой инициализации PostgreSQL.
   # Основная БД (POSTGRES_DB=artsore) создаётся автоматически.
-  # Дополнительно создаём БД keycloak для Bitnami Keycloak.
+  # Дополнительно создаём БД keycloak для Keycloak.
   create-keycloak-db.sh: |
     #!/bin/bash
     set -e

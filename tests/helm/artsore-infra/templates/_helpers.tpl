@@ -9,7 +9,6 @@ helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
 
 {{/*
 Keycloak HTTP URL (для AM — внутрикластерная связь)
-Bitnami KC создаёт service <release>-keycloak
 */}}
 {{- define "artsore-infra.keycloakHttpUrl" -}}
 http://{{ .Release.Name }}-keycloak.{{ .Values.namespace }}.svc.cluster.local:8080
@@ -27,5 +26,13 @@ https://{{ .Release.Name }}-keycloak.{{ .Values.namespace }}.svc.cluster.local:8
 */}}
 {{- define "artsore-infra.pg.selectorLabels" -}}
 app.kubernetes.io/name: postgresql
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{/*
+Метки selector для Keycloak
+*/}}
+{{- define "artsore-infra.kc.selectorLabels" -}}
+app.kubernetes.io/name: keycloak
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}

@@ -178,8 +178,6 @@ copy-realm:
 
 ## infra-up: Деплой artsore-infra (PG + KC)
 infra-up: copy-realm
-	@echo ">>> Обновление Helm зависимостей artsore-infra..."
-	@helm dependency update $(INFRA_CHART) 2>&1 | tail -1
 	@echo ">>> Деплой artsore-infra в namespace $(NAMESPACE)..."
 	helm upgrade --install $(INFRA_RELEASE) $(INFRA_CHART) \
 		--namespace $(NAMESPACE) \

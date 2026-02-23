@@ -18,7 +18,7 @@ spec:
     # PostgreSQL
     - postgresql
     - postgresql.{{ .Values.namespace }}.svc.cluster.local
-    # Keycloak (Bitnami subchart создаёт сервис <release>-keycloak)
+    # Keycloak (сервис <release>-keycloak)
     - {{ .Release.Name }}-keycloak
     - {{ .Release.Name }}-keycloak.{{ .Values.namespace }}.svc.cluster.local
     # Дополнительные сервисы (Admin Module и другие приложения)

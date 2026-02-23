@@ -33,50 +33,21 @@ postgresql:
       cpu: "500m"
 
 # -----------------------------------------------------------------------------
-# Keycloak (Bitnami subchart)
-# https://github.com/bitnami/charts/tree/main/bitnami/keycloak
+# Keycloak (official image)
+# https://www.keycloak.org/server/containers
 # -----------------------------------------------------------------------------
 keycloak:
-  # Dev mode — без production requirements (hostname, HTTPS required)
-  production: false
-  # Прокси: используем встроенный HTTPS (self-signed из cert-manager)
-  proxy: edge
+  image: quay.io/keycloak/keycloak:26.1
   # Admin credentials (bootstrap admin)
-  auth:
-    adminUser: admin
-    adminPassword: admin
-  # Используем внешний PostgreSQL (наш PG, БД keycloak)
-  postgresql:
-    enabled: false
-  externalDatabase:
+  adminUser: admin
+  adminPassword: admin
+  # Подключение к PostgreSQL (БД keycloak)
+  database:
     host: postgresql
     port: 5432
+    name: keycloak
     user: artsore
     password: artsore-test-password
-    database: keycloak
-  # HTTPS через cert-manager сертификат
-  tls:
-    enabled: true
-    existingSecret: artsore-test-tls
-    usePem: true
-  # HTTP порт (для AM — внутрикластерная связь без TLS)
-  httpPorts:
-    http: 8080
-  # Realm import
-  keycloakConfigCli:
-    enabled: false
-  extraVolumeMounts:
-    - name: realm-config
-      mountPath: /opt/bitnami/keycloak/data/import
-  extraVolumes:
-    - name: realm-config
-      configMap:
-        name: artsore-realm
-  # Команда с --import-realm
-  args:
-    - /opt/bitnami/keycloak/bin/kc.sh
-    - start
-    - --import-realm
   resources:
     requests:
       memory: "512Mi"
