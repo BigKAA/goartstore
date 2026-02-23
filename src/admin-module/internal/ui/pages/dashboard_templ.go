@@ -311,7 +311,7 @@ func Dashboard(data DashboardData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, " <!-- Статус зависимостей --> <div class=\"card mb-6\"><h2 class=\"text-lg font-semibold text-text-primary mb-4\">Зависимости</h2><div class=\"grid grid-cols-1 sm:grid-cols-2 gap-4\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, " <!-- Статус зависимостей (live-обновление через SSE) --> <div class=\"card mb-6\" x-data=\"sseDepStatus()\" x-init=\"connect()\" x-on:beforeunmount.window=\"disconnect()\"><h2 class=\"text-lg font-semibold text-text-primary mb-4\">Зависимости <span x-show=\"connected\" class=\"inline-block w-2 h-2 rounded-full bg-status-success ml-2\" title=\"Live\"></span></h2><div class=\"grid grid-cols-1 sm:grid-cols-2 gap-4\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -338,69 +338,106 @@ func Dashboard(data DashboardData) templ.Component {
 				var templ_7745c5c3_Var3 string
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(dep.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/dashboard.templ`, Line: 285, Col: 69}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/dashboard.templ`, Line: 293, Col: 69}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</span></div><!-- Статус бейдж -->")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				if dep.Status == "unavailable" {
-					templ_7745c5c3_Err = components.Badge(components.BadgeNeutral, "N/A").Render(ctx, templ_7745c5c3_Buffer)
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-				} else {
-					templ_7745c5c3_Err = components.StatusBadge(dep.Status).Render(ctx, templ_7745c5c3_Buffer)
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</div>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</div></div><!-- Таблица Storage Elements и графики (только если есть SE) --> ")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			if len(data.StorageElements) > 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<!-- Таблица SE --> <div class=\"card mb-6\"><div class=\"flex items-center justify-between mb-4\"><h2 class=\"text-lg font-semibold text-text-primary\">Storage Elements</h2><span class=\"text-sm text-text-muted\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</span></div><!-- Статус бейдж (обновляется через SSE) --><span x-bind:data-status=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var4 string
-				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(len(data.StorageElements)))
+				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("depStatuses['%s'] || '%s'", dep.Name, dep.Status))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/dashboard.templ`, Line: 304, Col: 84}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/dashboard.templ`, Line: 297, Col: 90}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, " зарегистрировано</span></div><div class=\"overflow-x-auto\"><table class=\"w-full text-sm\"><thead><tr class=\"border-b border-border-primary text-left\"><th class=\"pb-3 pr-4 text-text-muted font-medium\">Имя</th><th class=\"pb-3 pr-4 text-text-muted font-medium\">Режим</th><th class=\"pb-3 pr-4 text-text-muted font-medium\">Статус</th><th class=\"pb-3 pr-4 text-text-muted font-medium min-w-[160px]\">Ёмкость</th><th class=\"pb-3 pr-4 text-text-muted font-medium text-right\">Файлов</th><th class=\"pb-3 text-text-muted font-medium\"></th></tr></thead> <tbody class=\"divide-y divide-border-primary\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "\" x-bind:class=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var5 string
+				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("badgeClass(depStatuses['%s'] || '%s')", dep.Name, dep.Status))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/dashboard.templ`, Line: 298, Col: 96}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "\" x-text=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var6 string
+				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("badgeText(depStatuses['%s'] || '%s')", dep.Name, dep.Status))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/dashboard.templ`, Line: 299, Col: 89}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "\" class=\"inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var7 string
+				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(dep.Status)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/dashboard.templ`, Line: 302, Col: 19}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</span></div>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</div></div><!-- SSE JavaScript для live-обновления статусов зависимостей --> <script>\n\t\t\tfunction sseDepStatus() {\n\t\t\t\treturn {\n\t\t\t\t\tdepStatuses: {},\n\t\t\t\t\tconnected: false,\n\t\t\t\t\teventSource: null,\n\n\t\t\t\t\tconnect() {\n\t\t\t\t\t\tthis.eventSource = new EventSource('/admin/events/system-status');\n\n\t\t\t\t\t\tthis.eventSource.addEventListener('dep-status', (e) => {\n\t\t\t\t\t\t\ttry {\n\t\t\t\t\t\t\t\tconst data = JSON.parse(e.data);\n\t\t\t\t\t\t\t\tif (data.dependencies) {\n\t\t\t\t\t\t\t\t\tdata.dependencies.forEach(dep => {\n\t\t\t\t\t\t\t\t\t\tthis.depStatuses[dep.name] = dep.status;\n\t\t\t\t\t\t\t\t\t});\n\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t} catch (err) {\n\t\t\t\t\t\t\t\tconsole.error('SSE dep-status parse error:', err);\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t});\n\n\t\t\t\t\t\tthis.eventSource.onopen = () => { this.connected = true; };\n\t\t\t\t\t\tthis.eventSource.onerror = () => { this.connected = false; };\n\t\t\t\t\t},\n\n\t\t\t\t\tdisconnect() {\n\t\t\t\t\t\tif (this.eventSource) {\n\t\t\t\t\t\t\tthis.eventSource.close();\n\t\t\t\t\t\t\tthis.eventSource = null;\n\t\t\t\t\t\t}\n\t\t\t\t\t},\n\n\t\t\t\t\tbadgeClass(status) {\n\t\t\t\t\t\tconst classes = {\n\t\t\t\t\t\t\t'online': 'bg-status-success/10 text-status-success',\n\t\t\t\t\t\t\t'offline': 'bg-status-error/10 text-status-error',\n\t\t\t\t\t\t\t'unavailable': 'bg-text-muted/10 text-text-muted',\n\t\t\t\t\t\t};\n\t\t\t\t\t\treturn classes[status] || 'bg-text-muted/10 text-text-muted';\n\t\t\t\t\t},\n\n\t\t\t\t\tbadgeText(status) {\n\t\t\t\t\t\tconst texts = {\n\t\t\t\t\t\t\t'online': 'online',\n\t\t\t\t\t\t\t'offline': 'offline',\n\t\t\t\t\t\t\t'unavailable': 'N/A',\n\t\t\t\t\t\t};\n\t\t\t\t\t\treturn texts[status] || status;\n\t\t\t\t\t}\n\t\t\t\t};\n\t\t\t}\n\t\t</script> <!-- Таблица Storage Elements и графики (только если есть SE) --> ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if len(data.StorageElements) > 0 {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<!-- Таблица SE --> <div class=\"card mb-6\"><div class=\"flex items-center justify-between mb-4\"><h2 class=\"text-lg font-semibold text-text-primary\">Storage Elements</h2><span class=\"text-sm text-text-muted\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var8 string
+				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(len(data.StorageElements)))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/dashboard.templ`, Line: 371, Col: 84}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, " зарегистрировано</span></div><div class=\"overflow-x-auto\"><table class=\"w-full text-sm\"><thead><tr class=\"border-b border-border-primary text-left\"><th class=\"pb-3 pr-4 text-text-muted font-medium\">Имя</th><th class=\"pb-3 pr-4 text-text-muted font-medium\">Режим</th><th class=\"pb-3 pr-4 text-text-muted font-medium\">Статус</th><th class=\"pb-3 pr-4 text-text-muted font-medium min-w-[160px]\">Ёмкость</th><th class=\"pb-3 pr-4 text-text-muted font-medium text-right\">Файлов</th><th class=\"pb-3 text-text-muted font-medium\"></th></tr></thead> <tbody class=\"divide-y divide-border-primary\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				for _, se := range data.StorageElements {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<tr class=\"hover:bg-bg-elevated/50 transition-colors\"><td class=\"py-3 pr-4\"><span class=\"text-text-primary font-medium\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<tr class=\"hover:bg-bg-elevated/50 transition-colors\"><td class=\"py-3 pr-4\"><span class=\"text-text-primary font-medium\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					var templ_7745c5c3_Var5 string
-					templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(se.Name)
+					var templ_7745c5c3_Var9 string
+					templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(se.Name)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/dashboard.templ`, Line: 322, Col: 63}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/dashboard.templ`, Line: 389, Col: 63}
 					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</span></td><td class=\"py-3 pr-4\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</span></td><td class=\"py-3 pr-4\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -408,7 +445,7 @@ func Dashboard(data DashboardData) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</td><td class=\"py-3 pr-4\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</td><td class=\"py-3 pr-4\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -416,7 +453,7 @@ func Dashboard(data DashboardData) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</td><td class=\"py-3 pr-4\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</td><td class=\"py-3 pr-4\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -428,69 +465,69 @@ func Dashboard(data DashboardData) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</td><td class=\"py-3 pr-4 text-right\"><span class=\"text-text-secondary\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</td><td class=\"py-3 pr-4 text-right\"><span class=\"text-text-secondary\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					var templ_7745c5c3_Var6 string
-					templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(se.FileCount))
+					var templ_7745c5c3_Var10 string
+					templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(se.FileCount))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/dashboard.templ`, Line: 338, Col: 72}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/dashboard.templ`, Line: 405, Col: 72}
 					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</span></td><td class=\"py-3 text-right\"><a href=\"")
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					var templ_7745c5c3_Var7 templ.SafeURL
-					templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(fmt.Sprintf("/admin/storage-elements/%s", se.ID)))
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/dashboard.templ`, Line: 342, Col: 81}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "</span></td><td class=\"py-3 text-right\"><a href=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\" class=\"text-accent-primary hover:text-accent-hover text-xs\">Подробнее →</a></td></tr>")
+					var templ_7745c5c3_Var11 templ.SafeURL
+					templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(fmt.Sprintf("/admin/storage-elements/%s", se.ID)))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/dashboard.templ`, Line: 409, Col: 81}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\" class=\"text-accent-primary hover:text-accent-hover text-xs\">Подробнее →</a></td></tr>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</tbody></table></div></div><!-- Графики --> <div class=\"grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6\"><!-- График: использование хранилища по SE (horizontal bar chart) --><div class=\"card\"><h2 class=\"text-lg font-semibold text-text-primary mb-4\">Использование хранилища</h2><div id=\"storage-chart\" x-data=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "</tbody></table></div></div><!-- Графики --> <div class=\"grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6\"><!-- График: использование хранилища по SE (horizontal bar chart) --><div class=\"card\"><h2 class=\"text-lg font-semibold text-text-primary mb-4\">Использование хранилища</h2><div id=\"storage-chart\" x-data=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var8 string
-				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("{ chartData: %s }", storageChartJSON(data.StorageElements)))
+				var templ_7745c5c3_Var12 string
+				templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("{ chartData: %s }", storageChartJSON(data.StorageElements)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/dashboard.templ`, Line: 362, Col: 87}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/dashboard.templ`, Line: 429, Col: 87}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\" x-init=\"\n\t\t\t\t\t\t\tif (chartData.names.length > 0) {\n\t\t\t\t\t\t\t\tnew ApexCharts(document.querySelector('#storage-chart-container'), {\n\t\t\t\t\t\t\t\t\tchart: {\n\t\t\t\t\t\t\t\t\t\ttype: 'bar',\n\t\t\t\t\t\t\t\t\t\theight: Math.max(200, chartData.names.length * 50),\n\t\t\t\t\t\t\t\t\t\tbackground: 'transparent',\n\t\t\t\t\t\t\t\t\t\ttoolbar: { show: false },\n\t\t\t\t\t\t\t\t\t\tfontFamily: 'Inter, sans-serif',\n\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\tplotOptions: {\n\t\t\t\t\t\t\t\t\t\tbar: {\n\t\t\t\t\t\t\t\t\t\t\thorizontal: true,\n\t\t\t\t\t\t\t\t\t\t\tbarHeight: '60%',\n\t\t\t\t\t\t\t\t\t\t\tborderRadius: 4,\n\t\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\tseries: [\n\t\t\t\t\t\t\t\t\t\t{ name: 'Используется (GB)', data: chartData.used },\n\t\t\t\t\t\t\t\t\t\t{ name: 'Свободно (GB)', data: chartData.total.map((t, i) => Math.max(0, +(t - chartData.used[i]).toFixed(2))) },\n\t\t\t\t\t\t\t\t\t],\n\t\t\t\t\t\t\t\t\tcolors: ['#22c55e', '#374151'],\n\t\t\t\t\t\t\t\t\txaxis: {\n\t\t\t\t\t\t\t\t\t\tcategories: chartData.names,\n\t\t\t\t\t\t\t\t\t\tlabels: {\n\t\t\t\t\t\t\t\t\t\t\tstyle: { colors: '#9ca3af', fontSize: '12px' },\n\t\t\t\t\t\t\t\t\t\t\tformatter: (v) => v.toFixed(1) + ' GB',\n\t\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\tyaxis: {\n\t\t\t\t\t\t\t\t\t\tlabels: {\n\t\t\t\t\t\t\t\t\t\t\tstyle: { colors: '#9ca3af', fontSize: '12px' },\n\t\t\t\t\t\t\t\t\t\t\tmaxWidth: 120,\n\t\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\tgrid: {\n\t\t\t\t\t\t\t\t\t\tborderColor: '#374151',\n\t\t\t\t\t\t\t\t\t\tstrokeDashArray: 4,\n\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\tlegend: {\n\t\t\t\t\t\t\t\t\t\tlabels: { colors: '#9ca3af' },\n\t\t\t\t\t\t\t\t\t\tposition: 'top',\n\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\ttooltip: {\n\t\t\t\t\t\t\t\t\t\ttheme: 'dark',\n\t\t\t\t\t\t\t\t\t\ty: { formatter: (v) => v.toFixed(2) + ' GB' },\n\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\tdataLabels: { enabled: false },\n\t\t\t\t\t\t\t\t\tstates: {\n\t\t\t\t\t\t\t\t\t\thover: { filter: { type: 'lighten', value: 0.1 } },\n\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t}).render();\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\"><div id=\"storage-chart-container\"></div></div></div><!-- График: распределение файлов по SE (donut chart) --><div class=\"card\"><h2 class=\"text-lg font-semibold text-text-primary mb-4\">Распределение файлов</h2><div id=\"files-chart\" x-data=\"")
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var9 string
-				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("{ chartData: %s }", filesChartJSON(data.StorageElements)))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/dashboard.templ`, Line: 427, Col: 85}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "\" x-init=\"\n\t\t\t\t\t\t\tif (chartData.names.length > 0) {\n\t\t\t\t\t\t\t\tnew ApexCharts(document.querySelector('#storage-chart-container'), {\n\t\t\t\t\t\t\t\t\tchart: {\n\t\t\t\t\t\t\t\t\t\ttype: 'bar',\n\t\t\t\t\t\t\t\t\t\theight: Math.max(200, chartData.names.length * 50),\n\t\t\t\t\t\t\t\t\t\tbackground: 'transparent',\n\t\t\t\t\t\t\t\t\t\ttoolbar: { show: false },\n\t\t\t\t\t\t\t\t\t\tfontFamily: 'Inter, sans-serif',\n\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\tplotOptions: {\n\t\t\t\t\t\t\t\t\t\tbar: {\n\t\t\t\t\t\t\t\t\t\t\thorizontal: true,\n\t\t\t\t\t\t\t\t\t\t\tbarHeight: '60%',\n\t\t\t\t\t\t\t\t\t\t\tborderRadius: 4,\n\t\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\tseries: [\n\t\t\t\t\t\t\t\t\t\t{ name: 'Используется (GB)', data: chartData.used },\n\t\t\t\t\t\t\t\t\t\t{ name: 'Свободно (GB)', data: chartData.total.map((t, i) => Math.max(0, +(t - chartData.used[i]).toFixed(2))) },\n\t\t\t\t\t\t\t\t\t],\n\t\t\t\t\t\t\t\t\tcolors: ['#22c55e', '#374151'],\n\t\t\t\t\t\t\t\t\txaxis: {\n\t\t\t\t\t\t\t\t\t\tcategories: chartData.names,\n\t\t\t\t\t\t\t\t\t\tlabels: {\n\t\t\t\t\t\t\t\t\t\t\tstyle: { colors: '#9ca3af', fontSize: '12px' },\n\t\t\t\t\t\t\t\t\t\t\tformatter: (v) => v.toFixed(1) + ' GB',\n\t\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\tyaxis: {\n\t\t\t\t\t\t\t\t\t\tlabels: {\n\t\t\t\t\t\t\t\t\t\t\tstyle: { colors: '#9ca3af', fontSize: '12px' },\n\t\t\t\t\t\t\t\t\t\t\tmaxWidth: 120,\n\t\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\tgrid: {\n\t\t\t\t\t\t\t\t\t\tborderColor: '#374151',\n\t\t\t\t\t\t\t\t\t\tstrokeDashArray: 4,\n\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\tlegend: {\n\t\t\t\t\t\t\t\t\t\tlabels: { colors: '#9ca3af' },\n\t\t\t\t\t\t\t\t\t\tposition: 'top',\n\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\ttooltip: {\n\t\t\t\t\t\t\t\t\t\ttheme: 'dark',\n\t\t\t\t\t\t\t\t\t\ty: { formatter: (v) => v.toFixed(2) + ' GB' },\n\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\tdataLabels: { enabled: false },\n\t\t\t\t\t\t\t\t\tstates: {\n\t\t\t\t\t\t\t\t\t\thover: { filter: { type: 'lighten', value: 0.1 } },\n\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t}).render();\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\"><div id=\"storage-chart-container\"></div></div></div><!-- График: распределение файлов по SE (donut chart) --><div class=\"card\"><h2 class=\"text-lg font-semibold text-text-primary mb-4\">Распределение файлов</h2><div id=\"files-chart\" x-data=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\" x-init=\"\n\t\t\t\t\t\t\tif (chartData.names.length > 0) {\n\t\t\t\t\t\t\t\tnew ApexCharts(document.querySelector('#files-chart-container'), {\n\t\t\t\t\t\t\t\t\tchart: {\n\t\t\t\t\t\t\t\t\t\ttype: 'donut',\n\t\t\t\t\t\t\t\t\t\theight: 280,\n\t\t\t\t\t\t\t\t\t\tbackground: 'transparent',\n\t\t\t\t\t\t\t\t\t\tfontFamily: 'Inter, sans-serif',\n\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\tseries: chartData.counts,\n\t\t\t\t\t\t\t\t\tlabels: chartData.names,\n\t\t\t\t\t\t\t\t\tcolors: ['#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'],\n\t\t\t\t\t\t\t\t\tlegend: {\n\t\t\t\t\t\t\t\t\t\tposition: 'bottom',\n\t\t\t\t\t\t\t\t\t\tlabels: { colors: '#9ca3af' },\n\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\tplotOptions: {\n\t\t\t\t\t\t\t\t\t\tpie: {\n\t\t\t\t\t\t\t\t\t\t\tdonut: {\n\t\t\t\t\t\t\t\t\t\t\t\tsize: '65%',\n\t\t\t\t\t\t\t\t\t\t\t\tlabels: {\n\t\t\t\t\t\t\t\t\t\t\t\t\tshow: true,\n\t\t\t\t\t\t\t\t\t\t\t\t\tname: { color: '#d1d5db' },\n\t\t\t\t\t\t\t\t\t\t\t\t\tvalue: {\n\t\t\t\t\t\t\t\t\t\t\t\t\t\tcolor: '#f3f4f6',\n\t\t\t\t\t\t\t\t\t\t\t\t\t\tformatter: (v) => v + ' файлов',\n\t\t\t\t\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\t\t\t\t\ttotal: {\n\t\t\t\t\t\t\t\t\t\t\t\t\t\tshow: true,\n\t\t\t\t\t\t\t\t\t\t\t\t\t\tcolor: '#9ca3af',\n\t\t\t\t\t\t\t\t\t\t\t\t\t\tlabel: 'Всего',\n\t\t\t\t\t\t\t\t\t\t\t\t\t\tformatter: (w) => w.globals.seriesTotals.reduce((a, b) => a + b, 0) + ' файлов',\n\t\t\t\t\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\tdataLabels: { enabled: false },\n\t\t\t\t\t\t\t\t\tstroke: { width: 2, colors: ['#1a1a2e'] },\n\t\t\t\t\t\t\t\t\ttooltip: {\n\t\t\t\t\t\t\t\t\t\ttheme: 'dark',\n\t\t\t\t\t\t\t\t\t\ty: { formatter: (v) => v + ' файлов' },\n\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\tstates: {\n\t\t\t\t\t\t\t\t\t\thover: { filter: { type: 'lighten', value: 0.1 } },\n\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t}).render();\n\t\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\t\t$el.querySelector('#files-chart-container').innerHTML = '<p class=\\'text-sm text-text-muted text-center py-8\\'>Нет файлов для отображения</p>';\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\"><div id=\"files-chart-container\"></div></div></div></div>")
+				var templ_7745c5c3_Var13 string
+				templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("{ chartData: %s }", filesChartJSON(data.StorageElements)))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/dashboard.templ`, Line: 494, Col: 85}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "\" x-init=\"\n\t\t\t\t\t\t\tif (chartData.names.length > 0) {\n\t\t\t\t\t\t\t\tnew ApexCharts(document.querySelector('#files-chart-container'), {\n\t\t\t\t\t\t\t\t\tchart: {\n\t\t\t\t\t\t\t\t\t\ttype: 'donut',\n\t\t\t\t\t\t\t\t\t\theight: 280,\n\t\t\t\t\t\t\t\t\t\tbackground: 'transparent',\n\t\t\t\t\t\t\t\t\t\tfontFamily: 'Inter, sans-serif',\n\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\tseries: chartData.counts,\n\t\t\t\t\t\t\t\t\tlabels: chartData.names,\n\t\t\t\t\t\t\t\t\tcolors: ['#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'],\n\t\t\t\t\t\t\t\t\tlegend: {\n\t\t\t\t\t\t\t\t\t\tposition: 'bottom',\n\t\t\t\t\t\t\t\t\t\tlabels: { colors: '#9ca3af' },\n\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\tplotOptions: {\n\t\t\t\t\t\t\t\t\t\tpie: {\n\t\t\t\t\t\t\t\t\t\t\tdonut: {\n\t\t\t\t\t\t\t\t\t\t\t\tsize: '65%',\n\t\t\t\t\t\t\t\t\t\t\t\tlabels: {\n\t\t\t\t\t\t\t\t\t\t\t\t\tshow: true,\n\t\t\t\t\t\t\t\t\t\t\t\t\tname: { color: '#d1d5db' },\n\t\t\t\t\t\t\t\t\t\t\t\t\tvalue: {\n\t\t\t\t\t\t\t\t\t\t\t\t\t\tcolor: '#f3f4f6',\n\t\t\t\t\t\t\t\t\t\t\t\t\t\tformatter: (v) => v + ' файлов',\n\t\t\t\t\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\t\t\t\t\ttotal: {\n\t\t\t\t\t\t\t\t\t\t\t\t\t\tshow: true,\n\t\t\t\t\t\t\t\t\t\t\t\t\t\tcolor: '#9ca3af',\n\t\t\t\t\t\t\t\t\t\t\t\t\t\tlabel: 'Всего',\n\t\t\t\t\t\t\t\t\t\t\t\t\t\tformatter: (w) => w.globals.seriesTotals.reduce((a, b) => a + b, 0) + ' файлов',\n\t\t\t\t\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\tdataLabels: { enabled: false },\n\t\t\t\t\t\t\t\t\tstroke: { width: 2, colors: ['#1a1a2e'] },\n\t\t\t\t\t\t\t\t\ttooltip: {\n\t\t\t\t\t\t\t\t\t\ttheme: 'dark',\n\t\t\t\t\t\t\t\t\t\ty: { formatter: (v) => v + ' файлов' },\n\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t\tstates: {\n\t\t\t\t\t\t\t\t\t\thover: { filter: { type: 'lighten', value: 0.1 } },\n\t\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t}).render();\n\t\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\t\t$el.querySelector('#files-chart-container').innerHTML = '<p class=\\'text-sm text-text-muted text-center py-8\\'>Нет файлов для отображения</p>';\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\"><div id=\"files-chart-container\"></div></div></div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "<!-- Пустое состояние: нет SE --> <div class=\"card mb-6 text-center py-8\"><svg class=\"w-12 h-12 text-text-muted mx-auto mb-3\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M21.75 17.25v-.228a4.5 4.5 0 00-.12-1.03l-2.268-9.64a3.375 3.375 0 00-3.285-2.602H7.923a3.375 3.375 0 00-3.285 2.602l-2.268 9.64a4.5 4.5 0 00-.12 1.03v.228m19.5 0a3 3 0 01-3 3H5.25a3 3 0 01-3-3m19.5 0a3 3 0 00-3-3H5.25a3 3 0 00-3 3m16.5 0h.008v.008h-.008v-.008zm-3 0h.008v.008h-.008v-.008z\"></path></svg><p class=\"text-text-secondary font-medium mb-1\">Нет зарегистрированных Storage Elements</p><p class=\"text-sm text-text-muted\">Зарегистрируйте SE через раздел «Storage Elements» в меню навигации</p></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<!-- Пустое состояние: нет SE --> <div class=\"card mb-6 text-center py-8\"><svg class=\"w-12 h-12 text-text-muted mx-auto mb-3\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M21.75 17.25v-.228a4.5 4.5 0 00-.12-1.03l-2.268-9.64a3.375 3.375 0 00-3.285-2.602H7.923a3.375 3.375 0 00-3.285 2.602l-2.268 9.64a4.5 4.5 0 00-.12 1.03v.228m19.5 0a3 3 0 01-3 3H5.25a3 3 0 01-3-3m19.5 0a3 3 0 00-3-3H5.25a3 3 0 00-3 3m16.5 0h.008v.008h-.008v-.008zm-3 0h.008v.008h-.008v-.008z\"></path></svg><p class=\"text-text-secondary font-medium mb-1\">Нет зарегистрированных Storage Elements</p><p class=\"text-sm text-text-muted\">Зарегистрируйте SE через раздел «Storage Elements» в меню навигации</p></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

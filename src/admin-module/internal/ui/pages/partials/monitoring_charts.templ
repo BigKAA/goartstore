@@ -1,0 +1,11 @@
+package partials
+
+import (
+	"github.com/arturkryukov/artstore/admin-module/internal/ui/pages"
+)
+
+// MonitoringChartsBody — partial для обновления графиков мониторинга.
+// Вызывается через HTMX при смене периода.
+templ MonitoringChartsBody(data pages.MonitoringChartData) {
+	@pages.MonitoringChartsContent(data)
+}

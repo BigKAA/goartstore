@@ -1,0 +1,171 @@
+package partials
+
+import (
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/arturkryukov/artstore/admin-module/internal/ui/components"
+)
+
+// UserDetailData — полные данные пользователя для отображения.
+type UserDetailData struct {
+	ID            string
+	Username      string
+	Email         string
+	FirstName     string
+	LastName      string
+	Enabled       bool
+	Groups        []string
+	IdpRole       string
+	RoleOverride  *string
+	EffectiveRole string
+	CreatedAt     time.Time
+	Role          string // Роль текущего пользователя (для RBAC)
+}
+
+// UserDetailContent — partial: детальная информация о пользователе (inline card).
+templ UserDetailContent(data UserDetailData) {
+	<div class="card mb-4">
+		<div class="flex items-center justify-between mb-4">
+			<h3 class="text-lg font-semibold text-text-primary">Детали пользователя</h3>
+			<button
+				class="text-text-muted hover:text-text-primary transition-colors"
+				onclick="document.getElementById('access-action-result').innerHTML = ''"
+			>
+				<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path>
+				</svg>
+			</button>
+		</div>
+
+		<!-- Имя и статус -->
+		<div class="flex items-center gap-3 mb-4 pb-4 border-b border-border-subtle">
+			<div class="w-10 h-10 rounded-full bg-accent-primary/20 flex items-center justify-center">
+				<span class="text-accent-primary font-semibold text-sm">{ userDetailInitials(data.FirstName, data.LastName, data.Username) }</span>
+			</div>
+			<div class="flex-1 min-w-0">
+				<h4 class="text-base font-medium text-text-primary">{ data.Username }</h4>
+				<span class="text-xs text-text-muted font-mono">{ data.ID }</span>
+			</div>
+			<div class="flex items-center gap-2">
+				@components.RoleBadge(data.EffectiveRole)
+				if data.Enabled {
+					@components.Badge(components.BadgeSuccess, "Активен")
+				} else {
+					@components.Badge(components.BadgeError, "Отключён")
+				}
+			</div>
+		</div>
+
+		<!-- Данные пользователя -->
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+			<div>
+				<span class="text-text-muted">Имя:</span>
+				<span class="ml-2 text-text-primary">{ userDetailFullName(data.FirstName, data.LastName) }</span>
+			</div>
+			<div>
+				<span class="text-text-muted">Email:</span>
+				<span class="ml-2 text-text-primary">{ data.Email }</span>
+			</div>
+			<div>
+				<span class="text-text-muted">Роль из IdP:</span>
+				<span class="ml-2">
+					if data.IdpRole != "" {
+						@components.RoleBadge(data.IdpRole)
+					} else {
+						<span class="text-text-muted">—</span>
+					}
+				</span>
+			</div>
+			<div>
+				<span class="text-text-muted">Role Override:</span>
+				<span class="ml-2">
+					if data.RoleOverride != nil {
+						@components.RoleBadge(*data.RoleOverride)
+						<span class="text-xs text-accent-primary">(активен)</span>
+					} else {
+						<span class="text-text-muted">Нет</span>
+					}
+				</span>
+			</div>
+			<div>
+				<span class="text-text-muted">Итоговая роль:</span>
+				<span class="ml-2">@components.RoleBadge(data.EffectiveRole)</span>
+			</div>
+			<div>
+				<span class="text-text-muted">Создан в Keycloak:</span>
+				<span class="ml-2 text-text-primary">{ data.CreatedAt.Format("02.01.2006 15:04") }</span>
+			</div>
+		</div>
+
+		<!-- Группы -->
+		<div class="mt-4 pt-4 border-t border-border-subtle">
+			<span class="text-xs text-text-muted block mb-2">Группы</span>
+			<div class="flex flex-wrap gap-1">
+				for _, group := range data.Groups {
+					<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-bg-elevated text-text-secondary">
+						{ group }
+					</span>
+				}
+				if len(data.Groups) == 0 {
+					<span class="text-sm text-text-muted">Нет групп</span>
+				}
+			</div>
+		</div>
+
+		<!-- Кнопки действий (admin only) -->
+		if data.Role == "admin" {
+			<div class="flex items-center justify-end gap-3 mt-4 pt-4 border-t border-border-subtle">
+				if data.EffectiveRole != "admin" {
+					<button
+						class="inline-flex items-center px-4 py-2 text-sm font-medium bg-accent-primary text-bg-base rounded-button hover:bg-accent-light transition-colors gap-1.5"
+						hx-post={ fmt.Sprintf("/admin/partials/user-role-override/%s", data.ID) }
+						hx-target="#access-action-result"
+						hx-swap="innerHTML"
+						hx-confirm="Повысить роль пользователя до admin?"
+					>
+						<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18"></path>
+						</svg>
+						Повысить до Admin
+					</button>
+				}
+				if data.RoleOverride != nil {
+					<button
+						class="inline-flex items-center px-4 py-2 text-sm font-medium text-status-warning bg-bg-elevated rounded-button border border-border-default hover:bg-bg-hover transition-colors gap-1.5"
+						hx-delete={ fmt.Sprintf("/admin/partials/user-role-override/%s", data.ID) }
+						hx-target="#access-action-result"
+						hx-swap="innerHTML"
+						hx-confirm="Убрать дополнение роли? Будет использоваться только роль из IdP."
+					>
+						<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3"></path>
+						</svg>
+						Убрать Override
+					</button>
+				}
+			</div>
+		}
+	</div>
+}
+
+// userDetailInitials — инициалы для аватара.
+func userDetailInitials(firstName, lastName, username string) string {
+	if firstName != "" && lastName != "" {
+		return strings.ToUpper(string(firstName[0])) + strings.ToUpper(string(lastName[0]))
+	}
+	if username != "" {
+		return strings.ToUpper(string(username[0]))
+	}
+	return "?"
+}
+
+// userDetailFullName — полное имя.
+func userDetailFullName(firstName, lastName string) string {
+	name := strings.TrimSpace(firstName + " " + lastName)
+	if name == "" {
+		return "—"
+	}
+	return name
+}

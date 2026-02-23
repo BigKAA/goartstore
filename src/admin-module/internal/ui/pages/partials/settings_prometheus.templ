@@ -1,0 +1,29 @@
+package partials
+
+import (
+	"github.com/arturkryukov/artstore/admin-module/internal/ui/components"
+)
+
+// SettingsAlert — partial: универсальный alert для страницы Settings.
+// Используется для отображения результата сохранения настроек и тестирования подключения.
+templ SettingsAlert(variant, msg string) {
+	@components.Alert(components.AlertParams{
+		Variant:     settingsAlertVariant(variant),
+		Message:     msg,
+		Dismissible: true,
+	})
+}
+
+// settingsAlertVariant конвертирует строковый variant в тип AlertVariant.
+func settingsAlertVariant(variant string) components.AlertVariant {
+	switch variant {
+	case "success":
+		return components.AlertSuccess
+	case "error":
+		return components.AlertError
+	case "warning":
+		return components.AlertWarning
+	default:
+		return components.AlertInfo
+	}
+}

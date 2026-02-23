@@ -261,9 +261,17 @@ templ Dashboard(data DashboardData) {
 			</div>
 		}
 
-		<!-- Статус зависимостей -->
-		<div class="card mb-6">
-			<h2 class="text-lg font-semibold text-text-primary mb-4">Зависимости</h2>
+		<!-- Статус зависимостей (live-обновление через SSE) -->
+		<div
+			class="card mb-6"
+			x-data="sseDepStatus()"
+			x-init="connect()"
+			x-on:beforeunmount.window="disconnect()"
+		>
+			<h2 class="text-lg font-semibold text-text-primary mb-4">
+				Зависимости
+				<span x-show="connected" class="inline-block w-2 h-2 rounded-full bg-status-success ml-2" title="Live"></span>
+			</h2>
 			<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 				for _, dep := range data.Dependencies {
 					<div class="flex items-center justify-between p-3 bg-bg-elevated rounded-lg">
@@ -284,16 +292,75 @@ templ Dashboard(data DashboardData) {
 							}
 							<span class="text-sm font-medium text-text-primary">{ dep.Name }</span>
 						</div>
-						<!-- Статус бейдж -->
-						if dep.Status == "unavailable" {
-							@components.Badge(components.BadgeNeutral, "N/A")
-						} else {
-							@components.StatusBadge(dep.Status)
-						}
+						<!-- Статус бейдж (обновляется через SSE) -->
+						<span
+							x-bind:data-status={ fmt.Sprintf("depStatuses['%s'] || '%s'", dep.Name, dep.Status) }
+							x-bind:class={ fmt.Sprintf("badgeClass(depStatuses['%s'] || '%s')", dep.Name, dep.Status) }
+							x-text={ fmt.Sprintf("badgeText(depStatuses['%s'] || '%s')", dep.Name, dep.Status) }
+							class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full"
+						>
+							{ dep.Status }
+						</span>
 					</div>
 				}
 			</div>
 		</div>
+
+		<!-- SSE JavaScript для live-обновления статусов зависимостей -->
+		<script>
+			function sseDepStatus() {
+				return {
+					depStatuses: {},
+					connected: false,
+					eventSource: null,
+
+					connect() {
+						this.eventSource = new EventSource('/admin/events/system-status');
+
+						this.eventSource.addEventListener('dep-status', (e) => {
+							try {
+								const data = JSON.parse(e.data);
+								if (data.dependencies) {
+									data.dependencies.forEach(dep => {
+										this.depStatuses[dep.name] = dep.status;
+									});
+								}
+							} catch (err) {
+								console.error('SSE dep-status parse error:', err);
+							}
+						});
+
+						this.eventSource.onopen = () => { this.connected = true; };
+						this.eventSource.onerror = () => { this.connected = false; };
+					},
+
+					disconnect() {
+						if (this.eventSource) {
+							this.eventSource.close();
+							this.eventSource = null;
+						}
+					},
+
+					badgeClass(status) {
+						const classes = {
+							'online': 'bg-status-success/10 text-status-success',
+							'offline': 'bg-status-error/10 text-status-error',
+							'unavailable': 'bg-text-muted/10 text-text-muted',
+						};
+						return classes[status] || 'bg-text-muted/10 text-text-muted';
+					},
+
+					badgeText(status) {
+						const texts = {
+							'online': 'online',
+							'offline': 'offline',
+							'unavailable': 'N/A',
+						};
+						return texts[status] || status;
+					}
+				};
+			}
+		</script>
 
 		<!-- Таблица Storage Elements и графики (только если есть SE) -->
 		if len(data.StorageElements) > 0 {
