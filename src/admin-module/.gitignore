@@ -1,0 +1,6 @@
+# Артефакты сборки
+bin/
+admin-module
+
+# Tailwind CSS Standalone CLI (скачивается, не коммитится)
+tailwindcss
