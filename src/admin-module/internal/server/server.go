@@ -41,6 +41,8 @@ type UIComponents struct {
 	DashboardHandler *uihandlers.DashboardHandler
 	// StorageElementsHandler — обработчик страниц Storage Elements.
 	StorageElementsHandler *uihandlers.StorageElementsHandler
+	// FilesHandler — обработчик страниц файлового реестра.
+	FilesHandler *uihandlers.FilesHandler
 }
 
 // New создаёт новый HTTP-сервер с настроенными routes и middleware.
@@ -118,6 +120,19 @@ func registerUIRoutes(router chi.Router, ui *UIComponents, logger *slog.Logger) 
 			r.Post("/partials/se-sync/{id}", se.HandleSync)
 			r.Post("/partials/se-sync-all", se.HandleSyncAll)
 			r.Get("/partials/se-files/{id}", se.HandleFilesPartial)
+		}
+
+		// --- Файловый реестр ---
+		if ui.FilesHandler != nil {
+			f := ui.FilesHandler
+			r.Get("/files", f.HandleList)
+
+			// HTMX partials для файлов
+			r.Get("/partials/file-table", f.HandleTablePartial)
+			r.Get("/partials/file-detail/{id}", f.HandleDetailModal)
+			r.Get("/partials/file-edit-form/{id}", f.HandleEditForm)
+			r.Put("/partials/file-update/{id}", f.HandleUpdate)
+			r.Delete("/partials/file-delete/{id}", f.HandleDelete)
 		}
 	})
 
