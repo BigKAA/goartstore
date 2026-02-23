@@ -355,7 +355,7 @@ type DiscoverResponseMode string
 // DiscoverResponseStatus defines model for DiscoverResponse.Status.
 type DiscoverResponseStatus string
 
-// ErrorResponse Стандартный формат ошибки (единый для всей системы Artsore)
+// ErrorResponse Стандартный формат ошибки (единый для всей системы Artstore)
 type ErrorResponse struct {
 	Error struct {
 		// Code Машиночитаемый код ошибки:
@@ -728,16 +728,16 @@ type StorageElementId = openapi_types.UUID
 // UserId defines model for UserId.
 type UserId = string
 
-// Forbidden Стандартный формат ошибки (единый для всей системы Artsore)
+// Forbidden Стандартный формат ошибки (единый для всей системы Artstore)
 type Forbidden = ErrorResponse
 
-// InternalError Стандартный формат ошибки (единый для всей системы Artsore)
+// InternalError Стандартный формат ошибки (единый для всей системы Artstore)
 type InternalError = ErrorResponse
 
-// NotFound Стандартный формат ошибки (единый для всей системы Artsore)
+// NotFound Стандартный формат ошибки (единый для всей системы Artstore)
 type NotFound = ErrorResponse
 
-// Unauthorized Стандартный формат ошибки (единый для всей системы Artsore)
+// Unauthorized Стандартный формат ошибки (единый для всей системы Artstore)
 type Unauthorized = ErrorResponse
 
 // ListAdminUsersParams defines parameters for ListAdminUsers.

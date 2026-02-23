@@ -2,13 +2,13 @@ apiVersion: v2
 name: storage-element
 description: >-
   Helm chart для Storage Element — модуль физического хранения файлов
-  системы Artsore. Поддерживает standalone (Deployment) и replicated
+  системы Artstore. Поддерживает standalone (Deployment) и replicated
   (StatefulSet с leader/follower) режимы деплоя.
 type: application
 version: 0.1.0
 appVersion: "0.1.0"
 keywords:
-  - artsore
+  - artstore
   - storage-element
   - file-storage
 maintainers:

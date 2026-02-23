@@ -15,8 +15,8 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/arturkryukov/artsore/storage-element/internal/domain/model"
-	"github.com/arturkryukov/artsore/storage-element/internal/storage/attr"
+	"github.com/arturkryukov/artstore/storage-element/internal/domain/model"
+	"github.com/arturkryukov/artstore/storage-element/internal/storage/attr"
 )
 
 // Index — потокобезопасный in-memory индекс метаданных.

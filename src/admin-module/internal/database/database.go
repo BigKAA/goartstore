@@ -14,7 +14,7 @@ import (
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/arturkryukov/artsore/admin-module/internal/config"
+	"github.com/arturkryukov/artstore/admin-module/internal/config"
 )
 
 //go:embed migrations/*.sql

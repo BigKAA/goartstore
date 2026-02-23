@@ -13,7 +13,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 
-	apierrors "github.com/arturkryukov/artsore/storage-element/internal/api/errors"
+	apierrors "github.com/arturkryukov/artstore/storage-element/internal/api/errors"
 )
 
 const (

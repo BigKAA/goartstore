@@ -83,8 +83,8 @@ func TestHighestRole(t *testing.T) {
 }
 
 func TestMapGroupsToRole(t *testing.T) {
-	adminGroups := []string{"artsore-admins"}
-	readonlyGroups := []string{"artsore-viewers"}
+	adminGroups := []string{"artstore-admins"}
+	readonlyGroups := []string{"artstore-viewers"}
 
 	tests := []struct {
 		name   string
@@ -93,17 +93,17 @@ func TestMapGroupsToRole(t *testing.T) {
 	}{
 		{
 			name:   "группа admins -> admin",
-			groups: []string{"artsore-admins"},
+			groups: []string{"artstore-admins"},
 			want:   RoleAdmin,
 		},
 		{
 			name:   "группа viewers -> readonly",
-			groups: []string{"artsore-viewers"},
+			groups: []string{"artstore-viewers"},
 			want:   RoleReadonly,
 		},
 		{
 			name:   "обе группы -> admin (max)",
-			groups: []string{"artsore-admins", "artsore-viewers"},
+			groups: []string{"artstore-admins", "artstore-viewers"},
 			want:   RoleAdmin,
 		},
 		{
@@ -118,7 +118,7 @@ func TestMapGroupsToRole(t *testing.T) {
 		},
 		{
 			name:   "несколько групп, одна совпадает",
-			groups: []string{"some-group", "artsore-viewers", "another-group"},
+			groups: []string{"some-group", "artstore-viewers", "another-group"},
 			want:   RoleReadonly,
 		},
 	}

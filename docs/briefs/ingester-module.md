@@ -9,7 +9,7 @@
 
 ## 1. Назначение модуля
 
-Ingester Module — точка входа для загрузки файлов в систему Artsore.
+Ingester Module — точка входа для загрузки файлов в систему Artstore.
 Принимает файлы от клиентов, валидирует, определяет целевой Storage Element,
 выполняет streaming upload и регистрирует файл в реестре Admin Module.
 
@@ -344,8 +344,8 @@ docker run -d \
 ```bash
 # Установка через Helm chart
 helm install ingester ./ingester-module/chart \
-  --set adminUrl=http://admin-module.artsore.svc:8000 \
-  --set jwksUrl=http://admin-module.artsore.svc:8000/api/v1/auth/jwks \
+  --set adminUrl=http://admin-module.artstore.svc:8000 \
+  --set jwksUrl=http://admin-module.artstore.svc:8000/api/v1/auth/jwks \
   --set clientId=sa_ingester_abc123 \
   --set clientSecret=cs_secret_value_here \
   --set seCaCert.secretName=se-ca-cert
@@ -385,7 +385,7 @@ import (
     _ "github.com/BigKAA/topologymetrics/sdk-go/dephealth/checks"
 )
 
-dh, err := dephealth.New("ingester-module", "artsore",
+dh, err := dephealth.New("ingester-module", "artstore",
     dephealth.WithCheckInterval(cfg.DephealthCheckInterval),
     dephealth.HTTP("admin-module",
         dephealth.FromURL(cfg.AdminURL + "/health/live"),

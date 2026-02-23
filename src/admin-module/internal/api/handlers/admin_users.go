@@ -9,11 +9,11 @@ import (
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
-	apierrors "github.com/arturkryukov/artsore/admin-module/internal/api/errors"
-	"github.com/arturkryukov/artsore/admin-module/internal/api/generated"
-	"github.com/arturkryukov/artsore/admin-module/internal/api/middleware"
-	"github.com/arturkryukov/artsore/admin-module/internal/domain/model"
-	"github.com/arturkryukov/artsore/admin-module/internal/service"
+	apierrors "github.com/arturkryukov/artstore/admin-module/internal/api/errors"
+	"github.com/arturkryukov/artstore/admin-module/internal/api/generated"
+	"github.com/arturkryukov/artstore/admin-module/internal/api/middleware"
+	"github.com/arturkryukov/artstore/admin-module/internal/domain/model"
+	"github.com/arturkryukov/artstore/admin-module/internal/service"
 )
 
 // ListAdminUsers — GET /api/v1/admin-users.

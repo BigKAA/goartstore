@@ -19,15 +19,15 @@ logFormat: json
 database:
   host: ""          # обязательный: хост PostgreSQL
   port: 5432
-  name: artsore
-  user: artsore
+  name: artstore
+  user: artstore
   password: ""      # обязательный: пароль PostgreSQL
   sslMode: disable  # disable, require, verify-ca, verify-full
 
 # --- Keycloak ---
 keycloak:
   url: ""              # обязательный: URL Keycloak (например, https://keycloak.kryukov.lan)
-  realm: artsore
+  realm: artstore
   clientId: ""         # обязательный: Client ID для Admin API
   clientSecret: ""     # обязательный: Client Secret для Admin API
   saPrefix: "sa_"      # префикс client_id для Service Accounts
@@ -42,8 +42,8 @@ jwt:
 
 # --- Маппинг групп Keycloak → ролей AM ---
 rbac:
-  adminGroups: "artsore-admins"
-  readonlyGroups: "artsore-viewers"
+  adminGroups: "artstore-admins"
+  readonlyGroups: "artstore-viewers"
 
 # --- Синхронизация ---
 sync:

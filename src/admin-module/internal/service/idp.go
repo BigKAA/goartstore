@@ -9,9 +9,9 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/arturkryukov/artsore/admin-module/internal/domain/model"
-	"github.com/arturkryukov/artsore/admin-module/internal/keycloak"
-	"github.com/arturkryukov/artsore/admin-module/internal/repository"
+	"github.com/arturkryukov/artstore/admin-module/internal/domain/model"
+	"github.com/arturkryukov/artstore/admin-module/internal/keycloak"
+	"github.com/arturkryukov/artstore/admin-module/internal/repository"
 )
 
 // IDPService — сервис статуса Identity Provider.

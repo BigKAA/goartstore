@@ -15,10 +15,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	apierrors "github.com/arturkryukov/artsore/storage-element/internal/api/errors"
-	"github.com/arturkryukov/artsore/storage-element/internal/api/generated"
-	"github.com/arturkryukov/artsore/storage-element/internal/api/middleware"
-	"github.com/arturkryukov/artsore/storage-element/internal/config"
+	apierrors "github.com/arturkryukov/artstore/storage-element/internal/api/errors"
+	"github.com/arturkryukov/artstore/storage-element/internal/api/generated"
+	"github.com/arturkryukov/artstore/storage-element/internal/api/middleware"
+	"github.com/arturkryukov/artstore/storage-element/internal/config"
 )
 
 // ProxyMiddleware — интерфейс для middleware проксирования запросов (replicated mode).

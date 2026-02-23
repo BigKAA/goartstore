@@ -15,8 +15,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib.sh"
 
 : "${AM_URL:=http://localhost:18000}"
-: "${KC_TOKEN_URL:=https://localhost:18080/realms/artsore/protocol/openid-connect/token}"
-: "${KC_TEST_USER_CLIENT_ID:=artsore-test-user}"
+: "${KC_TOKEN_URL:=https://localhost:18080/realms/artstore/protocol/openid-connect/token}"
+: "${KC_TEST_USER_CLIENT_ID:=artstore-test-user}"
 : "${KC_TEST_USER_CLIENT_SECRET:=test-user-secret}"
 : "${KC_ADMIN_USERNAME:=admin}"
 : "${KC_ADMIN_PASSWORD:=admin}"
@@ -45,8 +45,8 @@ if [[ "$CODE" == "200" ]]; then
     REALM=$(echo "$BODY" | jq -r '.realm')
     USERS_COUNT=$(echo "$BODY" | jq -r '.users_count // 0')
     CLIENTS_COUNT=$(echo "$BODY" | jq -r '.clients_count // 0')
-    if [[ "$CONNECTED" == "true" && "$REALM" == "artsore" ]]; then
-        test_pass "Тест 25: idp/status → connected=true, realm=artsore, users=${USERS_COUNT}, clients=${CLIENTS_COUNT}"
+    if [[ "$CONNECTED" == "true" && "$REALM" == "artstore" ]]; then
+        test_pass "Тест 25: idp/status → connected=true, realm=artstore, users=${USERS_COUNT}, clients=${CLIENTS_COUNT}"
     else
         test_fail "Тест 25: idp/status → connected=${CONNECTED}, realm=${REALM}"
     fi

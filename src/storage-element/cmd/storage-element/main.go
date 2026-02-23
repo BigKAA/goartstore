@@ -7,16 +7,16 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/arturkryukov/artsore/storage-element/internal/api/handlers"
-	"github.com/arturkryukov/artsore/storage-element/internal/api/middleware"
-	"github.com/arturkryukov/artsore/storage-element/internal/config"
-	"github.com/arturkryukov/artsore/storage-element/internal/domain/mode"
-	"github.com/arturkryukov/artsore/storage-element/internal/replica"
-	"github.com/arturkryukov/artsore/storage-element/internal/server"
-	"github.com/arturkryukov/artsore/storage-element/internal/service"
-	"github.com/arturkryukov/artsore/storage-element/internal/storage/filestore"
-	"github.com/arturkryukov/artsore/storage-element/internal/storage/index"
-	"github.com/arturkryukov/artsore/storage-element/internal/storage/wal"
+	"github.com/arturkryukov/artstore/storage-element/internal/api/handlers"
+	"github.com/arturkryukov/artstore/storage-element/internal/api/middleware"
+	"github.com/arturkryukov/artstore/storage-element/internal/config"
+	"github.com/arturkryukov/artstore/storage-element/internal/domain/mode"
+	"github.com/arturkryukov/artstore/storage-element/internal/replica"
+	"github.com/arturkryukov/artstore/storage-element/internal/server"
+	"github.com/arturkryukov/artstore/storage-element/internal/service"
+	"github.com/arturkryukov/artstore/storage-element/internal/storage/filestore"
+	"github.com/arturkryukov/artstore/storage-element/internal/storage/index"
+	"github.com/arturkryukov/artstore/storage-element/internal/storage/wal"
 )
 
 func main() {

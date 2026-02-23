@@ -1,6 +1,6 @@
 # Storage Element
 
-Модуль физического хранения файлов системы Artsore. Обеспечивает атомарные
+Модуль физического хранения файлов системы Artstore. Обеспечивает атомарные
 файловые операции с Write-Ahead Log (WAL), attribute-first метаданные
 (`*.attr.json`), lifecycle режимы (`edit` / `rw` / `ro` / `ar`) и
 leader/follower репликацию через NFS flock.
@@ -68,13 +68,13 @@ docker push harbor.kryukov.lan/library/storage-element:v0.1.0
 
 ```bash
 helm install se-rw-01 charts/storage-element \
-  --namespace artsore \
+  --namespace artstore \
   --create-namespace \
   --set elementId=se-rw-01 \
   --set mode=rw \
   --set replicaMode=standalone \
   --set tag=v0.1.0 \
-  --set jwksUrl="https://admin-module.artsore.svc.cluster.local:8000/api/v1/auth/jwks" \
+  --set jwksUrl="https://admin-module.artstore.svc.cluster.local:8000/api/v1/auth/jwks" \
   --set tls.clusterIssuer=dev-ca-issuer
 ```
 
@@ -82,13 +82,13 @@ helm install se-rw-01 charts/storage-element \
 
 ```bash
 helm install se-edit-01 charts/storage-element \
-  --namespace artsore \
+  --namespace artstore \
   --set elementId=se-edit-01 \
   --set mode=edit \
   --set replicaMode=replicated \
   --set replicas=2 \
   --set tag=v0.1.0 \
-  --set jwksUrl="https://admin-module.artsore.svc.cluster.local:8000/api/v1/auth/jwks" \
+  --set jwksUrl="https://admin-module.artstore.svc.cluster.local:8000/api/v1/auth/jwks" \
   --set tls.clusterIssuer=dev-ca-issuer \
   --set storageClass=nfs-client
 ```

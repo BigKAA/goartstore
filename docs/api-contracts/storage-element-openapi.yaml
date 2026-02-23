@@ -8,7 +8,7 @@ openapi: 3.0.3
 info:
   title: Storage Element API
   description: |
-    Storage Element — модуль физического хранения файлов системы Artsore.
+    Storage Element — модуль физического хранения файлов системы Artstore.
 
     ## Основные концепции
 
@@ -53,10 +53,10 @@ info:
     - `storage:write` — управление режимом и обслуживание
   version: 0.1.0
   contact:
-    name: Artsore Team
+    name: Artstore Team
   license:
     name: Private
-    url: https://github.com/arturkryukov/artsore
+    url: https://github.com/arturkryukov/artstore
 
 servers:
   - url: https://{host}:{port}
@@ -1265,7 +1265,7 @@ components:
 
     ErrorResponse:
       type: object
-      description: Стандартный формат ошибки (единый для всей системы Artsore)
+      description: Стандартный формат ошибки (единый для всей системы Artstore)
       required:
         - error
       properties:

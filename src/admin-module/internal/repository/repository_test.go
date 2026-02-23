@@ -12,9 +12,9 @@ import (
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
 
-	"github.com/arturkryukov/artsore/admin-module/internal/config"
-	"github.com/arturkryukov/artsore/admin-module/internal/database"
-	"github.com/arturkryukov/artsore/admin-module/internal/domain/model"
+	"github.com/arturkryukov/artstore/admin-module/internal/config"
+	"github.com/arturkryukov/artstore/admin-module/internal/database"
+	"github.com/arturkryukov/artstore/admin-module/internal/domain/model"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -32,8 +32,8 @@ func setupTestDB(t *testing.T) *pgxpool.Pool {
 
 	container, err := postgres.Run(ctx,
 		"docker.io/postgres:17-alpine",
-		postgres.WithDatabase("artsore_test"),
-		postgres.WithUsername("artsore"),
+		postgres.WithDatabase("artstore_test"),
+		postgres.WithUsername("artstore"),
 		postgres.WithPassword("test-password"),
 		testcontainers.WithWaitStrategy(
 			wait.ForLog("database system is ready to accept connections").
@@ -62,8 +62,8 @@ func setupTestDB(t *testing.T) *pgxpool.Pool {
 	// Настраиваем env для config.Load()
 	os.Setenv("AM_DB_HOST", host)
 	os.Setenv("AM_DB_PORT", port.Port())
-	os.Setenv("AM_DB_NAME", "artsore_test")
-	os.Setenv("AM_DB_USER", "artsore")
+	os.Setenv("AM_DB_NAME", "artstore_test")
+	os.Setenv("AM_DB_USER", "artstore")
 	os.Setenv("AM_DB_PASSWORD", "test-password")
 	os.Setenv("AM_DB_SSL_MODE", "disable")
 	os.Setenv("AM_KEYCLOAK_URL", "http://localhost:8080")

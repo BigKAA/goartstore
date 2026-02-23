@@ -7,12 +7,12 @@ import (
 	"net/http"
 	"os"
 
-	apierrors "github.com/arturkryukov/artsore/storage-element/internal/api/errors"
-	"github.com/arturkryukov/artsore/storage-element/internal/api/middleware"
-	"github.com/arturkryukov/artsore/storage-element/internal/domain/mode"
-	"github.com/arturkryukov/artsore/storage-element/internal/domain/model"
-	"github.com/arturkryukov/artsore/storage-element/internal/storage/filestore"
-	"github.com/arturkryukov/artsore/storage-element/internal/storage/index"
+	apierrors "github.com/arturkryukov/artstore/storage-element/internal/api/errors"
+	"github.com/arturkryukov/artstore/storage-element/internal/api/middleware"
+	"github.com/arturkryukov/artstore/storage-element/internal/domain/mode"
+	"github.com/arturkryukov/artstore/storage-element/internal/domain/model"
+	"github.com/arturkryukov/artstore/storage-element/internal/storage/filestore"
+	"github.com/arturkryukov/artstore/storage-element/internal/storage/index"
 )
 
 // DownloadService — сервис скачивания файлов.

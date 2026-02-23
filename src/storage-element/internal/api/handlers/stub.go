@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/arturkryukov/artsore/storage-element/internal/api/generated"
+	"github.com/arturkryukov/artstore/storage-element/internal/api/generated"
 )
 
 // StubHandler реализует generated.ServerInterface.
@@ -18,7 +18,7 @@ func NewStubHandler() *StubHandler {
 	return &StubHandler{}
 }
 
-// notImplemented отправляет стандартный ответ 501 в формате ошибки Artsore.
+// notImplemented отправляет стандартный ответ 501 в формате ошибки Artstore.
 func notImplemented(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusNotImplemented)

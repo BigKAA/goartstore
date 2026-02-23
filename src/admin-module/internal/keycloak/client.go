@@ -37,7 +37,7 @@ type Client struct {
 
 // New создаёт клиент к Keycloak Admin REST API.
 // baseURL — базовый URL Keycloak (например, https://keycloak.kryukov.lan).
-// realm — имя realm (например, artsore).
+// realm — имя realm (например, artstore).
 // clientID, clientSecret — credentials для Client Credentials flow.
 // httpClient — HTTP-клиент (может содержать TLS конфигурацию).
 func New(baseURL, realm, clientID, clientSecret string, httpClient *http.Client, logger *slog.Logger) *Client {

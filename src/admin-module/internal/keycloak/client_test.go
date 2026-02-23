@@ -26,7 +26,7 @@ func setupMockKeycloak(t *testing.T, tokenHandler, adminHandler http.HandlerFunc
 	mux := http.NewServeMux()
 
 	// Token endpoint
-	mux.HandleFunc("/realms/artsore/protocol/openid-connect/token", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/realms/artstore/protocol/openid-connect/token", func(w http.ResponseWriter, r *http.Request) {
 		if tokenHandler != nil {
 			tokenHandler(w, r)
 			return
@@ -41,7 +41,7 @@ func setupMockKeycloak(t *testing.T, tokenHandler, adminHandler http.HandlerFunc
 	})
 
 	// Admin REST API
-	mux.HandleFunc("/admin/realms/artsore/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/admin/realms/artstore/", func(w http.ResponseWriter, r *http.Request) {
 		if adminHandler != nil {
 			adminHandler(w, r)
 			return
@@ -54,7 +54,7 @@ func setupMockKeycloak(t *testing.T, tokenHandler, adminHandler http.HandlerFunc
 
 	client := New(
 		server.URL,
-		"artsore",
+		"artstore",
 		"admin-module",
 		"test-secret",
 		server.Client(),
@@ -301,7 +301,7 @@ func TestClient_GetUserGroups(t *testing.T) {
 			if strings.HasSuffix(r.URL.Path, "/users/user-123/groups") {
 				w.Header().Set("Content-Type", "application/json")
 				json.NewEncoder(w).Encode([]KeycloakGroup{
-					{ID: "g-1", Name: "artsore-admins", Path: "/artsore-admins"},
+					{ID: "g-1", Name: "artstore-admins", Path: "/artstore-admins"},
 				})
 				return
 			}
@@ -316,8 +316,8 @@ func TestClient_GetUserGroups(t *testing.T) {
 	if len(groups) != 1 {
 		t.Errorf("ожидалась 1 группа, получено %d", len(groups))
 	}
-	if groups[0].Name != "artsore-admins" {
-		t.Errorf("ожидалось имя artsore-admins, получено %s", groups[0].Name)
+	if groups[0].Name != "artstore-admins" {
+		t.Errorf("ожидалось имя artstore-admins, получено %s", groups[0].Name)
 	}
 }
 
@@ -338,7 +338,7 @@ func TestClient_CreateClient(t *testing.T) {
 					t.Error("ожидался serviceAccountsEnabled=true")
 				}
 
-				w.Header().Set("Location", "https://keycloak/admin/realms/artsore/clients/kc-internal-id")
+				w.Header().Set("Location", "https://keycloak/admin/realms/artstore/clients/kc-internal-id")
 				w.WriteHeader(http.StatusCreated)
 				return
 			}
@@ -427,12 +427,12 @@ func TestClient_RegenerateClientSecret(t *testing.T) {
 func TestClient_RealmInfo(t *testing.T) {
 	_, client := setupMockKeycloak(t, nil,
 		func(w http.ResponseWriter, r *http.Request) {
-			// Realm info запрос идёт к /admin/realms/artsore (без доп. пути)
-			path := strings.TrimPrefix(r.URL.Path, "/admin/realms/artsore")
+			// Realm info запрос идёт к /admin/realms/artstore (без доп. пути)
+			path := strings.TrimPrefix(r.URL.Path, "/admin/realms/artstore")
 			if path == "" || path == "/" {
 				w.Header().Set("Content-Type", "application/json")
 				json.NewEncoder(w).Encode(RealmRepresentation{
-					Realm:   "artsore",
+					Realm:   "artstore",
 					Enabled: true,
 				})
 				return
@@ -445,8 +445,8 @@ func TestClient_RealmInfo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Ошибка RealmInfo: %v", err)
 	}
-	if realm.Realm != "artsore" {
-		t.Errorf("ожидался realm=artsore, получен %s", realm.Realm)
+	if realm.Realm != "artstore" {
+		t.Errorf("ожидался realm=artstore, получен %s", realm.Realm)
 	}
 	if !realm.Enabled {
 		t.Error("ожидался enabled=true")
@@ -457,11 +457,11 @@ func TestClient_RealmInfo(t *testing.T) {
 func TestClient_CheckReady(t *testing.T) {
 	_, client := setupMockKeycloak(t, nil,
 		func(w http.ResponseWriter, r *http.Request) {
-			path := strings.TrimPrefix(r.URL.Path, "/admin/realms/artsore")
+			path := strings.TrimPrefix(r.URL.Path, "/admin/realms/artstore")
 			if path == "" || path == "/" {
 				w.Header().Set("Content-Type", "application/json")
 				json.NewEncoder(w).Encode(RealmRepresentation{
-					Realm:   "artsore",
+					Realm:   "artstore",
 					Enabled: true,
 				})
 				return
@@ -480,7 +480,7 @@ func TestClient_CheckReady(t *testing.T) {
 func TestClient_CheckReady_Fail(t *testing.T) {
 	client := New(
 		"http://localhost:1", // Несуществующий адрес
-		"artsore",
+		"artstore",
 		"admin-module",
 		"secret",
 		&http.Client{Timeout: 100 * time.Millisecond},

@@ -13,7 +13,7 @@ openapi: 3.0.3
 info:
   title: Admin Module API
   description: |
-    Admin Module — управляющий модуль системы Artsore.
+    Admin Module — управляющий модуль системы Artstore.
 
     **Admin Module не является auth-сервером.** Аутентификация и выдача JWT
     полностью делегированы внешнему Identity Provider (Keycloak). Admin Module
@@ -31,9 +31,9 @@ info:
     Аутентификация через Keycloak OIDC (Authorization Code + PKCE).
     JWT содержит `sub`, `realm_access.roles`, `groups`.
 
-    Роли определяются маппингом Keycloak groups → Artsore roles:
-    - `artsore-admins` → `admin` (полный доступ)
-    - `artsore-viewers` → `readonly` (только чтение)
+    Роли определяются маппингом Keycloak groups → Artstore roles:
+    - `artstore-admins` → `admin` (полный доступ)
+    - `artstore-viewers` → `readonly` (только чтение)
 
     Admin Module может **дополнить** (но не понизить) роль через
     локальные role overrides.
@@ -68,10 +68,10 @@ info:
     4. **Full sync** — автоматически при регистрации SE
   version: 0.1.0
   contact:
-    name: Artsore Team
+    name: Artstore Team
   license:
     name: Private
-    url: https://github.com/arturkryukov/artsore
+    url: https://github.com/arturkryukov/artstore
 
 servers:
   - url: https://{host}
@@ -1298,7 +1298,7 @@ components:
           items:
             type: string
           description: Группы пользователя из IdP
-          example: ["artsore-admins"]
+          example: ["artstore-admins"]
         idp_role:
           type: string
           enum: [admin, readonly]
@@ -1354,7 +1354,7 @@ components:
           items:
             type: string
           description: Группы пользователя из IdP
-          example: ["artsore-admins"]
+          example: ["artstore-admins"]
         idp_role:
           type: string
           enum: [admin, readonly]
@@ -1992,7 +1992,7 @@ components:
         realm:
           type: string
           description: Имя realm
-          example: artsore
+          example: artstore
         keycloak_url:
           type: string
           format: uri
@@ -2127,7 +2127,7 @@ components:
 
     ErrorResponse:
       type: object
-      description: Стандартный формат ошибки (единый для всей системы Artsore)
+      description: Стандартный формат ошибки (единый для всей системы Artstore)
       required:
         - error
       properties:

@@ -23,7 +23,7 @@ tag: latest
 imagePullPolicy: IfNotPresent
 
 # --- JWKS URL для валидации JWT ---
-jwksUrl: "https://admin-module.artsore.svc.cluster.local:8000/api/v1/auth/jwks"
+jwksUrl: "https://admin-module.artstore.svc.cluster.local:8000/api/v1/auth/jwks"
 # Путь к CA-сертификату для проверки TLS JWKS endpoint (опционально).
 # Указывается если JWKS endpoint использует сертификат от внутреннего CA.
 # Пример: /certs/ca.crt (из cert-manager TLS secret)

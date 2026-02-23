@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Обзор проекта
 
-Artsore — переработка проекта ArtStore (распределённое файловое хранилище с микросервисной архитектурой). Старый код на Python/FastAPI находится в `old_artstore/` как справочный материал. Новая разработка ведётся на **Go**, каждый модуль — отдельный независимый Go-проект в директории `src/`.
+Artstore — переработка проекта ArtStore (распределённое файловое хранилище с микросервисной архитектурой). Старый код на Python/FastAPI находится в `old_artstore/` как справочный материал. Новая разработка ведётся на **Go**, каждый модуль — отдельный независимый Go-проект в директории `src/`.
 
 ### Цель переработки (из task.md)
 
@@ -22,7 +22,7 @@ Artsore — переработка проекта ArtStore (распределё
 | Ingester Module | 8020-8029 | Streaming upload, валидация, выбор SE, регистрация файлов | ⏳ Не начат |
 | Query Module | 8030-8039 | Поиск (PostgreSQL FTS), LRU cache, proxy download | ⏳ Не начат |
 
-Admin UI будет встроен непосредственно в Admin Module (стек определится позже). Keycloak-клиент `artsore-admin-ui` (Authorization Code + PKCE) используется для аутентификации администраторов через браузер.
+Admin UI будет встроен непосредственно в Admin Module (стек определится позже). Keycloak-клиент `artstore-admin-ui` (Authorization Code + PKCE) используется для аутентификации администраторов через браузер.
 
 ## Технический стек
 
@@ -119,8 +119,8 @@ Harbor: https://harbor.kryukov.lan — admin/password. Использовать 
 .plantemplates/    — Шаблоны для планов разработки
 old_artstore/      — Старый проект (Python/FastAPI) как справочный материал
 src/               — Исходные коды Go-модулей
-  admin-module/    — Admin Module (go.mod: github.com/arturkryukov/artsore/admin-module)
-  storage-element/ — Storage Element (go.mod: github.com/arturkryukov/artsore/storage-element)
+  admin-module/    — Admin Module (go.mod: github.com/arturkryukov/artstore/admin-module)
+  storage-element/ — Storage Element (go.mod: github.com/arturkryukov/artstore/storage-element)
 plans/             — Планы разработки (активные)
   archive/         — Завершённые планы
 docs/              — Документация
@@ -167,13 +167,13 @@ src/<module>/
 
 ```
 tests/helm/
-├── artsore-infra/     — PG + KC (базовый слой)
-├── artsore-se/        — 6 Storage Elements всех типов
-├── artsore-apps/      — Admin Module
+├── artstore-infra/     — PG + KC (базовый слой)
+├── artstore-se/        — 6 Storage Elements всех типов
+├── artstore-apps/      — Admin Module
 └── init-job/          — standalone Job (загрузка данных)
 ```
 
-Все три chart-а деплоятся в один namespace `artsore-test`.
+Все три chart-а деплоятся в один namespace `artstore-test`.
 
 ### Makefile targets (из `tests/`)
 
@@ -192,9 +192,9 @@ make test-all                  — все интеграционные тест�
 
 | Клиент | Тип | Назначение |
 |--------|-----|------------|
-| `artsore-test-user` (secret: `test-user-secret`) | Password grant | JWT пользователей (admin/viewer) |
-| `artsore-admin-module` (secret: `admin-module-test-secret`) | Client credentials | JWT service account AM |
-| `artsore-test-init` (secret: `test-init-secret`) | Client credentials | Инициализация тестовых данных |
+| `artstore-test-user` (secret: `test-user-secret`) | Password grant | JWT пользователей (admin/viewer) |
+| `artstore-admin-module` (secret: `admin-module-test-secret`) | Client credentials | JWT service account AM |
+| `artstore-test-init` (secret: `test-init-secret`) | Client credentials | Инициализация тестовых данных |
 
 ## Ключевые документы
 

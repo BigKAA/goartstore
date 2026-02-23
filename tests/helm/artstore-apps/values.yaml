@@ -1,0 +1,73 @@
+# =============================================================================
+# artstore-apps — Helm values для приложений тестовой среды
+# Компоненты: Admin Module
+# =============================================================================
+
+# Namespace для тестовой среды (должен совпадать с artstore-infra)
+namespace: artstore-test
+
+# -----------------------------------------------------------------------------
+# Docker Registry
+# -----------------------------------------------------------------------------
+registry: harbor.kryukov.lan/library
+amImage: admin-module
+amTag: v0.1.0-1
+imagePullPolicy: Always
+
+# -----------------------------------------------------------------------------
+# TLS — ссылка на secret, созданный artstore-infra (Certificate)
+# -----------------------------------------------------------------------------
+tls:
+  secretName: artstore-test-tls
+
+# -----------------------------------------------------------------------------
+# Имя release artstore-infra — для формирования PG/KC service names
+# Bitnami KC создаёт service <infraReleaseName>-keycloak
+# PostgreSQL service name: postgresql (фиксировано в artstore-infra)
+# -----------------------------------------------------------------------------
+infraReleaseName: artstore-infra
+
+# -----------------------------------------------------------------------------
+# PostgreSQL (параметры подключения к PG из artstore-infra)
+# -----------------------------------------------------------------------------
+postgresql:
+  image: postgres:17-alpine
+  port: 5432
+  user: artstore
+  password: artstore-test-password
+  database: artstore
+
+# -----------------------------------------------------------------------------
+# Admin Module
+# -----------------------------------------------------------------------------
+adminModule:
+  port: 8000
+  logLevel: debug
+  logFormat: json
+  # Keycloak
+  keycloakRealm: artstore
+  keycloakClientId: artstore-admin-module
+  keycloakClientSecret: admin-module-test-secret
+  keycloakSAPrefix: "sa_"
+  # JWT
+  jwtRolesClaim: "realm_access.roles"
+  jwtGroupsClaim: "groups"
+  # Маппинг групп → ролей
+  roleAdminGroups: "artstore-admins"
+  roleReadonlyGroups: "artstore-viewers"
+  # Синхронизация
+  syncInterval: "5m"
+  syncPageSize: "1000"
+  saSyncInterval: "5m"
+  # topologymetrics
+  dephealthCheckInterval: "15s"
+  dephealthGroup: "admin-module"
+  # Graceful shutdown
+  shutdownTimeout: "5s"
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "500m"

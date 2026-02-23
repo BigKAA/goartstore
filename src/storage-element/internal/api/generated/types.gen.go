@@ -134,7 +134,7 @@ type CapacityInfo struct {
 	UsedBytes int64 `json:"used_bytes"`
 }
 
-// ErrorResponse Стандартный формат ошибки (единый для всей системы Artsore)
+// ErrorResponse Стандартный формат ошибки (единый для всей системы Artstore)
 type ErrorResponse struct {
 	Error struct {
 		// Code Машиночитаемый код ошибки. Возможные значения:
@@ -457,16 +457,16 @@ type StorageInfoStatus string
 // FileId defines model for FileId.
 type FileId = openapi_types.UUID
 
-// Forbidden Стандартный формат ошибки (единый для всей системы Artsore)
+// Forbidden Стандартный формат ошибки (единый для всей системы Artstore)
 type Forbidden = ErrorResponse
 
-// InternalError Стандартный формат ошибки (единый для всей системы Artsore)
+// InternalError Стандартный формат ошибки (единый для всей системы Artstore)
 type InternalError = ErrorResponse
 
-// NotFound Стандартный формат ошибки (единый для всей системы Artsore)
+// NotFound Стандартный формат ошибки (единый для всей системы Artstore)
 type NotFound = ErrorResponse
 
-// Unauthorized Стандартный формат ошибки (единый для всей системы Artsore)
+// Unauthorized Стандартный формат ошибки (единый для всей системы Artstore)
 type Unauthorized = ErrorResponse
 
 // ListFilesParams defines parameters for ListFiles.

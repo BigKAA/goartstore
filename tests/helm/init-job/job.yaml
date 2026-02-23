@@ -15,13 +15,13 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: artsore-init-lib
+  name: artstore-init-lib
   namespace: ${NAMESPACE}
 data:
   lib.sh: |
     #!/usr/bin/env bash
     # ==========================================================================
-    # lib.sh — общая библиотека функций для Artsore тестовых скриптов
+    # lib.sh — общая библиотека функций для Artstore тестовых скриптов
     # ==========================================================================
     set -euo pipefail
 
@@ -179,19 +179,19 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: artsore-init-data
+  name: artstore-init-data
   namespace: ${NAMESPACE}
 data:
   init-data.sh: |
     #!/usr/bin/env bash
     # ==========================================================================
-    # init-data.sh — инициализация тестовых данных для Artsore тестовой среды
+    # init-data.sh — инициализация тестовых данных для Artstore тестовой среды
     # ==========================================================================
     set -euo pipefail
     source /scripts/lib.sh
 
     log_info "========================================================"
-    log_info "  Artsore Test Environment — Инициализация данных"
+    log_info "  Artstore Test Environment — Инициализация данных"
     log_info "========================================================"
     log_info ""
 
@@ -334,15 +334,15 @@ data:
     log_ok "se-ro     : режим ro, standalone, ${RO_UPLOADED} файлов"
     log_ok "se-ar     : режим ar, standalone, ${AR_UPLOADED} attr.json (только метаданные)"
     log_ok "AM        : Admin Module работает"
-    log_ok "KC        : Keycloak realm artsore импортирован"
-    log_ok "PG        : PostgreSQL с БД artsore + keycloak"
+    log_ok "KC        : Keycloak realm artstore импортирован"
+    log_ok "PG        : PostgreSQL с БД artstore + keycloak"
     log_info "========================================================"
 ---
 # Job — запускает init-data.sh
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: artsore-init
+  name: artstore-init
   namespace: ${NAMESPACE}
 spec:
   activeDeadlineSeconds: 600
@@ -350,23 +350,23 @@ spec:
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: artsore-init
-        app.kubernetes.io/part-of: artsore
+        app.kubernetes.io/name: artstore-init
+        app.kubernetes.io/part-of: artstore
     spec:
       restartPolicy: Never
       containers:
         - name: init
-          image: harbor.kryukov.lan/library/artsore-tools:latest
+          image: harbor.kryukov.lan/library/artstore-tools:latest
           command:
             - /bin/bash
             - /scripts/init-data.sh
           env:
             # Keycloak token endpoint (HTTP — через infraReleaseName)
             - name: KC_TOKEN_ENDPOINT
-              value: "http://${INFRA_RELEASE}-keycloak.${NAMESPACE}.svc.cluster.local:8080/realms/artsore/protocol/openid-connect/token"
+              value: "http://${INFRA_RELEASE}-keycloak.${NAMESPACE}.svc.cluster.local:8080/realms/artstore/protocol/openid-connect/token"
             # Client Credentials для получения токена
             - name: KC_CLIENT_ID
-              value: artsore-test-init
+              value: artstore-test-init
             - name: KC_CLIENT_SECRET
               value: test-init-secret
             # Admin Module URL (HTTP — AM без TLS, termination на Gateway)
@@ -402,11 +402,11 @@ spec:
       volumes:
         - name: init-lib
           configMap:
-            name: artsore-init-lib
+            name: artstore-init-lib
             defaultMode: 0755
         - name: init-data
           configMap:
-            name: artsore-init-data
+            name: artstore-init-data
             defaultMode: 0755
         - name: se-ar-data
           persistentVolumeClaim:

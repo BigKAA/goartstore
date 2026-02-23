@@ -20,8 +20,8 @@ import (
 	"github.com/MicahParks/keyfunc/v3"
 	"github.com/golang-jwt/jwt/v5"
 
-	apierrors "github.com/arturkryukov/artsore/admin-module/internal/api/errors"
-	"github.com/arturkryukov/artsore/admin-module/internal/domain/rbac"
+	apierrors "github.com/arturkryukov/artstore/admin-module/internal/api/errors"
+	"github.com/arturkryukov/artstore/admin-module/internal/domain/rbac"
 )
 
 // contextKey — тип для ключей контекста (избегаем коллизий).
@@ -155,7 +155,7 @@ type JWTAuth struct {
 // NewJWTAuth создаёт JWT middleware с JWKS из Keycloak.
 // jwksURL — URL к JWKS endpoint Keycloak.
 // caCertPath — опциональный путь к CA-сертификату для TLS.
-// issuer — ожидаемый issuer JWT (обычно https://keycloak/realms/artsore).
+// issuer — ожидаемый issuer JWT (обычно https://keycloak/realms/artstore).
 // roleProvider — провайдер role overrides из БД (может быть nil).
 // adminGroups, readonlyGroups — группы для маппинга в роли.
 func NewJWTAuth(

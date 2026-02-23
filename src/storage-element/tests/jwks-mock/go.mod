@@ -1,4 +1,4 @@
-module github.com/arturkryukov/artsore/jwks-mock
+module github.com/arturkryukov/artstore/jwks-mock
 
 go 1.25.6
 

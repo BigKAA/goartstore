@@ -1,0 +1,124 @@
+# PostgreSQL 17 — общая БД для Admin Module (artstore) и Keycloak (keycloak).
+# initdb-скрипт создаёт дополнительную БД keycloak.
+---
+# ConfigMap с initdb-скриптом — создание БД keycloak
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgresql-initdb
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "artstore-infra.labels" . | nindent 4 }}
+data:
+  # Скрипт выполняется при первой инициализации PostgreSQL.
+  # Основная БД (POSTGRES_DB=artstore) создаётся автоматически.
+  # Дополнительно создаём БД keycloak для Keycloak.
+  create-keycloak-db.sh: |
+    #!/bin/bash
+    set -e
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+      SELECT 'CREATE DATABASE keycloak OWNER $POSTGRES_USER'
+        WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'keycloak')\gexec
+    EOSQL
+    echo "База данных keycloak создана (или уже существует)"
+---
+# PVC для данных PostgreSQL
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgresql-data
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "artstore-infra.labels" . | nindent 4 }}
+    {{- include "artstore-infra.pg.selectorLabels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ .Values.storageClass }}
+  resources:
+    requests:
+      storage: {{ .Values.postgresql.dataSize }}
+---
+# Deployment PostgreSQL
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgresql
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "artstore-infra.labels" . | nindent 4 }}
+    {{- include "artstore-infra.pg.selectorLabels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "artstore-infra.pg.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "artstore-infra.pg.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: postgresql
+          image: {{ .Values.postgresql.image }}
+          ports:
+            - containerPort: {{ .Values.postgresql.port }}
+              name: tcp-pg
+          env:
+            - name: POSTGRES_DB
+              value: {{ .Values.postgresql.database }}
+            - name: POSTGRES_USER
+              value: {{ .Values.postgresql.user }}
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.postgresql.password }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: initdb
+              mountPath: /docker-entrypoint-initdb.d
+          resources:
+            {{- toYaml .Values.postgresql.resources | nindent 12 }}
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - {{ .Values.postgresql.user }}
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - {{ .Values.postgresql.user }}
+            initialDelaySeconds: 15
+            periodSeconds: 30
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: postgresql-data
+        - name: initdb
+          configMap:
+            name: postgresql-initdb
+            defaultMode: 0755
+---
+# Service PostgreSQL
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "artstore-infra.labels" . | nindent 4 }}
+    {{- include "artstore-infra.pg.selectorLabels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "artstore-infra.pg.selectorLabels" . | nindent 4 }}
+  ports:
+    - port: {{ .Values.postgresql.port }}
+      targetPort: {{ .Values.postgresql.port }}
+      name: tcp-pg

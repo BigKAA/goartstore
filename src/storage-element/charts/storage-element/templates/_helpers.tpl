@@ -25,7 +25,7 @@ storage-element-{{ .Values.elementId }}
 {{- define "se.labels" -}}
 helm.sh/chart: {{ include "se.chart" . }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
-app.kubernetes.io/part-of: artsore
+app.kubernetes.io/part-of: artstore
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{ include "se.selectorLabels" . }}
 {{- end }}

@@ -1,4 +1,4 @@
-# artsore-tools — утилитарный образ для Init Job и тестовых скриптов.
+# artstore-tools — утилитарный образ для Init Job и тестовых скриптов.
 # Содержит bash, curl, jq — всё, что нужно для работы с API.
 FROM alpine:3.19
 
