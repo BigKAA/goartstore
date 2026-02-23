@@ -1,0 +1,16 @@
+# ClusterIP Service для доступа к Admin Module
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "am.fullname" . }}
+  labels:
+    {{- include "am.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "am.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.port }}
+      targetPort: http
+      protocol: TCP

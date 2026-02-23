@@ -25,7 +25,7 @@
 ## Текущий статус
 
 - **Активная фаза**: Phase 6
-- **Активный подпункт**: 6.1
+- **Активный подпункт**: 6.1 (Done)
 - **Последнее обновление**: 2026-02-23
 - **Примечание**: Phase 1-5 завершены. Обнаружены и исправлены: dephealth KC health path, AM HTTP probes, SE scopes (scope vs scopes), KC clientScopeMappings, Init Job image/KC readiness check
 
@@ -387,7 +387,7 @@ Helm chart для production-деплоя Admin Module: Deployment, Service, HTT
 
 ### Подпункты
 
-- [ ] **6.1 Создать production Helm chart**
+- [x] **6.1 Создать production Helm chart**
   - **Dependencies**: None
   - **Description**: Chart `src/admin-module/charts/admin-module/`:
     - **Chart.yaml**: name admin-module, version 0.1.0
@@ -415,10 +415,10 @@ Helm chart для production-деплоя Admin Module: Deployment, Service, HTT
 
 ### Критерии завершения Phase 6
 
-- [ ] Все подпункты завершены (6.1)
-- [ ] `helm lint` проходит
-- [ ] `helm template` рендерит все ресурсы
-- [ ] HTTPRoute маршрутизирует на artsore.kryukov.lan
+- [x] Все подпункты завершены (6.1)
+- [x] `helm lint` проходит
+- [x] `helm template` рендерит все ресурсы
+- [x] HTTPRoute маршрутизирует на artsore.kryukov.lan
 
 ---
 
