@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/arturkryukov/artstore/admin-module/internal/domain/model"
+	"github.com/bigkaa/goartstore/admin-module/internal/domain/model"
 )
 
 // SyncStateRepository — интерфейс для таблицы sync_state (одна строка).

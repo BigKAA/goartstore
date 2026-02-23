@@ -24,9 +24,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/arturkryukov/artstore/admin-module/internal/domain/model"
-	"github.com/arturkryukov/artstore/admin-module/internal/keycloak"
-	"github.com/arturkryukov/artstore/admin-module/internal/repository"
+	"github.com/bigkaa/goartstore/admin-module/internal/domain/model"
+	"github.com/bigkaa/goartstore/admin-module/internal/keycloak"
+	"github.com/bigkaa/goartstore/admin-module/internal/repository"
 )
 
 // Prometheus-метрики для синхронизации SA.

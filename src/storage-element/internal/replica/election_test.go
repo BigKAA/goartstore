@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/arturkryukov/artstore/storage-element/internal/domain/mode"
+	"github.com/bigkaa/goartstore/storage-element/internal/domain/mode"
 )
 
 // newTestLogger создаёт логгер для тестов.

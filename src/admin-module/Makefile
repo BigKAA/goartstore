@@ -3,7 +3,7 @@
 # UI цели: templ-generate, css-build, ui-build
 
 BINARY_NAME := admin-module
-MODULE := github.com/arturkryukov/artstore/admin-module
+MODULE := github.com/bigkaa/goartstore/admin-module
 VERSION ?= dev
 OPENAPI_SPEC := ../../docs/api-contracts/admin-module-openapi.yaml
 

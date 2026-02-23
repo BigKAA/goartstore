@@ -11,7 +11,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
 
-	"github.com/arturkryukov/artstore/admin-module/internal/config"
+	"github.com/bigkaa/goartstore/admin-module/internal/config"
 )
 
 // setupTestDB запускает PostgreSQL в Docker-контейнере через testcontainers.

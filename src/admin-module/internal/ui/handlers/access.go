@@ -14,10 +14,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/arturkryukov/artstore/admin-module/internal/service"
-	uimiddleware "github.com/arturkryukov/artstore/admin-module/internal/ui/middleware"
-	"github.com/arturkryukov/artstore/admin-module/internal/ui/pages"
-	"github.com/arturkryukov/artstore/admin-module/internal/ui/pages/partials"
+	"github.com/bigkaa/goartstore/admin-module/internal/service"
+	uimiddleware "github.com/bigkaa/goartstore/admin-module/internal/ui/middleware"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/pages"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/pages/partials"
 )
 
 // Размер страницы для таблиц пользователей и SA

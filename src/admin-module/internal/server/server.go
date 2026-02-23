@@ -15,12 +15,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/arturkryukov/artstore/admin-module/internal/api/generated"
-	"github.com/arturkryukov/artstore/admin-module/internal/api/middleware"
-	"github.com/arturkryukov/artstore/admin-module/internal/config"
-	uihandlers "github.com/arturkryukov/artstore/admin-module/internal/ui/handlers"
-	uimiddleware "github.com/arturkryukov/artstore/admin-module/internal/ui/middleware"
-	"github.com/arturkryukov/artstore/admin-module/internal/ui/static"
+	"github.com/bigkaa/goartstore/admin-module/internal/api/generated"
+	"github.com/bigkaa/goartstore/admin-module/internal/api/middleware"
+	"github.com/bigkaa/goartstore/admin-module/internal/config"
+	uihandlers "github.com/bigkaa/goartstore/admin-module/internal/ui/handlers"
+	uimiddleware "github.com/bigkaa/goartstore/admin-module/internal/ui/middleware"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/static"
 )
 
 // Server — HTTP-сервер Admin Module.

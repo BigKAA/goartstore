@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/arturkryukov/artstore/admin-module/internal/ui/auth"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/auth"
 )
 
 // contextKey — тип для ключей контекста UI (избегаем коллизий с API middleware).

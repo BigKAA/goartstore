@@ -12,15 +12,15 @@ import (
 
 	"github.com/google/uuid"
 
-	apierrors "github.com/arturkryukov/artstore/storage-element/internal/api/errors"
-	"github.com/arturkryukov/artstore/storage-element/internal/api/middleware"
-	"github.com/arturkryukov/artstore/storage-element/internal/config"
-	"github.com/arturkryukov/artstore/storage-element/internal/domain/mode"
-	"github.com/arturkryukov/artstore/storage-element/internal/domain/model"
-	"github.com/arturkryukov/artstore/storage-element/internal/storage/attr"
-	"github.com/arturkryukov/artstore/storage-element/internal/storage/filestore"
-	"github.com/arturkryukov/artstore/storage-element/internal/storage/index"
-	"github.com/arturkryukov/artstore/storage-element/internal/storage/wal"
+	apierrors "github.com/bigkaa/goartstore/storage-element/internal/api/errors"
+	"github.com/bigkaa/goartstore/storage-element/internal/api/middleware"
+	"github.com/bigkaa/goartstore/storage-element/internal/config"
+	"github.com/bigkaa/goartstore/storage-element/internal/domain/mode"
+	"github.com/bigkaa/goartstore/storage-element/internal/domain/model"
+	"github.com/bigkaa/goartstore/storage-element/internal/storage/attr"
+	"github.com/bigkaa/goartstore/storage-element/internal/storage/filestore"
+	"github.com/bigkaa/goartstore/storage-element/internal/storage/index"
+	"github.com/bigkaa/goartstore/storage-element/internal/storage/wal"
 )
 
 // UploadParams — параметры загрузки файла.

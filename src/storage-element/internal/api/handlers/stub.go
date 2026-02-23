@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/arturkryukov/artstore/storage-element/internal/api/generated"
+	"github.com/bigkaa/goartstore/storage-element/internal/api/generated"
 )
 
 // StubHandler реализует generated.ServerInterface.

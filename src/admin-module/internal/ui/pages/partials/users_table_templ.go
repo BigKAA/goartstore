@@ -11,8 +11,8 @@ import templruntime "github.com/a-h/templ/runtime"
 import (
 	"fmt"
 
-	"github.com/arturkryukov/artstore/admin-module/internal/ui/components"
-	"github.com/arturkryukov/artstore/admin-module/internal/ui/pages"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/components"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/pages"
 )
 
 // UsersTableData — данные для partial таблицы пользователей.

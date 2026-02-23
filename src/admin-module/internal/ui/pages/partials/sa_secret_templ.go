@@ -11,8 +11,8 @@ import templruntime "github.com/a-h/templ/runtime"
 import (
 	"fmt"
 
-	"github.com/arturkryukov/artstore/admin-module/internal/domain/model"
-	"github.com/arturkryukov/artstore/admin-module/internal/ui/components"
+	"github.com/bigkaa/goartstore/admin-module/internal/domain/model"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/components"
 )
 
 // SACreateSuccess — partial: результат создания SA с отображением client_id и secret.

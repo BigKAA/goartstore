@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"time"
 
-	apierrors "github.com/arturkryukov/artstore/admin-module/internal/api/errors"
-	"github.com/arturkryukov/artstore/admin-module/internal/api/generated"
-	"github.com/arturkryukov/artstore/admin-module/internal/api/middleware"
-	"github.com/arturkryukov/artstore/admin-module/internal/service"
+	apierrors "github.com/bigkaa/goartstore/admin-module/internal/api/errors"
+	"github.com/bigkaa/goartstore/admin-module/internal/api/generated"
+	"github.com/bigkaa/goartstore/admin-module/internal/api/middleware"
+	"github.com/bigkaa/goartstore/admin-module/internal/service"
 )
 
 // GetIdpStatus — GET /api/v1/idp/status.

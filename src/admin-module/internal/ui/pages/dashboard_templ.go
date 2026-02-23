@@ -13,8 +13,8 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/arturkryukov/artstore/admin-module/internal/ui/components"
-	"github.com/arturkryukov/artstore/admin-module/internal/ui/layouts"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/components"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/layouts"
 )
 
 // DashboardData — данные для страницы Dashboard.

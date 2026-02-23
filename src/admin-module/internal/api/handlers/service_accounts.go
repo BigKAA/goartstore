@@ -9,11 +9,11 @@ import (
 
 	"github.com/google/uuid"
 
-	apierrors "github.com/arturkryukov/artstore/admin-module/internal/api/errors"
-	"github.com/arturkryukov/artstore/admin-module/internal/api/generated"
-	"github.com/arturkryukov/artstore/admin-module/internal/api/middleware"
-	"github.com/arturkryukov/artstore/admin-module/internal/domain/model"
-	"github.com/arturkryukov/artstore/admin-module/internal/service"
+	apierrors "github.com/bigkaa/goartstore/admin-module/internal/api/errors"
+	"github.com/bigkaa/goartstore/admin-module/internal/api/generated"
+	"github.com/bigkaa/goartstore/admin-module/internal/api/middleware"
+	"github.com/bigkaa/goartstore/admin-module/internal/domain/model"
+	"github.com/bigkaa/goartstore/admin-module/internal/service"
 )
 
 // CreateServiceAccount — POST /api/v1/service-accounts.

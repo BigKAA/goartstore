@@ -1,4 +1,4 @@
-module github.com/arturkryukov/artstore/storage-element
+module github.com/bigkaa/goartstore/storage-element
 
 go 1.25.6
 

@@ -13,8 +13,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/arturkryukov/artstore/admin-module/internal/ui/components"
-	"github.com/arturkryukov/artstore/admin-module/internal/ui/layouts"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/components"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/layouts"
 )
 
 // SEListItem — элемент списка SE для отображения в таблице.

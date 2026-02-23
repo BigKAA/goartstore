@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/arturkryukov/artstore/admin-module/internal/repository"
+	"github.com/bigkaa/goartstore/admin-module/internal/repository"
 )
 
 // Допустимые ключи настроек (dot-notation).

@@ -12,8 +12,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/arturkryukov/artstore/admin-module/internal/service"
-	uimiddleware "github.com/arturkryukov/artstore/admin-module/internal/ui/middleware"
+	"github.com/bigkaa/goartstore/admin-module/internal/service"
+	uimiddleware "github.com/bigkaa/goartstore/admin-module/internal/ui/middleware"
 )
 
 // SSE event интервал отправки (каждые 15 секунд).

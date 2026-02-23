@@ -18,19 +18,19 @@ import (
 
 	"github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/arturkryukov/artstore/admin-module/internal/api/handlers"
-	"github.com/arturkryukov/artstore/admin-module/internal/api/middleware"
-	"github.com/arturkryukov/artstore/admin-module/internal/config"
-	"github.com/arturkryukov/artstore/admin-module/internal/database"
-	"github.com/arturkryukov/artstore/admin-module/internal/keycloak"
-	"github.com/arturkryukov/artstore/admin-module/internal/repository"
-	"github.com/arturkryukov/artstore/admin-module/internal/seclient"
-	"github.com/arturkryukov/artstore/admin-module/internal/server"
-	"github.com/arturkryukov/artstore/admin-module/internal/service"
-	"github.com/arturkryukov/artstore/admin-module/internal/ui/auth"
-	uihandlers "github.com/arturkryukov/artstore/admin-module/internal/ui/handlers"
-	uimiddleware "github.com/arturkryukov/artstore/admin-module/internal/ui/middleware"
-	uiprometheus "github.com/arturkryukov/artstore/admin-module/internal/ui/prometheus"
+	"github.com/bigkaa/goartstore/admin-module/internal/api/handlers"
+	"github.com/bigkaa/goartstore/admin-module/internal/api/middleware"
+	"github.com/bigkaa/goartstore/admin-module/internal/config"
+	"github.com/bigkaa/goartstore/admin-module/internal/database"
+	"github.com/bigkaa/goartstore/admin-module/internal/keycloak"
+	"github.com/bigkaa/goartstore/admin-module/internal/repository"
+	"github.com/bigkaa/goartstore/admin-module/internal/seclient"
+	"github.com/bigkaa/goartstore/admin-module/internal/server"
+	"github.com/bigkaa/goartstore/admin-module/internal/service"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/auth"
+	uihandlers "github.com/bigkaa/goartstore/admin-module/internal/ui/handlers"
+	uimiddleware "github.com/bigkaa/goartstore/admin-module/internal/ui/middleware"
+	uiprometheus "github.com/bigkaa/goartstore/admin-module/internal/ui/prometheus"
 )
 
 func main() {

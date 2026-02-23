@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/arturkryukov/artstore/admin-module/internal/domain/rbac"
-	"github.com/arturkryukov/artstore/admin-module/internal/ui/auth"
+	"github.com/bigkaa/goartstore/admin-module/internal/domain/rbac"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/auth"
 )
 
 // Имя cookie для хранения PKCE state (code_verifier + state).

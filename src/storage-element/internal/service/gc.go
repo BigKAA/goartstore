@@ -16,10 +16,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/arturkryukov/artstore/storage-element/internal/domain/model"
-	"github.com/arturkryukov/artstore/storage-element/internal/storage/attr"
-	"github.com/arturkryukov/artstore/storage-element/internal/storage/filestore"
-	"github.com/arturkryukov/artstore/storage-element/internal/storage/index"
+	"github.com/bigkaa/goartstore/storage-element/internal/domain/model"
+	"github.com/bigkaa/goartstore/storage-element/internal/storage/attr"
+	"github.com/bigkaa/goartstore/storage-element/internal/storage/filestore"
+	"github.com/bigkaa/goartstore/storage-element/internal/storage/index"
 )
 
 // Prometheus метрики GC

@@ -8,7 +8,7 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/arturkryukov/artstore/admin-module/internal/api/generated"
+	"github.com/bigkaa/goartstore/admin-module/internal/api/generated"
 )
 
 // StubHandler — заглушка ServerInterface.

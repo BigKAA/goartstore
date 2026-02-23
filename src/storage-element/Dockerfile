@@ -20,7 +20,7 @@ COPY . .
 
 # Сборка бинарника со статической линковкой для целевой платформы
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
-    -ldflags "-s -w -X github.com/arturkryukov/artstore/storage-element/internal/config.Version=${VERSION}" \
+    -ldflags "-s -w -X github.com/bigkaa/goartstore/storage-element/internal/config.Version=${VERSION}" \
     -o /storage-element \
     ./cmd/storage-element/
 

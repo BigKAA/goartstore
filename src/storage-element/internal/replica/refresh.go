@@ -12,8 +12,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/arturkryukov/artstore/storage-element/internal/domain/mode"
-	"github.com/arturkryukov/artstore/storage-element/internal/storage/index"
+	"github.com/bigkaa/goartstore/storage-element/internal/domain/mode"
+	"github.com/bigkaa/goartstore/storage-element/internal/storage/index"
 )
 
 // FollowerRefreshService — сервис периодического обновления данных на follower.

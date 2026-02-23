@@ -119,8 +119,8 @@ Harbor: https://harbor.kryukov.lan — admin/password. Использовать 
 .plantemplates/    — Шаблоны для планов разработки
 old_artstore/      — Старый проект (Python/FastAPI) как справочный материал
 src/               — Исходные коды Go-модулей
-  admin-module/    — Admin Module (go.mod: github.com/arturkryukov/artstore/admin-module)
-  storage-element/ — Storage Element (go.mod: github.com/arturkryukov/artstore/storage-element)
+  admin-module/    — Admin Module (go.mod: github.com/bigkaa/goartstore/admin-module)
+  storage-element/ — Storage Element (go.mod: github.com/bigkaa/goartstore/storage-element)
 plans/             — Планы разработки (активные)
   archive/         — Завершённые планы
 docs/              — Документация

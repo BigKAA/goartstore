@@ -9,8 +9,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/arturkryukov/artstore/admin-module/internal/domain/model"
-	"github.com/arturkryukov/artstore/admin-module/internal/repository"
+	"github.com/bigkaa/goartstore/admin-module/internal/domain/model"
+	"github.com/bigkaa/goartstore/admin-module/internal/repository"
 )
 
 // FileRegistryService — сервис файлового реестра.

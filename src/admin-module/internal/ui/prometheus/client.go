@@ -16,7 +16,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/arturkryukov/artstore/admin-module/internal/service"
+	"github.com/bigkaa/goartstore/admin-module/internal/service"
 )
 
 // Client — HTTP-клиент для Prometheus Query API.

@@ -11,13 +11,13 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/arturkryukov/artstore/admin-module/internal/config"
-	"github.com/arturkryukov/artstore/admin-module/internal/repository"
-	"github.com/arturkryukov/artstore/admin-module/internal/service"
-	uimiddleware "github.com/arturkryukov/artstore/admin-module/internal/ui/middleware"
-	"github.com/arturkryukov/artstore/admin-module/internal/ui/pages"
-	"github.com/arturkryukov/artstore/admin-module/internal/ui/pages/partials"
-	"github.com/arturkryukov/artstore/admin-module/internal/ui/prometheus"
+	"github.com/bigkaa/goartstore/admin-module/internal/config"
+	"github.com/bigkaa/goartstore/admin-module/internal/repository"
+	"github.com/bigkaa/goartstore/admin-module/internal/service"
+	uimiddleware "github.com/bigkaa/goartstore/admin-module/internal/ui/middleware"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/pages"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/pages/partials"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/prometheus"
 )
 
 // MonitoringHandler — обработчик страницы мониторинга.

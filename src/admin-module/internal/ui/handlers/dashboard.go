@@ -7,10 +7,10 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/arturkryukov/artstore/admin-module/internal/repository"
-	"github.com/arturkryukov/artstore/admin-module/internal/service"
-	uimiddleware "github.com/arturkryukov/artstore/admin-module/internal/ui/middleware"
-	"github.com/arturkryukov/artstore/admin-module/internal/ui/pages"
+	"github.com/bigkaa/goartstore/admin-module/internal/repository"
+	"github.com/bigkaa/goartstore/admin-module/internal/service"
+	uimiddleware "github.com/bigkaa/goartstore/admin-module/internal/ui/middleware"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/pages"
 )
 
 // DashboardHandler — обработчик страницы Dashboard.

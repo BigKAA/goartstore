@@ -11,7 +11,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/arturkryukov/artstore/admin-module/internal/config"
+	"github.com/bigkaa/goartstore/admin-module/internal/config"
 )
 
 // ReadinessChecker — интерфейс проверки готовности зависимости.

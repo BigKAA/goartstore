@@ -20,8 +20,8 @@ import (
 	"github.com/MicahParks/keyfunc/v3"
 	"github.com/golang-jwt/jwt/v5"
 
-	apierrors "github.com/arturkryukov/artstore/admin-module/internal/api/errors"
-	"github.com/arturkryukov/artstore/admin-module/internal/domain/rbac"
+	apierrors "github.com/bigkaa/goartstore/admin-module/internal/api/errors"
+	"github.com/bigkaa/goartstore/admin-module/internal/domain/rbac"
 )
 
 // contextKey — тип для ключей контекста (избегаем коллизий).

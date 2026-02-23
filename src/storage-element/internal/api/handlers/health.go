@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/arturkryukov/artstore/storage-element/internal/config"
+	"github.com/bigkaa/goartstore/storage-element/internal/config"
 )
 
 // IndexReadinessChecker — интерфейс для проверки готовности индекса.

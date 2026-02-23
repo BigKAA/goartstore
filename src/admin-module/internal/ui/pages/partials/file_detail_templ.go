@@ -12,8 +12,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/arturkryukov/artstore/admin-module/internal/ui/components"
-	"github.com/arturkryukov/artstore/admin-module/internal/ui/pages"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/components"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/pages"
 )
 
 // FileDetailData — полные данные файла для modal.

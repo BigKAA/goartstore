@@ -67,7 +67,7 @@ COPY --from=tailwind /build/internal/ui/static/css/output.css ./internal/ui/stat
 
 # Сборка бинарника со статической линковкой для целевой платформы
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
-    -ldflags "-s -w -X github.com/arturkryukov/artstore/admin-module/internal/config.Version=${VERSION}" \
+    -ldflags "-s -w -X github.com/bigkaa/goartstore/admin-module/internal/config.Version=${VERSION}" \
     -o /admin-module \
     ./cmd/admin-module/
 

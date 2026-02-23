@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/arturkryukov/artstore/admin-module/internal/ui/components"
-	"github.com/arturkryukov/artstore/admin-module/internal/ui/layouts"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/components"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/layouts"
 )
 
 // UserListItem — элемент списка пользователей для отображения.

@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	apierrors "github.com/arturkryukov/artstore/storage-element/internal/api/errors"
-	"github.com/arturkryukov/artstore/storage-element/internal/api/generated"
+	apierrors "github.com/bigkaa/goartstore/storage-element/internal/api/errors"
+	"github.com/bigkaa/goartstore/storage-element/internal/api/generated"
 )
 
 // ReconcileRunner — интерфейс для запуска reconciliation.

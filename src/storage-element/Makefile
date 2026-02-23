@@ -2,7 +2,7 @@
 # Основные цели: build, test, generate, lint, docker-build, docker-run, dev-certs
 
 BINARY_NAME := storage-element
-MODULE := github.com/arturkryukov/artstore/storage-element
+MODULE := github.com/bigkaa/goartstore/storage-element
 VERSION ?= dev
 OPENAPI_SPEC := ../../docs/api-contracts/storage-element-openapi.yaml
 

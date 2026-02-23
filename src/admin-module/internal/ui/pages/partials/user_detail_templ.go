@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/arturkryukov/artstore/admin-module/internal/ui/components"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/components"
 )
 
 // UserDetailData — полные данные пользователя для отображения.

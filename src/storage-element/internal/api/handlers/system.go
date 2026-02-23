@@ -6,10 +6,10 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/arturkryukov/artstore/storage-element/internal/api/generated"
-	"github.com/arturkryukov/artstore/storage-element/internal/config"
-	"github.com/arturkryukov/artstore/storage-element/internal/domain/mode"
-	"github.com/arturkryukov/artstore/storage-element/internal/storage/index"
+	"github.com/bigkaa/goartstore/storage-element/internal/api/generated"
+	"github.com/bigkaa/goartstore/storage-element/internal/config"
+	"github.com/bigkaa/goartstore/storage-element/internal/domain/mode"
+	"github.com/bigkaa/goartstore/storage-element/internal/storage/index"
 )
 
 // RoleProvider — интерфейс для получения текущей роли экземпляра SE.
