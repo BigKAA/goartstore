@@ -995,7 +995,10 @@ components:
 
     CapacityInfo:
       type: object
-      description: Информация об ёмкости хранилища
+      description: |
+        Информация об ёмкости хранилища.
+        Значения вычисляются из сконфигурированного лимита SE (SE_MAX_CAPACITY)
+        и суммарного размера active-файлов в индексе.
       required:
         - total_bytes
         - used_bytes
@@ -1004,18 +1007,24 @@ components:
         total_bytes:
           type: integer
           format: int64
-          description: Общий объём хранилища в байтах
-          example: 107374182400
+          description: |
+            Сконфигурированный лимит ёмкости SE в байтах (SE_MAX_CAPACITY).
+            Не отражает физический размер диска — только лимит, заданный при деплое.
+          example: 10737418240
         used_bytes:
           type: integer
           format: int64
-          description: Занятый объём в байтах
-          example: 53687091200
+          description: |
+            Суммарный размер active-файлов в байтах.
+            Вычисляется из in-memory индекса (O(1), кумулятивный счётчик).
+          example: 5368709120
         available_bytes:
           type: integer
           format: int64
-          description: Доступный объём в байтах
-          example: 53687091200
+          description: |
+            Оставшееся место в пределах лимита: total_bytes - used_bytes.
+            Минимум 0 (не может быть отрицательным).
+          example: 5368709120
 
     # -----------------------------------------------------------------------
     # Режим работы

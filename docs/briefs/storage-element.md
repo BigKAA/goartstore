@@ -297,6 +297,7 @@ JWT RS256 токены, выданные Admin Module.
 | `SE_WAL_DIR` | да | — | Путь к директории WAL |
 | `SE_MODE` | нет | `edit` | Начальный режим работы (`edit`, `rw`, `ro`, `ar`) |
 | `SE_MAX_FILE_SIZE` | нет | `1073741824` | Максимальный размер файла в байтах (default 1 GB) |
+| `SE_MAX_CAPACITY` | да | — | Сконфигурированный лимит ёмкости SE в байтах. При превышении upload возвращает 507. Должен быть >= `SE_MAX_FILE_SIZE` |
 | `SE_GC_INTERVAL` | нет | `1h` | Интервал запуска GC (Go duration: `30m`, `1h`, `24h`) |
 | `SE_RECONCILE_INTERVAL` | нет | `6h` | Интервал автоматической сверки (Go duration) |
 | `SE_JWKS_URL` | да | — | URL JWKS endpoint Admin Module для валидации JWT |

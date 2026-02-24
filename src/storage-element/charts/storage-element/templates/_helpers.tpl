@@ -86,6 +86,8 @@ app.kubernetes.io/instance: {{ .Values.elementId }}
   value: {{ .Values.mode | quote }}
 - name: SE_MAX_FILE_SIZE
   value: {{ .Values.maxFileSize | quote }}
+- name: SE_MAX_CAPACITY
+  value: {{ .Values.maxCapacity | quote }}
 - name: SE_GC_INTERVAL
   value: {{ .Values.gcInterval | quote }}
 - name: SE_RECONCILE_INTERVAL

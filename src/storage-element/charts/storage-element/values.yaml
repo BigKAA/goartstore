@@ -37,6 +37,7 @@ logFormat: json
 gcInterval: "1h"
 reconcileInterval: "6h"
 maxFileSize: "1073741824"  # 1GB
+maxCapacity: "10737418240"  # 10GB — сконфигурированный лимит ёмкости SE (не должен превышать dataSize)
 
 # --- Graceful shutdown ---
 # Таймаут graceful shutdown HTTP-сервера.

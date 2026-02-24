@@ -101,6 +101,8 @@ spec:
               value: {{ $.Values.seCommon.logFormat | quote }}
             - name: SE_MAX_FILE_SIZE
               value: {{ $.Values.seCommon.maxFileSize | quote }}
+            - name: SE_MAX_CAPACITY
+              value: {{ $.Values.seCommon.maxCapacity | quote }}
             - name: SE_GC_INTERVAL
               value: {{ $.Values.seCommon.gcInterval | quote }}
             - name: SE_RECONCILE_INTERVAL
