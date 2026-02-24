@@ -117,6 +117,18 @@ func (s *UploadService) Upload(params UploadParams) (*UploadResult, *UploadError
 		}
 	}
 
+	// 2.1. Проверяем наличие свободного места в пределах сконфигурированного лимита.
+	// Примечание: проверка racy (между check и Add другой upload может занять место),
+	// но это приемлемо — pre-check отсекает 99% случаев.
+	if params.Size > 0 && s.idx.TotalActiveSize()+params.Size > s.cfg.MaxCapacity {
+		return nil, &UploadError{
+			StatusCode: 507,
+			Code:       apierrors.CodeStorageFull,
+			Message: fmt.Sprintf("Недостаточно места: требуется %d байт, доступно %d байт",
+				params.Size, s.cfg.MaxCapacity-s.idx.TotalActiveSize()),
+		}
+	}
+
 	// 3. Генерируем file_id
 	fileID := uuid.New().String()
 

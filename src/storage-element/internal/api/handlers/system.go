@@ -25,25 +25,21 @@ type SystemHandler struct {
 	cfg          *config.Config
 	sm           *mode.StateMachine
 	idx          *index.Index
-	diskFn       func() (total, used, available int64, err error)
 	roleProvider RoleProvider
 }
 
 // NewSystemHandler создаёт обработчик системных endpoints.
-// diskUsageFn — функция для получения дискового пространства (nil для заглушки).
 // roleProvider — провайдер роли (nil для standalone).
 func NewSystemHandler(
 	cfg *config.Config,
 	sm *mode.StateMachine,
 	idx *index.Index,
-	diskUsageFn func() (total, used, available int64, err error),
 	roleProvider RoleProvider,
 ) *SystemHandler {
 	return &SystemHandler{
 		cfg:          cfg,
 		sm:           sm,
 		idx:          idx,
-		diskFn:       diskUsageFn,
 		roleProvider: roleProvider,
 	}
 }
@@ -66,17 +62,16 @@ func (h *SystemHandler) GetStorageInfo(w http.ResponseWriter, r *http.Request) {
 		status = generated.StorageInfoStatusMaintenance
 	}
 
-	// Получаем ёмкость диска
-	var capacity generated.CapacityInfo
-	if h.diskFn != nil {
-		total, used, available, err := h.diskFn()
-		if err == nil {
-			capacity = generated.CapacityInfo{
-				TotalBytes:     total,
-				UsedBytes:      used,
-				AvailableBytes: available,
-			}
-		}
+	// Вычисляем ёмкость из сконфигурированного лимита и индекса
+	usedBytes := h.idx.TotalActiveSize()
+	availableBytes := h.cfg.MaxCapacity - usedBytes
+	if availableBytes < 0 {
+		availableBytes = 0
+	}
+	capacity := generated.CapacityInfo{
+		TotalBytes:     h.cfg.MaxCapacity,
+		UsedBytes:      usedBytes,
+		AvailableBytes: availableBytes,
 	}
 
 	// Режим развёртывания

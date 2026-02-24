@@ -35,6 +35,7 @@ func main() {
 		slog.String("mode", cfg.Mode),
 		slog.Int("port", cfg.Port),
 		slog.String("replica_mode", cfg.ReplicaMode),
+		slog.Int64("max_capacity", cfg.MaxCapacity),
 	)
 
 	// Предупреждения о параметрах topologymetrics с дефолтными значениями
@@ -232,7 +233,7 @@ func main() {
 
 	// 9. Handlers
 	filesHandler := handlers.NewFilesHandler(uploadSvc, downloadSvc, store, idx, sm)
-	systemHandler := handlers.NewSystemHandler(cfg, sm, idx, diskUsageFn(cfg.DataDir), roleProvider)
+	systemHandler := handlers.NewSystemHandler(cfg, sm, idx, roleProvider)
 	modeHandler := handlers.NewModeHandler(sm, logger, modePersister)
 	maintenanceHandler := handlers.NewMaintenanceHandler(reconcileSvc)
 	healthHandler := handlers.NewHealthHandlerFull(cfg.DataDir, cfg.WALDir, idx, roleProvider)
@@ -301,13 +302,6 @@ func updateFileMetrics(idx *index.Index) {
 	middleware.FilesTotal.WithLabelValues("active").Set(float64(idx.CountByStatus("active")))
 	middleware.FilesTotal.WithLabelValues("deleted").Set(float64(idx.CountByStatus("deleted")))
 	middleware.FilesTotal.WithLabelValues("expired").Set(float64(idx.CountByStatus("expired")))
-}
-
-// diskUsageFn возвращает функцию для получения информации об ёмкости диска.
-func diskUsageFn(dataDir string) func() (total, used, available int64, err error) {
-	return func() (int64, int64, int64, error) {
-		return getDiskUsage(dataDir)
-	}
 }
 
 // --- Адаптеры для интерфейсов handlers ---
