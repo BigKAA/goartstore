@@ -96,9 +96,13 @@ app.kubernetes.io/instance: {{ .Values.elementId }}
   value: {{ .Values.reconcileInterval | quote }}
 - name: SE_JWKS_URL
   value: {{ .Values.jwksUrl | quote }}
-{{- if .Values.jwksCaCert }}
-- name: SE_JWKS_CA_CERT
-  value: {{ .Values.jwksCaCert | quote }}
+{{- if .Values.caCertPath }}
+- name: SE_CA_CERT_PATH
+  value: {{ .Values.caCertPath | quote }}
+{{- end }}
+{{- if .Values.tlsSkipVerify }}
+- name: SE_TLS_SKIP_VERIFY
+  value: {{ .Values.tlsSkipVerify | quote }}
 {{- end }}
 - name: SE_TLS_CERT
   value: "/certs/tls.crt"
@@ -119,6 +123,36 @@ app.kubernetes.io/instance: {{ .Values.elementId }}
 {{- if eq .Values.replicaMode "replicated" }}
 - name: SE_ELECTION_RETRY_INTERVAL
   value: {{ .Values.electionRetryInterval | quote }}
+{{- end }}
+{{- with .Values.timeouts }}
+{{- if .httpClient }}
+- name: SE_HTTP_CLIENT_TIMEOUT
+  value: {{ .httpClient | quote }}
+{{- end }}
+{{- if .jwksClient }}
+- name: SE_JWKS_CLIENT_TIMEOUT
+  value: {{ .jwksClient | quote }}
+{{- end }}
+{{- if .httpRead }}
+- name: SE_HTTP_READ_TIMEOUT
+  value: {{ .httpRead | quote }}
+{{- end }}
+{{- if .httpWrite }}
+- name: SE_HTTP_WRITE_TIMEOUT
+  value: {{ .httpWrite | quote }}
+{{- end }}
+{{- if .httpIdle }}
+- name: SE_HTTP_IDLE_TIMEOUT
+  value: {{ .httpIdle | quote }}
+{{- end }}
+{{- if .jwksRefreshInterval }}
+- name: SE_JWKS_REFRESH_INTERVAL
+  value: {{ .jwksRefreshInterval | quote }}
+{{- end }}
+{{- if .jwtLeeway }}
+- name: SE_JWT_LEEWAY
+  value: {{ .jwtLeeway | quote }}
+{{- end }}
 {{- end }}
 {{- end }}
 

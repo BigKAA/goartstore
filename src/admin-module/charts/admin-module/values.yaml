@@ -54,13 +54,17 @@ sync:
   # Интервал синхронизации Service Accounts с Keycloak
   saInterval: "15m"
 
-# --- TLS (CA-сертификат для подключения к SE) ---
+# --- TLS ---
 # AM не использует собственный TLS — HTTP внутри кластера,
 # TLS termination выполняется на API Gateway.
+# CA-сертификат используется для TLS-соединений к SE и другим внутренним сервисам.
 tls:
-  # Существующий Secret с CA-сертификатом для TLS-соединений к SE
-  # Если задан — монтируется в /certs и AM_SE_CA_CERT_PATH=/certs/ca.crt
+  # Существующий Secret с CA-сертификатом для TLS-соединений
+  # Если задан — монтируется в /certs и AM_CA_CERT_PATH=/certs/ca.crt
   caSecret: ""
+  # Разрешить подключение к сервисам с невалидными TLS-сертификатами
+  # ВНИМАНИЕ: использовать только для dev/test окружений!
+  # skipVerify: false
 
 # --- Dependency health (topologymetrics) ---
 dephealth:
@@ -75,6 +79,29 @@ ui:
   sessionSecret: ""
   # OIDC Client ID (public client в Keycloak, Authorization Code + PKCE)
   oidcClientId: "artstore-admin-ui"
+
+# --- Таймауты HTTP-клиентов ---
+# Глобальный таймаут для всех исходящих HTTP-запросов.
+# Per-client таймауты (если заданы) переопределяют глобальный.
+# timeouts:
+#   httpClient: "30s"           # AM_HTTP_CLIENT_TIMEOUT (глобальный)
+#   keycloakClient: ""          # AM_KEYCLOAK_CLIENT_TIMEOUT (→ httpClient если пусто)
+#   seClient: ""                # AM_SE_CLIENT_TIMEOUT (→ httpClient если пусто)
+#   jwksClient: ""              # AM_JWKS_CLIENT_TIMEOUT (→ httpClient если пусто)
+#   oidcClient: ""              # AM_OIDC_CLIENT_TIMEOUT (→ httpClient если пусто)
+#   prometheusClient: ""        # AM_PROMETHEUS_CLIENT_TIMEOUT (→ httpClient если пусто)
+#   # --- Таймауты HTTP-сервера ---
+#   httpRead: "30s"             # AM_HTTP_READ_TIMEOUT
+#   httpWrite: "60s"            # AM_HTTP_WRITE_TIMEOUT
+#   httpIdle: "120s"            # AM_HTTP_IDLE_TIMEOUT
+#   # --- Keycloak ---
+#   keycloakReadiness: "5s"     # AM_KEYCLOAK_READINESS_TIMEOUT
+#   keycloakTokenRefresh: "30s" # AM_KEYCLOAK_TOKEN_REFRESH_THRESHOLD
+#   # --- JWT/JWKS ---
+#   jwksRefreshInterval: "15s"  # AM_JWKS_REFRESH_INTERVAL
+#   jwtLeeway: "5s"             # AM_JWT_LEEWAY
+#   # --- UI ---
+#   sseInterval: "15s"          # AM_SSE_INTERVAL
 
 # --- Graceful shutdown ---
 shutdownTimeout: "5s"

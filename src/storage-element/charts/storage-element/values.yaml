@@ -24,10 +24,13 @@ imagePullPolicy: IfNotPresent
 
 # --- JWKS URL для валидации JWT ---
 jwksUrl: "https://admin-module.artstore.svc.cluster.local:8000/api/v1/auth/jwks"
-# Путь к CA-сертификату для проверки TLS JWKS endpoint (опционально).
-# Указывается если JWKS endpoint использует сертификат от внутреннего CA.
+# Путь к CA-сертификату для проверки TLS-соединений (JWKS endpoint и др.)
+# Указывается если endpoint использует сертификат от внутреннего CA.
 # Пример: /certs/ca.crt (из cert-manager TLS secret)
-# jwksCaCert: ""
+# caCertPath: ""
+# Разрешить подключение к сервисам с невалидными TLS-сертификатами
+# ВНИМАНИЕ: использовать только для dev/test окружений!
+# tlsSkipVerify: false
 
 # --- Логирование ---
 logLevel: info
@@ -38,6 +41,17 @@ gcInterval: "1h"
 reconcileInterval: "6h"
 maxFileSize: "1073741824"  # 1GB
 maxCapacity: "10737418240"  # 10GB — сконфигурированный лимит ёмкости SE (не должен превышать dataSize)
+
+# --- Таймауты HTTP-клиентов и сервера ---
+# Опциональные — если не заданы, используются defaults из Go config.
+# timeouts:
+#   httpClient: "30s"           # SE_HTTP_CLIENT_TIMEOUT (глобальный)
+#   jwksClient: ""              # SE_JWKS_CLIENT_TIMEOUT (→ httpClient если пусто)
+#   httpRead: "30s"             # SE_HTTP_READ_TIMEOUT
+#   httpWrite: "60s"            # SE_HTTP_WRITE_TIMEOUT
+#   httpIdle: "120s"            # SE_HTTP_IDLE_TIMEOUT
+#   jwksRefreshInterval: "15s"  # SE_JWKS_REFRESH_INTERVAL
+#   jwtLeeway: "5s"             # SE_JWT_LEEWAY
 
 # --- Graceful shutdown ---
 # Таймаут graceful shutdown HTTP-сервера.

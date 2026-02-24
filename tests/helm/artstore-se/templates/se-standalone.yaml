@@ -85,8 +85,11 @@ spec:
               value: standalone
             - name: SE_JWKS_URL
               value: {{ include "artstore-se.jwksUrl" $ | quote }}
-            - name: SE_JWKS_CA_CERT
+            - name: SE_CA_CERT_PATH
               value: /certs/ca.crt
+            # TLS skip verify для dev/test (self-signed сертификаты)
+            - name: SE_TLS_SKIP_VERIFY
+              value: "true"
             - name: SE_TLS_CERT
               value: /certs/tls.crt
             - name: SE_TLS_KEY

@@ -17,10 +17,10 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 4
-- **Активный подпункт**: 4.1
+- **Активная фаза**: Phase 5
+- **Активный подпункт**: 5.1
 - **Последнее обновление**: 2026-02-24
-- **Примечание**: Phase 3 завершена — все hardcoded значения Storage Element заменены на параметры из Config
+- **Примечание**: Phase 4 завершена — Helm charts обновлены, переименования env-переменных применены, правило добавлено в CLAUDE.md
 
 ---
 
@@ -29,7 +29,7 @@
 - [x] [Phase 1: Admin Module — конфигурация и config struct](#phase-1-admin-module--конфигурация-и-config-struct)
 - [x] [Phase 2: Admin Module — применение конфигурации в коде](#phase-2-admin-module--применение-конфигурации-в-коде)
 - [x] [Phase 3: Storage Element — конфигурация и применение](#phase-3-storage-element--конфигурация-и-применение)
-- [ ] [Phase 4: Helm charts, CLAUDE.md, документация](#phase-4-helm-charts-claudemd-документация)
+- [x] [Phase 4: Helm charts, CLAUDE.md, документация](#phase-4-helm-charts-claudemd-документация)
 - [ ] [Phase 5: Сборка и тестирование](#phase-5-сборка-и-тестирование)
 
 ---
@@ -271,7 +271,7 @@
 ## Phase 4: Helm charts, CLAUDE.md, документация
 
 **Dependencies**: Phase 1, Phase 2, Phase 3
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -279,7 +279,7 @@
 
 ### Подпункты
 
-- [ ] **4.1 Helm chart Admin Module**
+- [x] **4.1 Helm chart Admin Module**
   - **Dependencies**: None
   - **Description**: Обновить `values.yaml`: добавить секции `tls.skipVerify`, `timeouts.httpClient`, `timeouts.httpServer`, `jwt`, `keycloak.tokenRefreshThreshold`, `ui.sseInterval`. Переименовать `tls.caSecret` → обновить mapping на `AM_CA_CERT_PATH` (вместо `AM_SE_CA_CERT_PATH`). Обновить ConfigMap template с новыми env-переменными. Убедиться что все новые параметры опциональны (не ломают текущий деплой).
   - **Modifies**:
@@ -287,7 +287,7 @@
     - `src/admin-module/charts/admin-module/templates/configmap.yaml`
   - **Links**: N/A
 
-- [ ] **4.2 Helm chart Storage Element**
+- [x] **4.2 Helm chart Storage Element**
   - **Dependencies**: None
   - **Description**: Обновить `values.yaml` и `_helpers.tpl`: добавить TLS, таймауты, JWT/JWKS параметры. Переименовать `jwksCaCert` → обновить mapping на `SE_CA_CERT_PATH` (вместо `SE_JWKS_CA_CERT`).
   - **Modifies**:
@@ -295,7 +295,7 @@
     - `src/storage-element/charts/storage-element/templates/_helpers.tpl`
   - **Links**: N/A
 
-- [ ] **4.3 Тестовые Helm charts**
+- [x] **4.3 Тестовые Helm charts**
   - **Dependencies**: 4.1, 4.2
   - **Description**: Обновить тестовые Helm charts в `tests/helm/` для учёта переименований env-переменных. В dev-окружении: установить `TLS_SKIP_VERIFY=true` для совместимости с self-signed сертификатами.
   - **Modifies**:
@@ -303,7 +303,7 @@
     - `tests/helm/artstore-se/values.yaml` (или аналог)
   - **Links**: N/A
 
-- [ ] **4.4 Правило в CLAUDE.md**
+- [x] **4.4 Правило в CLAUDE.md**
   - **Dependencies**: None
   - **Description**: Добавить в секцию "Общие правила" CLAUDE.md:
     > **Запрет hardcoded параметров соединений**: все параметры сетевых соединений (таймауты, TLS настройки, интервалы проверок, размеры пулов) **обязательно** выносить в конфигурацию через env-переменные с разумными defaults. Запрещено: `InsecureSkipVerify: true`, литеральные таймауты (`30 * time.Second`) в HTTP-клиентах, hardcoded health-check пути. Каждый новый HTTP-клиент или сетевое соединение должно использовать параметры из `Config` struct.
@@ -313,10 +313,10 @@
 
 ### Критерии завершения Phase 4
 
-- [ ] Все подпункты завершены (4.1 — 4.4)
-- [ ] `helm template` проходит без ошибок для обоих модулей
-- [ ] Новые параметры опциональны — отсутствие их в values не ломает рендеринг
-- [ ] Правило добавлено в CLAUDE.md
+- [x] Все подпункты завершены (4.1 — 4.4)
+- [x] `helm template` проходит без ошибок для обоих модулей
+- [x] Новые параметры опциональны — отсутствие их в values не ломает рендеринг
+- [x] Правило добавлено в CLAUDE.md
 
 ---
 

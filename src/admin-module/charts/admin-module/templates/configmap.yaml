@@ -35,9 +35,12 @@ data:
   AM_SYNC_INTERVAL: {{ .Values.sync.interval | quote }}
   AM_SYNC_PAGE_SIZE: {{ .Values.sync.pageSize | quote }}
   AM_SA_SYNC_INTERVAL: {{ .Values.sync.saInterval | quote }}
-  # --- TLS (CA для подключения к SE) ---
+  # --- TLS ---
   {{- if .Values.tls.caSecret }}
-  AM_SE_CA_CERT_PATH: "/certs/ca.crt"
+  AM_CA_CERT_PATH: "/certs/ca.crt"
+  {{- end }}
+  {{- if .Values.tls.skipVerify }}
+  AM_TLS_SKIP_VERIFY: {{ .Values.tls.skipVerify | quote }}
   {{- end }}
   # --- Dependency health (topologymetrics) ---
   DEPHEALTH_NAME: {{ include "am.fullname" . | quote }}
@@ -46,5 +49,54 @@ data:
   # --- Admin UI ---
   AM_UI_ENABLED: {{ .Values.ui.enabled | quote }}
   AM_UI_OIDC_CLIENT_ID: {{ .Values.ui.oidcClientId | quote }}
+  # --- Таймауты HTTP-клиентов ---
+  {{- with .Values.timeouts }}
+  {{- if .httpClient }}
+  AM_HTTP_CLIENT_TIMEOUT: {{ .httpClient | quote }}
+  {{- end }}
+  {{- if .keycloakClient }}
+  AM_KEYCLOAK_CLIENT_TIMEOUT: {{ .keycloakClient | quote }}
+  {{- end }}
+  {{- if .seClient }}
+  AM_SE_CLIENT_TIMEOUT: {{ .seClient | quote }}
+  {{- end }}
+  {{- if .jwksClient }}
+  AM_JWKS_CLIENT_TIMEOUT: {{ .jwksClient | quote }}
+  {{- end }}
+  {{- if .oidcClient }}
+  AM_OIDC_CLIENT_TIMEOUT: {{ .oidcClient | quote }}
+  {{- end }}
+  {{- if .prometheusClient }}
+  AM_PROMETHEUS_CLIENT_TIMEOUT: {{ .prometheusClient | quote }}
+  {{- end }}
+  # --- Таймауты HTTP-сервера ---
+  {{- if .httpRead }}
+  AM_HTTP_READ_TIMEOUT: {{ .httpRead | quote }}
+  {{- end }}
+  {{- if .httpWrite }}
+  AM_HTTP_WRITE_TIMEOUT: {{ .httpWrite | quote }}
+  {{- end }}
+  {{- if .httpIdle }}
+  AM_HTTP_IDLE_TIMEOUT: {{ .httpIdle | quote }}
+  {{- end }}
+  # --- Keycloak ---
+  {{- if .keycloakReadiness }}
+  AM_KEYCLOAK_READINESS_TIMEOUT: {{ .keycloakReadiness | quote }}
+  {{- end }}
+  {{- if .keycloakTokenRefresh }}
+  AM_KEYCLOAK_TOKEN_REFRESH_THRESHOLD: {{ .keycloakTokenRefresh | quote }}
+  {{- end }}
+  # --- JWT/JWKS ---
+  {{- if .jwksRefreshInterval }}
+  AM_JWKS_REFRESH_INTERVAL: {{ .jwksRefreshInterval | quote }}
+  {{- end }}
+  {{- if .jwtLeeway }}
+  AM_JWT_LEEWAY: {{ .jwtLeeway | quote }}
+  {{- end }}
+  # --- UI ---
+  {{- if .sseInterval }}
+  AM_SSE_INTERVAL: {{ .sseInterval | quote }}
+  {{- end }}
+  {{- end }}
   # --- Graceful shutdown ---
   AM_SHUTDOWN_TIMEOUT: {{ .Values.shutdownTimeout | quote }}

@@ -122,9 +122,12 @@ spec:
               value: {{ .Values.adminModule.syncPageSize | quote }}
             - name: AM_SA_SYNC_INTERVAL
               value: {{ .Values.adminModule.saSyncInterval | quote }}
-            # --- TLS (CA для подключения к SE) ---
-            - name: AM_SE_CA_CERT_PATH
+            # --- TLS ---
+            - name: AM_CA_CERT_PATH
               value: /certs/ca.crt
+            # TLS skip verify для dev/test (self-signed сертификаты)
+            - name: AM_TLS_SKIP_VERIFY
+              value: "true"
             # AM не использует собственный TLS — HTTP внутри кластера,
             # TLS termination на API Gateway.
             # --- topologymetrics ---
