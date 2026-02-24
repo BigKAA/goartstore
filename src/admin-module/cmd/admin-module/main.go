@@ -81,13 +81,13 @@ func main() {
 
 	// 5. HTTP-клиент с кастомным CA (для Keycloak и SE)
 	var httpClientCA *http.Client
-	if cfg.SECACertPath != "" {
-		httpClientCA, err = buildHTTPClientWithCA(cfg.SECACertPath)
+	if cfg.CACertPath != "" {
+		httpClientCA, err = buildHTTPClientWithCA(cfg.CACertPath)
 		if err != nil {
-			logger.Error("Ошибка загрузки CA-сертификата", slog.String("path", cfg.SECACertPath), slog.String("error", err.Error()))
+			logger.Error("Ошибка загрузки CA-сертификата", slog.String("path", cfg.CACertPath), slog.String("error", err.Error()))
 			os.Exit(1)
 		}
-		logger.Info("CA-сертификат загружен", slog.String("path", cfg.SECACertPath))
+		logger.Info("CA-сертификат загружен", slog.String("path", cfg.CACertPath))
 	}
 
 	// 6. Keycloak Admin API клиент
@@ -105,7 +105,7 @@ func main() {
 	)
 
 	// 7. SE HTTP-клиент
-	seClient, err := seclient.New(cfg.SECACertPath, kcClient.TokenProvider(), logger)
+	seClient, err := seclient.New(cfg.CACertPath, kcClient.TokenProvider(), logger)
 	if err != nil {
 		logger.Error("Ошибка создания SE-клиента", slog.String("error", err.Error()))
 		os.Exit(1)
@@ -176,7 +176,7 @@ func main() {
 
 	// 12. Readiness checkers (PostgreSQL + Keycloak)
 	pgChecker := database.NewReadinessChecker(pool)
-	kcChecker, err := middleware.NewKeycloakReadinessChecker(cfg.JWTJWKSURL, cfg.SECACertPath)
+	kcChecker, err := middleware.NewKeycloakReadinessChecker(cfg.JWTJWKSURL, cfg.CACertPath)
 	if err != nil {
 		logger.Error("Ошибка создания Keycloak readiness checker", slog.String("error", err.Error()))
 		os.Exit(1)
@@ -200,7 +200,7 @@ func main() {
 
 	jwtAuth, err := middleware.NewJWTAuth(
 		cfg.JWTJWKSURL,
-		cfg.SECACertPath,
+		cfg.CACertPath,
 		cfg.JWTIssuer,
 		roleProvider,
 		cfg.RoleAdminGroups,

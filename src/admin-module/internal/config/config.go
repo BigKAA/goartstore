@@ -41,6 +41,39 @@ type Config struct {
 	// Режим SSL: disable, require, verify-ca, verify-full
 	DBSSLMode string
 
+	// --- TLS ---
+
+	// Пропускать проверку TLS-сертификатов (InsecureSkipVerify). По умолчанию false.
+	TLSSkipVerify bool
+	// Путь к CA-сертификату для TLS-соединений (опционально).
+	// Переименовано из SECACertPath — cert используется для всех TLS-соединений, не только SE.
+	CACertPath string
+
+	// --- HTTP Client Timeouts ---
+
+	// Глобальный таймаут HTTP-клиентов (по умолчанию 30s).
+	// Используется как fallback для per-client таймаутов, если они не заданы явно.
+	HTTPClientTimeout time.Duration
+	// Таймаут HTTP-клиента Keycloak Admin API (fallback → HTTPClientTimeout)
+	KeycloakClientTimeout time.Duration
+	// Таймаут HTTP-клиента SE (fallback → HTTPClientTimeout)
+	SEClientTimeout time.Duration
+	// Таймаут HTTP-клиента JWKS (fallback → HTTPClientTimeout)
+	JWKSClientTimeout time.Duration
+	// Таймаут HTTP-клиента OIDC (fallback → HTTPClientTimeout)
+	OIDCClientTimeout time.Duration
+	// Таймаут HTTP-клиента Prometheus (fallback → HTTPClientTimeout)
+	PrometheusClientTimeout time.Duration
+
+	// --- HTTP Server Timeouts ---
+
+	// Таймаут чтения HTTP-сервера (по умолчанию 30s)
+	HTTPReadTimeout time.Duration
+	// Таймаут записи HTTP-сервера (по умолчанию 60s)
+	HTTPWriteTimeout time.Duration
+	// Таймаут простоя HTTP-сервера (по умолчанию 120s)
+	HTTPIdleTimeout time.Duration
+
 	// --- Keycloak ---
 
 	// URL Keycloak (например, https://keycloak.kryukov.lan)
@@ -53,8 +86,12 @@ type Config struct {
 	KeycloakClientSecret string
 	// Префикс client_id для SA (по умолчанию "sa_")
 	KeycloakSAPrefix string
+	// Таймаут проверки готовности Keycloak (по умолчанию 5s)
+	KeycloakReadinessTimeout time.Duration
+	// Порог обновления токена Keycloak перед истечением (по умолчанию 30s)
+	KeycloakTokenRefreshThreshold time.Duration
 
-	// --- JWT (fallback-валидация, основная на API Gateway) ---
+	// --- JWT/JWKS ---
 
 	// Issuer JWT (авто-вычисляется из KeycloakURL, если не задан)
 	JWTIssuer string
@@ -64,6 +101,10 @@ type Config struct {
 	JWTRolesClaim string
 	// Claim для групп в JWT
 	JWTGroupsClaim string
+	// Интервал обновления JWKS-ключей (по умолчанию 15s)
+	JWKSRefreshInterval time.Duration
+	// Допустимое отклонение времени при проверке JWT (по умолчанию 5s)
+	JWTLeeway time.Duration
 
 	// --- Синхронизация ---
 
@@ -79,8 +120,6 @@ type Config struct {
 	SyncPageSize int
 	// Интервал синхронизации SA с Keycloak
 	SASyncInterval time.Duration
-	// Путь к CA-сертификату для TLS-соединений с SE (опционально)
-	SECACertPath string
 
 	// --- Маппинг групп → ролей ---
 
@@ -102,6 +141,8 @@ type Config struct {
 	// Если не задан — используется KeycloakURL.
 	// Пример: https://artstore.kryukov.lan (KC проксируется через Gateway)
 	UIKeycloakURL string
+	// Интервал отправки SSE-обновлений в Admin UI (по умолчанию 15s)
+	SSEInterval time.Duration
 
 	// --- Graceful shutdown ---
 
@@ -136,6 +177,83 @@ func Load() (*Config, error) {
 	cfg.LogFormat = getEnvDefault("AM_LOG_FORMAT", "json")
 	if cfg.LogFormat != "json" && cfg.LogFormat != "text" {
 		return nil, fmt.Errorf("AM_LOG_FORMAT: недопустимое значение %q, допустимые: json, text", cfg.LogFormat)
+	}
+
+	// --- TLS ---
+
+	// AM_TLS_SKIP_VERIFY — пропускать проверку TLS-сертификатов (по умолчанию false)
+	cfg.TLSSkipVerify, err = getEnvBool("AM_TLS_SKIP_VERIFY", false)
+	if err != nil {
+		return nil, fmt.Errorf("AM_TLS_SKIP_VERIFY: %w", err)
+	}
+
+	// AM_CA_CERT_PATH — путь к CA-сертификату (опционально, переименование из AM_SE_CA_CERT_PATH)
+	cfg.CACertPath = getEnvDefault("AM_CA_CERT_PATH", "")
+
+	// --- HTTP Client Timeouts ---
+
+	// AM_HTTP_CLIENT_TIMEOUT — глобальный таймаут HTTP-клиентов (по умолчанию 30s)
+	cfg.HTTPClientTimeout, err = getEnvDuration("AM_HTTP_CLIENT_TIMEOUT", 30*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("AM_HTTP_CLIENT_TIMEOUT: %w", err)
+	}
+	if cfg.HTTPClientTimeout <= 0 {
+		return nil, fmt.Errorf("AM_HTTP_CLIENT_TIMEOUT: значение должно быть > 0")
+	}
+
+	// Per-client таймауты с fallback на глобальный
+	cfg.KeycloakClientTimeout, err = getEnvDurationFallback("AM_KEYCLOAK_CLIENT_TIMEOUT", cfg.HTTPClientTimeout)
+	if err != nil {
+		return nil, fmt.Errorf("AM_KEYCLOAK_CLIENT_TIMEOUT: %w", err)
+	}
+
+	cfg.SEClientTimeout, err = getEnvDurationFallback("AM_SE_CLIENT_TIMEOUT", cfg.HTTPClientTimeout)
+	if err != nil {
+		return nil, fmt.Errorf("AM_SE_CLIENT_TIMEOUT: %w", err)
+	}
+
+	cfg.JWKSClientTimeout, err = getEnvDurationFallback("AM_JWKS_CLIENT_TIMEOUT", cfg.HTTPClientTimeout)
+	if err != nil {
+		return nil, fmt.Errorf("AM_JWKS_CLIENT_TIMEOUT: %w", err)
+	}
+
+	cfg.OIDCClientTimeout, err = getEnvDurationFallback("AM_OIDC_CLIENT_TIMEOUT", cfg.HTTPClientTimeout)
+	if err != nil {
+		return nil, fmt.Errorf("AM_OIDC_CLIENT_TIMEOUT: %w", err)
+	}
+
+	cfg.PrometheusClientTimeout, err = getEnvDurationFallback("AM_PROMETHEUS_CLIENT_TIMEOUT", cfg.HTTPClientTimeout)
+	if err != nil {
+		return nil, fmt.Errorf("AM_PROMETHEUS_CLIENT_TIMEOUT: %w", err)
+	}
+
+	// --- HTTP Server Timeouts ---
+
+	// AM_HTTP_READ_TIMEOUT — таймаут чтения HTTP-сервера (по умолчанию 30s)
+	cfg.HTTPReadTimeout, err = getEnvDuration("AM_HTTP_READ_TIMEOUT", 30*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("AM_HTTP_READ_TIMEOUT: %w", err)
+	}
+	if cfg.HTTPReadTimeout <= 0 {
+		return nil, fmt.Errorf("AM_HTTP_READ_TIMEOUT: значение должно быть > 0")
+	}
+
+	// AM_HTTP_WRITE_TIMEOUT — таймаут записи HTTP-сервера (по умолчанию 60s)
+	cfg.HTTPWriteTimeout, err = getEnvDuration("AM_HTTP_WRITE_TIMEOUT", 60*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("AM_HTTP_WRITE_TIMEOUT: %w", err)
+	}
+	if cfg.HTTPWriteTimeout <= 0 {
+		return nil, fmt.Errorf("AM_HTTP_WRITE_TIMEOUT: значение должно быть > 0")
+	}
+
+	// AM_HTTP_IDLE_TIMEOUT — таймаут простоя HTTP-сервера (по умолчанию 120s)
+	cfg.HTTPIdleTimeout, err = getEnvDuration("AM_HTTP_IDLE_TIMEOUT", 120*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("AM_HTTP_IDLE_TIMEOUT: %w", err)
+	}
+	if cfg.HTTPIdleTimeout <= 0 {
+		return nil, fmt.Errorf("AM_HTTP_IDLE_TIMEOUT: значение должно быть > 0")
 	}
 
 	// --- PostgreSQL ---
@@ -207,7 +325,25 @@ func Load() (*Config, error) {
 	// AM_KEYCLOAK_SA_PREFIX — префикс SA (по умолчанию "sa_")
 	cfg.KeycloakSAPrefix = getEnvDefault("AM_KEYCLOAK_SA_PREFIX", "sa_")
 
-	// --- JWT ---
+	// AM_KEYCLOAK_READINESS_TIMEOUT — таймаут проверки готовности Keycloak (по умолчанию 5s)
+	cfg.KeycloakReadinessTimeout, err = getEnvDuration("AM_KEYCLOAK_READINESS_TIMEOUT", 5*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("AM_KEYCLOAK_READINESS_TIMEOUT: %w", err)
+	}
+	if cfg.KeycloakReadinessTimeout <= 0 {
+		return nil, fmt.Errorf("AM_KEYCLOAK_READINESS_TIMEOUT: значение должно быть > 0")
+	}
+
+	// AM_KEYCLOAK_TOKEN_REFRESH_THRESHOLD — порог обновления токена (по умолчанию 30s)
+	cfg.KeycloakTokenRefreshThreshold, err = getEnvDuration("AM_KEYCLOAK_TOKEN_REFRESH_THRESHOLD", 30*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("AM_KEYCLOAK_TOKEN_REFRESH_THRESHOLD: %w", err)
+	}
+	if cfg.KeycloakTokenRefreshThreshold <= 0 {
+		return nil, fmt.Errorf("AM_KEYCLOAK_TOKEN_REFRESH_THRESHOLD: значение должно быть > 0")
+	}
+
+	// --- JWT/JWKS ---
 
 	// AM_JWT_ISSUER — авто-вычисляется из KeycloakURL, если не задан
 	cfg.JWTIssuer = getEnvDefault("AM_JWT_ISSUER",
@@ -222,6 +358,24 @@ func Load() (*Config, error) {
 
 	// AM_JWT_GROUPS_CLAIM — claim для групп (по умолчанию groups)
 	cfg.JWTGroupsClaim = getEnvDefault("AM_JWT_GROUPS_CLAIM", "groups")
+
+	// AM_JWKS_REFRESH_INTERVAL — интервал обновления JWKS-ключей (по умолчанию 15s)
+	cfg.JWKSRefreshInterval, err = getEnvDuration("AM_JWKS_REFRESH_INTERVAL", 15*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("AM_JWKS_REFRESH_INTERVAL: %w", err)
+	}
+	if cfg.JWKSRefreshInterval <= 0 {
+		return nil, fmt.Errorf("AM_JWKS_REFRESH_INTERVAL: значение должно быть > 0")
+	}
+
+	// AM_JWT_LEEWAY — допустимое отклонение времени при проверке JWT (по умолчанию 5s)
+	cfg.JWTLeeway, err = getEnvDuration("AM_JWT_LEEWAY", 5*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("AM_JWT_LEEWAY: %w", err)
+	}
+	if cfg.JWTLeeway < 0 {
+		return nil, fmt.Errorf("AM_JWT_LEEWAY: значение должно быть >= 0")
+	}
 
 	// --- Синхронизация ---
 
@@ -258,8 +412,14 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("AM_SA_SYNC_INTERVAL: %w", err)
 	}
 
-	// AM_SE_CA_CERT_PATH — путь к CA-сертификату SE (опционально)
-	cfg.SECACertPath = getEnvDefault("AM_SE_CA_CERT_PATH", "")
+	// AM_SSE_INTERVAL — интервал отправки SSE-обновлений в Admin UI (по умолчанию 15s)
+	cfg.SSEInterval, err = getEnvDuration("AM_SSE_INTERVAL", 15*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("AM_SSE_INTERVAL: %w", err)
+	}
+	if cfg.SSEInterval <= 0 {
+		return nil, fmt.Errorf("AM_SSE_INTERVAL: значение должно быть > 0")
+	}
 
 	// --- Маппинг групп → ролей ---
 
@@ -378,6 +538,24 @@ func getEnvDuration(key string, defaultVal time.Duration) (time.Duration, error)
 	d, err := time.ParseDuration(val)
 	if err != nil {
 		return 0, fmt.Errorf("некорректная длительность: %q (используйте формат Go: 30s, 1h, 15m)", val)
+	}
+	return d, nil
+}
+
+// getEnvDurationFallback возвращает time.Duration из переменной окружения.
+// Если переменная не задана, используется fallbackVal (обычно глобальный таймаут).
+// Если задана — парсится и валидируется (> 0).
+func getEnvDurationFallback(key string, fallbackVal time.Duration) (time.Duration, error) {
+	val := os.Getenv(key)
+	if val == "" {
+		return fallbackVal, nil
+	}
+	d, err := time.ParseDuration(val)
+	if err != nil {
+		return 0, fmt.Errorf("некорректная длительность: %q (используйте формат Go: 30s, 1h, 15m)", val)
+	}
+	if d <= 0 {
+		return 0, fmt.Errorf("значение должно быть > 0")
 	}
 	return d, nil
 }

@@ -18,12 +18,12 @@ func setEnvs(t *testing.T, envs map[string]string) {
 // minimalEnvs возвращает минимальный набор обязательных переменных.
 func minimalEnvs() map[string]string {
 	return map[string]string{
-		"AM_DB_HOST":               "localhost",
-		"AM_DB_NAME":               "artstore",
-		"AM_DB_USER":               "artstore",
-		"AM_DB_PASSWORD":           "secret",
-		"AM_KEYCLOAK_URL":          "https://keycloak.kryukov.lan",
-		"AM_KEYCLOAK_CLIENT_ID":    "artstore-admin-module",
+		"AM_DB_HOST":                "localhost",
+		"AM_DB_NAME":                "artstore",
+		"AM_DB_USER":                "artstore",
+		"AM_DB_PASSWORD":            "secret",
+		"AM_KEYCLOAK_URL":           "https://keycloak.kryukov.lan",
+		"AM_KEYCLOAK_CLIENT_ID":     "artstore-admin-module",
 		"AM_KEYCLOAK_CLIENT_SECRET": "kc-secret",
 	}
 }
@@ -76,6 +76,68 @@ func TestLoad_MinimalConfig(t *testing.T) {
 	if cfg.ShutdownTimeout != 5*time.Second {
 		t.Errorf("ShutdownTimeout = %v, ожидается 5s", cfg.ShutdownTimeout)
 	}
+
+	// --- Новые параметры: defaults ---
+
+	// TLS
+	if cfg.TLSSkipVerify != false {
+		t.Errorf("TLSSkipVerify = %v, ожидается false", cfg.TLSSkipVerify)
+	}
+	if cfg.CACertPath != "" {
+		t.Errorf("CACertPath = %q, ожидается пустая строка", cfg.CACertPath)
+	}
+
+	// HTTP Client Timeouts — все по умолчанию 30s (глобальный default)
+	if cfg.HTTPClientTimeout != 30*time.Second {
+		t.Errorf("HTTPClientTimeout = %v, ожидается 30s", cfg.HTTPClientTimeout)
+	}
+	if cfg.KeycloakClientTimeout != 30*time.Second {
+		t.Errorf("KeycloakClientTimeout = %v, ожидается 30s (fallback на глобальный)", cfg.KeycloakClientTimeout)
+	}
+	if cfg.SEClientTimeout != 30*time.Second {
+		t.Errorf("SEClientTimeout = %v, ожидается 30s (fallback на глобальный)", cfg.SEClientTimeout)
+	}
+	if cfg.JWKSClientTimeout != 30*time.Second {
+		t.Errorf("JWKSClientTimeout = %v, ожидается 30s (fallback на глобальный)", cfg.JWKSClientTimeout)
+	}
+	if cfg.OIDCClientTimeout != 30*time.Second {
+		t.Errorf("OIDCClientTimeout = %v, ожидается 30s (fallback на глобальный)", cfg.OIDCClientTimeout)
+	}
+	if cfg.PrometheusClientTimeout != 30*time.Second {
+		t.Errorf("PrometheusClientTimeout = %v, ожидается 30s (fallback на глобальный)", cfg.PrometheusClientTimeout)
+	}
+
+	// HTTP Server Timeouts
+	if cfg.HTTPReadTimeout != 30*time.Second {
+		t.Errorf("HTTPReadTimeout = %v, ожидается 30s", cfg.HTTPReadTimeout)
+	}
+	if cfg.HTTPWriteTimeout != 60*time.Second {
+		t.Errorf("HTTPWriteTimeout = %v, ожидается 60s", cfg.HTTPWriteTimeout)
+	}
+	if cfg.HTTPIdleTimeout != 120*time.Second {
+		t.Errorf("HTTPIdleTimeout = %v, ожидается 120s", cfg.HTTPIdleTimeout)
+	}
+
+	// Keycloak
+	if cfg.KeycloakReadinessTimeout != 5*time.Second {
+		t.Errorf("KeycloakReadinessTimeout = %v, ожидается 5s", cfg.KeycloakReadinessTimeout)
+	}
+	if cfg.KeycloakTokenRefreshThreshold != 30*time.Second {
+		t.Errorf("KeycloakTokenRefreshThreshold = %v, ожидается 30s", cfg.KeycloakTokenRefreshThreshold)
+	}
+
+	// JWT/JWKS
+	if cfg.JWKSRefreshInterval != 15*time.Second {
+		t.Errorf("JWKSRefreshInterval = %v, ожидается 15s", cfg.JWKSRefreshInterval)
+	}
+	if cfg.JWTLeeway != 5*time.Second {
+		t.Errorf("JWTLeeway = %v, ожидается 5s", cfg.JWTLeeway)
+	}
+
+	// UI
+	if cfg.SSEInterval != 15*time.Second {
+		t.Errorf("SSEInterval = %v, ожидается 15s", cfg.SSEInterval)
+	}
 }
 
 func TestLoad_JWTAutoDerive(t *testing.T) {
@@ -107,7 +169,7 @@ func TestLoad_CustomValues(t *testing.T) {
 	envs["AM_SYNC_INTERVAL"] = "30m"
 	envs["AM_SYNC_PAGE_SIZE"] = "500"
 	envs["AM_SA_SYNC_INTERVAL"] = "5m"
-	envs["AM_SE_CA_CERT_PATH"] = "/certs/ca.pem"
+	envs["AM_CA_CERT_PATH"] = "/certs/ca.pem"
 	envs["AM_ROLE_ADMIN_GROUPS"] = "admins, super-admins"
 	envs["AM_ROLE_READONLY_GROUPS"] = "viewers, guests"
 	envs["AM_SHUTDOWN_TIMEOUT"] = "10s"
@@ -142,8 +204,8 @@ func TestLoad_CustomValues(t *testing.T) {
 	if cfg.SASyncInterval != 5*time.Minute {
 		t.Errorf("SASyncInterval = %v, ожидается 5m", cfg.SASyncInterval)
 	}
-	if cfg.SECACertPath != "/certs/ca.pem" {
-		t.Errorf("SECACertPath = %q, ожидается /certs/ca.pem", cfg.SECACertPath)
+	if cfg.CACertPath != "/certs/ca.pem" {
+		t.Errorf("CACertPath = %q, ожидается /certs/ca.pem", cfg.CACertPath)
 	}
 	if len(cfg.RoleAdminGroups) != 2 || cfg.RoleAdminGroups[0] != "admins" || cfg.RoleAdminGroups[1] != "super-admins" {
 		t.Errorf("RoleAdminGroups = %v, ожидается [admins super-admins]", cfg.RoleAdminGroups)
@@ -155,6 +217,285 @@ func TestLoad_CustomValues(t *testing.T) {
 		t.Errorf("ShutdownTimeout = %v, ожидается 10s", cfg.ShutdownTimeout)
 	}
 }
+
+func TestLoad_TLSSkipVerify(t *testing.T) {
+	// Тест: AM_TLS_SKIP_VERIFY=true парсится корректно
+	envs := minimalEnvs()
+	envs["AM_TLS_SKIP_VERIFY"] = "true"
+	setEnvs(t, envs)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() вернул ошибку: %v", err)
+	}
+	if !cfg.TLSSkipVerify {
+		t.Error("TLSSkipVerify = false, ожидается true")
+	}
+}
+
+func TestLoad_TLSSkipVerify_InvalidValue(t *testing.T) {
+	envs := minimalEnvs()
+	envs["AM_TLS_SKIP_VERIFY"] = "maybe"
+	for k := range minimalEnvs() {
+		os.Unsetenv(k)
+	}
+	setEnvs(t, envs)
+
+	_, err := Load()
+	if err == nil {
+		t.Error("Load() не вернул ошибку при AM_TLS_SKIP_VERIFY=maybe")
+	}
+}
+
+// TestLoad_ClientTimeoutFallback проверяет иерархию таймаутов:
+// per-client не задан → fallback на глобальный HTTPClientTimeout.
+func TestLoad_ClientTimeoutFallback(t *testing.T) {
+	envs := minimalEnvs()
+	envs["AM_HTTP_CLIENT_TIMEOUT"] = "10s"
+	setEnvs(t, envs)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() вернул ошибку: %v", err)
+	}
+
+	// Глобальный таймаут = 10s
+	if cfg.HTTPClientTimeout != 10*time.Second {
+		t.Errorf("HTTPClientTimeout = %v, ожидается 10s", cfg.HTTPClientTimeout)
+	}
+
+	// Все per-client таймауты должны наследовать глобальный (10s)
+	checks := []struct {
+		name  string
+		value time.Duration
+	}{
+		{"KeycloakClientTimeout", cfg.KeycloakClientTimeout},
+		{"SEClientTimeout", cfg.SEClientTimeout},
+		{"JWKSClientTimeout", cfg.JWKSClientTimeout},
+		{"OIDCClientTimeout", cfg.OIDCClientTimeout},
+		{"PrometheusClientTimeout", cfg.PrometheusClientTimeout},
+	}
+	for _, c := range checks {
+		if c.value != 10*time.Second {
+			t.Errorf("%s = %v, ожидается 10s (fallback на глобальный)", c.name, c.value)
+		}
+	}
+}
+
+// TestLoad_ClientTimeoutOverride проверяет, что per-client таймаут переопределяет глобальный.
+func TestLoad_ClientTimeoutOverride(t *testing.T) {
+	envs := minimalEnvs()
+	envs["AM_HTTP_CLIENT_TIMEOUT"] = "10s"
+	envs["AM_KEYCLOAK_CLIENT_TIMEOUT"] = "5s"
+	envs["AM_SE_CLIENT_TIMEOUT"] = "20s"
+	envs["AM_JWKS_CLIENT_TIMEOUT"] = "8s"
+	envs["AM_OIDC_CLIENT_TIMEOUT"] = "12s"
+	envs["AM_PROMETHEUS_CLIENT_TIMEOUT"] = "15s"
+	setEnvs(t, envs)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() вернул ошибку: %v", err)
+	}
+
+	checks := []struct {
+		name     string
+		value    time.Duration
+		expected time.Duration
+	}{
+		{"HTTPClientTimeout", cfg.HTTPClientTimeout, 10 * time.Second},
+		{"KeycloakClientTimeout", cfg.KeycloakClientTimeout, 5 * time.Second},
+		{"SEClientTimeout", cfg.SEClientTimeout, 20 * time.Second},
+		{"JWKSClientTimeout", cfg.JWKSClientTimeout, 8 * time.Second},
+		{"OIDCClientTimeout", cfg.OIDCClientTimeout, 12 * time.Second},
+		{"PrometheusClientTimeout", cfg.PrometheusClientTimeout, 15 * time.Second},
+	}
+	for _, c := range checks {
+		if c.value != c.expected {
+			t.Errorf("%s = %v, ожидается %v", c.name, c.value, c.expected)
+		}
+	}
+}
+
+// TestLoad_ClientTimeoutMixed проверяет смешанный сценарий:
+// часть per-client задана, часть наследует глобальный.
+func TestLoad_ClientTimeoutMixed(t *testing.T) {
+	envs := minimalEnvs()
+	envs["AM_HTTP_CLIENT_TIMEOUT"] = "15s"
+	envs["AM_KEYCLOAK_CLIENT_TIMEOUT"] = "5s"
+	// Остальные не заданы — должны наследовать 15s
+	setEnvs(t, envs)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() вернул ошибку: %v", err)
+	}
+
+	if cfg.KeycloakClientTimeout != 5*time.Second {
+		t.Errorf("KeycloakClientTimeout = %v, ожидается 5s (явный override)", cfg.KeycloakClientTimeout)
+	}
+	if cfg.SEClientTimeout != 15*time.Second {
+		t.Errorf("SEClientTimeout = %v, ожидается 15s (fallback на глобальный)", cfg.SEClientTimeout)
+	}
+	if cfg.JWKSClientTimeout != 15*time.Second {
+		t.Errorf("JWKSClientTimeout = %v, ожидается 15s (fallback на глобальный)", cfg.JWKSClientTimeout)
+	}
+}
+
+// TestLoad_ClientTimeoutDefaultFallback проверяет цепочку:
+// per-client не задан → global не задан → hardcoded 30s.
+func TestLoad_ClientTimeoutDefaultFallback(t *testing.T) {
+	envs := minimalEnvs()
+	// Не задаём ни глобальный, ни per-client
+	setEnvs(t, envs)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() вернул ошибку: %v", err)
+	}
+
+	if cfg.HTTPClientTimeout != 30*time.Second {
+		t.Errorf("HTTPClientTimeout = %v, ожидается 30s (hardcoded default)", cfg.HTTPClientTimeout)
+	}
+	if cfg.KeycloakClientTimeout != 30*time.Second {
+		t.Errorf("KeycloakClientTimeout = %v, ожидается 30s (fallback → global → hardcoded)", cfg.KeycloakClientTimeout)
+	}
+}
+
+func TestLoad_HTTPServerTimeouts(t *testing.T) {
+	envs := minimalEnvs()
+	envs["AM_HTTP_READ_TIMEOUT"] = "10s"
+	envs["AM_HTTP_WRITE_TIMEOUT"] = "30s"
+	envs["AM_HTTP_IDLE_TIMEOUT"] = "60s"
+	setEnvs(t, envs)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() вернул ошибку: %v", err)
+	}
+
+	if cfg.HTTPReadTimeout != 10*time.Second {
+		t.Errorf("HTTPReadTimeout = %v, ожидается 10s", cfg.HTTPReadTimeout)
+	}
+	if cfg.HTTPWriteTimeout != 30*time.Second {
+		t.Errorf("HTTPWriteTimeout = %v, ожидается 30s", cfg.HTTPWriteTimeout)
+	}
+	if cfg.HTTPIdleTimeout != 60*time.Second {
+		t.Errorf("HTTPIdleTimeout = %v, ожидается 60s", cfg.HTTPIdleTimeout)
+	}
+}
+
+func TestLoad_KeycloakParams(t *testing.T) {
+	envs := minimalEnvs()
+	envs["AM_KEYCLOAK_READINESS_TIMEOUT"] = "10s"
+	envs["AM_KEYCLOAK_TOKEN_REFRESH_THRESHOLD"] = "60s"
+	setEnvs(t, envs)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() вернул ошибку: %v", err)
+	}
+
+	if cfg.KeycloakReadinessTimeout != 10*time.Second {
+		t.Errorf("KeycloakReadinessTimeout = %v, ожидается 10s", cfg.KeycloakReadinessTimeout)
+	}
+	if cfg.KeycloakTokenRefreshThreshold != 60*time.Second {
+		t.Errorf("KeycloakTokenRefreshThreshold = %v, ожидается 60s", cfg.KeycloakTokenRefreshThreshold)
+	}
+}
+
+func TestLoad_JWKSParams(t *testing.T) {
+	envs := minimalEnvs()
+	envs["AM_JWKS_REFRESH_INTERVAL"] = "30s"
+	envs["AM_JWT_LEEWAY"] = "10s"
+	setEnvs(t, envs)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() вернул ошибку: %v", err)
+	}
+
+	if cfg.JWKSRefreshInterval != 30*time.Second {
+		t.Errorf("JWKSRefreshInterval = %v, ожидается 30s", cfg.JWKSRefreshInterval)
+	}
+	if cfg.JWTLeeway != 10*time.Second {
+		t.Errorf("JWTLeeway = %v, ожидается 10s", cfg.JWTLeeway)
+	}
+}
+
+func TestLoad_SSEInterval(t *testing.T) {
+	envs := minimalEnvs()
+	envs["AM_SSE_INTERVAL"] = "30s"
+	setEnvs(t, envs)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() вернул ошибку: %v", err)
+	}
+
+	if cfg.SSEInterval != 30*time.Second {
+		t.Errorf("SSEInterval = %v, ожидается 30s", cfg.SSEInterval)
+	}
+}
+
+// TestLoad_JWTLeewayZero проверяет, что JWTLeeway допускает значение 0.
+func TestLoad_JWTLeewayZero(t *testing.T) {
+	envs := minimalEnvs()
+	envs["AM_JWT_LEEWAY"] = "0s"
+	setEnvs(t, envs)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() вернул ошибку: %v", err)
+	}
+
+	if cfg.JWTLeeway != 0 {
+		t.Errorf("JWTLeeway = %v, ожидается 0s", cfg.JWTLeeway)
+	}
+}
+
+// --- Тесты валидации новых параметров ---
+
+func TestLoad_InvalidTimeoutValues(t *testing.T) {
+	tests := []struct {
+		name string
+		env  string
+		val  string
+	}{
+		{"глобальный клиент таймаут отрицательный", "AM_HTTP_CLIENT_TIMEOUT", "-1s"},
+		{"глобальный клиент таймаут нулевой", "AM_HTTP_CLIENT_TIMEOUT", "0s"},
+		{"глобальный клиент таймаут невалидный", "AM_HTTP_CLIENT_TIMEOUT", "abc"},
+		{"per-client таймаут отрицательный", "AM_KEYCLOAK_CLIENT_TIMEOUT", "-1s"},
+		{"per-client таймаут нулевой", "AM_KEYCLOAK_CLIENT_TIMEOUT", "0s"},
+		{"per-client таймаут невалидный", "AM_SE_CLIENT_TIMEOUT", "xyz"},
+		{"HTTP read timeout отрицательный", "AM_HTTP_READ_TIMEOUT", "-1s"},
+		{"HTTP write timeout нулевой", "AM_HTTP_WRITE_TIMEOUT", "0s"},
+		{"HTTP idle timeout невалидный", "AM_HTTP_IDLE_TIMEOUT", "abc"},
+		{"Keycloak readiness отрицательный", "AM_KEYCLOAK_READINESS_TIMEOUT", "-5s"},
+		{"Keycloak token refresh нулевой", "AM_KEYCLOAK_TOKEN_REFRESH_THRESHOLD", "0s"},
+		{"JWKS refresh interval отрицательный", "AM_JWKS_REFRESH_INTERVAL", "-1s"},
+		{"JWT leeway отрицательный", "AM_JWT_LEEWAY", "-1s"},
+		{"SSE interval нулевой", "AM_SSE_INTERVAL", "0s"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			envs := minimalEnvs()
+			envs[tt.env] = tt.val
+			for k := range minimalEnvs() {
+				os.Unsetenv(k)
+			}
+			setEnvs(t, envs)
+
+			_, err := Load()
+			if err == nil {
+				t.Errorf("Load() не вернул ошибку при %s=%q", tt.env, tt.val)
+			}
+		})
+	}
+}
+
+// --- Существующие тесты (обновлённые) ---
 
 func TestLoad_MissingRequired(t *testing.T) {
 	requiredVars := []string{
