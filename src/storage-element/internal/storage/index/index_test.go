@@ -504,6 +504,216 @@ func TestConcurrentAccess(t *testing.T) {
 	wg.Wait()
 }
 
+// --- Тесты TotalActiveSize ---
+
+// TestTotalActiveSize_Empty проверяет, что пустой индекс возвращает 0.
+func TestTotalActiveSize_Empty(t *testing.T) {
+	idx := New(testLogger())
+
+	if got := idx.TotalActiveSize(); got != 0 {
+		t.Errorf("пустой индекс: ожидалось 0, получено %d", got)
+	}
+}
+
+// TestTotalActiveSize_AddActive проверяет увеличение счётчика при добавлении active файла.
+func TestTotalActiveSize_AddActive(t *testing.T) {
+	idx := New(testLogger())
+
+	meta := createTestMetadata("f1", model.StatusActive, time.Now())
+	meta.Size = 5000
+	idx.Add(meta)
+
+	if got := idx.TotalActiveSize(); got != 5000 {
+		t.Errorf("после добавления active файла: ожидалось 5000, получено %d", got)
+	}
+
+	meta2 := createTestMetadata("f2", model.StatusActive, time.Now())
+	meta2.Size = 3000
+	idx.Add(meta2)
+
+	if got := idx.TotalActiveSize(); got != 8000 {
+		t.Errorf("после добавления второго active файла: ожидалось 8000, получено %d", got)
+	}
+}
+
+// TestTotalActiveSize_AddNonActive проверяет, что deleted/expired файлы не влияют на счётчик.
+func TestTotalActiveSize_AddNonActive(t *testing.T) {
+	idx := New(testLogger())
+
+	meta1 := createTestMetadata("d1", model.StatusDeleted, time.Now())
+	meta1.Size = 1000
+	idx.Add(meta1)
+
+	meta2 := createTestMetadata("e1", model.StatusExpired, time.Now())
+	meta2.Size = 2000
+	idx.Add(meta2)
+
+	if got := idx.TotalActiveSize(); got != 0 {
+		t.Errorf("после добавления deleted/expired файлов: ожидалось 0, получено %d", got)
+	}
+}
+
+// TestTotalActiveSize_UpdateActiveToDeleted проверяет уменьшение счётчика
+// при смене статуса active → deleted.
+func TestTotalActiveSize_UpdateActiveToDeleted(t *testing.T) {
+	idx := New(testLogger())
+
+	meta := createTestMetadata("f1", model.StatusActive, time.Now())
+	meta.Size = 5000
+	idx.Add(meta)
+
+	// Обновляем статус на deleted
+	updated := createTestMetadata("f1", model.StatusDeleted, time.Now())
+	updated.Size = 5000
+	if err := idx.Update(updated); err != nil {
+		t.Fatalf("ошибка обновления: %v", err)
+	}
+
+	if got := idx.TotalActiveSize(); got != 0 {
+		t.Errorf("после active→deleted: ожидалось 0, получено %d", got)
+	}
+}
+
+// TestTotalActiveSize_UpdateDeletedToActive проверяет увеличение счётчика
+// при смене статуса deleted → active.
+func TestTotalActiveSize_UpdateDeletedToActive(t *testing.T) {
+	idx := New(testLogger())
+
+	meta := createTestMetadata("f1", model.StatusDeleted, time.Now())
+	meta.Size = 3000
+	idx.Add(meta)
+
+	if got := idx.TotalActiveSize(); got != 0 {
+		t.Errorf("после добавления deleted файла: ожидалось 0, получено %d", got)
+	}
+
+	// Обновляем статус на active
+	updated := createTestMetadata("f1", model.StatusActive, time.Now())
+	updated.Size = 3000
+	if err := idx.Update(updated); err != nil {
+		t.Fatalf("ошибка обновления: %v", err)
+	}
+
+	if got := idx.TotalActiveSize(); got != 3000 {
+		t.Errorf("после deleted→active: ожидалось 3000, получено %d", got)
+	}
+}
+
+// TestTotalActiveSize_RemoveActive проверяет уменьшение счётчика при удалении active файла.
+func TestTotalActiveSize_RemoveActive(t *testing.T) {
+	idx := New(testLogger())
+
+	meta1 := createTestMetadata("f1", model.StatusActive, time.Now())
+	meta1.Size = 5000
+	idx.Add(meta1)
+
+	meta2 := createTestMetadata("f2", model.StatusActive, time.Now())
+	meta2.Size = 3000
+	idx.Add(meta2)
+
+	idx.Remove("f1")
+
+	if got := idx.TotalActiveSize(); got != 3000 {
+		t.Errorf("после удаления active файла: ожидалось 3000, получено %d", got)
+	}
+}
+
+// TestTotalActiveSize_RemoveNonActive проверяет, что удаление deleted файла
+// не влияет на счётчик.
+func TestTotalActiveSize_RemoveNonActive(t *testing.T) {
+	idx := New(testLogger())
+
+	meta1 := createTestMetadata("f1", model.StatusActive, time.Now())
+	meta1.Size = 5000
+	idx.Add(meta1)
+
+	meta2 := createTestMetadata("f2", model.StatusDeleted, time.Now())
+	meta2.Size = 3000
+	idx.Add(meta2)
+
+	idx.Remove("f2")
+
+	if got := idx.TotalActiveSize(); got != 5000 {
+		t.Errorf("после удаления deleted файла: ожидалось 5000, получено %d", got)
+	}
+}
+
+// TestTotalActiveSize_AddOverwrite проверяет корректность счётчика при перезаписи файла.
+func TestTotalActiveSize_AddOverwrite(t *testing.T) {
+	idx := New(testLogger())
+
+	// Добавляем active файл с размером 5000
+	meta1 := createTestMetadata("f1", model.StatusActive, time.Now())
+	meta1.Size = 5000
+	idx.Add(meta1)
+
+	// Перезаписываем тот же файл с новым размером
+	meta2 := createTestMetadata("f1", model.StatusActive, time.Now())
+	meta2.Size = 8000
+	idx.Add(meta2)
+
+	if got := idx.TotalActiveSize(); got != 8000 {
+		t.Errorf("после перезаписи active→active: ожидалось 8000, получено %d", got)
+	}
+
+	// Перезаписываем active файл на deleted
+	meta3 := createTestMetadata("f1", model.StatusDeleted, time.Now())
+	meta3.Size = 8000
+	idx.Add(meta3)
+
+	if got := idx.TotalActiveSize(); got != 0 {
+		t.Errorf("после перезаписи active→deleted: ожидалось 0, получено %d", got)
+	}
+}
+
+// TestTotalActiveSize_BuildFromDir проверяет пересчёт счётчика при BuildFromDir.
+func TestTotalActiveSize_BuildFromDir(t *testing.T) {
+	dir := t.TempDir()
+
+	// Создаём файлы: 2 active (100 + 200), 1 deleted (300)
+	files := []struct {
+		name   string
+		id     string
+		size   int64
+		status model.FileStatus
+	}{
+		{"active1.txt", "id-1", 100, model.StatusActive},
+		{"active2.txt", "id-2", 200, model.StatusActive},
+		{"deleted1.txt", "id-3", 300, model.StatusDeleted},
+	}
+	for _, f := range files {
+		meta := &model.FileMetadata{
+			FileID:          f.id,
+			StoragePath:     f.name,
+			ContentType:     "text/plain",
+			Size:            f.size,
+			UploadedAt:      time.Now().UTC(),
+			Status:          f.status,
+			RetentionPolicy: model.RetentionPermanent,
+		}
+		path := filepath.Join(dir, f.name+attr.AttrSuffix)
+		if err := attr.Write(path, meta); err != nil {
+			t.Fatalf("ошибка создания attr.json: %v", err)
+		}
+	}
+
+	idx := New(testLogger())
+
+	// Добавляем «мусорные» данные, которые должны быть затёрты BuildFromDir
+	old := createTestMetadata("old", model.StatusActive, time.Now())
+	old.Size = 9999
+	idx.Add(old)
+
+	if err := idx.BuildFromDir(dir); err != nil {
+		t.Fatalf("ошибка BuildFromDir: %v", err)
+	}
+
+	// Ожидаем 100 + 200 = 300 (deleted файл не учитывается)
+	if got := idx.TotalActiveSize(); got != 300 {
+		t.Errorf("BuildFromDir: ожидалось 300, получено %d", got)
+	}
+}
+
 // TestList_PaginationWithFilter проверяет пагинацию с фильтром одновременно.
 func TestList_PaginationWithFilter(t *testing.T) {
 	idx := New(testLogger())

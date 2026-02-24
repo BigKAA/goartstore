@@ -28,6 +28,8 @@ type Config struct {
 	Mode string
 	// Максимальный размер файла в байтах
 	MaxFileSize int64
+	// Максимальный объём хранилища SE в байтах (обязательный параметр)
+	MaxCapacity int64
 	// Интервал запуска GC
 	GCInterval time.Duration
 	// Интервал автоматической сверки
@@ -113,6 +115,16 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("SE_MAX_FILE_SIZE: значение должно быть положительным")
 	}
 	cfg.MaxFileSize = maxFileSize
+
+	// SE_MAX_CAPACITY — обязательный, максимальный объём хранилища в байтах
+	cfg.MaxCapacity, err = getEnvInt64Required("SE_MAX_CAPACITY")
+	if err != nil {
+		return nil, err
+	}
+	if cfg.MaxCapacity < cfg.MaxFileSize {
+		return nil, fmt.Errorf("SE_MAX_CAPACITY: значение %d должно быть >= SE_MAX_FILE_SIZE (%d)",
+			cfg.MaxCapacity, cfg.MaxFileSize)
+	}
 
 	// SE_GC_INTERVAL — интервал GC (по умолчанию 1h)
 	cfg.GCInterval, err = getEnvDuration("SE_GC_INTERVAL", time.Hour)
@@ -263,6 +275,23 @@ func getEnvInt64(key string, defaultVal int64) (int64, error) {
 	n, err := strconv.ParseInt(val, 10, 64)
 	if err != nil {
 		return 0, fmt.Errorf("некорректное целое число: %q", val)
+	}
+	return n, nil
+}
+
+// getEnvInt64Required возвращает обязательное int64 значение переменной окружения.
+// Возвращает ошибку, если переменная не задана или значение некорректное (<=0).
+func getEnvInt64Required(key string) (int64, error) {
+	val := os.Getenv(key)
+	if val == "" {
+		return 0, fmt.Errorf("%s: обязательная переменная окружения не задана", key)
+	}
+	n, err := strconv.ParseInt(val, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("%s: некорректное целое число: %q", key, val)
+	}
+	if n <= 0 {
+		return 0, fmt.Errorf("%s: значение должно быть положительным, получено %d", key, n)
 	}
 	return n, nil
 }

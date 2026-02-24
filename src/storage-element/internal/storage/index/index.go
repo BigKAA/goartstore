@@ -23,10 +23,11 @@ import (
 // Использует sync.RWMutex для конкурентного чтения и
 // эксклюзивной записи.
 type Index struct {
-	mu     sync.RWMutex
-	files  map[string]*model.FileMetadata // file_id → metadata
-	ready  bool                           // индекс построен и готов
-	logger *slog.Logger
+	mu              sync.RWMutex
+	files           map[string]*model.FileMetadata // file_id → metadata
+	totalActiveSize int64                          // кумулятивный размер active файлов (байты)
+	ready           bool                           // индекс построен и готов
+	logger          *slog.Logger
 }
 
 // New создаёт пустой индекс. Для заполнения вызовите BuildFromDir.
@@ -52,14 +53,19 @@ func (idx *Index) BuildFromDir(dataDir string) error {
 
 	// Очищаем текущий индекс и заполняем новыми данными
 	idx.files = make(map[string]*model.FileMetadata, len(metadatas))
+	idx.totalActiveSize = 0
 	for _, meta := range metadatas {
 		idx.files[meta.FileID] = meta
+		if meta.Status == model.StatusActive {
+			idx.totalActiveSize += meta.Size
+		}
 	}
 
 	idx.ready = true
 
 	idx.logger.Info("Индекс метаданных построен",
 		slog.Int("files", len(idx.files)),
+		slog.Int64("total_active_size", idx.totalActiveSize),
 		slog.String("data_dir", dataDir),
 	)
 
@@ -81,9 +87,22 @@ func (idx *Index) IsReady() bool {
 
 // Add добавляет метаданные файла в индекс.
 // Если файл с таким ID уже существует, он будет перезаписан.
+// Корректно обновляет кумулятивный счётчик totalActiveSize.
 func (idx *Index) Add(meta *model.FileMetadata) {
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
+
+	// Если существующий файл был active — вычитаем его размер
+	if existing, ok := idx.files[meta.FileID]; ok {
+		if existing.Status == model.StatusActive {
+			idx.totalActiveSize -= existing.Size
+		}
+	}
+
+	// Если новый файл active — прибавляем его размер
+	if meta.Status == model.StatusActive {
+		idx.totalActiveSize += meta.Size
+	}
 
 	// Создаём копию, чтобы избежать data race при внешних изменениях
 	copied := *meta
@@ -92,12 +111,24 @@ func (idx *Index) Add(meta *model.FileMetadata) {
 
 // Update обновляет метаданные файла в индексе.
 // Возвращает ошибку, если файл не найден.
+// Корректно обновляет кумулятивный счётчик totalActiveSize.
 func (idx *Index) Update(meta *model.FileMetadata) error {
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
 
-	if _, ok := idx.files[meta.FileID]; !ok {
+	existing, ok := idx.files[meta.FileID]
+	if !ok {
 		return fmt.Errorf("файл %s не найден в индексе", meta.FileID)
+	}
+
+	// Вычитаем старый размер, если файл был active
+	if existing.Status == model.StatusActive {
+		idx.totalActiveSize -= existing.Size
+	}
+
+	// Прибавляем новый размер, если файл становится active
+	if meta.Status == model.StatusActive {
+		idx.totalActiveSize += meta.Size
 	}
 
 	copied := *meta
@@ -107,13 +138,21 @@ func (idx *Index) Update(meta *model.FileMetadata) error {
 
 // Remove удаляет файл из индекса по file_id.
 // Возвращает true, если файл был найден и удалён.
+// Если файл был active — уменьшает totalActiveSize.
 func (idx *Index) Remove(fileID string) bool {
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
 
-	if _, ok := idx.files[fileID]; !ok {
+	existing, ok := idx.files[fileID]
+	if !ok {
 		return false
 	}
+
+	// Если удаляемый файл был active — вычитаем его размер
+	if existing.Status == model.StatusActive {
+		idx.totalActiveSize -= existing.Size
+	}
+
 	delete(idx.files, fileID)
 	return true
 }
@@ -195,4 +234,12 @@ func (idx *Index) CountByStatus(status model.FileStatus) int {
 		}
 	}
 	return count
+}
+
+// TotalActiveSize возвращает суммарный размер всех active файлов в байтах.
+// Значение поддерживается кумулятивно при Add/Update/Remove/BuildFromDir.
+func (idx *Index) TotalActiveSize() int64 {
+	idx.mu.RLock()
+	defer idx.mu.RUnlock()
+	return idx.totalActiveSize
 }

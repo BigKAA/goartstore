@@ -43,7 +43,8 @@ func clearAllSEEnvVars(t *testing.T) func() {
 	t.Helper()
 	keys := []string{
 		"SE_PORT", "SE_STORAGE_ID", "SE_DATA_DIR", "SE_WAL_DIR",
-		"SE_MODE", "SE_MAX_FILE_SIZE", "SE_GC_INTERVAL", "SE_RECONCILE_INTERVAL",
+		"SE_MODE", "SE_MAX_FILE_SIZE", "SE_MAX_CAPACITY",
+		"SE_GC_INTERVAL", "SE_RECONCILE_INTERVAL",
 		"SE_JWKS_URL", "SE_TLS_CERT", "SE_TLS_KEY", "SE_LOG_LEVEL",
 		"SE_LOG_FORMAT", "SE_REPLICA_MODE", "SE_INDEX_REFRESH_INTERVAL",
 		"SE_DEPHEALTH_CHECK_INTERVAL",
@@ -71,12 +72,13 @@ func clearAllSEEnvVars(t *testing.T) func() {
 // requiredEnvVars возвращает минимальный набор обязательных переменных.
 func requiredEnvVars() map[string]string {
 	return map[string]string{
-		"SE_STORAGE_ID": "se-test-01",
-		"SE_DATA_DIR":   "/tmp/data",
-		"SE_WAL_DIR":    "/tmp/wal",
-		"SE_JWKS_URL":   "https://admin.example.com/.well-known/jwks.json",
-		"SE_TLS_CERT":   "/tmp/tls.crt",
-		"SE_TLS_KEY":    "/tmp/tls.key",
+		"SE_STORAGE_ID":   "se-test-01",
+		"SE_DATA_DIR":     "/tmp/data",
+		"SE_WAL_DIR":      "/tmp/wal",
+		"SE_JWKS_URL":     "https://admin.example.com/.well-known/jwks.json",
+		"SE_TLS_CERT":     "/tmp/tls.crt",
+		"SE_TLS_KEY":      "/tmp/tls.key",
+		"SE_MAX_CAPACITY": "10737418240", // 10 GB
 	}
 }
 
@@ -101,6 +103,9 @@ func TestLoad_DefaultValues(t *testing.T) {
 	}
 	if cfg.MaxFileSize != 1073741824 {
 		t.Errorf("MaxFileSize: ожидалось 1073741824, получено %d", cfg.MaxFileSize)
+	}
+	if cfg.MaxCapacity != 10737418240 {
+		t.Errorf("MaxCapacity: ожидалось 10737418240, получено %d", cfg.MaxCapacity)
 	}
 	if cfg.GCInterval != time.Hour {
 		t.Errorf("GCInterval: ожидалось 1h, получено %v", cfg.GCInterval)
@@ -133,6 +138,7 @@ func TestLoad_AllCustomValues(t *testing.T) {
 	vars["SE_PORT"] = "8015"
 	vars["SE_MODE"] = "rw"
 	vars["SE_MAX_FILE_SIZE"] = "536870912"
+	vars["SE_MAX_CAPACITY"] = "5368709120" // 5 GB
 	vars["SE_GC_INTERVAL"] = "30m"
 	vars["SE_RECONCILE_INTERVAL"] = "12h"
 	vars["SE_LOG_LEVEL"] = "debug"
@@ -161,6 +167,9 @@ func TestLoad_AllCustomValues(t *testing.T) {
 	if cfg.MaxFileSize != 536870912 {
 		t.Errorf("MaxFileSize: ожидалось 536870912, получено %d", cfg.MaxFileSize)
 	}
+	if cfg.MaxCapacity != 5368709120 {
+		t.Errorf("MaxCapacity: ожидалось 5368709120, получено %d", cfg.MaxCapacity)
+	}
 	if cfg.GCInterval != 30*time.Minute {
 		t.Errorf("GCInterval: ожидалось 30m, получено %v", cfg.GCInterval)
 	}
@@ -188,6 +197,7 @@ func TestLoad_MissingRequiredVars(t *testing.T) {
 	requiredKeys := []string{
 		"SE_STORAGE_ID", "SE_DATA_DIR", "SE_WAL_DIR",
 		"SE_JWKS_URL", "SE_TLS_CERT", "SE_TLS_KEY",
+		"SE_MAX_CAPACITY",
 	}
 
 	for _, missing := range requiredKeys {
@@ -274,6 +284,35 @@ func TestLoad_InvalidMaxFileSize(t *testing.T) {
 			_, err := Load()
 			if err == nil {
 				t.Errorf("ожидалась ошибка для SE_MAX_FILE_SIZE=%s", tt.value)
+			}
+		})
+	}
+}
+
+func TestLoad_InvalidMaxCapacity(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+	}{
+		{"не число", "abc"},
+		{"нулевое", "0"},
+		{"отрицательное", "-100"},
+		{"меньше MaxFileSize", "100"}, // MaxFileSize по умолчанию 1 GB
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cleanup := clearAllSEEnvVars(t)
+			defer cleanup()
+
+			vars := requiredEnvVars()
+			vars["SE_MAX_CAPACITY"] = tt.value
+			cleanupVars := setEnvVars(t, vars)
+			defer cleanupVars()
+
+			_, err := Load()
+			if err == nil {
+				t.Errorf("ожидалась ошибка для SE_MAX_CAPACITY=%s", tt.value)
 			}
 		})
 	}
