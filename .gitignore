@@ -6,3 +6,5 @@ src/admin-module/tailwindcss
 
 # Артефакты сборки
 src/admin-module/bin/
+screenshots/
+.playwright-mcp/
