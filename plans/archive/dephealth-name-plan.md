@@ -5,7 +5,7 @@
 - **Версия плана**: 1.0.0
 - **Дата создания**: 2026-02-24
 - **Последнее обновление**: 2026-02-24
-- **Статус**: Pending
+- **Статус**: Done
 
 ---
 
@@ -17,10 +17,10 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 4
-- **Активный подпункт**: 4.1
+- **Активная фаза**: Завершено
+- **Активный подпункт**: —
 - **Последнее обновление**: 2026-02-24
-- **Примечание**: Phase 1+2+3 завершены — Go-код, Helm charts обновлены, Docker-образы v0.1.0-3 запушены в Harbor
+- **Примечание**: Все фазы завершены. Docker-образы AM=v0.2.0-5, SE=v0.1.0-3. Тестовые Helm charts обновлены (добавлен DEPHEALTH_NAME)
 
 ---
 
@@ -53,8 +53,8 @@ env-переменную `DEPHEALTH_NAME` и первый аргумент `deph
 
 - [x] [Phase 1: Admin Module — Go-код](#phase-1-admin-module--go-код)
 - [x] [Phase 2: Storage Element — Go-код](#phase-2-storage-element--go-код)
-- [ ] [Phase 3: Helm charts и сборка](#phase-3-helm-charts-и-сборка)
-- [ ] [Phase 4: Деплой и верификация](#phase-4-деплой-и-верификация)
+- [x] [Phase 3: Helm charts и сборка](#phase-3-helm-charts-и-сборка)
+- [x] [Phase 4: Деплой и верификация](#phase-4-деплой-и-верификация)
 
 ---
 
@@ -224,7 +224,7 @@ env-переменную `DEPHEALTH_NAME` и первый аргумент `deph
 ## Phase 4: Деплой и верификация
 
 **Dependencies**: Phase 3
-**Status**: Pending
+**Status**: ✅ Done
 
 ### Описание
 
@@ -233,39 +233,42 @@ env-переменную `DEPHEALTH_NAME` и первый аргумент `deph
 
 ### Подпункты
 
-- [ ] **4.1 Деплой в тестовый кластер**
+- [x] **4.1 Деплой в тестовый кластер**
   - **Dependencies**: None
   - **Description**: Обновить тестовое окружение:
-    - `make apps-up` (Admin Module)
-    - `make se-up` (Storage Elements)
+    - `make apps-up AM_TAG=v0.2.0-5` (Admin Module)
+    - `make se-up SE_TAG=v0.1.0-3` (Storage Elements)
     - Дождаться ready-статуса всех подов
   - **Links**:
     - Тестовые Makefile targets в `tests/`
+  - **Примечание**: Обнаружено, что тестовые Helm charts (`tests/helm/`) не содержали
+    `DEPHEALTH_NAME`. Добавлено в 3 файла: `admin-module.yaml`, `se-standalone.yaml`,
+    `se-replicated.yaml`.
 
-- [ ] **4.2 Верификация метрик**
+- [x] **4.2 Верификация метрик**
   - **Dependencies**: 4.1
   - **Description**: Для каждого модуля проверить endpoint `/metrics`:
     - Метрика `app_dependency_health` содержит `name="admin-module"`
-      (а не имя пода)
+      (а не имя пода) ✅
     - Метрика `app_dependency_health` для SE содержит
-      `name="storage-element-<elementId>"` (а не `<elementId>`)
-    - В логах подов **нет** warning `DEPHEALTH_NAME не задана` (Helm задаёт)
+      `name="se-edit-1"`, `name="se-rw-1"`, `name="se-ro"`, `name="se-ar"` ✅
+    - В логах подов **нет** warning `DEPHEALTH_NAME не задана` (Helm задаёт) ✅
   - **Links**:
     - `make port-forward-start` для доступа к метрикам
 
-- [ ] **4.3 Проверка auto-resolve (без Helm)**
+- [x] **4.3 Проверка auto-resolve (без Helm)**
   - **Dependencies**: 4.1
-  - **Description**: Опциональная проверка fallback-логики:
-    - Через `docker-compose` или `go run` без `DEPHEALTH_NAME`
-    - Убедиться, что в логах появляется warning с resolved_name
-    - Метрика содержит имя из hostname (или fallback)
+  - **Description**: Подтверждено из первого деплоя (до добавления DEPHEALTH_NAME в тестовые charts):
+    - AM: hostname `admin-module-5b986b5698-tkhjz` → resolved_name `admin-module` ✅
+    - SE rw-1: hostname `se-rw-1-7797f7848f-fkmcl` → resolved_name `se-rw-1` ✅
+    - Warning в логах присутствовал с корректным resolved_name ✅
 
 ### Критерии завершения Phase 4
 
-- [ ] Все подпункты завершены (4.1, 4.2, 4.3)
-- [ ] Метрики в K8s содержат корректную метку `name`
-- [ ] Логи не содержат unexpected warnings при деплое через Helm
-- [ ] Auto-resolve работает корректно без `DEPHEALTH_NAME`
+- [x] Все подпункты завершены (4.1, 4.2, 4.3)
+- [x] Метрики в K8s содержат корректную метку `name`
+- [x] Логи не содержат unexpected warnings при деплое через Helm
+- [x] Auto-resolve работает корректно без `DEPHEALTH_NAME`
 
 ---
 

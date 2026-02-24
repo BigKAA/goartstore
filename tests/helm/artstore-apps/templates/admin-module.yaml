@@ -128,6 +128,8 @@ spec:
             # AM не использует собственный TLS — HTTP внутри кластера,
             # TLS termination на API Gateway.
             # --- topologymetrics ---
+            - name: DEPHEALTH_NAME
+              value: "admin-module"
             - name: AM_DEPHEALTH_CHECK_INTERVAL
               value: {{ .Values.adminModule.dephealthCheckInterval | quote }}
             - name: AM_DEPHEALTH_GROUP

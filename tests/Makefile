@@ -16,8 +16,8 @@
 # Переменные
 # -----------------------------------------------------------------------------
 DOCKER_REGISTRY ?= harbor.kryukov.lan/library
-AM_TAG          ?= v0.2.0-4
-SE_TAG          ?= v0.1.0-2
+AM_TAG          ?= v0.2.0-5
+SE_TAG          ?= v0.1.0-3
 NAMESPACE       ?= artstore-test
 AM_PORT         ?= 8000
 SE_PORT         ?= 8010

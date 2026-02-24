@@ -107,6 +107,8 @@ spec:
               value: {{ $.Values.seCommon.gcInterval | quote }}
             - name: SE_RECONCILE_INTERVAL
               value: {{ $.Values.seCommon.reconcileInterval | quote }}
+            - name: DEPHEALTH_NAME
+              value: {{ $instance.name | quote }}
             - name: SE_DEPHEALTH_CHECK_INTERVAL
               value: {{ $.Values.seCommon.dephealthCheckInterval | quote }}
             - name: SE_DEPHEALTH_GROUP
