@@ -11,7 +11,7 @@ namespace: artstore-test
 # -----------------------------------------------------------------------------
 registry: harbor.kryukov.lan/library
 seImage: storage-element
-seTag: v0.1.0-2
+seTag: v0.1.0-4
 imagePullPolicy: Always
 
 # -----------------------------------------------------------------------------
