@@ -48,6 +48,11 @@ func clearAllSEEnvVars(t *testing.T) func() {
 		"SE_JWKS_URL", "SE_TLS_CERT", "SE_TLS_KEY", "SE_LOG_LEVEL",
 		"SE_LOG_FORMAT", "SE_REPLICA_MODE", "SE_INDEX_REFRESH_INTERVAL",
 		"SE_DEPHEALTH_CHECK_INTERVAL",
+		// Новые параметры Phase 3
+		"SE_TLS_SKIP_VERIFY", "SE_CA_CERT_PATH",
+		"SE_HTTP_CLIENT_TIMEOUT", "SE_JWKS_CLIENT_TIMEOUT",
+		"SE_HTTP_READ_TIMEOUT", "SE_HTTP_WRITE_TIMEOUT", "SE_HTTP_IDLE_TIMEOUT",
+		"SE_JWKS_REFRESH_INTERVAL", "SE_JWT_LEEWAY",
 	}
 	originals := make(map[string]string)
 	origSet := make(map[string]bool)
@@ -128,6 +133,36 @@ func TestLoad_DefaultValues(t *testing.T) {
 	if cfg.DephealthCheckInterval != 15*time.Second {
 		t.Errorf("DephealthCheckInterval: ожидалось 15s, получено %v", cfg.DephealthCheckInterval)
 	}
+
+	// --- Новые параметры Phase 3 ---
+
+	if cfg.TLSSkipVerify != false {
+		t.Errorf("TLSSkipVerify: ожидалось false, получено %v", cfg.TLSSkipVerify)
+	}
+	if cfg.CACertPath != "" {
+		t.Errorf("CACertPath: ожидалось пустую строку, получено %q", cfg.CACertPath)
+	}
+	if cfg.HTTPClientTimeout != 30*time.Second {
+		t.Errorf("HTTPClientTimeout: ожидалось 30s, получено %v", cfg.HTTPClientTimeout)
+	}
+	if cfg.JWKSClientTimeout != 30*time.Second {
+		t.Errorf("JWKSClientTimeout: ожидалось 30s (fallback на глобальный), получено %v", cfg.JWKSClientTimeout)
+	}
+	if cfg.HTTPReadTimeout != 30*time.Second {
+		t.Errorf("HTTPReadTimeout: ожидалось 30s, получено %v", cfg.HTTPReadTimeout)
+	}
+	if cfg.HTTPWriteTimeout != 60*time.Second {
+		t.Errorf("HTTPWriteTimeout: ожидалось 60s, получено %v", cfg.HTTPWriteTimeout)
+	}
+	if cfg.HTTPIdleTimeout != 120*time.Second {
+		t.Errorf("HTTPIdleTimeout: ожидалось 120s, получено %v", cfg.HTTPIdleTimeout)
+	}
+	if cfg.JWKSRefreshInterval != 15*time.Second {
+		t.Errorf("JWKSRefreshInterval: ожидалось 15s, получено %v", cfg.JWKSRefreshInterval)
+	}
+	if cfg.JWTLeeway != 5*time.Second {
+		t.Errorf("JWTLeeway: ожидалось 5s, получено %v", cfg.JWTLeeway)
+	}
 }
 
 func TestLoad_AllCustomValues(t *testing.T) {
@@ -146,6 +181,16 @@ func TestLoad_AllCustomValues(t *testing.T) {
 	vars["SE_REPLICA_MODE"] = "replicated"
 	vars["SE_INDEX_REFRESH_INTERVAL"] = "10s"
 	vars["SE_DEPHEALTH_CHECK_INTERVAL"] = "5s"
+	// Новые параметры Phase 3
+	vars["SE_TLS_SKIP_VERIFY"] = "true"
+	vars["SE_CA_CERT_PATH"] = "/tmp/ca.crt"
+	vars["SE_HTTP_CLIENT_TIMEOUT"] = "15s"
+	vars["SE_JWKS_CLIENT_TIMEOUT"] = "10s"
+	vars["SE_HTTP_READ_TIMEOUT"] = "20s"
+	vars["SE_HTTP_WRITE_TIMEOUT"] = "45s"
+	vars["SE_HTTP_IDLE_TIMEOUT"] = "90s"
+	vars["SE_JWKS_REFRESH_INTERVAL"] = "30s"
+	vars["SE_JWT_LEEWAY"] = "10s"
 
 	cleanupVars := setEnvVars(t, vars)
 	defer cleanupVars()
@@ -190,6 +235,36 @@ func TestLoad_AllCustomValues(t *testing.T) {
 	}
 	if cfg.DephealthCheckInterval != 5*time.Second {
 		t.Errorf("DephealthCheckInterval: ожидалось 5s, получено %v", cfg.DephealthCheckInterval)
+	}
+
+	// --- Новые параметры Phase 3 ---
+
+	if cfg.TLSSkipVerify != true {
+		t.Errorf("TLSSkipVerify: ожидалось true, получено %v", cfg.TLSSkipVerify)
+	}
+	if cfg.CACertPath != "/tmp/ca.crt" {
+		t.Errorf("CACertPath: ожидалось '/tmp/ca.crt', получено %q", cfg.CACertPath)
+	}
+	if cfg.HTTPClientTimeout != 15*time.Second {
+		t.Errorf("HTTPClientTimeout: ожидалось 15s, получено %v", cfg.HTTPClientTimeout)
+	}
+	if cfg.JWKSClientTimeout != 10*time.Second {
+		t.Errorf("JWKSClientTimeout: ожидалось 10s, получено %v", cfg.JWKSClientTimeout)
+	}
+	if cfg.HTTPReadTimeout != 20*time.Second {
+		t.Errorf("HTTPReadTimeout: ожидалось 20s, получено %v", cfg.HTTPReadTimeout)
+	}
+	if cfg.HTTPWriteTimeout != 45*time.Second {
+		t.Errorf("HTTPWriteTimeout: ожидалось 45s, получено %v", cfg.HTTPWriteTimeout)
+	}
+	if cfg.HTTPIdleTimeout != 90*time.Second {
+		t.Errorf("HTTPIdleTimeout: ожидалось 90s, получено %v", cfg.HTTPIdleTimeout)
+	}
+	if cfg.JWKSRefreshInterval != 30*time.Second {
+		t.Errorf("JWKSRefreshInterval: ожидалось 30s, получено %v", cfg.JWKSRefreshInterval)
+	}
+	if cfg.JWTLeeway != 10*time.Second {
+		t.Errorf("JWTLeeway: ожидалось 10s, получено %v", cfg.JWTLeeway)
 	}
 }
 
@@ -322,6 +397,9 @@ func TestLoad_InvalidDuration(t *testing.T) {
 	durationVars := []string{
 		"SE_GC_INTERVAL", "SE_RECONCILE_INTERVAL",
 		"SE_INDEX_REFRESH_INTERVAL", "SE_DEPHEALTH_CHECK_INTERVAL",
+		"SE_HTTP_CLIENT_TIMEOUT", "SE_HTTP_READ_TIMEOUT",
+		"SE_HTTP_WRITE_TIMEOUT", "SE_HTTP_IDLE_TIMEOUT",
+		"SE_JWKS_REFRESH_INTERVAL", "SE_JWT_LEEWAY",
 	}
 
 	for _, varName := range durationVars {
@@ -466,5 +544,139 @@ func TestSetupLogger(t *testing.T) {
 				t.Fatal("SetupLogger вернул nil")
 			}
 		})
+	}
+}
+
+// --- Тесты Phase 3: новые параметры соединений ---
+
+// TestLoad_JWKSClientTimeoutFallback проверяет fallback per-client таймаута на глобальный.
+func TestLoad_JWKSClientTimeoutFallback(t *testing.T) {
+	cleanup := clearAllSEEnvVars(t)
+	defer cleanup()
+
+	vars := requiredEnvVars()
+	// Задаём глобальный, не задаём per-client
+	vars["SE_HTTP_CLIENT_TIMEOUT"] = "20s"
+	cleanupVars := setEnvVars(t, vars)
+	defer cleanupVars()
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("неожиданная ошибка: %v", err)
+	}
+
+	// JWKSClientTimeout должен fallback на глобальный 20s
+	if cfg.JWKSClientTimeout != 20*time.Second {
+		t.Errorf("JWKSClientTimeout: ожидалось 20s (fallback на глобальный), получено %v", cfg.JWKSClientTimeout)
+	}
+}
+
+// TestLoad_JWKSClientTimeoutOverride проверяет, что per-client таймаут перекрывает глобальный.
+func TestLoad_JWKSClientTimeoutOverride(t *testing.T) {
+	cleanup := clearAllSEEnvVars(t)
+	defer cleanup()
+
+	vars := requiredEnvVars()
+	vars["SE_HTTP_CLIENT_TIMEOUT"] = "20s"
+	vars["SE_JWKS_CLIENT_TIMEOUT"] = "5s"
+	cleanupVars := setEnvVars(t, vars)
+	defer cleanupVars()
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("неожиданная ошибка: %v", err)
+	}
+
+	if cfg.HTTPClientTimeout != 20*time.Second {
+		t.Errorf("HTTPClientTimeout: ожидалось 20s, получено %v", cfg.HTTPClientTimeout)
+	}
+	if cfg.JWKSClientTimeout != 5*time.Second {
+		t.Errorf("JWKSClientTimeout: ожидалось 5s (override), получено %v", cfg.JWKSClientTimeout)
+	}
+}
+
+// TestLoad_TLSSkipVerify проверяет парсинг булевого SE_TLS_SKIP_VERIFY.
+func TestLoad_TLSSkipVerify(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    string
+		expected bool
+	}{
+		{"true", "true", true},
+		{"false", "false", false},
+		{"1", "1", true},
+		{"0", "0", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cleanup := clearAllSEEnvVars(t)
+			defer cleanup()
+
+			vars := requiredEnvVars()
+			vars["SE_TLS_SKIP_VERIFY"] = tt.value
+			cleanupVars := setEnvVars(t, vars)
+			defer cleanupVars()
+
+			cfg, err := Load()
+			if err != nil {
+				t.Fatalf("неожиданная ошибка: %v", err)
+			}
+			if cfg.TLSSkipVerify != tt.expected {
+				t.Errorf("TLSSkipVerify: ожидалось %v, получено %v", tt.expected, cfg.TLSSkipVerify)
+			}
+		})
+	}
+}
+
+// TestLoad_TLSSkipVerifyInvalid проверяет ошибку при невалидном значении.
+func TestLoad_TLSSkipVerifyInvalid(t *testing.T) {
+	cleanup := clearAllSEEnvVars(t)
+	defer cleanup()
+
+	vars := requiredEnvVars()
+	vars["SE_TLS_SKIP_VERIFY"] = "maybe"
+	cleanupVars := setEnvVars(t, vars)
+	defer cleanupVars()
+
+	_, err := Load()
+	if err == nil {
+		t.Error("ожидалась ошибка для невалидного SE_TLS_SKIP_VERIFY='maybe'")
+	}
+}
+
+// TestLoad_CACertPathRenaming проверяет, что SE_CA_CERT_PATH парсится корректно (переименование из SE_JWKS_CA_CERT).
+func TestLoad_CACertPathRenaming(t *testing.T) {
+	cleanup := clearAllSEEnvVars(t)
+	defer cleanup()
+
+	vars := requiredEnvVars()
+	vars["SE_CA_CERT_PATH"] = "/etc/ssl/custom-ca.crt"
+	cleanupVars := setEnvVars(t, vars)
+	defer cleanupVars()
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("неожиданная ошибка: %v", err)
+	}
+
+	if cfg.CACertPath != "/etc/ssl/custom-ca.crt" {
+		t.Errorf("CACertPath: ожидалось '/etc/ssl/custom-ca.crt', получено %q", cfg.CACertPath)
+	}
+}
+
+// TestLoad_InvalidJWKSClientTimeout проверяет ошибку при невалидном per-client таймауте.
+func TestLoad_InvalidJWKSClientTimeout(t *testing.T) {
+	cleanup := clearAllSEEnvVars(t)
+	defer cleanup()
+
+	vars := requiredEnvVars()
+	vars["SE_JWKS_CLIENT_TIMEOUT"] = "-5s"
+	cleanupVars := setEnvVars(t, vars)
+	defer cleanupVars()
+
+	_, err := Load()
+	if err == nil {
+		t.Error("ожидалась ошибка для отрицательного SE_JWKS_CLIENT_TIMEOUT")
 	}
 }

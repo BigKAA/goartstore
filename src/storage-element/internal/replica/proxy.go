@@ -33,15 +33,15 @@ type LeaderProxy struct {
 //
 // Параметры:
 //   - roleProvider: провайдер текущей роли
+//   - tlsSkipVerify: пропускать проверку TLS-сертификатов (SE_TLS_SKIP_VERIFY)
 //   - logger: логгер
-func NewLeaderProxy(roleProvider RoleProvider, logger *slog.Logger) *LeaderProxy {
+func NewLeaderProxy(roleProvider RoleProvider, tlsSkipVerify bool, logger *slog.Logger) *LeaderProxy {
 	return &LeaderProxy{
 		roleProvider: roleProvider,
 		scheme:       "https",
 		transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				// Internal TLS между экземплярами SE — self-signed сертификаты
-				InsecureSkipVerify: true, //nolint:gosec // internal cluster communication
+				InsecureSkipVerify: tlsSkipVerify, //nolint:gosec // настраивается через SE_TLS_SKIP_VERIFY
 			},
 		},
 		logger: logger.With(slog.String("component", "proxy")),

@@ -17,10 +17,10 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 3
-- **Активный подпункт**: 3.1
+- **Активная фаза**: Phase 4
+- **Активный подпункт**: 4.1
 - **Последнее обновление**: 2026-02-24
-- **Примечание**: Phase 2 завершена — все hardcoded значения Admin Module заменены на параметры из Config
+- **Примечание**: Phase 3 завершена — все hardcoded значения Storage Element заменены на параметры из Config
 
 ---
 
@@ -28,7 +28,7 @@
 
 - [x] [Phase 1: Admin Module — конфигурация и config struct](#phase-1-admin-module--конфигурация-и-config-struct)
 - [x] [Phase 2: Admin Module — применение конфигурации в коде](#phase-2-admin-module--применение-конфигурации-в-коде)
-- [ ] [Phase 3: Storage Element — конфигурация и применение](#phase-3-storage-element--конфигурация-и-применение)
+- [x] [Phase 3: Storage Element — конфигурация и применение](#phase-3-storage-element--конфигурация-и-применение)
 - [ ] [Phase 4: Helm charts, CLAUDE.md, документация](#phase-4-helm-charts-claudemd-документация)
 - [ ] [Phase 5: Сборка и тестирование](#phase-5-сборка-и-тестирование)
 
@@ -198,7 +198,7 @@
 ## Phase 3: Storage Element — конфигурация и применение
 
 **Dependencies**: None (параллельно с Phase 1-2)
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -220,14 +220,14 @@
 
 ### Подпункты
 
-- [ ] **3.1 Расширение Config struct Storage Element**
+- [x] **3.1 Расширение Config struct Storage Element**
   - **Dependencies**: None
   - **Description**: Добавить новые поля. Переименовать `JWKSCACert` → `CACertPath` (env: `SE_JWKS_CA_CERT` → `SE_CA_CERT_PATH`). Реализовать fallback-логику для таймаутов. Добавить парсинг и валидацию.
   - **Modifies**:
     - `src/storage-element/internal/config/config.go`
   - **Links**: N/A
 
-- [ ] **3.2 TLS: dephealth и replica proxy**
+- [x] **3.2 TLS: dephealth и replica proxy**
   - **Dependencies**: 3.1
   - **Description**: В `dephealth.go:93`: заменить `WithHTTPTLSSkipVerify(true)` на параметр из конфигурации. Обновить сигнатуры `NewDephealthService`. В `replica/proxy.go:44`: заменить `InsecureSkipVerify: true` на значение из конфигурации. Обновить `NewLeaderProxy` для приёма `tlsSkipVerify bool` и опционально `caCertPath string`.
   - **Modifies**:
@@ -236,7 +236,7 @@
     - `src/storage-element/cmd/storage-element/main.go`
   - **Links**: N/A
 
-- [ ] **3.3 HTTP Client/Server Timeouts и JWT/JWKS**
+- [x] **3.3 HTTP Client/Server Timeouts и JWT/JWKS**
   - **Dependencies**: 3.1
   - **Description**: Заменить hardcoded значения:
     - `api/middleware/auth.go:126` — JWKS client timeout `30s` → `cfg.JWKSClientTimeout`
@@ -250,7 +250,7 @@
     - `src/storage-element/cmd/storage-element/main.go`
   - **Links**: N/A
 
-- [ ] **3.4 Unit-тесты Storage Element**
+- [x] **3.4 Unit-тесты Storage Element**
   - **Dependencies**: 3.1, 3.2, 3.3
   - **Description**: Тесты парсинга конфигурации (новые поля, fallback, переименование). Тесты dephealth с новой сигнатурой. Проверить компиляцию всех тестов.
   - **Modifies**:
@@ -260,11 +260,11 @@
 
 ### Критерии завершения Phase 3
 
-- [ ] Все подпункты завершены (3.1 — 3.4)
-- [ ] `go build ./...` проходит
-- [ ] `go test ./...` проходит
-- [ ] Grep по `InsecureSkipVerify: true` в storage-element возвращает 0 результатов (кроме комментариев)
-- [ ] Поведение по умолчанию не изменилось
+- [x] Все подпункты завершены (3.1 — 3.4)
+- [x] `go build ./...` проходит
+- [x] `go test ./...` проходит
+- [x] Grep по `InsecureSkipVerify: true` в storage-element возвращает 0 результатов (кроме комментариев)
+- [x] Поведение по умолчанию не изменилось
 
 ---
 

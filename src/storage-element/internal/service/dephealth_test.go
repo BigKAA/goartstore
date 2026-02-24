@@ -33,6 +33,7 @@ func TestNewDephealthService_ValidURL(t *testing.T) {
 		"admin-jwks",
 		mockServer.URL,
 		5*time.Second,
+		false,
 		logger,
 		reg,
 	)
@@ -64,6 +65,7 @@ func TestDephealthService_StartStop(t *testing.T) {
 		"admin-jwks",
 		mockServer.URL,
 		1*time.Second,
+		false,
 		logger,
 		reg,
 	)
@@ -124,6 +126,7 @@ func TestDephealthService_UnhealthyDependency(t *testing.T) {
 		"admin-jwks",
 		mockServer.URL,
 		1*time.Second,
+		false,
 		logger,
 		reg,
 	)

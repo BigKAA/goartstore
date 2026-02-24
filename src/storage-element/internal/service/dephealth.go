@@ -38,15 +38,17 @@ type DephealthService struct {
 //   - depName — имя зависимости / целевого сервиса (SE_DEPHEALTH_DEP_NAME)
 //   - jwksURL — URL зависимости для проверки (SE_JWKS_URL)
 //   - checkInterval — интервал проверки (SE_DEPHEALTH_CHECK_INTERVAL)
+//   - tlsSkipVerify — пропускать проверку TLS-сертификатов (SE_TLS_SKIP_VERIFY)
 func NewDephealthService(
 	storageID string,
 	group string,
 	depName string,
 	jwksURL string,
 	checkInterval time.Duration,
+	tlsSkipVerify bool,
 	logger *slog.Logger,
 ) (*DephealthService, error) {
-	return newDephealthService(storageID, group, depName, jwksURL, checkInterval, logger)
+	return newDephealthService(storageID, group, depName, jwksURL, checkInterval, tlsSkipVerify, logger)
 }
 
 // NewDephealthServiceWithRegisterer создаёт сервис с указанным Prometheus registerer.
@@ -57,10 +59,11 @@ func NewDephealthServiceWithRegisterer(
 	depName string,
 	jwksURL string,
 	checkInterval time.Duration,
+	tlsSkipVerify bool,
 	logger *slog.Logger,
 	registerer prometheus.Registerer,
 ) (*DephealthService, error) {
-	return newDephealthService(storageID, group, depName, jwksURL, checkInterval, logger, dephealth.WithRegisterer(registerer))
+	return newDephealthService(storageID, group, depName, jwksURL, checkInterval, tlsSkipVerify, logger, dephealth.WithRegisterer(registerer))
 }
 
 // newDephealthService — внутренний конструктор.
@@ -70,6 +73,7 @@ func newDephealthService(
 	depName string,
 	jwksURL string,
 	checkInterval time.Duration,
+	tlsSkipVerify bool,
 	logger *slog.Logger,
 	extraOpts ...dephealth.Option,
 ) (*DephealthService, error) {
@@ -90,7 +94,7 @@ func newDephealthService(
 			dephealth.WithHTTPHealthPath(healthPath),
 			dephealth.CheckInterval(checkInterval),
 			dephealth.Critical(true),
-			dephealth.WithHTTPTLSSkipVerify(true), // Dev-среда: self-signed сертификаты
+			dephealth.WithHTTPTLSSkipVerify(tlsSkipVerify),
 		),
 	}
 	opts = append(opts, extraOpts...)

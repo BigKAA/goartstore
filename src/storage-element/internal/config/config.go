@@ -11,6 +11,16 @@ import (
 	"time"
 )
 
+// Значения по умолчанию для таймаутов и интервалов.
+const (
+	defaultHTTPClientTimeout  = 30 * time.Second
+	defaultHTTPReadTimeout    = 30 * time.Second
+	defaultHTTPWriteTimeout   = 60 * time.Second
+	defaultHTTPIdleTimeout    = 120 * time.Second
+	defaultJWKSRefreshInterval = 15 * time.Second
+	defaultJWTLeeway          = 5 * time.Second
+)
+
 // Версия приложения, задаётся при сборке через -ldflags.
 var Version = "dev"
 
@@ -36,8 +46,39 @@ type Config struct {
 	ReconcileInterval time.Duration
 	// URL JWKS endpoint Admin Module
 	JWKSUrl string
-	// Путь к CA-сертификату для проверки TLS JWKS endpoint (опционально)
-	JWKSCACert string
+
+	// --- TLS ---
+
+	// Пропускать проверку TLS-сертификатов (InsecureSkipVerify). По умолчанию false.
+	TLSSkipVerify bool
+	// Путь к CA-сертификату для TLS-соединений (опционально).
+	// Переименовано из JWKSCACert — cert используется для всех TLS-соединений, не только JWKS.
+	CACertPath string
+
+	// --- HTTP Client Timeouts ---
+
+	// Глобальный таймаут HTTP-клиентов (по умолчанию 30s).
+	// Используется как fallback для per-client таймаутов, если они не заданы явно.
+	HTTPClientTimeout time.Duration
+	// Таймаут HTTP-клиента JWKS (fallback → HTTPClientTimeout)
+	JWKSClientTimeout time.Duration
+
+	// --- HTTP Server Timeouts ---
+
+	// Таймаут чтения HTTP-сервера (по умолчанию 30s)
+	HTTPReadTimeout time.Duration
+	// Таймаут записи HTTP-сервера (по умолчанию 60s)
+	HTTPWriteTimeout time.Duration
+	// Таймаут простоя HTTP-сервера (по умолчанию 120s)
+	HTTPIdleTimeout time.Duration
+
+	// --- JWT/JWKS ---
+
+	// Интервал обновления JWKS-ключей (по умолчанию 15s)
+	JWKSRefreshInterval time.Duration
+	// Допустимое отклонение времени при проверке JWT (по умолчанию 5s)
+	JWTLeeway time.Duration
+
 	// Путь к TLS сертификату
 	TLSCert string
 	// Путь к TLS приватному ключу
@@ -146,8 +187,67 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
-	// SE_JWKS_CA_CERT — путь к CA-сертификату для JWKS endpoint (опционально)
-	cfg.JWKSCACert = getEnvDefault("SE_JWKS_CA_CERT", "")
+	// --- TLS ---
+
+	// SE_TLS_SKIP_VERIFY — пропускать проверку TLS-сертификатов (по умолчанию false)
+	cfg.TLSSkipVerify, err = getEnvBool("SE_TLS_SKIP_VERIFY", false)
+	if err != nil {
+		return nil, fmt.Errorf("SE_TLS_SKIP_VERIFY: %w", err)
+	}
+
+	// SE_CA_CERT_PATH — путь к CA-сертификату (опционально, переименование из SE_JWKS_CA_CERT)
+	cfg.CACertPath = getEnvDefault("SE_CA_CERT_PATH", "")
+
+	// --- HTTP Client Timeouts ---
+
+	// SE_HTTP_CLIENT_TIMEOUT — глобальный таймаут HTTP-клиентов (по умолчанию 30s)
+	cfg.HTTPClientTimeout, err = getEnvDuration("SE_HTTP_CLIENT_TIMEOUT", defaultHTTPClientTimeout)
+	if err != nil {
+		return nil, fmt.Errorf("SE_HTTP_CLIENT_TIMEOUT: %w", err)
+	}
+	if cfg.HTTPClientTimeout <= 0 {
+		return nil, fmt.Errorf("SE_HTTP_CLIENT_TIMEOUT: значение должно быть > 0")
+	}
+
+	// Per-client таймауты с fallback на глобальный
+	cfg.JWKSClientTimeout, err = getEnvDurationFallback("SE_JWKS_CLIENT_TIMEOUT", cfg.HTTPClientTimeout)
+	if err != nil {
+		return nil, fmt.Errorf("SE_JWKS_CLIENT_TIMEOUT: %w", err)
+	}
+
+	// --- HTTP Server Timeouts ---
+
+	// SE_HTTP_READ_TIMEOUT — таймаут чтения HTTP-сервера (по умолчанию 30s)
+	cfg.HTTPReadTimeout, err = getEnvDuration("SE_HTTP_READ_TIMEOUT", defaultHTTPReadTimeout)
+	if err != nil {
+		return nil, fmt.Errorf("SE_HTTP_READ_TIMEOUT: %w", err)
+	}
+
+	// SE_HTTP_WRITE_TIMEOUT — таймаут записи HTTP-сервера (по умолчанию 60s)
+	cfg.HTTPWriteTimeout, err = getEnvDuration("SE_HTTP_WRITE_TIMEOUT", defaultHTTPWriteTimeout)
+	if err != nil {
+		return nil, fmt.Errorf("SE_HTTP_WRITE_TIMEOUT: %w", err)
+	}
+
+	// SE_HTTP_IDLE_TIMEOUT — таймаут простоя HTTP-сервера (по умолчанию 120s)
+	cfg.HTTPIdleTimeout, err = getEnvDuration("SE_HTTP_IDLE_TIMEOUT", defaultHTTPIdleTimeout)
+	if err != nil {
+		return nil, fmt.Errorf("SE_HTTP_IDLE_TIMEOUT: %w", err)
+	}
+
+	// --- JWT/JWKS ---
+
+	// SE_JWKS_REFRESH_INTERVAL — интервал обновления JWKS-ключей (по умолчанию 15s)
+	cfg.JWKSRefreshInterval, err = getEnvDuration("SE_JWKS_REFRESH_INTERVAL", defaultJWKSRefreshInterval)
+	if err != nil {
+		return nil, fmt.Errorf("SE_JWKS_REFRESH_INTERVAL: %w", err)
+	}
+
+	// SE_JWT_LEEWAY — допустимое отклонение времени JWT (по умолчанию 5s)
+	cfg.JWTLeeway, err = getEnvDuration("SE_JWT_LEEWAY", defaultJWTLeeway)
+	if err != nil {
+		return nil, fmt.Errorf("SE_JWT_LEEWAY: %w", err)
+	}
 
 	// SE_TLS_CERT — обязательный
 	cfg.TLSCert, err = getEnvRequired("SE_TLS_CERT")
@@ -310,6 +410,37 @@ func getEnvDuration(key string, defaultVal time.Duration) (time.Duration, error)
 	d, err := time.ParseDuration(val)
 	if err != nil {
 		return 0, fmt.Errorf("некорректная длительность: %q (используйте формат Go: 30s, 1h, 6h)", val)
+	}
+	return d, nil
+}
+
+// getEnvBool возвращает булево значение переменной окружения или значение по умолчанию.
+func getEnvBool(key string, defaultVal bool) (bool, error) {
+	val := os.Getenv(key)
+	if val == "" {
+		return defaultVal, nil
+	}
+	b, err := strconv.ParseBool(val)
+	if err != nil {
+		return false, fmt.Errorf("некорректное булево значение: %q (допустимые: true, false, 1, 0)", val)
+	}
+	return b, nil
+}
+
+// getEnvDurationFallback возвращает time.Duration из переменной окружения.
+// Если переменная не задана, используется fallbackVal (обычно глобальный таймаут).
+// Если задана — парсится и валидируется (> 0).
+func getEnvDurationFallback(key string, fallbackVal time.Duration) (time.Duration, error) {
+	val := os.Getenv(key)
+	if val == "" {
+		return fallbackVal, nil
+	}
+	d, err := time.ParseDuration(val)
+	if err != nil {
+		return 0, fmt.Errorf("некорректная длительность: %q (используйте формат Go: 30s, 1h, 15m)", val)
+	}
+	if d <= 0 {
+		return 0, fmt.Errorf("значение должно быть > 0")
 	}
 	return d, nil
 }

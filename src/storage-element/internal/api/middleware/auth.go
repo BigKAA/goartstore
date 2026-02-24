@@ -56,39 +56,53 @@ func (c *Claims) Scopes() []string {
 
 // JWTAuth — middleware для JWT-аутентификации через JWKS.
 type JWTAuth struct {
-	jwks   keyfunc.Keyfunc
-	logger *slog.Logger
+	jwks      keyfunc.Keyfunc
+	jwtLeeway time.Duration
+	logger    *slog.Logger
+}
+
+// JWTAuthConfig — параметры для создания JWT middleware.
+type JWTAuthConfig struct {
+	// URL JWKS endpoint
+	JWKSURL string
+	// Путь к CA-сертификату (опционально)
+	CACertPath string
+	// Пропускать проверку TLS-сертификатов
+	TLSSkipVerify bool
+	// Таймаут HTTP-клиента JWKS
+	ClientTimeout time.Duration
+	// Интервал обновления JWKS-ключей
+	RefreshInterval time.Duration
+	// Допустимое отклонение времени при проверке JWT
+	JWTLeeway time.Duration
 }
 
 // NewJWTAuth создаёт JWT middleware с JWKS из указанного URL.
-// jwksURL — URL к JWKS endpoint Admin Module (например, https://admin:8000/api/v1/auth/jwks).
-// caCertPath — опциональный путь к CA-сертификату для проверки TLS JWKS endpoint.
-// Автоматически обновляет ключи в фоне с интервалом 15 секунд.
-func NewJWTAuth(jwksURL string, caCertPath string, logger *slog.Logger) (*JWTAuth, error) {
-	// Создаём HTTP-клиент (с кастомным CA или стандартный)
-	httpClient := http.DefaultClient
-	if caCertPath != "" {
-		var err error
-		httpClient, err = httpClientWithCA(caCertPath)
-		if err != nil {
-			return nil, fmt.Errorf("загрузка CA-сертификата %s: %w", caCertPath, err)
-		}
+// Все параметры (таймауты, TLS, интервалы) берутся из JWTAuthConfig.
+func NewJWTAuth(authCfg JWTAuthConfig, logger *slog.Logger) (*JWTAuth, error) {
+	// Создаём HTTP-клиент с настроенным TLS
+	httpClient, err := buildHTTPClient(authCfg)
+	if err != nil {
+		return nil, err
+	}
+
+	if authCfg.CACertPath != "" {
 		logger.Info("CA-сертификат добавлен в пул доверия",
-			slog.String("ca_cert", caCertPath),
+			slog.String("ca_cert", authCfg.CACertPath),
 		)
 	}
 
-	// Создаём JWKS Storage с кастомным HTTP-клиентом и коротким RefreshInterval.
+	// Создаём JWKS Storage с кастомным HTTP-клиентом и настроенным RefreshInterval.
 	// NoErrorReturnFirstHTTPReq позволяет стартовать даже если JWKS endpoint
 	// ещё недоступен (например, при одновременном запуске pod-ов).
-	storage, err := jwkset.NewStorageFromHTTP(jwksURL, jwkset.HTTPClientStorageOptions{
+	storage, err := jwkset.NewStorageFromHTTP(authCfg.JWKSURL, jwkset.HTTPClientStorageOptions{
 		Client:                    httpClient,
 		NoErrorReturnFirstHTTPReq: true,
-		RefreshInterval:           15 * time.Second,
+		RefreshInterval:           authCfg.RefreshInterval,
 		RefreshErrorHandler: func(ctx context.Context, err error) {
 			logger.Error("Ошибка обновления JWKS",
 				slog.String("error", err.Error()),
-				slog.String("url", jwksURL),
+				slog.String("url", authCfg.JWKSURL),
 			)
 		},
 	})
@@ -104,40 +118,48 @@ func NewJWTAuth(jwksURL string, caCertPath string, logger *slog.Logger) (*JWTAut
 	}
 
 	return &JWTAuth{
-		jwks:   k,
-		logger: logger.With(slog.String("component", "jwt_auth")),
+		jwks:     k,
+		jwtLeeway: authCfg.JWTLeeway,
+		logger:   logger.With(slog.String("component", "jwt_auth")),
 	}, nil
 }
 
-// httpClientWithCA создаёт HTTP-клиент, доверяющий указанному CA-сертификату.
-func httpClientWithCA(caCertPath string) (*http.Client, error) {
-	caCert, err := os.ReadFile(caCertPath)
-	if err != nil {
-		return nil, err
+// buildHTTPClient создаёт HTTP-клиент с настроенным TLS и таймаутом.
+func buildHTTPClient(authCfg JWTAuthConfig) (*http.Client, error) {
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: authCfg.TLSSkipVerify, //nolint:gosec // настраивается через SE_TLS_SKIP_VERIFY
 	}
 
-	caCertPool, err := x509.SystemCertPool()
-	if err != nil {
-		caCertPool = x509.NewCertPool()
+	// Добавляем CA-сертификат, если указан
+	if authCfg.CACertPath != "" {
+		caCert, err := os.ReadFile(authCfg.CACertPath)
+		if err != nil {
+			return nil, fmt.Errorf("загрузка CA-сертификата %s: %w", authCfg.CACertPath, err)
+		}
+
+		caCertPool, err := x509.SystemCertPool()
+		if err != nil {
+			caCertPool = x509.NewCertPool()
+		}
+		caCertPool.AppendCertsFromPEM(caCert)
+		tlsConfig.RootCAs = caCertPool
 	}
-	caCertPool.AppendCertsFromPEM(caCert)
 
 	return &http.Client{
-		Timeout: 30 * time.Second,
+		Timeout: authCfg.ClientTimeout,
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs: caCertPool,
-			},
+			TLSClientConfig: tlsConfig,
 		},
 	}, nil
 }
 
 // NewJWTAuthWithKeyfunc создаёт JWT middleware с предоставленной keyfunc.
 // Используется в тестах для подстановки mock JWKS.
-func NewJWTAuthWithKeyfunc(kf keyfunc.Keyfunc, logger *slog.Logger) *JWTAuth {
+func NewJWTAuthWithKeyfunc(kf keyfunc.Keyfunc, jwtLeeway time.Duration, logger *slog.Logger) *JWTAuth {
 	return &JWTAuth{
-		jwks:   kf,
-		logger: logger.With(slog.String("component", "jwt_auth")),
+		jwks:      kf,
+		jwtLeeway: jwtLeeway,
+		logger:    logger.With(slog.String("component", "jwt_auth")),
 	}
 }
 
@@ -171,7 +193,7 @@ func (j *JWTAuth) Middleware() func(http.Handler) http.Handler {
 			token, err := jwt.ParseWithClaims(tokenString, claims, j.jwks.KeyfuncCtx(r.Context()),
 				jwt.WithValidMethods([]string{"RS256"}),
 				jwt.WithExpirationRequired(),
-				jwt.WithLeeway(5*time.Second),
+				jwt.WithLeeway(j.jwtLeeway),
 			)
 			if err != nil {
 				j.logger.Debug("JWT валидация не пройдена",

@@ -35,7 +35,7 @@ func testLogger() *slog.Logger {
 // TestProxy_LeaderPassesThrough — leader обрабатывает запросы локально.
 func TestProxy_LeaderPassesThrough(t *testing.T) {
 	provider := &mockRoleProvider{role: RoleLeader, leaderAddr: "leader:8010"}
-	proxy := NewLeaderProxy(provider, testLogger())
+	proxy := NewLeaderProxy(provider, true, testLogger())
 
 	handler := proxy.Middleware(localHandler())
 
@@ -57,7 +57,7 @@ func TestProxy_LeaderPassesThrough(t *testing.T) {
 // TestProxy_FollowerGETLocal — follower обрабатывает GET запросы локально.
 func TestProxy_FollowerGETLocal(t *testing.T) {
 	provider := &mockRoleProvider{role: RoleFollower, leaderAddr: "leader:8010"}
-	proxy := NewLeaderProxy(provider, testLogger())
+	proxy := NewLeaderProxy(provider, true, testLogger())
 
 	handler := proxy.Middleware(localHandler())
 
@@ -88,7 +88,7 @@ func TestProxy_FollowerPOSTProxy(t *testing.T) {
 	leaderAddr := strings.TrimPrefix(leaderServer.URL, "https://")
 
 	provider := &mockRoleProvider{role: RoleFollower, leaderAddr: leaderAddr}
-	proxy := NewLeaderProxy(provider, testLogger())
+	proxy := NewLeaderProxy(provider, true, testLogger())
 
 	handler := proxy.Middleware(localHandler())
 
@@ -109,7 +109,7 @@ func TestProxy_FollowerPOSTProxy(t *testing.T) {
 // TestProxy_FollowerLeaderUnknown — follower с неизвестным leader возвращает 503.
 func TestProxy_FollowerLeaderUnknown(t *testing.T) {
 	provider := &mockRoleProvider{role: RoleFollower, leaderAddr: ""}
-	proxy := NewLeaderProxy(provider, testLogger())
+	proxy := NewLeaderProxy(provider, true, testLogger())
 
 	handler := proxy.Middleware(localHandler())
 
@@ -140,7 +140,7 @@ func TestProxy_FollowerDELETEProxy(t *testing.T) {
 	leaderAddr := strings.TrimPrefix(leaderServer.URL, "https://")
 
 	provider := &mockRoleProvider{role: RoleFollower, leaderAddr: leaderAddr}
-	proxy := NewLeaderProxy(provider, testLogger())
+	proxy := NewLeaderProxy(provider, true, testLogger())
 
 	handler := proxy.Middleware(localHandler())
 

@@ -182,7 +182,7 @@ func main() {
 		}
 
 		roleProvider = &roleProviderAdapter{election: election}
-		proxyMiddleware = replica.NewLeaderProxy(election, logger)
+		proxyMiddleware = replica.NewLeaderProxy(election, cfg.TLSSkipVerify, logger)
 	} else {
 		// --- Standalone mode: GC/Reconcile стартуют безусловно ---
 		gcSvc.Start(ctx)
@@ -207,6 +207,7 @@ func main() {
 		cfg.DephealthDepName,
 		cfg.JWKSUrl,
 		cfg.DephealthCheckInterval,
+		cfg.TLSSkipVerify,
 		logger,
 	)
 	if dephealthErr != nil {
@@ -263,7 +264,14 @@ func main() {
 
 	// 10. JWT middleware
 	var jwtAuth server.JWTAuthProvider
-	jwtMiddleware, err := middleware.NewJWTAuth(cfg.JWKSUrl, cfg.JWKSCACert, logger)
+	jwtMiddleware, err := middleware.NewJWTAuth(middleware.JWTAuthConfig{
+		JWKSURL:         cfg.JWKSUrl,
+		CACertPath:      cfg.CACertPath,
+		TLSSkipVerify:   cfg.TLSSkipVerify,
+		ClientTimeout:   cfg.JWKSClientTimeout,
+		RefreshInterval: cfg.JWKSRefreshInterval,
+		JWTLeeway:       cfg.JWTLeeway,
+	}, logger)
 	if err != nil {
 		// JWT недоступен — запускаем без аутентификации (для разработки)
 		logger.Warn("JWT JWKS недоступен, запуск без аутентификации",

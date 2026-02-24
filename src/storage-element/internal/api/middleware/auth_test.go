@@ -71,7 +71,7 @@ func newTestJWTAuth(key *rsa.PrivateKey) *JWTAuth {
 	}
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
-	return NewJWTAuthWithKeyfunc(kf, logger)
+	return NewJWTAuthWithKeyfunc(kf, 5*time.Second, logger)
 }
 
 // TestJWTAuth_ValidToken проверяет валидный JWT.
