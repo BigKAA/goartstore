@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/bigkaa/goartstore/admin-module/internal/ui/components"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/i18n"
 )
 
 // SEDiscoverPreview — данные предпросмотра SE после discover.
@@ -24,31 +25,31 @@ templ SEDiscoverResult(preview SEDiscoverPreview) {
 		<!-- Результат discover -->
 		@components.Alert(components.AlertParams{
 			Variant: components.AlertSuccess,
-			Title:   "SE доступен",
-			Message: fmt.Sprintf("Storage ID: %s, версия: %s", preview.StorageID, preview.Version),
+			Title:   i18n.T(ctx, "se_discover.available"),
+			Message: fmt.Sprintf(i18n.T(ctx, "se_discover.info"), preview.StorageID, preview.Version),
 		})
 
 		<!-- Информация о SE -->
 		<div class="bg-bg-elevated rounded-card p-4 space-y-3">
 			<div class="grid grid-cols-2 gap-3 text-sm">
 				<div>
-					<span class="text-text-muted">Режим:</span>
+					<span class="text-text-muted">{ i18n.T(ctx, "se.table.mode") }:</span>
 					<span class="ml-2">
 						@components.ModeBadge(preview.Mode)
 					</span>
 				</div>
 				<div>
-					<span class="text-text-muted">Статус:</span>
+					<span class="text-text-muted">{ i18n.T(ctx, "se.table.status") }:</span>
 					<span class="ml-2">
 						@components.StatusBadge(preview.Status)
 					</span>
 				</div>
 				<div>
-					<span class="text-text-muted">Ёмкость:</span>
+					<span class="text-text-muted">{ i18n.T(ctx, "se.table.capacity") }:</span>
 					<span class="ml-2 text-text-primary">{ formatDiscoverBytes(preview.TotalBytes) }</span>
 				</div>
 				<div>
-					<span class="text-text-muted">Использовано:</span>
+					<span class="text-text-muted">{ i18n.T(ctx, "se_detail.used") }:</span>
 					<span class="ml-2 text-text-primary">{ formatDiscoverBytes(preview.UsedBytes) }</span>
 				</div>
 			</div>
@@ -56,18 +57,18 @@ templ SEDiscoverResult(preview SEDiscoverPreview) {
 			@components.CapacityBar(components.CapacityBarParams{
 				Used:  preview.UsedBytes,
 				Total: preview.TotalBytes,
-				Label: "Хранилище",
+				Label: i18n.T(ctx, "se_detail.storage"),
 			})
 		</div>
 
 		<!-- Форма регистрации -->
 		<div class="border-t border-border-subtle pt-4">
-			<label class="block text-sm font-medium text-text-secondary mb-1">Имя SE</label>
+			<label class="block text-sm font-medium text-text-secondary mb-1">{ i18n.T(ctx, "table.name") }</label>
 			<input
 				type="text"
 				name="name"
 				id="register-name"
-				placeholder="Например: se-main-01"
+				placeholder="e.g.: se-main-01"
 				class="w-full bg-bg-elevated text-text-primary text-sm rounded-button border border-border-default px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary placeholder:text-text-muted mb-3"
 			/>
 			<input type="hidden" name="url" value={ preview.URL }/>
@@ -81,7 +82,7 @@ templ SEDiscoverResult(preview SEDiscoverPreview) {
 				<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
 					<path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"></path>
 				</svg>
-				Зарегистрировать
+				{ i18n.T(ctx, "btn.create") }
 			</button>
 		</div>
 	</div>
@@ -91,7 +92,7 @@ templ SEDiscoverResult(preview SEDiscoverPreview) {
 templ SEDiscoverError(msg string) {
 	@components.Alert(components.AlertParams{
 		Variant:     components.AlertError,
-		Title:       "Ошибка",
+		Title:       i18n.T(ctx, "se_discover.error"),
 		Message:     msg,
 		Dismissible: true,
 	})
@@ -101,8 +102,8 @@ templ SEDiscoverError(msg string) {
 templ SERegisterSuccess(name string) {
 	@components.Alert(components.AlertParams{
 		Variant:     components.AlertSuccess,
-		Title:       "SE зарегистрирован",
-		Message:     fmt.Sprintf("Storage Element «%s» успешно зарегистрирован. Обновите страницу для отображения.", name),
+		Title:       i18n.T(ctx, "se_discover.registered"),
+		Message:     fmt.Sprintf(i18n.T(ctx, "se_discover.registered_msg"), name),
 		Dismissible: true,
 	})
 	<!-- Автоматическое обновление таблицы -->

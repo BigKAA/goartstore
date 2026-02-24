@@ -67,8 +67,9 @@ else
 fi
 
 # ---------- Тест 35: Redirect на login без cookie ----------
-log_info "Тест 35: GET /admin/ без cookie → redirect на Keycloak login"
+log_info "Тест 35: GET /admin/ без cookie → redirect на login"
 # -L не следует redirect, проверяем Location header
+# UI middleware redirect: /admin/ → /admin/login → Keycloak authorize
 RESPONSE=$(curl $CURL_OPTS -w "\n%{http_code}" -D - -o /dev/null "${AM_URL}/admin/")
 RESPONSE_CODE=$(echo "$RESPONSE" | tail -1)
 LOCATION=$(echo "$RESPONSE" | grep -i "^Location:" | head -1 | tr -d '\r')
@@ -76,8 +77,10 @@ LOCATION=$(echo "$RESPONSE" | grep -i "^Location:" | head -1 | tr -d '\r')
 if [[ "$RESPONSE_CODE" == "302" ]] || [[ "$RESPONSE_CODE" == "303" ]]; then
     if echo "$LOCATION" | grep -q "openid-connect/auth"; then
         test_pass "Тест 35: /admin/ без cookie → ${RESPONSE_CODE} redirect на Keycloak authorize"
+    elif echo "$LOCATION" | grep -q "/admin/login"; then
+        test_pass "Тест 35: /admin/ без cookie → ${RESPONSE_CODE} redirect на /admin/login"
     else
-        test_fail "Тест 35: /admin/ → ${RESPONSE_CODE}, но Location не указывает на Keycloak: ${LOCATION}"
+        test_fail "Тест 35: /admin/ → ${RESPONSE_CODE}, но Location не указывает на Keycloak или /admin/login: ${LOCATION}"
     fi
 else
     test_fail "Тест 35: /admin/ → HTTP ${RESPONSE_CODE} (ожидался 302/303 redirect)"

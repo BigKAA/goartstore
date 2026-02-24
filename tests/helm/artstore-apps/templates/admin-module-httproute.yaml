@@ -1,0 +1,102 @@
+# HTTPRoute для Admin Module — внешний доступ через Envoy Gateway (Gateway API).
+# Маршрутизирует трафик с artstore.kryukov.lan на admin-module Service.
+# TLS termination выполняется на Envoy Gateway.
+# Условное включение через .Values.httproute.enabled.
+{{- if .Values.httproute.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: admin-module
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "artstore-apps.labels" . | nindent 4 }}
+    {{- include "artstore-apps.am.selectorLabels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ .Values.httproute.gateway.name }}
+      namespace: {{ .Values.httproute.gateway.namespace }}
+  hostnames:
+    - {{ .Values.httproute.hostname | quote }}
+  rules:
+    # API endpoints
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/v1
+      backendRefs:
+        - name: admin-module
+          port: {{ .Values.adminModule.port }}
+    # Health endpoints
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /health
+      backendRefs:
+        - name: admin-module
+          port: {{ .Values.adminModule.port }}
+    # Keycloak Admin Console — более специфичные prefix-ы,
+    # приоритетнее общего /admin (longest prefix match в Gateway API).
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /admin/master
+      backendRefs:
+        - name: {{ .Values.infraReleaseName }}-keycloak
+          port: 8080
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /admin/realms
+      backendRefs:
+        - name: {{ .Values.infraReleaseName }}-keycloak
+          port: 8080
+    # Keycloak JS ресурсы (admin console загружает /js/...)
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /js
+      backendRefs:
+        - name: {{ .Values.infraReleaseName }}-keycloak
+          port: 8080
+    # Admin UI (Admin Module)
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /admin
+      backendRefs:
+        - name: admin-module
+          port: {{ .Values.adminModule.port }}
+    # Статические ресурсы UI (CSS, JS, иконки)
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /static
+      backendRefs:
+        - name: admin-module
+          port: {{ .Values.adminModule.port }}
+    # Prometheus метрики
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /metrics
+      backendRefs:
+        - name: admin-module
+          port: {{ .Values.adminModule.port }}
+    # Keycloak — проксирование OAuth2 endpoints для browser flow.
+    # Browser redirect идёт на artstore.kryukov.lan/realms/... вместо внутреннего KC.
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /realms
+      backendRefs:
+        - name: {{ .Values.infraReleaseName }}-keycloak
+          port: 8080
+    # Keycloak — статические ресурсы (темы, JS, CSS для login-страницы)
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /resources
+      backendRefs:
+        - name: {{ .Values.infraReleaseName }}-keycloak
+          port: 8080
+{{- end }}

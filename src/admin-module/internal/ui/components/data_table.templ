@@ -1,6 +1,10 @@
 package components
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/i18n"
+)
 
 // TableColumn — описание колонки таблицы
 type TableColumn struct {
@@ -49,7 +53,7 @@ templ DataTable(params DataTableParams) {
 							colspan={ colSpan(len(params.Columns)) }
 							class="px-4 py-8 text-center text-text-muted"
 						>
-							Нет данных для отображения
+							{ i18n.T(ctx, "table.empty") }
 						</td>
 					</tr>
 				} else {

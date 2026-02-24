@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/bigkaa/goartstore/admin-module/internal/ui/components"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/i18n"
 	"github.com/bigkaa/goartstore/admin-module/internal/ui/layouts"
 )
 
@@ -84,19 +85,19 @@ type AccessData struct {
 // Access — страница «Управление доступом» с табами.
 templ Access(data AccessData) {
 	@layouts.Page(layouts.PageParams{
-		Title:     "Управление доступом",
+		Title:     i18n.T(ctx, "access.title"),
 		Username:  data.Username,
 		Role:      data.Role,
 		ActiveNav: "access",
 		Breadcrumbs: []layouts.BreadcrumbItem{
-			{Label: "Управление доступом"},
+			{Label: i18n.T(ctx, "access.title")},
 		},
 	}) {
 		<!-- Заголовок -->
 		<div class="mb-6">
-			<h1 class="text-2xl font-bold text-text-primary">Управление доступом</h1>
+			<h1 class="text-2xl font-bold text-text-primary">{ i18n.T(ctx, "access.title") }</h1>
 			<p class="text-sm text-text-muted mt-1">
-				Пользователи и Service Accounts
+				{ i18n.T(ctx, "access.subtitle") }
 			</p>
 		</div>
 
@@ -113,7 +114,7 @@ templ Access(data AccessData) {
 						<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"></path>
 						</svg>
-						Пользователи
+						{ i18n.T(ctx, "access.tab.users") }
 						<span class="text-xs bg-bg-elevated px-1.5 py-0.5 rounded-full text-text-muted">{ strconv.Itoa(data.UsersTotal) }</span>
 					</div>
 				</button>
@@ -126,7 +127,7 @@ templ Access(data AccessData) {
 						<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"></path>
 						</svg>
-						Service Accounts
+						{ i18n.T(ctx, "access.tab.sa") }
 						<span class="text-xs bg-bg-elevated px-1.5 py-0.5 rounded-full text-text-muted">{ strconv.Itoa(data.SATotalItems) }</span>
 					</div>
 				</button>
@@ -155,25 +156,25 @@ templ usersTab(data AccessData) {
 		Filters: []components.FilterSelect{
 			{
 				Name:  "role",
-				Label: "Роль",
+				Label: i18n.T(ctx, "access.users.filter.role"),
 				Options: []components.FilterOption{
-					{Value: "", Label: "Все роли", Selected: data.UsersFilters.Role == ""},
-					{Value: "admin", Label: "Admin", Selected: data.UsersFilters.Role == "admin"},
-					{Value: "readonly", Label: "Readonly", Selected: data.UsersFilters.Role == "readonly"},
+					{Value: "", Label: i18n.T(ctx, "access.users.filter.all_roles"), Selected: data.UsersFilters.Role == ""},
+					{Value: "admin", Label: i18n.T(ctx, "access.users.filter.admin"), Selected: data.UsersFilters.Role == "admin"},
+					{Value: "readonly", Label: i18n.T(ctx, "access.users.filter.readonly"), Selected: data.UsersFilters.Role == "readonly"},
 				},
 			},
 			{
 				Name:  "user_status",
-				Label: "Статус",
+				Label: i18n.T(ctx, "access.users.filter.status"),
 				Options: []components.FilterOption{
-					{Value: "", Label: "Все", Selected: data.UsersFilters.Status == ""},
-					{Value: "enabled", Label: "Активные", Selected: data.UsersFilters.Status == "enabled"},
-					{Value: "disabled", Label: "Отключённые", Selected: data.UsersFilters.Status == "disabled"},
+					{Value: "", Label: i18n.T(ctx, "access.users.filter.all"), Selected: data.UsersFilters.Status == ""},
+					{Value: "enabled", Label: i18n.T(ctx, "access.users.filter.active"), Selected: data.UsersFilters.Status == "enabled"},
+					{Value: "disabled", Label: i18n.T(ctx, "access.users.filter.disabled"), Selected: data.UsersFilters.Status == "disabled"},
 				},
 			},
 		},
 		SearchName:  "user_q",
-		SearchLabel: "Поиск по имени или email...",
+		SearchLabel: i18n.T(ctx, "access.users.filter.search"),
 		SearchValue: data.UsersFilters.Search,
 		ActionURL:   "/admin/partials/users-table",
 		TargetID:    "users-table-container",
@@ -192,14 +193,14 @@ templ usersTableContent(data AccessData) {
 			<table class="w-full text-sm text-left">
 				<thead class="text-xs text-text-secondary uppercase bg-bg-surface border-b border-border-subtle">
 					<tr>
-						<th class="px-4 py-3 font-medium">Пользователь</th>
-						<th class="px-4 py-3 font-medium">Email</th>
-						<th class="px-4 py-3 font-medium">Группы</th>
-						<th class="px-4 py-3 font-medium">Роль (IdP)</th>
-						<th class="px-4 py-3 font-medium">Итоговая роль</th>
-						<th class="px-4 py-3 font-medium">Статус</th>
+						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "access.users.table.user") }</th>
+						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "access.users.table.email") }</th>
+						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "access.users.table.groups") }</th>
+						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "access.users.table.role_idp") }</th>
+						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "access.users.table.effective_role") }</th>
+						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "access.users.table.status") }</th>
 						if data.Role == "admin" {
-							<th class="px-4 py-3 font-medium text-right">Действия</th>
+							<th class="px-4 py-3 font-medium text-right">{ i18n.T(ctx, "access.users.table.actions") }</th>
 						}
 					</tr>
 				</thead>
@@ -210,7 +211,7 @@ templ usersTableContent(data AccessData) {
 								colspan={ usersColCount(data.Role) }
 								class="px-4 py-8 text-center text-text-muted"
 							>
-								Нет пользователей для отображения
+								{ i18n.T(ctx, "access.users.table.empty") }
 							</td>
 						</tr>
 					}
@@ -246,15 +247,15 @@ templ usersTableContent(data AccessData) {
 								<div class="flex items-center gap-1.5">
 									@components.RoleBadge(user.EffectiveRole)
 									if user.RoleOverride != nil {
-										<span class="text-xs text-accent-primary" title="Роль повышена через override">+</span>
+										<span class="text-xs text-accent-primary" title={ i18n.T(ctx, "access.users.action.remove_override") }>+</span>
 									}
 								</div>
 							</td>
 							<td class="px-4 py-3">
 								if user.Enabled {
-									@components.Badge(components.BadgeSuccess, "Активен")
+									@components.Badge(components.BadgeSuccess, i18n.T(ctx, "access.users.status.active"))
 								} else {
-									@components.Badge(components.BadgeError, "Отключён")
+									@components.Badge(components.BadgeError, i18n.T(ctx, "access.users.status.disabled"))
 								}
 							</td>
 							if data.Role == "admin" {
@@ -263,7 +264,7 @@ templ usersTableContent(data AccessData) {
 										<!-- Детали -->
 										<button
 											class="p-1.5 text-text-muted hover:text-accent-primary transition-colors rounded-button hover:bg-bg-hover"
-											title="Подробнее"
+											title={ i18n.T(ctx, "access.users.action.details") }
 											hx-get={ fmt.Sprintf("/admin/partials/user-detail/%s", user.ID) }
 											hx-target="#access-action-result"
 											hx-swap="innerHTML"
@@ -277,11 +278,11 @@ templ usersTableContent(data AccessData) {
 										if user.EffectiveRole != "admin" {
 											<button
 												class="p-1.5 text-text-muted hover:text-status-info transition-colors rounded-button hover:bg-bg-hover"
-												title="Повысить до admin"
+												title={ i18n.T(ctx, "access.users.action.promote") }
 												hx-post={ fmt.Sprintf("/admin/partials/user-role-override/%s", user.ID) }
 												hx-target="#access-action-result"
 												hx-swap="innerHTML"
-												hx-confirm="Повысить роль пользователя до admin?"
+												hx-confirm={ i18n.T(ctx, "user_detail.confirm_promote") }
 											>
 												<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
 													<path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18"></path>
@@ -292,11 +293,11 @@ templ usersTableContent(data AccessData) {
 										if user.RoleOverride != nil {
 											<button
 												class="p-1.5 text-text-muted hover:text-status-warning transition-colors rounded-button hover:bg-bg-hover"
-												title="Убрать дополнение роли"
+												title={ i18n.T(ctx, "access.users.action.remove_override") }
 												hx-delete={ fmt.Sprintf("/admin/partials/user-role-override/%s", user.ID) }
 												hx-target="#access-action-result"
 												hx-swap="innerHTML"
-												hx-confirm="Убрать дополнение роли? Будет использоваться только роль из IdP."
+												hx-confirm={ i18n.T(ctx, "user_detail.confirm_remove_override") }
 											>
 												<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
 													<path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3"></path>
@@ -331,22 +332,22 @@ templ saTab(data AccessData) {
 		<div class="flex flex-wrap items-center justify-between gap-4">
 			<div class="flex items-center gap-3">
 				<div class="flex items-center gap-2">
-					<span class="text-sm text-text-secondary">Identity Provider:</span>
+					<span class="text-sm text-text-secondary">{ i18n.T(ctx, "access.idp.label") }</span>
 					if data.IDPConnected {
-						@components.Badge(components.BadgeSuccess, "Connected")
+						@components.Badge(components.BadgeSuccess, i18n.T(ctx, "access.idp.connected"))
 					} else {
-						@components.Badge(components.BadgeError, "Disconnected")
+						@components.Badge(components.BadgeError, i18n.T(ctx, "access.idp.disconnected"))
 					}
 				</div>
-				<span class="text-xs text-text-muted">Realm: { data.IDPRealm }</span>
+				<span class="text-xs text-text-muted">{ i18n.T(ctx, "access.idp.realm") } { data.IDPRealm }</span>
 				if data.IDPUsersCount != nil {
-					<span class="text-xs text-text-muted">| Users: { strconv.Itoa(*data.IDPUsersCount) }</span>
+					<span class="text-xs text-text-muted">| { i18n.T(ctx, "access.idp.users") } { strconv.Itoa(*data.IDPUsersCount) }</span>
 				}
 				if data.IDPClientsCount != nil {
-					<span class="text-xs text-text-muted">| SA Clients: { strconv.Itoa(*data.IDPClientsCount) }</span>
+					<span class="text-xs text-text-muted">| { i18n.T(ctx, "access.idp.sa_clients") } { strconv.Itoa(*data.IDPClientsCount) }</span>
 				}
 				if data.IDPLastSyncAt != nil {
-					<span class="text-xs text-text-muted">| Last sync: { data.IDPLastSyncAt.Format("02.01.2006 15:04") }</span>
+					<span class="text-xs text-text-muted">| { i18n.T(ctx, "access.idp.last_sync") } { data.IDPLastSyncAt.Format("02.01.2006 15:04") }</span>
 				}
 			</div>
 			if data.IDPError != nil {
@@ -370,7 +371,7 @@ templ saTab(data AccessData) {
 					<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
 						<path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M2.985 19.644l3.181-3.183"></path>
 					</svg>
-					Синхронизировать SA
+					{ i18n.T(ctx, "access.sa.sync") }
 				</button>
 
 				<!-- Кнопка Создать SA -->
@@ -381,45 +382,45 @@ templ saTab(data AccessData) {
 					<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
 						<path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"></path>
 					</svg>
-					Создать SA
+					{ i18n.T(ctx, "access.sa.create") }
 				</button>
 
 				<!-- Modal: Создание SA -->
 				@components.Modal(components.ModalParams{
 					ID:    "showCreateSA",
-					Title: "Создать Service Account",
+					Title: i18n.T(ctx, "access.sa.create_modal.title"),
 					Size:  components.ModalSizeLG,
 				}) {
 					<div id="sa-create-content">
 						<div class="space-y-4">
 							<div>
-								<label class="block text-sm font-medium text-text-secondary mb-1">Имя</label>
+								<label class="block text-sm font-medium text-text-secondary mb-1">{ i18n.T(ctx, "access.sa.create_modal.name") }</label>
 								<input
 									type="text"
 									name="name"
 									id="sa-create-name"
-									placeholder="my-service"
+									placeholder={ i18n.T(ctx, "access.sa.create_modal.name_placeholder") }
 									class="w-full bg-bg-elevated text-text-primary text-sm rounded-button border border-border-default px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary placeholder:text-text-muted"
 								/>
-								<p class="text-xs text-text-muted mt-1">Client ID будет сгенерирован автоматически (sa_name_random)</p>
+								<p class="text-xs text-text-muted mt-1">{ i18n.T(ctx, "access.sa.create_modal.name_help") }</p>
 							</div>
 							<div>
-								<label class="block text-sm font-medium text-text-secondary mb-1">Описание</label>
+								<label class="block text-sm font-medium text-text-secondary mb-1">{ i18n.T(ctx, "access.sa.create_modal.description") }</label>
 								<textarea
 									name="description"
 									id="sa-create-desc"
 									rows="2"
-									placeholder="Назначение этого SA..."
+									placeholder={ i18n.T(ctx, "access.sa.create_modal.description_placeholder") }
 									class="w-full bg-bg-elevated text-text-primary text-sm rounded-button border border-border-default px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary resize-y placeholder:text-text-muted"
 								></textarea>
 							</div>
 							<div>
-								<label class="block text-sm font-medium text-text-secondary mb-2">Scopes</label>
+								<label class="block text-sm font-medium text-text-secondary mb-2">{ i18n.T(ctx, "access.sa.create_modal.scopes") }</label>
 								<div class="grid grid-cols-2 gap-2">
-									@saCreateScopeCheckbox("files:read", "files:read", "Чтение файлов")
-									@saCreateScopeCheckbox("files:write", "files:write", "Запись файлов")
-									@saCreateScopeCheckbox("storage:read", "storage:read", "Чтение SE")
-									@saCreateScopeCheckbox("storage:write", "storage:write", "Управление SE")
+									@saCreateScopeCheckbox("files:read", "files:read", i18n.T(ctx, "access.sa.scope.files_read"))
+									@saCreateScopeCheckbox("files:write", "files:write", i18n.T(ctx, "access.sa.scope.files_write"))
+									@saCreateScopeCheckbox("storage:read", "storage:read", i18n.T(ctx, "access.sa.scope.se_read"))
+									@saCreateScopeCheckbox("storage:write", "storage:write", i18n.T(ctx, "access.sa.scope.se_manage"))
 								</div>
 							</div>
 							<!-- Результат создания (подменяется HTMX) -->
@@ -429,7 +430,7 @@ templ saTab(data AccessData) {
 									class="px-4 py-2 text-sm font-medium text-text-secondary bg-bg-elevated rounded-button hover:bg-bg-hover transition-colors"
 									x-on:click="showCreateSA = false"
 								>
-									Отмена
+									{ i18n.T(ctx, "btn.cancel") }
 								</button>
 								<button
 									class="inline-flex items-center px-4 py-2 text-sm font-medium bg-accent-primary text-bg-base rounded-button hover:bg-accent-light transition-colors"
@@ -438,7 +439,7 @@ templ saTab(data AccessData) {
 									hx-swap="innerHTML"
 									hx-include="#sa-create-name, #sa-create-desc, [name='scopes']"
 								>
-									Создать
+									{ i18n.T(ctx, "btn.create") }
 								</button>
 							</div>
 						</div>
@@ -448,9 +449,9 @@ templ saTab(data AccessData) {
 				<!-- Confirm: Sync SA -->
 				@components.ConfirmDialog(components.ConfirmDialogParams{
 					ID:          "showSyncConfirm",
-					Title:       "Синхронизировать Service Accounts?",
-					Message:     "Будет выполнена полная синхронизация SA между локальной БД и Keycloak.",
-					ConfirmText: "Синхронизировать",
+					Title:       i18n.T(ctx, "access.sa.confirm_sync.title"),
+					Message:     i18n.T(ctx, "access.sa.confirm_sync.message"),
+					ConfirmText: i18n.T(ctx, "btn.sync"),
 				}) {
 					<button
 						class="inline-flex items-center px-4 py-2 text-sm font-medium bg-accent-primary text-bg-base rounded-button hover:bg-accent-light transition-colors"
@@ -459,7 +460,7 @@ templ saTab(data AccessData) {
 						hx-swap="innerHTML"
 						x-on:click="showSyncConfirm = false"
 					>
-						Синхронизировать
+						{ i18n.T(ctx, "btn.sync") }
 					</button>
 				}
 			</div>
@@ -471,16 +472,16 @@ templ saTab(data AccessData) {
 		Filters: []components.FilterSelect{
 			{
 				Name:  "sa_status",
-				Label: "Статус",
+				Label: i18n.T(ctx, "access.sa.filter.status"),
 				Options: []components.FilterOption{
-					{Value: "", Label: "Все", Selected: data.SAFilters.Status == ""},
-					{Value: "active", Label: "Active", Selected: data.SAFilters.Status == "active"},
-					{Value: "suspended", Label: "Suspended", Selected: data.SAFilters.Status == "suspended"},
+					{Value: "", Label: i18n.T(ctx, "access.sa.filter.all"), Selected: data.SAFilters.Status == ""},
+					{Value: "active", Label: i18n.T(ctx, "access.sa.filter.active"), Selected: data.SAFilters.Status == "active"},
+					{Value: "suspended", Label: i18n.T(ctx, "access.sa.filter.suspended"), Selected: data.SAFilters.Status == "suspended"},
 				},
 			},
 		},
 		SearchName:  "sa_q",
-		SearchLabel: "Поиск по имени или client_id...",
+		SearchLabel: i18n.T(ctx, "access.sa.filter.search"),
 		SearchValue: data.SAFilters.Search,
 		ActionURL:   "/admin/partials/sa-table",
 		TargetID:    "sa-table-container",
@@ -499,14 +500,14 @@ templ saTableContent(data AccessData) {
 			<table class="w-full text-sm text-left">
 				<thead class="text-xs text-text-secondary uppercase bg-bg-surface border-b border-border-subtle">
 					<tr>
-						<th class="px-4 py-3 font-medium">Client ID</th>
-						<th class="px-4 py-3 font-medium">Имя</th>
-						<th class="px-4 py-3 font-medium">Scopes</th>
-						<th class="px-4 py-3 font-medium">Статус</th>
-						<th class="px-4 py-3 font-medium">Источник</th>
-						<th class="px-4 py-3 font-medium">Последняя синхр.</th>
+						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "access.sa.table.client_id") }</th>
+						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "access.sa.table.name") }</th>
+						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "access.sa.table.scopes") }</th>
+						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "access.sa.table.status") }</th>
+						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "access.sa.table.source") }</th>
+						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "access.sa.table.last_sync") }</th>
 						if data.Role == "admin" {
-							<th class="px-4 py-3 font-medium text-right">Действия</th>
+							<th class="px-4 py-3 font-medium text-right">{ i18n.T(ctx, "access.sa.table.actions") }</th>
 						}
 					</tr>
 				</thead>
@@ -517,7 +518,7 @@ templ saTableContent(data AccessData) {
 								colspan={ saColCount(data.Role) }
 								class="px-4 py-8 text-center text-text-muted"
 							>
-								Нет Service Accounts для отображения
+								{ i18n.T(ctx, "access.sa.table.empty") }
 							</td>
 						</tr>
 					}
@@ -561,7 +562,7 @@ templ saTableContent(data AccessData) {
 										<!-- Edit -->
 										<button
 											class="p-1.5 text-text-muted hover:text-status-info transition-colors rounded-button hover:bg-bg-hover"
-											title="Редактировать"
+											title={ i18n.T(ctx, "access.sa.action.edit") }
 											hx-get={ fmt.Sprintf("/admin/partials/sa-edit-form/%s", sa.ID) }
 											hx-target="#access-action-result"
 											hx-swap="innerHTML"
@@ -573,7 +574,7 @@ templ saTableContent(data AccessData) {
 										<!-- Rotate Secret -->
 										<button
 											class="p-1.5 text-text-muted hover:text-status-warning transition-colors rounded-button hover:bg-bg-hover"
-											title="Ротация секрета"
+											title={ i18n.T(ctx, "access.sa.action.rotate") }
 											x-on:click={ fmt.Sprintf("showRotateConfirm_%s = true", SafeID(sa.ID)) }
 										>
 											<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -583,7 +584,7 @@ templ saTableContent(data AccessData) {
 										<!-- Delete -->
 										<button
 											class="p-1.5 text-text-muted hover:text-status-error transition-colors rounded-button hover:bg-bg-hover"
-											title="Удалить"
+											title={ i18n.T(ctx, "access.sa.action.delete") }
 											x-on:click={ fmt.Sprintf("showDeleteConfirm_%s = true", SafeID(sa.ID)) }
 										>
 											<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -594,9 +595,9 @@ templ saTableContent(data AccessData) {
 										<!-- Confirm: Rotate Secret -->
 										@components.ConfirmDialog(components.ConfirmDialogParams{
 											ID:          fmt.Sprintf("showRotateConfirm_%s", SafeID(sa.ID)),
-											Title:       "Ротация секрета?",
-											Message:     fmt.Sprintf("Текущий секрет SA «%s» будет аннулирован. Все сервисы, использующие этот секрет, перестанут работать до обновления.", sa.Name),
-											ConfirmText: "Ротировать",
+											Title:       i18n.T(ctx, "access.sa.confirm_rotate.title"),
+											Message:     i18n.Tf(ctx, "access.sa.confirm_rotate.message", sa.Name),
+											ConfirmText: i18n.T(ctx, "btn.rotate"),
 											Danger:      true,
 										}) {
 											<button
@@ -606,16 +607,16 @@ templ saTableContent(data AccessData) {
 												hx-swap="innerHTML"
 												x-on:click={ fmt.Sprintf("showRotateConfirm_%s = false", SafeID(sa.ID)) }
 											>
-												Ротировать
+												{ i18n.T(ctx, "btn.rotate") }
 											</button>
 										}
 
 										<!-- Confirm: Delete -->
 										@components.ConfirmDialog(components.ConfirmDialogParams{
 											ID:          fmt.Sprintf("showDeleteConfirm_%s", SafeID(sa.ID)),
-											Title:       "Удалить Service Account?",
-											Message:     fmt.Sprintf("SA «%s» будет удалён из локальной БД и Keycloak. Все сервисы, использующие этот SA, перестанут работать.", sa.Name),
-											ConfirmText: "Удалить",
+											Title:       i18n.T(ctx, "access.sa.confirm_delete.title"),
+											Message:     i18n.Tf(ctx, "access.sa.confirm_delete.message", sa.Name),
+											ConfirmText: i18n.T(ctx, "btn.delete"),
 											Danger:      true,
 										}) {
 											<button
@@ -625,7 +626,7 @@ templ saTableContent(data AccessData) {
 												hx-swap="innerHTML"
 												x-on:click={ fmt.Sprintf("showDeleteConfirm_%s = false", SafeID(sa.ID)) }
 											>
-												Удалить
+												{ i18n.T(ctx, "btn.delete") }
 											</button>
 										}
 									</div>

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/bigkaa/goartstore/admin-module/internal/service"
@@ -84,8 +85,11 @@ func (h *EventsHandler) HandleSystemStatus(w http.ResponseWriter, r *http.Reques
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no") // Отключаем буферизацию Nginx
 
-	flusher, ok := w.(http.Flusher)
-	if !ok {
+	// Используем http.ResponseController для корректной работы Flush()
+	// через обёрнутый ResponseWriter (logging middleware и др.).
+	// ResponseController вызывает Unwrap() и находит оригинальный http.Flusher.
+	rc := http.NewResponseController(w)
+	if err := rc.Flush(); err != nil {
 		http.Error(w, "SSE не поддерживается", http.StatusInternalServerError)
 		return
 	}
@@ -98,8 +102,8 @@ func (h *EventsHandler) HandleSystemStatus(w http.ResponseWriter, r *http.Reques
 	)
 
 	// Отправляем начальные данные сразу при подключении
-	h.sendDepStatus(ctx, w, flusher)
-	h.sendSEStatus(ctx, w, flusher)
+	h.sendDepStatus(ctx, w, rc)
+	h.sendSEStatus(ctx, w, rc)
 
 	// Периодическая отправка
 	ticker := time.NewTicker(sseInterval)
@@ -114,14 +118,14 @@ func (h *EventsHandler) HandleSystemStatus(w http.ResponseWriter, r *http.Reques
 			)
 			return
 		case <-ticker.C:
-			h.sendDepStatus(ctx, w, flusher)
-			h.sendSEStatus(ctx, w, flusher)
+			h.sendDepStatus(ctx, w, rc)
+			h.sendSEStatus(ctx, w, rc)
 		}
 	}
 }
 
 // sendDepStatus отправляет SSE-событие со статусами зависимостей.
-func (h *EventsHandler) sendDepStatus(ctx context.Context, w http.ResponseWriter, flusher http.Flusher) {
+func (h *EventsHandler) sendDepStatus(ctx context.Context, w http.ResponseWriter, rc *http.ResponseController) {
 	event := depStatusEvent{}
 
 	if h.dephealthSvc == nil {
@@ -131,9 +135,12 @@ func (h *EventsHandler) sendDepStatus(ctx context.Context, w http.ResponseWriter
 		}
 	} else {
 		health := h.dephealthSvc.Health()
+		// Health() возвращает ключи формата "dependency:host:port"
+		// (например "postgresql:postgresql:5432").
+		// Ищем статус по префиксу имени зависимости.
 		event.Dependencies = []depStatusItem{
-			{Name: "PostgreSQL", Status: depHealthStatus(health["postgresql"])},
-			{Name: "Keycloak", Status: depHealthStatus(health["keycloak-jwks"])},
+			{Name: "PostgreSQL", Status: depHealthStatus(findHealthByPrefix(health, "postgresql"))},
+			{Name: "Keycloak", Status: depHealthStatus(findHealthByPrefix(health, "keycloak-jwks"))},
 		}
 	}
 
@@ -145,11 +152,11 @@ func (h *EventsHandler) sendDepStatus(ctx context.Context, w http.ResponseWriter
 
 	// Формат SSE: event: dep-status\ndata: {json}\n\n
 	fmt.Fprintf(w, "event: dep-status\ndata: %s\n\n", data)
-	flusher.Flush()
+	_ = rc.Flush()
 }
 
 // sendSEStatus отправляет SSE-событие со статусами Storage Elements.
-func (h *EventsHandler) sendSEStatus(ctx context.Context, w http.ResponseWriter, flusher http.Flusher) {
+func (h *EventsHandler) sendSEStatus(ctx context.Context, w http.ResponseWriter, rc *http.ResponseController) {
 	ses, _, err := h.storageElemsSvc.List(ctx, nil, nil, 1000, 0)
 	if err != nil {
 		h.logger.Error("Ошибка получения SE для SSE", slog.String("error", err.Error()))
@@ -185,5 +192,22 @@ func (h *EventsHandler) sendSEStatus(ctx context.Context, w http.ResponseWriter,
 	}
 
 	fmt.Fprintf(w, "event: se-status\ndata: %s\n\n", data)
-	flusher.Flush()
+	_ = rc.Flush()
+}
+
+// findHealthByPrefix ищет статус зависимости по префиксу имени.
+// Health() из topologymetrics SDK возвращает ключи формата "dependency:host:port",
+// поэтому ищем ключ, начинающийся с имени зависимости + ":".
+// Если найдено несколько — возвращает true только если все healthy.
+func findHealthByPrefix(health map[string]bool, prefix string) bool {
+	found := false
+	for key, ok := range health {
+		if strings.HasPrefix(key, prefix+":") || key == prefix {
+			if !ok {
+				return false
+			}
+			found = true
+		}
+	}
+	return found
 }

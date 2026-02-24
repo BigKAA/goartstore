@@ -1,5 +1,7 @@
 package layouts
 
+import "github.com/bigkaa/goartstore/admin-module/internal/ui/i18n"
+
 // HeaderParams — параметры верхней панели
 type HeaderParams struct {
 	Title    string // Заголовок текущей страницы
@@ -7,7 +9,8 @@ type HeaderParams struct {
 	Role     string // Роль: "admin" или "readonly"
 }
 
-// Header — верхняя панель: заголовок страницы, имя пользователя, бейдж роли, кнопка logout
+// Header — верхняя панель: заголовок страницы, переключатель языка,
+// имя пользователя, бейдж роли, кнопка logout
 templ Header(params HeaderParams) {
 	<header class="sticky top-0 z-20 flex items-center justify-between h-16 px-6 bg-bg-surface/80 backdrop-blur-sm border-b border-border-subtle">
 		<!-- Заголовок страницы -->
@@ -15,8 +18,11 @@ templ Header(params HeaderParams) {
 			{ params.Title }
 		</h1>
 
-		<!-- Информация о пользователе + logout -->
+		<!-- Информация о пользователе + lang + logout -->
 		<div class="flex items-center space-x-4">
+			<!-- Переключатель языка (EN / RU) -->
+			@langSwitcher()
+
 			<!-- Имя и роль -->
 			<div class="flex items-center space-x-2">
 				<!-- Аватар (инициалы) -->
@@ -34,7 +40,7 @@ templ Header(params HeaderParams) {
 				<!-- Бейдж роли -->
 				if params.Role == "admin" {
 					<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-accent-primary/20 text-accent-primary">
-						admin
+						{ i18n.T(ctx, "header.role.admin") }
 					</span>
 				} else {
 					<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-status-info/20 text-status-info">
@@ -49,16 +55,51 @@ templ Header(params HeaderParams) {
 					type="submit"
 					class="flex items-center px-3 py-1.5 rounded-button text-sm text-text-secondary
 					       hover:text-status-error hover:bg-status-error/10 transition-colors"
-					title="Выйти"
+					title={ i18n.T(ctx, "header.logout") }
 				>
 					<svg class="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
 						<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"></path>
 					</svg>
-					<span class="hidden sm:inline">Выйти</span>
+					<span class="hidden sm:inline">{ i18n.T(ctx, "header.logout") }</span>
 				</button>
 			</form>
 		</div>
 	</header>
+}
+
+// langSwitcher — переключатель языка EN/RU в виде двух кнопок-табов.
+// Текущий язык подсвечивается. При клике отправляет POST /admin/set-language.
+templ langSwitcher() {
+	<div class="flex items-center space-x-1 bg-bg-elevated rounded-lg p-0.5">
+		<!-- English -->
+		<form method="POST" action="/admin/set-language">
+			<input type="hidden" name="lang" value="en"/>
+			<button
+				type="submit"
+				if i18n.LangFromContext(ctx) == "en" {
+					class="px-2 py-1 text-xs font-medium rounded-md bg-accent-primary/20 text-accent-primary transition-colors"
+				} else {
+					class="px-2 py-1 text-xs font-medium rounded-md text-text-muted hover:text-text-primary transition-colors"
+				}
+			>
+				EN
+			</button>
+		</form>
+		<!-- Русский -->
+		<form method="POST" action="/admin/set-language">
+			<input type="hidden" name="lang" value="ru"/>
+			<button
+				type="submit"
+				if i18n.LangFromContext(ctx) == "ru" {
+					class="px-2 py-1 text-xs font-medium rounded-md bg-accent-primary/20 text-accent-primary transition-colors"
+				} else {
+					class="px-2 py-1 text-xs font-medium rounded-md text-text-muted hover:text-text-primary transition-colors"
+				}
+			>
+				RU
+			</button>
+		</form>
+	</div>
 }
 
 // userInitial — возвращает первую букву имени пользователя (заглавную)

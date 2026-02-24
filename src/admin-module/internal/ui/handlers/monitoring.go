@@ -139,15 +139,16 @@ func (h *MonitoringHandler) collectDepStatus(ctx context.Context, data *pages.Mo
 
 	health := h.dephealthSvc.Health()
 
+	// Health() возвращает ключи формата "dependency:host:port"
 	data.Dependencies = []pages.MonitoringDepStatus{
 		{
 			Name:   "PostgreSQL",
-			Status: depHealthStatus(health["postgresql"]),
+			Status: depHealthStatus(findHealthByPrefix(health, "postgresql")),
 			Type:   "database",
 		},
 		{
 			Name:   "Keycloak",
-			Status: depHealthStatus(health["keycloak-jwks"]),
+			Status: depHealthStatus(findHealthByPrefix(health, "keycloak-jwks")),
 			Type:   "auth",
 		},
 	}

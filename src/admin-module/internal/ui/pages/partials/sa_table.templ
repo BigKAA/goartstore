@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/bigkaa/goartstore/admin-module/internal/ui/components"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/i18n"
 	"github.com/bigkaa/goartstore/admin-module/internal/ui/pages"
 )
 
@@ -26,13 +27,13 @@ templ SATableBody(data SATableData) {
 				<thead class="text-xs text-text-secondary uppercase bg-bg-surface border-b border-border-subtle">
 					<tr>
 						<th class="px-4 py-3 font-medium">Client ID</th>
-						<th class="px-4 py-3 font-medium">Имя</th>
+						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "access.sa.table.name") }</th>
 						<th class="px-4 py-3 font-medium">Scopes</th>
-						<th class="px-4 py-3 font-medium">Статус</th>
-						<th class="px-4 py-3 font-medium">Источник</th>
-						<th class="px-4 py-3 font-medium">Последняя синхр.</th>
+						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "access.sa.table.status") }</th>
+						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "access.sa.table.source") }</th>
+						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "access.sa.table.last_sync") }</th>
 						if data.Role == "admin" {
-							<th class="px-4 py-3 font-medium text-right">Действия</th>
+							<th class="px-4 py-3 font-medium text-right">{ i18n.T(ctx, "access.sa.table.actions") }</th>
 						}
 					</tr>
 				</thead>
@@ -43,7 +44,7 @@ templ SATableBody(data SATableData) {
 								colspan={ saTableColCount(data.Role) }
 								class="px-4 py-8 text-center text-text-muted"
 							>
-								Нет Service Accounts для отображения
+								{ i18n.T(ctx, "access.sa.table.empty") }
 							</td>
 						</tr>
 					}
@@ -97,7 +98,7 @@ templ SATableBody(data SATableData) {
 										<!-- Edit -->
 										<button
 											class="p-1.5 text-text-muted hover:text-status-info transition-colors rounded-button hover:bg-bg-hover"
-											title="Редактировать"
+											title={ i18n.T(ctx, "access.sa.action.edit") }
 											hx-get={ fmt.Sprintf("/admin/partials/sa-edit-form/%s", sa.ID) }
 											hx-target="#access-action-result"
 											hx-swap="innerHTML"
@@ -109,7 +110,7 @@ templ SATableBody(data SATableData) {
 										<!-- Rotate -->
 										<button
 											class="p-1.5 text-text-muted hover:text-status-warning transition-colors rounded-button hover:bg-bg-hover"
-											title="Ротация секрета"
+											title={ i18n.T(ctx, "access.sa.action.rotate") }
 											x-on:click={ fmt.Sprintf("showRotateConfirm_%s = true", pages.SafeID(sa.ID)) }
 										>
 											<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -119,7 +120,7 @@ templ SATableBody(data SATableData) {
 										<!-- Delete -->
 										<button
 											class="p-1.5 text-text-muted hover:text-status-error transition-colors rounded-button hover:bg-bg-hover"
-											title="Удалить"
+											title={ i18n.T(ctx, "access.sa.action.delete") }
 											x-on:click={ fmt.Sprintf("showDeleteConfirm_%s = true", pages.SafeID(sa.ID)) }
 										>
 											<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -130,9 +131,9 @@ templ SATableBody(data SATableData) {
 										<!-- Confirm: Rotate -->
 										@components.ConfirmDialog(components.ConfirmDialogParams{
 											ID:          fmt.Sprintf("showRotateConfirm_%s", pages.SafeID(sa.ID)),
-											Title:       "Ротация секрета?",
-											Message:     fmt.Sprintf("Текущий секрет SA «%s» будет аннулирован.", sa.Name),
-											ConfirmText: "Ротировать",
+											Title:       i18n.T(ctx, "access.sa.confirm_rotate.title"),
+											Message:     fmt.Sprintf(i18n.T(ctx, "access.sa.confirm_rotate.message"), sa.Name),
+											ConfirmText: i18n.T(ctx, "btn.rotate"),
 											Danger:      true,
 										}) {
 											<button
@@ -142,16 +143,16 @@ templ SATableBody(data SATableData) {
 												hx-swap="innerHTML"
 												x-on:click={ fmt.Sprintf("showRotateConfirm_%s = false", pages.SafeID(sa.ID)) }
 											>
-												Ротировать
+												{ i18n.T(ctx, "btn.rotate") }
 											</button>
 										}
 
 										<!-- Confirm: Delete -->
 										@components.ConfirmDialog(components.ConfirmDialogParams{
 											ID:          fmt.Sprintf("showDeleteConfirm_%s", pages.SafeID(sa.ID)),
-											Title:       "Удалить Service Account?",
-											Message:     fmt.Sprintf("SA «%s» будет удалён.", sa.Name),
-											ConfirmText: "Удалить",
+											Title:       i18n.T(ctx, "access.sa.confirm_delete.title"),
+											Message:     fmt.Sprintf(i18n.T(ctx, "access.sa.confirm_delete.message"), sa.Name),
+											ConfirmText: i18n.T(ctx, "btn.delete"),
 											Danger:      true,
 										}) {
 											<button
@@ -161,7 +162,7 @@ templ SATableBody(data SATableData) {
 												hx-swap="innerHTML"
 												x-on:click={ fmt.Sprintf("showDeleteConfirm_%s = false", pages.SafeID(sa.ID)) }
 											>
-												Удалить
+												{ i18n.T(ctx, "btn.delete") }
 											</button>
 										}
 									</div>

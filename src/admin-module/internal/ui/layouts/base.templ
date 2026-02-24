@@ -1,5 +1,7 @@
 package layouts
 
+import "github.com/bigkaa/goartstore/admin-module/internal/ui/i18n"
+
 // BaseParams — параметры базового HTML-шаблона
 type BaseParams struct {
 	Title string // Заголовок страницы (отображается в <title>)
@@ -10,12 +12,12 @@ type BaseParams struct {
 // Контент вставляется через children (sidebar + main area).
 templ Base(params BaseParams) {
 	<!DOCTYPE html>
-	<html lang="ru" class="h-full">
+	<html lang={ i18n.LangFromContext(ctx) } class="h-full">
 	<head>
 		<meta charset="UTF-8"/>
 		<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 		<meta name="color-scheme" content="dark"/>
-		<title>{ params.Title } — Artstore Admin</title>
+		<title>{ params.Title } — { i18n.T(ctx, "app.title_suffix") }</title>
 
 		<!-- Tailwind CSS (скомпилированный, embedded) -->
 		<link rel="stylesheet" href="/static/css/output.css"/>

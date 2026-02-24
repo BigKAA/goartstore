@@ -16,7 +16,7 @@
 # Переменные
 # -----------------------------------------------------------------------------
 DOCKER_REGISTRY ?= harbor.kryukov.lan/library
-AM_TAG          ?= v0.1.0-3
+AM_TAG          ?= v0.2.0-4
 SE_TAG          ?= v0.1.0-2
 NAMESPACE       ?= artstore-test
 AM_PORT         ?= 8000
@@ -205,12 +205,12 @@ infra-up: copy-realm
 	@echo ">>> artstore-infra развёрнут"
 	@$(MAKE) --no-print-directory kc-setup
 
-## kc-setup: Настроить Keycloak realm (frontendUrl для корректного JWT issuer)
-## Использует port-forward (в KC образе нет curl)
+## kc-setup: Настроить Keycloak realm frontendUrl для корректного JWT issuer и browser OAuth2 flow.
+## frontendUrl = внешний URL через Gateway (для browser redirects и JWT issuer).
+## Использует port-forward (в KC образе нет curl).
 kc-setup:
 	@echo ">>> Настройка Keycloak realm frontendUrl..."
-	@KC_SVC="$(INFRA_RELEASE)-keycloak.$(NAMESPACE).svc.cluster.local"; \
-	KC_INTERNAL="http://$$KC_SVC:8080"; \
+	@KC_EXTERNAL="https://artstore.kryukov.lan"; \
 	KC_LOCAL_PORT=19080; \
 	kubectl port-forward -n $(NAMESPACE) svc/$(INFRA_RELEASE)-keycloak $$KC_LOCAL_PORT:8080 &>/dev/null & \
 	KC_PF_PID=$$!; \
@@ -221,8 +221,8 @@ kc-setup:
 		curl -sf -X PUT http://localhost:$$KC_LOCAL_PORT/admin/realms/artstore \
 			-H "Authorization: Bearer $$KC_ADMIN_TOKEN" \
 			-H "Content-Type: application/json" \
-			-d "{\"attributes\": {\"frontendUrl\": \"$$KC_INTERNAL\"}}" && \
-		echo ">>> frontendUrl установлен: $$KC_INTERNAL"; \
+			-d "{\"attributes\": {\"frontendUrl\": \"$$KC_EXTERNAL\"}}" && \
+		echo ">>> frontendUrl установлен: $$KC_EXTERNAL"; \
 	else \
 		echo ">>> WARN: не удалось получить admin-токен KC, frontendUrl не настроен"; \
 	fi; \

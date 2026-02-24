@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/bigkaa/goartstore/admin-module/internal/ui/components"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/i18n"
 	"github.com/bigkaa/goartstore/admin-module/internal/ui/pages"
 )
 
@@ -28,16 +29,16 @@ templ SETableBody(data SETableData) {
 				<thead class="text-xs text-text-secondary uppercase bg-bg-surface border-b border-border-subtle">
 					<tr>
 						<th class="px-4 py-3 font-medium">
-							@sePartialColSort("name", "Имя", data.SortKey, data.SortDir)
+							@sePartialColSort("name", i18n.T(ctx, "se.table.name"), data.SortKey, data.SortDir)
 						</th>
 						<th class="px-4 py-3 font-medium">URL</th>
-						<th class="px-4 py-3 font-medium">Режим</th>
-						<th class="px-4 py-3 font-medium">Статус</th>
-						<th class="px-4 py-3 font-medium min-w-[160px]">Ёмкость</th>
-						<th class="px-4 py-3 font-medium text-right">Файлов</th>
-						<th class="px-4 py-3 font-medium">Последняя синхр.</th>
+						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "se.table.mode") }</th>
+						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "se.table.status") }</th>
+						<th class="px-4 py-3 font-medium min-w-[160px]">{ i18n.T(ctx, "se.table.capacity") }</th>
+						<th class="px-4 py-3 font-medium text-right">{ i18n.T(ctx, "se.table.files") }</th>
+						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "se.table.last_sync") }</th>
 						if data.Role == "admin" {
-							<th class="px-4 py-3 font-medium text-right">Действия</th>
+							<th class="px-4 py-3 font-medium text-right">{ i18n.T(ctx, "se.table.actions") }</th>
 						}
 					</tr>
 				</thead>
@@ -48,7 +49,7 @@ templ SETableBody(data SETableData) {
 								colspan={ sePartialColCount(data.Role) }
 								class="px-4 py-8 text-center text-text-muted"
 							>
-								Нет Storage Elements для отображения
+								{ i18n.T(ctx, "se.table.empty") }
 							</td>
 						</tr>
 					}
@@ -92,7 +93,7 @@ templ SETableBody(data SETableData) {
 										<!-- Sync -->
 										<button
 											class="p-1.5 text-text-muted hover:text-accent-primary transition-colors rounded-button hover:bg-bg-hover"
-											title="Синхронизировать"
+											title={ i18n.T(ctx, "se.action.sync") }
 											hx-post={ fmt.Sprintf("/admin/partials/se-sync/%s", se.ID) }
 											hx-target="#se-action-result"
 											hx-swap="innerHTML"
@@ -104,7 +105,7 @@ templ SETableBody(data SETableData) {
 										<!-- Edit -->
 										<button
 											class="p-1.5 text-text-muted hover:text-status-info transition-colors rounded-button hover:bg-bg-hover"
-											title="Редактировать"
+											title={ i18n.T(ctx, "se.action.edit") }
 											hx-get={ fmt.Sprintf("/admin/partials/se-edit-form/%s", se.ID) }
 											hx-target="#se-action-result"
 											hx-swap="innerHTML"
@@ -116,7 +117,7 @@ templ SETableBody(data SETableData) {
 										<!-- Delete -->
 										<button
 											class="p-1.5 text-text-muted hover:text-status-error transition-colors rounded-button hover:bg-bg-hover"
-											title="Удалить"
+											title={ i18n.T(ctx, "se.action.delete") }
 											x-on:click={ fmt.Sprintf("showDeleteConfirm_%s = true", pages.SafeID(se.ID)) }
 										>
 											<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -126,9 +127,9 @@ templ SETableBody(data SETableData) {
 
 										@components.ConfirmDialog(components.ConfirmDialogParams{
 											ID:          fmt.Sprintf("showDeleteConfirm_%s", pages.SafeID(se.ID)),
-											Title:       "Удалить Storage Element?",
-											Message:     fmt.Sprintf("SE «%s» будет удалён из реестра. Физические файлы не будут затронуты.", se.Name),
-											ConfirmText: "Удалить",
+											Title:       i18n.T(ctx, "se.confirm_delete.title"),
+											Message:     fmt.Sprintf(i18n.T(ctx, "se.confirm_delete.message"), se.Name),
+											ConfirmText: i18n.T(ctx, "btn.delete"),
 											Danger:      true,
 										}) {
 											<button
@@ -138,7 +139,7 @@ templ SETableBody(data SETableData) {
 												hx-swap="innerHTML"
 												x-on:click={ fmt.Sprintf("showDeleteConfirm_%s = false", pages.SafeID(se.ID)) }
 											>
-												Удалить
+												{ i18n.T(ctx, "btn.delete") }
 											</button>
 										}
 									</div>

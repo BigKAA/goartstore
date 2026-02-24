@@ -62,6 +62,14 @@ spec:
               value: /certs/tls.crt
             - name: KC_HTTPS_CERTIFICATE_KEY_FILE
               value: /certs/tls.key
+            # Proxy — KC работает за TLS-terminating reverse proxy (Envoy Gateway).
+            # xforwarded: KC читает X-Forwarded-* headers для определения scheme/host.
+            - name: KC_PROXY_HEADERS
+              value: xforwarded
+            {{- if .Values.keycloak.hostname }}
+            - name: KC_HOSTNAME
+              value: {{ .Values.keycloak.hostname | quote }}
+            {{- end }}
             # Health endpoint на management port 9000
             - name: KC_HEALTH_ENABLED
               value: "true"

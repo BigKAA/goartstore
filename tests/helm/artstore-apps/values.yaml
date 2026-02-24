@@ -66,6 +66,8 @@ adminModule:
   uiEnabled: "true"
   uiOidcClientId: "artstore-admin-ui"
   uiSessionSecret: "test-session-secret-32bytes-ok!"
+  # Внешний URL Keycloak для browser OAuth2 redirects (через Gateway)
+  uiKeycloakUrl: "https://artstore.kryukov.lan"
   # Graceful shutdown
   shutdownTimeout: "5s"
   resources:
@@ -75,3 +77,13 @@ adminModule:
     limits:
       memory: "256Mi"
       cpu: "500m"
+
+# -----------------------------------------------------------------------------
+# HTTPRoute (Gateway API) — внешний доступ к Admin Module через Envoy Gateway
+# -----------------------------------------------------------------------------
+httproute:
+  enabled: true
+  hostname: artstore.kryukov.lan
+  gateway:
+    name: eg
+    namespace: envoy-gateway-system

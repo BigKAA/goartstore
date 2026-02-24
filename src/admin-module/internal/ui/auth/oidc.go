@@ -34,8 +34,11 @@ type OIDCClient struct {
 
 // OIDCConfig — конфигурация OIDC-клиента.
 type OIDCConfig struct {
-	// KeycloakURL — базовый URL Keycloak (без trailing slash).
+	// KeycloakURL — базовый URL Keycloak для backend (token exchange, JWKS).
 	KeycloakURL string
+	// BrowserKeycloakURL — внешний URL Keycloak для browser redirects (authorize, logout).
+	// Если пустой — используется KeycloakURL.
+	BrowserKeycloakURL string
 	// Realm — имя realm в Keycloak.
 	Realm string
 	// ClientID — OIDC Client ID (public client).
@@ -45,9 +48,20 @@ type OIDCConfig struct {
 }
 
 // NewOIDCClient создаёт новый OIDC-клиент на основе конфигурации.
+// Backend URL (token exchange) и browser URL (authorize/logout redirects) могут различаться:
+// backend — внутренний cluster DNS, browser — внешний URL через API Gateway.
 func NewOIDCClient(cfg OIDCConfig) *OIDCClient {
-	realmURL := fmt.Sprintf("%s/realms/%s", cfg.KeycloakURL, cfg.Realm)
-	oidcBase := realmURL + "/protocol/openid-connect"
+	// Backend URL — для token endpoint (server-to-server)
+	backendRealmURL := fmt.Sprintf("%s/realms/%s", cfg.KeycloakURL, cfg.Realm)
+	backendOIDCBase := backendRealmURL + "/protocol/openid-connect"
+
+	// Browser URL — для authorize/logout (browser redirect)
+	browserKeycloakURL := cfg.BrowserKeycloakURL
+	if browserKeycloakURL == "" {
+		browserKeycloakURL = cfg.KeycloakURL
+	}
+	browserRealmURL := fmt.Sprintf("%s/realms/%s", browserKeycloakURL, cfg.Realm)
+	browserOIDCBase := browserRealmURL + "/protocol/openid-connect"
 
 	httpClient := cfg.HTTPClient
 	if httpClient == nil {
@@ -56,10 +70,10 @@ func NewOIDCClient(cfg OIDCConfig) *OIDCClient {
 
 	return &OIDCClient{
 		clientID:     cfg.ClientID,
-		authorizeURL: oidcBase + "/auth",
-		tokenURL:     oidcBase + "/token",
-		logoutURL:    oidcBase + "/logout",
-		issuer:       realmURL,
+		authorizeURL: browserOIDCBase + "/auth",
+		tokenURL:     backendOIDCBase + "/token",
+		logoutURL:    browserOIDCBase + "/logout",
+		issuer:       backendRealmURL,
 		httpClient:   httpClient,
 	}
 }

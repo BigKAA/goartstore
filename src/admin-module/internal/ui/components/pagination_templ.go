@@ -44,7 +44,7 @@ func Pagination(params PaginationParams) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		if params.TotalPages > 1 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<nav class=\"flex items-center justify-between px-1 py-3\" aria-label=\"Пагинация\"><!-- Информация о количестве --><div class=\"text-sm text-text-muted\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<nav class=\"flex items-center justify-between px-1 py-3\" aria-label=\"Pagination\"><!-- Информация о количестве --><div class=\"text-sm text-text-muted\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -229,7 +229,9 @@ func paginationInfo(params PaginationParams) string {
 	if end > params.TotalItems {
 		end = params.TotalItems
 	}
-	return fmt.Sprintf("Показано %d–%d из %d", start, end, params.TotalItems)
+	// Используем формат из i18n каталога — однако paginationInfo вызывается из Go (не из templ),
+	// поэтому используем шаблон напрямую. Переводы применяются на уровне templ.
+	return fmt.Sprintf("%d–%d / %d", start, end, params.TotalItems)
 }
 
 // paginationURL — URL для перехода на страницу

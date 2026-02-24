@@ -37,3 +37,7 @@ spec:
     - {{ . }}
     - {{ . }}.{{ $.Values.namespace }}.svc.cluster.local
     {{- end }}
+    # Внешние DNS-имена (Gateway API / HTTPRoute)
+    {{- range .Values.certificateExtraDnsNames.externalDnsNames }}
+    - {{ . }}
+    {{- end }}

@@ -41,6 +41,8 @@ keycloak:
   # Admin credentials (bootstrap admin)
   adminUser: admin
   adminPassword: admin
+  # Внешний hostname (KC за TLS-terminating proxy)
+  hostname: "https://artstore.kryukov.lan"
   # Подключение к PostgreSQL (БД keycloak)
   database:
     host: postgresql
@@ -67,6 +69,9 @@ certificateExtraDnsNames:
   # Сервисы приложений (Admin Module и т.д.)
   services:
     - admin-module
+  # Внешние DNS-имена (Gateway API / HTTPRoute)
+  externalDnsNames:
+    - artstore.kryukov.lan
   # Replicated SE instances (из artstore-se)
   replicatedInstances:
     - se-edit-1

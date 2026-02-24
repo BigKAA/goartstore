@@ -101,9 +101,11 @@ func confirmIconBg(danger bool) string {
 }
 
 // confirmCancelText — текст кнопки отмены (по умолчанию "Отмена")
+// confirmCancelText возвращает текст кнопки отмены.
+// Пустая строка означает что будет использован переданный текст (i18n ключ уже разрешён).
 func confirmCancelText(text string) string {
 	if text == "" {
-		return "Отмена"
+		return "Cancel" // Fallback — при использовании всегда передаётся i18n.T(ctx, "btn.cancel")
 	}
 	return text
 }

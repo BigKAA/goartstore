@@ -102,6 +102,10 @@ spec:
             - name: AM_KEYCLOAK_SA_PREFIX
               value: {{ .Values.adminModule.keycloakSAPrefix | quote }}
             # --- JWT ---
+            {{- if .Values.httproute.enabled }}
+            - name: AM_JWT_ISSUER
+              value: "https://{{ .Values.httproute.hostname }}/realms/{{ .Values.adminModule.keycloakRealm }}"
+            {{- end }}
             - name: AM_JWT_ROLES_CLAIM
               value: {{ .Values.adminModule.jwtRolesClaim | quote }}
             - name: AM_JWT_GROUPS_CLAIM
@@ -136,6 +140,10 @@ spec:
             {{- if .Values.adminModule.uiSessionSecret }}
             - name: AM_UI_SESSION_SECRET
               value: {{ .Values.adminModule.uiSessionSecret | quote }}
+            {{- end }}
+            {{- if .Values.adminModule.uiKeycloakUrl }}
+            - name: AM_UI_KEYCLOAK_URL
+              value: {{ .Values.adminModule.uiKeycloakUrl | quote }}
             {{- end }}
             # --- Graceful shutdown ---
             - name: AM_SHUTDOWN_TIMEOUT

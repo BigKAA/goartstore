@@ -18,7 +18,12 @@ CSS_INPUT := internal/ui/static/css/input.css
 CSS_OUTPUT := internal/ui/static/css/output.css
 
 .PHONY: build test test-race generate lint docker-build docker-run docker-stop clean help \
-        templ-generate css-build css-watch ui-build
+        templ-generate css-build css-watch ui-build i18n-check
+
+# Каталоги переводов
+I18N_DIR := internal/ui/i18n/locales
+I18N_EN := $(I18N_DIR)/en.json
+I18N_RU := $(I18N_DIR)/ru.json
 
 ## help: Показать справку по целям
 help:
@@ -45,6 +50,9 @@ help:
 	@echo "  docker-build    — Собрать Docker-образ с UI (templ + tailwind в Docker)"
 	@echo "  docker-run      — Запустить через docker-compose"
 	@echo "  docker-stop     — Остановить docker-compose"
+	@echo ""
+	@echo "  i18n:"
+	@echo "  i18n-check      — Проверить полноту каталогов переводов (en ↔ ru)"
 	@echo ""
 	@echo "  Прочее:"
 	@echo "  clean           — Очистить артефакты сборки"
@@ -100,6 +108,40 @@ docker-run:
 ## docker-stop: Остановить docker-compose
 docker-stop:
 	docker compose down
+
+## i18n-check: Проверить полноту каталогов переводов (en.json ↔ ru.json)
+## Сравнивает ключи между каталогами и выводит отсутствующие.
+i18n-check:
+	@echo "Проверка полноты каталогов переводов..."
+	@EN_KEYS=$$(jq -r 'keys[]' $(I18N_EN) | grep -v '^_' | sort); \
+	RU_KEYS=$$(jq -r 'keys[]' $(I18N_RU) | grep -v '^_' | sort); \
+	EN_FILE=$$(mktemp); RU_FILE=$$(mktemp); \
+	echo "$$EN_KEYS" > "$$EN_FILE"; echo "$$RU_KEYS" > "$$RU_FILE"; \
+	MISSING_RU=$$(comm -23 "$$EN_FILE" "$$RU_FILE"); \
+	MISSING_EN=$$(comm -13 "$$EN_FILE" "$$RU_FILE"); \
+	rm -f "$$EN_FILE" "$$RU_FILE"; \
+	EN_COUNT=$$(echo "$$EN_KEYS" | wc -l | tr -d ' '); \
+	RU_COUNT=$$(echo "$$RU_KEYS" | wc -l | tr -d ' '); \
+	echo "  en.json: $$EN_COUNT ключей"; \
+	echo "  ru.json: $$RU_COUNT ключей"; \
+	FAIL=0; \
+	if [ -n "$$MISSING_RU" ]; then \
+		echo ""; \
+		echo "ОШИБКА: Ключи отсутствуют в ru.json:"; \
+		echo "$$MISSING_RU" | sed 's/^/  - /'; \
+		FAIL=1; \
+	fi; \
+	if [ -n "$$MISSING_EN" ]; then \
+		echo ""; \
+		echo "ОШИБКА: Ключи отсутствуют в en.json:"; \
+		echo "$$MISSING_EN" | sed 's/^/  - /'; \
+		FAIL=1; \
+	fi; \
+	if [ $$FAIL -eq 0 ]; then \
+		echo "  Каталоги синхронизированы ✓"; \
+	else \
+		exit 1; \
+	fi
 
 ## clean: Очистить артефакты сборки
 clean:

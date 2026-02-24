@@ -1,5 +1,7 @@
 package components
 
+import "github.com/bigkaa/goartstore/admin-module/internal/ui/i18n"
+
 // FilterOption — вариант значения в выпадающем списке фильтра
 type FilterOption struct {
 	Value    string // Значение (передаётся в query parameter)
@@ -59,7 +61,7 @@ templ FilterBar(params FilterBarParams) {
 		if params.SearchName != "" {
 			<div class="flex flex-col space-y-1 flex-1 min-w-[200px]">
 				<label class="text-xs font-medium text-text-secondary uppercase tracking-wide">
-					Поиск
+					{ i18n.T(ctx, "table.search") }
 				</label>
 				<div class="relative">
 					<div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">

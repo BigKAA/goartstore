@@ -1,6 +1,10 @@
 package components
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/i18n"
+)
 
 // CapacityBarParams — параметры progress bar ёмкости
 type CapacityBarParams struct {
@@ -34,10 +38,10 @@ templ CapacityBar(params CapacityBarParams) {
 		if !params.Compact {
 			<div class="flex items-center justify-between mt-1">
 				<span class="text-xs text-text-muted">
-					{ fmt.Sprintf("%d%%", capacityPercent(params.Used, params.Total)) } занято
+					{ fmt.Sprintf("%d%%", capacityPercent(params.Used, params.Total)) } { i18n.T(ctx, "capacity.occupied") }
 				</span>
 				<span class="text-xs text-text-muted">
-					{ formatBytes(params.Total - params.Used) } свободно
+					{ formatBytes(params.Total - params.Used) } { i18n.T(ctx, "capacity.free") }
 				</span>
 			</div>
 		}

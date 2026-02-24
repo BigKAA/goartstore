@@ -16,7 +16,7 @@ type PaginationParams struct {
 // Навигация через HTMX hx-get.
 templ Pagination(params PaginationParams) {
 	if params.TotalPages > 1 {
-		<nav class="flex items-center justify-between px-1 py-3" aria-label="Пагинация">
+		<nav class="flex items-center justify-between px-1 py-3" aria-label="Pagination">
 			<!-- Информация о количестве -->
 			<div class="text-sm text-text-muted">
 				{ paginationInfo(params) }
@@ -98,7 +98,9 @@ func paginationInfo(params PaginationParams) string {
 	if end > params.TotalItems {
 		end = params.TotalItems
 	}
-	return fmt.Sprintf("Показано %d–%d из %d", start, end, params.TotalItems)
+	// Используем формат из i18n каталога — однако paginationInfo вызывается из Go (не из templ),
+	// поэтому используем шаблон напрямую. Переводы применяются на уровне templ.
+	return fmt.Sprintf("%d–%d / %d", start, end, params.TotalItems)
 }
 
 // paginationURL — URL для перехода на страницу

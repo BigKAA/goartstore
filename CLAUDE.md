@@ -18,7 +18,7 @@ Artstore — переработка проекта ArtStore (распредел�
 | Модуль | Порты | Назначение | Статус |
 |--------|-------|------------|--------|
 | Storage Element | 8010-8019 | Физическое хранение файлов, WAL, attr.json, репликация | ✅ Готов (Phase 6) |
-| Admin Module | 8000-8009 | Keycloak IdP, RBAC, реестр SE и файлов, Service Accounts, Admin UI | ✅ API + UI готовы |
+| Admin Module | 8000-8009 | Keycloak IdP, RBAC, реестр SE и файлов, Service Accounts, Admin UI | ✅ API + UI + i18n готовы |
 | Ingester Module | 8020-8029 | Streaming upload, валидация, выбор SE, регистрация файлов | ⏳ Не начат |
 | Query Module | 8030-8039 | Поиск (PostgreSQL FTS), LRU cache, proxy download | ⏳ Не начат |
 

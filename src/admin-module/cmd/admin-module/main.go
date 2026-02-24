@@ -29,6 +29,7 @@ import (
 	"github.com/bigkaa/goartstore/admin-module/internal/service"
 	"github.com/bigkaa/goartstore/admin-module/internal/ui/auth"
 	uihandlers "github.com/bigkaa/goartstore/admin-module/internal/ui/handlers"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/i18n"
 	uimiddleware "github.com/bigkaa/goartstore/admin-module/internal/ui/middleware"
 	uiprometheus "github.com/bigkaa/goartstore/admin-module/internal/ui/prometheus"
 )
@@ -247,6 +248,13 @@ func main() {
 		}
 	}
 
+	// 15.2 i18n — интернационализация Admin UI (English + Русский)
+	i18nBundle := i18n.Init(logger)
+	if err := i18n.LoadFromEmbedFS(i18nBundle, logger); err != nil {
+		logger.Error("Ошибка загрузки i18n каталогов", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
 	// 16. Admin UI (опционально, если AM_UI_ENABLED=true)
 	var uiComponents *server.UIComponents
 	if cfg.UIEnabled {
@@ -266,10 +274,11 @@ func main() {
 
 		// OIDC-клиент для авторизации через Keycloak (PKCE)
 		oidcClient := auth.NewOIDCClient(auth.OIDCConfig{
-			KeycloakURL: cfg.KeycloakURL,
-			Realm:       cfg.KeycloakRealm,
-			ClientID:    cfg.UIOIDCClientID,
-			HTTPClient:  httpClientCA,
+			KeycloakURL:        cfg.KeycloakURL,
+			BrowserKeycloakURL: cfg.UIKeycloakURL,
+			Realm:              cfg.KeycloakRealm,
+			ClientID:           cfg.UIOIDCClientID,
+			HTTPClient:         httpClientCA,
 		})
 
 		// Auth handler — login/callback/logout

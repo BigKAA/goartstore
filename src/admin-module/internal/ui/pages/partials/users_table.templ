@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/bigkaa/goartstore/admin-module/internal/ui/components"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/i18n"
 	"github.com/bigkaa/goartstore/admin-module/internal/ui/pages"
 )
 
@@ -24,14 +25,14 @@ templ UsersTableBody(data UsersTableData) {
 			<table class="w-full text-sm text-left">
 				<thead class="text-xs text-text-secondary uppercase bg-bg-surface border-b border-border-subtle">
 					<tr>
-						<th class="px-4 py-3 font-medium">Пользователь</th>
+						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "access.users.table.user") }</th>
 						<th class="px-4 py-3 font-medium">Email</th>
-						<th class="px-4 py-3 font-medium">Группы</th>
-						<th class="px-4 py-3 font-medium">Роль (IdP)</th>
-						<th class="px-4 py-3 font-medium">Итоговая роль</th>
-						<th class="px-4 py-3 font-medium">Статус</th>
+						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "access.users.table.groups") }</th>
+						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "access.users.table.role_idp") }</th>
+						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "access.users.table.effective_role") }</th>
+						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "access.users.table.status") }</th>
 						if data.Role == "admin" {
-							<th class="px-4 py-3 font-medium text-right">Действия</th>
+							<th class="px-4 py-3 font-medium text-right">{ i18n.T(ctx, "access.users.table.actions") }</th>
 						}
 					</tr>
 				</thead>
@@ -42,7 +43,7 @@ templ UsersTableBody(data UsersTableData) {
 								colspan={ usersPartialColCount(data.Role) }
 								class="px-4 py-8 text-center text-text-muted"
 							>
-								Нет пользователей для отображения
+								{ i18n.T(ctx, "access.users.table.empty") }
 							</td>
 						</tr>
 					}
@@ -78,15 +79,15 @@ templ UsersTableBody(data UsersTableData) {
 								<div class="flex items-center gap-1.5">
 									@components.RoleBadge(user.EffectiveRole)
 									if user.RoleOverride != nil {
-										<span class="text-xs text-accent-primary" title="Роль повышена через override">+</span>
+										<span class="text-xs text-accent-primary" title="Role override active">+</span>
 									}
 								</div>
 							</td>
 							<td class="px-4 py-3">
 								if user.Enabled {
-									@components.Badge(components.BadgeSuccess, "Активен")
+									@components.Badge(components.BadgeSuccess, i18n.T(ctx, "access.users.status.active"))
 								} else {
-									@components.Badge(components.BadgeError, "Отключён")
+									@components.Badge(components.BadgeError, i18n.T(ctx, "access.users.status.disabled"))
 								}
 							</td>
 							if data.Role == "admin" {
@@ -94,7 +95,7 @@ templ UsersTableBody(data UsersTableData) {
 									<div class="flex items-center justify-end gap-1">
 										<button
 											class="p-1.5 text-text-muted hover:text-accent-primary transition-colors rounded-button hover:bg-bg-hover"
-											title="Подробнее"
+											title={ i18n.T(ctx, "access.users.action.details") }
 											hx-get={ fmt.Sprintf("/admin/partials/user-detail/%s", user.ID) }
 											hx-target="#access-action-result"
 											hx-swap="innerHTML"
@@ -107,11 +108,11 @@ templ UsersTableBody(data UsersTableData) {
 										if user.EffectiveRole != "admin" {
 											<button
 												class="p-1.5 text-text-muted hover:text-status-info transition-colors rounded-button hover:bg-bg-hover"
-												title="Повысить до admin"
+												title={ i18n.T(ctx, "access.users.action.promote") }
 												hx-post={ fmt.Sprintf("/admin/partials/user-role-override/%s", user.ID) }
 												hx-target="#access-action-result"
 												hx-swap="innerHTML"
-												hx-confirm="Повысить роль пользователя до admin?"
+												hx-confirm={ i18n.T(ctx, "user_detail.confirm_promote") }
 											>
 												<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
 													<path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18"></path>
@@ -121,11 +122,11 @@ templ UsersTableBody(data UsersTableData) {
 										if user.RoleOverride != nil {
 											<button
 												class="p-1.5 text-text-muted hover:text-status-warning transition-colors rounded-button hover:bg-bg-hover"
-												title="Убрать дополнение роли"
+												title={ i18n.T(ctx, "access.users.action.remove_override") }
 												hx-delete={ fmt.Sprintf("/admin/partials/user-role-override/%s", user.ID) }
 												hx-target="#access-action-result"
 												hx-swap="innerHTML"
-												hx-confirm="Убрать дополнение роли?"
+												hx-confirm={ i18n.T(ctx, "user_detail.confirm_remove_override") }
 											>
 												<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
 													<path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3"></path>
@@ -172,4 +173,3 @@ templ usersPartialRoleBadge(role string) {
 		@components.Badge(components.BadgeNeutral, role)
 	}
 }
-

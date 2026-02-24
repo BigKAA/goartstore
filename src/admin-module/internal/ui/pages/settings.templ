@@ -1,6 +1,7 @@
 package pages
 
 import (
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/i18n"
 	"github.com/bigkaa/goartstore/admin-module/internal/ui/layouts"
 )
 
@@ -22,12 +23,12 @@ type PrometheusSettings struct {
 // Settings — страница настроек Admin UI (admin only).
 templ Settings(data SettingsData) {
 	@layouts.Page(layouts.PageParams{
-		Title:     "Настройки",
+		Title:     i18n.T(ctx, "settings.title"),
 		Username:  data.Username,
 		Role:      data.Role,
 		ActiveNav: "settings",
 		Breadcrumbs: []layouts.BreadcrumbItem{
-			{Label: "Настройки"},
+			{Label: i18n.T(ctx, "settings.title")},
 		},
 	}) {
 		<!-- Результат действия -->
@@ -42,8 +43,8 @@ templ Settings(data SettingsData) {
 					</svg>
 				</div>
 				<div>
-					<h2 class="text-lg font-semibold text-text-primary">Prometheus</h2>
-					<p class="text-sm text-text-muted">Конфигурация подключения к Prometheus для исторических графиков latency</p>
+					<h2 class="text-lg font-semibold text-text-primary">{ i18n.T(ctx, "settings.prometheus.title") }</h2>
+					<p class="text-sm text-text-muted">{ i18n.T(ctx, "settings.prometheus.subtitle") }</p>
 				</div>
 			</div>
 
@@ -56,26 +57,26 @@ templ Settings(data SettingsData) {
 				<!-- URL -->
 				<div>
 					<label for="prometheus_url" class="block text-sm font-medium text-text-secondary mb-1">
-						URL Prometheus
+						{ i18n.T(ctx, "settings.prometheus.url_label") }
 					</label>
 					<input
 						type="url"
 						id="prometheus_url"
 						name="prometheus_url"
 						value={ data.Prometheus.URL }
-						placeholder="http://prometheus:9090"
+						placeholder={ i18n.T(ctx, "settings.prometheus.url_placeholder") }
 						class="w-full px-3 py-2 bg-bg-base border border-border-default rounded-button text-text-primary text-sm placeholder-text-muted focus:outline-none focus:border-accent-primary focus:ring-1 focus:ring-accent-primary"
 					/>
-					<p class="text-xs text-text-muted mt-1">Полный URL Prometheus сервера (включая протокол)</p>
+					<p class="text-xs text-text-muted mt-1">{ i18n.T(ctx, "settings.prometheus.url_help") }</p>
 				</div>
 
 				<!-- Enabled toggle -->
 				<div class="flex items-center justify-between">
 					<div>
 						<label for="prometheus_enabled" class="text-sm font-medium text-text-secondary">
-							Включить Prometheus
+							{ i18n.T(ctx, "settings.prometheus.enabled") }
 						</label>
-						<p class="text-xs text-text-muted">Активировать сбор и отображение метрик из Prometheus</p>
+						<p class="text-xs text-text-muted">{ i18n.T(ctx, "settings.prometheus.enabled_help") }</p>
 					</div>
 					<div x-data={ promEnabledData(data.Prometheus.Enabled) }>
 						<input type="hidden" name="prometheus_enabled" x-bind:value="enabled ? 'true' : 'false'"/>
@@ -96,33 +97,33 @@ templ Settings(data SettingsData) {
 				<!-- Timeout -->
 				<div>
 					<label for="prometheus_timeout" class="block text-sm font-medium text-text-secondary mb-1">
-						Таймаут запросов
+						{ i18n.T(ctx, "settings.prometheus.timeout_label") }
 					</label>
 					<input
 						type="text"
 						id="prometheus_timeout"
 						name="prometheus_timeout"
 						value={ data.Prometheus.Timeout }
-						placeholder="10s"
+						placeholder={ i18n.T(ctx, "settings.prometheus.timeout_placeholder") }
 						class="w-full px-3 py-2 bg-bg-base border border-border-default rounded-button text-text-primary text-sm placeholder-text-muted focus:outline-none focus:border-accent-primary focus:ring-1 focus:ring-accent-primary"
 					/>
-					<p class="text-xs text-text-muted mt-1">Формат: 5s, 10s, 30s, 1m</p>
+					<p class="text-xs text-text-muted mt-1">{ i18n.T(ctx, "settings.prometheus.timeout_help") }</p>
 				</div>
 
 				<!-- Retention Period -->
 				<div>
 					<label for="prometheus_retention_period" class="block text-sm font-medium text-text-secondary mb-1">
-						Период хранения для графиков
+						{ i18n.T(ctx, "settings.prometheus.retention_label") }
 					</label>
 					<input
 						type="text"
 						id="prometheus_retention_period"
 						name="prometheus_retention_period"
 						value={ data.Prometheus.RetentionPeriod }
-						placeholder="7d"
+						placeholder={ i18n.T(ctx, "settings.prometheus.retention_placeholder") }
 						class="w-full px-3 py-2 bg-bg-base border border-border-default rounded-button text-text-primary text-sm placeholder-text-muted focus:outline-none focus:border-accent-primary focus:ring-1 focus:ring-accent-primary"
 					/>
-					<p class="text-xs text-text-muted mt-1">Формат: 1h, 6h, 24h, 7d, 30d</p>
+					<p class="text-xs text-text-muted mt-1">{ i18n.T(ctx, "settings.prometheus.retention_help") }</p>
 				</div>
 
 				<!-- Кнопки -->
@@ -131,7 +132,7 @@ templ Settings(data SettingsData) {
 						type="submit"
 						class="px-4 py-2 bg-accent-primary hover:bg-accent-hover text-white text-sm font-medium rounded-button transition-colors"
 					>
-						Сохранить
+						{ i18n.T(ctx, "btn.save") }
 					</button>
 					<button
 						type="button"
@@ -140,7 +141,7 @@ templ Settings(data SettingsData) {
 						hx-swap="innerHTML"
 						class="px-4 py-2 bg-bg-elevated hover:bg-bg-hover text-text-secondary hover:text-text-primary text-sm font-medium rounded-button transition-colors border border-border-default"
 					>
-						Проверить подключение
+						{ i18n.T(ctx, "btn.test_connection") }
 					</button>
 				</div>
 			</form>
@@ -148,18 +149,18 @@ templ Settings(data SettingsData) {
 
 		<!-- Информация о системе -->
 		<div class="card">
-			<h2 class="text-lg font-semibold text-text-primary mb-4">Информация о системе</h2>
+			<h2 class="text-lg font-semibold text-text-primary mb-4">{ i18n.T(ctx, "settings.system_info") }</h2>
 			<div class="space-y-3">
 				<div class="flex items-center justify-between py-2 border-b border-border-subtle">
-					<span class="text-sm text-text-secondary">Модуль</span>
-					<span class="text-sm text-text-primary font-medium">Admin Module</span>
+					<span class="text-sm text-text-secondary">{ i18n.T(ctx, "settings.system_info.module") }</span>
+					<span class="text-sm text-text-primary font-medium">{ i18n.T(ctx, "settings.system_info.module_name") }</span>
 				</div>
 				<div class="flex items-center justify-between py-2 border-b border-border-subtle">
-					<span class="text-sm text-text-secondary">Пользователь</span>
+					<span class="text-sm text-text-secondary">{ i18n.T(ctx, "settings.system_info.user") }</span>
 					<span class="text-sm text-text-primary">{ data.Username }</span>
 				</div>
 				<div class="flex items-center justify-between py-2">
-					<span class="text-sm text-text-secondary">Роль</span>
+					<span class="text-sm text-text-secondary">{ i18n.T(ctx, "settings.system_info.role") }</span>
 					<span class="text-sm text-text-primary">{ data.Role }</span>
 				</div>
 			</div>

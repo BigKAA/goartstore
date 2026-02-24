@@ -5,13 +5,14 @@ import (
 
 	"github.com/bigkaa/goartstore/admin-module/internal/domain/model"
 	"github.com/bigkaa/goartstore/admin-module/internal/ui/components"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/i18n"
 )
 
 // SEEditForm — partial: форма редактирования SE (inline в se-action-result).
 templ SEEditForm(id, name, url string) {
 	<div class="card mb-4">
 		<div class="flex items-center justify-between mb-4">
-			<h3 class="text-lg font-semibold text-text-primary">Редактировать SE</h3>
+			<h3 class="text-lg font-semibold text-text-primary">{ i18n.T(ctx, "se_edit.title") }</h3>
 			<button
 				class="text-text-muted hover:text-text-primary transition-colors"
 				onclick="document.getElementById('se-action-result').innerHTML = ''"
@@ -23,7 +24,7 @@ templ SEEditForm(id, name, url string) {
 		</div>
 		<div class="space-y-3">
 			<div>
-				<label class="block text-sm font-medium text-text-secondary mb-1">Имя</label>
+				<label class="block text-sm font-medium text-text-secondary mb-1">{ i18n.T(ctx, "table.name") }</label>
 				<input
 					type="text"
 					name="name"
@@ -47,7 +48,7 @@ templ SEEditForm(id, name, url string) {
 					class="px-4 py-2 text-sm font-medium text-text-secondary bg-bg-elevated rounded-button hover:bg-bg-hover transition-colors"
 					onclick="document.getElementById('se-action-result').innerHTML = ''"
 				>
-					Отмена
+					{ i18n.T(ctx, "btn.cancel") }
 				</button>
 				<button
 					class="inline-flex items-center px-4 py-2 text-sm font-medium bg-accent-primary text-bg-base rounded-button hover:bg-accent-light transition-colors"
@@ -56,7 +57,7 @@ templ SEEditForm(id, name, url string) {
 					hx-swap="innerHTML"
 					hx-include={ fmt.Sprintf("#edit-name-%s, #edit-url-%s", id, id) }
 				>
-					Сохранить
+					{ i18n.T(ctx, "btn.save") }
 				</button>
 			</div>
 		</div>
@@ -67,7 +68,7 @@ templ SEEditForm(id, name, url string) {
 templ SEEditSuccess() {
 	@components.Alert(components.AlertParams{
 		Variant:     components.AlertSuccess,
-		Message:     "SE успешно обновлён",
+		Message:     i18n.T(ctx, "se_edit.success"),
 		Dismissible: true,
 	})
 	<script>
@@ -79,7 +80,7 @@ templ SEEditSuccess() {
 templ SEDeleteSuccess() {
 	@components.Alert(components.AlertParams{
 		Variant:     components.AlertSuccess,
-		Message:     "SE успешно удалён из реестра",
+		Message:     i18n.T(ctx, "se_edit.deleted"),
 		Dismissible: true,
 	})
 	<script>
@@ -91,8 +92,8 @@ templ SEDeleteSuccess() {
 templ SESyncSuccess(result *model.SyncResult) {
 	@components.Alert(components.AlertParams{
 		Variant:     components.AlertSuccess,
-		Title:       "Синхронизация завершена",
-		Message:     fmt.Sprintf("Файлов на SE: %d, добавлено: %d, обновлено: %d, помечено удалёнными: %d", result.FilesOnSE, result.FilesAdded, result.FilesUpdated, result.FilesMarkedDeleted),
+		Title:       i18n.T(ctx, "se_edit.sync_done.title"),
+		Message:     fmt.Sprintf(i18n.T(ctx, "se_edit.sync_done.message"), result.FilesOnSE, result.FilesAdded, result.FilesUpdated, result.FilesMarkedDeleted),
 		Dismissible: true,
 	})
 	<script>
@@ -105,15 +106,15 @@ templ SESyncAllSuccess(synced, failed int) {
 	if failed == 0 {
 		@components.Alert(components.AlertParams{
 			Variant:     components.AlertSuccess,
-			Title:       "Синхронизация всех SE завершена",
-			Message:     fmt.Sprintf("Успешно синхронизировано: %d SE", synced),
+			Title:       i18n.T(ctx, "se_edit.sync_all_done.title"),
+			Message:     fmt.Sprintf(i18n.T(ctx, "se_edit.sync_all_done.message"), synced),
 			Dismissible: true,
 		})
 	} else {
 		@components.Alert(components.AlertParams{
 			Variant:     components.AlertWarning,
-			Title:       "Синхронизация завершена с ошибками",
-			Message:     fmt.Sprintf("Успешно: %d, с ошибками: %d", synced, failed),
+			Title:       i18n.T(ctx, "se_edit.sync_all_partial.title"),
+			Message:     fmt.Sprintf(i18n.T(ctx, "se_edit.sync_all_partial.message"), synced, failed),
 			Dismissible: true,
 		})
 	}

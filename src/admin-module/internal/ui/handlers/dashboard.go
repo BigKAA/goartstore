@@ -224,14 +224,15 @@ func (h *DashboardHandler) collectDepHealth(data *pages.DashboardData) {
 
 	health := h.dephealthSvc.Health()
 
+	// Health() возвращает ключи формата "dependency:host:port"
 	data.Dependencies = []pages.DependencyStatus{
 		{
 			Name:   "PostgreSQL",
-			Status: depHealthStatus(health["postgresql"]),
+			Status: depHealthStatus(findHealthByPrefix(health, "postgresql")),
 		},
 		{
 			Name:   "Keycloak",
-			Status: depHealthStatus(health["keycloak-jwks"]),
+			Status: depHealthStatus(findHealthByPrefix(health, "keycloak-jwks")),
 		},
 	}
 }

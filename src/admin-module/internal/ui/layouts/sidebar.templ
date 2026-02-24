@@ -1,5 +1,7 @@
 package layouts
 
+import "github.com/bigkaa/goartstore/admin-module/internal/ui/i18n"
+
 // SidebarParams — параметры боковой навигации
 type SidebarParams struct {
 	ActiveNav string // Идентификатор активного пункта: "dashboard", "monitoring", "storage-elements", "files", "access", "settings"
@@ -9,7 +11,7 @@ type SidebarParams struct {
 // navItem — элемент навигации (внутренний тип)
 type navItem struct {
 	ID        string // Идентификатор для сравнения с ActiveNav
-	Label     string // Текст пункта
+	LabelKey  string // Ключ перевода (i18n)
 	URL       string // URL страницы
 	Icon      string // SVG path (d-attribute для <path>)
 	AdminOnly bool   // Показывать только для admin
@@ -18,43 +20,43 @@ type navItem struct {
 // navItems — список пунктов навигации
 var navItems = []navItem{
 	{
-		ID:    "dashboard",
-		Label: "Dashboard",
-		URL:   "/admin/",
+		ID:       "dashboard",
+		LabelKey: "nav.dashboard",
+		URL:      "/admin/",
 		// Иконка: home (Heroicons)
 		Icon: "M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25",
 	},
 	{
-		ID:    "monitoring",
-		Label: "Мониторинг",
-		URL:   "/admin/monitoring",
+		ID:       "monitoring",
+		LabelKey: "nav.monitoring",
+		URL:      "/admin/monitoring",
 		// Иконка: chart-bar
 		Icon: "M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z",
 	},
 	{
-		ID:    "storage-elements",
-		Label: "Storage Elements",
-		URL:   "/admin/storage-elements",
+		ID:       "storage-elements",
+		LabelKey: "nav.storage_elements",
+		URL:      "/admin/storage-elements",
 		// Иконка: server
 		Icon: "M21.75 17.25v-.228a4.5 4.5 0 00-.12-1.03l-2.268-9.64a3.375 3.375 0 00-3.285-2.602H7.923a3.375 3.375 0 00-3.285 2.602l-2.268 9.64a4.5 4.5 0 00-.12 1.03v.228m19.5 0a3 3 0 01-3 3H5.25a3 3 0 01-3-3m19.5 0a3 3 0 00-3-3H5.25a3 3 0 00-3 3m16.5 0h.008v.008h-.008v-.008zm-3 0h.008v.008h-.008v-.008z",
 	},
 	{
-		ID:    "files",
-		Label: "Файлы",
-		URL:   "/admin/files",
+		ID:       "files",
+		LabelKey: "nav.files",
+		URL:      "/admin/files",
 		// Иконка: document-text
 		Icon: "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z",
 	},
 	{
-		ID:    "access",
-		Label: "Управление доступом",
-		URL:   "/admin/access",
+		ID:       "access",
+		LabelKey: "nav.access",
+		URL:      "/admin/access",
 		// Иконка: users
 		Icon: "M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z",
 	},
 	{
 		ID:        "settings",
-		Label:     "Настройки",
+		LabelKey:  "nav.settings",
 		URL:       "/admin/settings",
 		AdminOnly: true,
 		// Иконка: cog-6-tooth
@@ -98,7 +100,7 @@ templ Sidebar(params SidebarParams) {
 							<path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125v-3.75"></path>
 						</svg>
 					</div>
-					<span class="text-lg font-semibold text-text-primary">Artstore</span>
+					<span class="text-lg font-semibold text-text-primary">{ i18n.T(ctx, "app.name") }</span>
 				</a>
 			</div>
 
@@ -113,7 +115,7 @@ templ Sidebar(params SidebarParams) {
 
 			<!-- Версия (нижняя часть) -->
 			<div class="px-6 py-4 border-t border-border-subtle">
-				<p class="text-xs text-text-muted">Admin Module v0.2</p>
+				<p class="text-xs text-text-muted">{ i18n.T(ctx, "app.version") }</p>
 			</div>
 		</aside>
 	</div>
@@ -145,6 +147,6 @@ templ sidebarNavItem(item navItem, active bool) {
 		<svg class="w-5 h-5 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
 			<path stroke-linecap="round" stroke-linejoin="round" d={ item.Icon }></path>
 		</svg>
-		{ item.Label }
+		{ i18n.T(ctx, item.LabelKey) }
 	</a>
 }

@@ -19,6 +19,7 @@ import (
 	"github.com/bigkaa/goartstore/admin-module/internal/api/middleware"
 	"github.com/bigkaa/goartstore/admin-module/internal/config"
 	uihandlers "github.com/bigkaa/goartstore/admin-module/internal/ui/handlers"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/i18n"
 	uimiddleware "github.com/bigkaa/goartstore/admin-module/internal/ui/middleware"
 	"github.com/bigkaa/goartstore/admin-module/internal/ui/static"
 )
@@ -105,8 +106,12 @@ func registerUIRoutes(router chi.Router, ui *UIComponents, logger *slog.Logger) 
 	router.Get("/admin/callback", ui.AuthHandler.HandleCallback)
 	router.Post("/admin/logout", ui.AuthHandler.HandleLogout)
 
-	// Защищённые UI маршруты — с UI auth middleware
+	// Переключение языка (доступно без аутентификации — устанавливает cookie)
+	router.Post("/admin/set-language", uihandlers.HandleSetLanguage)
+
+	// Защищённые UI маршруты — с UI auth middleware и i18n
 	router.Route("/admin", func(r chi.Router) {
+		r.Use(i18n.Middleware())
 		r.Use(ui.AuthMiddleware.Middleware())
 
 		// Dashboard (главная страница Admin UI)

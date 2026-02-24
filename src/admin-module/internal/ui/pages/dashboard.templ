@@ -1,11 +1,13 @@
 package pages
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
 
 	"github.com/bigkaa/goartstore/admin-module/internal/ui/components"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/i18n"
 	"github.com/bigkaa/goartstore/admin-module/internal/ui/layouts"
 )
 
@@ -112,57 +114,61 @@ func filesChartJSON(items []SEItem) string {
 }
 
 // seSubValue формирует описание для stat_card SE.
-func seSubValue(data DashboardData) string {
+// Принимает context для i18n-перевода пустого состояния.
+func seSubValue(ctx context.Context, data DashboardData) string {
 	parts := ""
 	if data.SEOnline > 0 {
-		parts += fmt.Sprintf("%d online", data.SEOnline)
+		parts += i18n.Tf(ctx, "dashboard.sub.se_online", data.SEOnline)
 	}
 	if data.SEOffline > 0 {
 		if parts != "" {
 			parts += " / "
 		}
-		parts += fmt.Sprintf("%d offline", data.SEOffline)
+		parts += i18n.Tf(ctx, "dashboard.sub.se_offline", data.SEOffline)
 	}
 	if data.SEDegraded > 0 {
 		if parts != "" {
 			parts += " / "
 		}
-		parts += fmt.Sprintf("%d degraded", data.SEDegraded)
+		parts += i18n.Tf(ctx, "dashboard.sub.se_degraded", data.SEDegraded)
 	}
 	if data.SEMaintenance > 0 {
 		if parts != "" {
 			parts += " / "
 		}
-		parts += fmt.Sprintf("%d maintenance", data.SEMaintenance)
+		parts += i18n.Tf(ctx, "dashboard.sub.se_maintenance", data.SEMaintenance)
 	}
 	if parts == "" {
-		return "Нет зарегистрированных SE"
+		return i18n.T(ctx, "dashboard.sub.no_se")
 	}
 	return parts
 }
 
 // filesSubValue формирует описание для stat_card файлов.
-func filesSubValue(data DashboardData) string {
+// Принимает context для i18n-перевода пустого состояния.
+func filesSubValue(ctx context.Context, data DashboardData) string {
 	if data.FilesTotal == 0 {
-		return "Нет файлов в реестре"
+		return i18n.T(ctx, "dashboard.sub.no_files")
 	}
-	return fmt.Sprintf("%d permanent / %d temporary", data.FilesPermanent, data.FilesTemporary)
+	return i18n.Tf(ctx, "dashboard.sub.files_breakdown", data.FilesPermanent, data.FilesTemporary)
 }
 
 // saSubValue формирует описание для stat_card SA.
-func saSubValue(data DashboardData) string {
+// Принимает context для i18n-перевода пустого состояния.
+func saSubValue(ctx context.Context, data DashboardData) string {
 	if data.SATotal == 0 {
-		return "Нет Service Accounts"
+		return i18n.T(ctx, "dashboard.sub.no_sa")
 	}
-	return fmt.Sprintf("%d active / %d suspended", data.SAActive, data.SASuspended)
+	return i18n.Tf(ctx, "dashboard.sub.sa_breakdown", data.SAActive, data.SASuspended)
 }
 
 // storageSubValue формирует описание для stat_card хранилища.
-func storageSubValue(data DashboardData) string {
+// Принимает context для i18n-перевода.
+func storageSubValue(ctx context.Context, data DashboardData) string {
 	if data.StorageTotalBytes == 0 {
-		return "SE не зарегистрированы"
+		return i18n.T(ctx, "dashboard.sub.se_not_registered")
 	}
-	return fmt.Sprintf("%s из %s используется", formatBytesLocal(data.StorageUsedBytes), formatBytesLocal(data.StorageTotalBytes))
+	return i18n.Tf(ctx, "dashboard.sub.storage_usage", formatBytesLocal(data.StorageUsedBytes), formatBytesLocal(data.StorageTotalBytes))
 }
 
 // formatBytesLocal — локальное форматирование байтов (аналог из capacity_bar).
@@ -206,44 +212,44 @@ func storagePercent(used, total int64) string {
 // статусами зависимостей, списком SE и графиками.
 templ Dashboard(data DashboardData) {
 	@layouts.Page(layouts.PageParams{
-		Title:     "Dashboard",
+		Title:     i18n.T(ctx, "dashboard.title"),
 		Username:  data.Username,
 		Role:      data.Role,
 		ActiveNav: "dashboard",
 		Breadcrumbs: []layouts.BreadcrumbItem{
-			{Label: "Dashboard"},
+			{Label: i18n.T(ctx, "dashboard.title")},
 		},
 	}) {
 		<!-- Карточки метрик -->
 		<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
 			@components.StatCard(components.StatCardParams{
-				Label:       "Storage Elements",
+				Label:       i18n.T(ctx, "dashboard.stat.se"),
 				Value:       strconv.Itoa(data.SETotal),
-				SubValue:    seSubValue(data),
+				SubValue:    seSubValue(ctx, data),
 				Icon:        "M21.75 17.25v-.228a4.5 4.5 0 00-.12-1.03l-2.268-9.64a3.375 3.375 0 00-3.285-2.602H7.923a3.375 3.375 0 00-3.285 2.602l-2.268 9.64a4.5 4.5 0 00-.12 1.03v.228m19.5 0a3 3 0 01-3 3H5.25a3 3 0 01-3-3m19.5 0a3 3 0 00-3-3H5.25a3 3 0 00-3 3m16.5 0h.008v.008h-.008v-.008zm-3 0h.008v.008h-.008v-.008z",
 				BorderColor: "border-accent-primary",
 			})
 
 			@components.StatCard(components.StatCardParams{
-				Label:       "Файлы",
+				Label:       i18n.T(ctx, "dashboard.stat.files"),
 				Value:       strconv.Itoa(data.FilesTotal),
-				SubValue:    filesSubValue(data),
+				SubValue:    filesSubValue(ctx, data),
 				Icon:        "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z",
 				BorderColor: "border-status-info",
 			})
 
 			@components.StatCard(components.StatCardParams{
-				Label:       "Хранилище",
+				Label:       i18n.T(ctx, "dashboard.stat.storage"),
 				Value:       storagePercent(data.StorageUsedBytes, data.StorageTotalBytes) + "%",
-				SubValue:    storageSubValue(data),
+				SubValue:    storageSubValue(ctx, data),
 				Icon:        "M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125v-3.75",
 				BorderColor: "border-status-warning",
 			})
 
 			@components.StatCard(components.StatCardParams{
-				Label:       "Service Accounts",
+				Label:       i18n.T(ctx, "dashboard.stat.sa"),
 				Value:       strconv.Itoa(data.SATotal),
-				SubValue:    saSubValue(data),
+				SubValue:    saSubValue(ctx, data),
 				Icon:        "M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z",
 				BorderColor: "border-accent-lime",
 			})
@@ -252,11 +258,11 @@ templ Dashboard(data DashboardData) {
 		<!-- Общий capacity bar хранилища -->
 		if data.StorageTotalBytes > 0 {
 			<div class="card mb-6">
-				<h2 class="text-lg font-semibold text-text-primary mb-3">Общее хранилище</h2>
+				<h2 class="text-lg font-semibold text-text-primary mb-3">{ i18n.T(ctx, "dashboard.total_storage") }</h2>
 				@components.CapacityBar(components.CapacityBarParams{
 					Used:  data.StorageUsedBytes,
 					Total: data.StorageTotalBytes,
-					Label: "Все Storage Elements",
+					Label: i18n.T(ctx, "dashboard.all_se"),
 				})
 			</div>
 		}
@@ -269,8 +275,8 @@ templ Dashboard(data DashboardData) {
 			x-on:beforeunmount.window="disconnect()"
 		>
 			<h2 class="text-lg font-semibold text-text-primary mb-4">
-				Зависимости
-				<span x-show="connected" class="inline-block w-2 h-2 rounded-full bg-status-success ml-2" title="Live"></span>
+				{ i18n.T(ctx, "dashboard.dependencies") }
+				<span x-show="connected" class="inline-block w-2 h-2 rounded-full bg-status-success ml-2" title={ i18n.T(ctx, "dashboard.live") }></span>
 			</h2>
 			<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 				for _, dep := range data.Dependencies {
@@ -367,18 +373,18 @@ templ Dashboard(data DashboardData) {
 			<!-- Таблица SE -->
 			<div class="card mb-6">
 				<div class="flex items-center justify-between mb-4">
-					<h2 class="text-lg font-semibold text-text-primary">Storage Elements</h2>
-					<span class="text-sm text-text-muted">{ strconv.Itoa(len(data.StorageElements)) } зарегистрировано</span>
+					<h2 class="text-lg font-semibold text-text-primary">{ i18n.T(ctx, "dashboard.se_table.title") }</h2>
+					<span class="text-sm text-text-muted">{ i18n.Tf(ctx, "dashboard.se_table.registered", len(data.StorageElements)) }</span>
 				</div>
 				<div class="overflow-x-auto">
 					<table class="w-full text-sm">
 						<thead>
 							<tr class="border-b border-border-primary text-left">
-								<th class="pb-3 pr-4 text-text-muted font-medium">Имя</th>
-								<th class="pb-3 pr-4 text-text-muted font-medium">Режим</th>
-								<th class="pb-3 pr-4 text-text-muted font-medium">Статус</th>
-								<th class="pb-3 pr-4 text-text-muted font-medium min-w-[160px]">Ёмкость</th>
-								<th class="pb-3 pr-4 text-text-muted font-medium text-right">Файлов</th>
+								<th class="pb-3 pr-4 text-text-muted font-medium">{ i18n.T(ctx, "dashboard.se_table.name") }</th>
+								<th class="pb-3 pr-4 text-text-muted font-medium">{ i18n.T(ctx, "dashboard.se_table.mode") }</th>
+								<th class="pb-3 pr-4 text-text-muted font-medium">{ i18n.T(ctx, "dashboard.se_table.status") }</th>
+								<th class="pb-3 pr-4 text-text-muted font-medium min-w-[160px]">{ i18n.T(ctx, "dashboard.se_table.capacity") }</th>
+								<th class="pb-3 pr-4 text-text-muted font-medium text-right">{ i18n.T(ctx, "dashboard.se_table.files") }</th>
 								<th class="pb-3 text-text-muted font-medium"></th>
 							</tr>
 						</thead>
@@ -409,7 +415,7 @@ templ Dashboard(data DashboardData) {
 											href={ templ.SafeURL(fmt.Sprintf("/admin/storage-elements/%s", se.ID)) }
 											class="text-accent-primary hover:text-accent-hover text-xs"
 										>
-											Подробнее →
+											{ i18n.T(ctx, "btn.details") }
 										</a>
 									</td>
 								</tr>
@@ -423,10 +429,10 @@ templ Dashboard(data DashboardData) {
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
 				<!-- График: использование хранилища по SE (horizontal bar chart) -->
 				<div class="card">
-					<h2 class="text-lg font-semibold text-text-primary mb-4">Использование хранилища</h2>
+					<h2 class="text-lg font-semibold text-text-primary mb-4">{ i18n.T(ctx, "dashboard.chart.storage_usage") }</h2>
 					<div
 						id="storage-chart"
-						x-data={ fmt.Sprintf("{ chartData: %s }", storageChartJSON(data.StorageElements)) }
+						x-data={ fmt.Sprintf("{ chartData: %s, labels: { used: '%s', free: '%s' } }", storageChartJSON(data.StorageElements), i18n.T(ctx, "dashboard.chart.used_gb"), i18n.T(ctx, "dashboard.chart.free_gb")) }
 						x-init="
 							if (chartData.names.length > 0) {
 								new ApexCharts(document.querySelector('#storage-chart-container'), {
@@ -445,8 +451,8 @@ templ Dashboard(data DashboardData) {
 										},
 									},
 									series: [
-										{ name: 'Используется (GB)', data: chartData.used },
-										{ name: 'Свободно (GB)', data: chartData.total.map((t, i) => Math.max(0, +(t - chartData.used[i]).toFixed(2))) },
+										{ name: labels.used, data: chartData.used },
+										{ name: labels.free, data: chartData.total.map((t, i) => Math.max(0, +(t - chartData.used[i]).toFixed(2))) },
 									],
 									colors: ['#22c55e', '#374151'],
 									xaxis: {
@@ -488,10 +494,10 @@ templ Dashboard(data DashboardData) {
 
 				<!-- График: распределение файлов по SE (donut chart) -->
 				<div class="card">
-					<h2 class="text-lg font-semibold text-text-primary mb-4">Распределение файлов</h2>
+					<h2 class="text-lg font-semibold text-text-primary mb-4">{ i18n.T(ctx, "dashboard.chart.file_distribution") }</h2>
 					<div
 						id="files-chart"
-						x-data={ fmt.Sprintf("{ chartData: %s }", filesChartJSON(data.StorageElements)) }
+						x-data={ fmt.Sprintf("{ chartData: %s, labels: { files: '%s', total: '%s', noFiles: '%s' } }", filesChartJSON(data.StorageElements), i18n.T(ctx, "dashboard.chart.files_label"), i18n.T(ctx, "dashboard.chart.total_label"), i18n.T(ctx, "dashboard.chart.no_files")) }
 						x-init="
 							if (chartData.names.length > 0) {
 								new ApexCharts(document.querySelector('#files-chart-container'), {
@@ -517,13 +523,13 @@ templ Dashboard(data DashboardData) {
 													name: { color: '#d1d5db' },
 													value: {
 														color: '#f3f4f6',
-														formatter: (v) => v + ' файлов',
+														formatter: (v) => v + ' ' + labels.files,
 													},
 													total: {
 														show: true,
 														color: '#9ca3af',
-														label: 'Всего',
-														formatter: (w) => w.globals.seriesTotals.reduce((a, b) => a + b, 0) + ' файлов',
+														label: labels.total,
+														formatter: (w) => w.globals.seriesTotals.reduce((a, b) => a + b, 0) + ' ' + labels.files,
 													},
 												},
 											},
@@ -533,14 +539,14 @@ templ Dashboard(data DashboardData) {
 									stroke: { width: 2, colors: ['#1a1a2e'] },
 									tooltip: {
 										theme: 'dark',
-										y: { formatter: (v) => v + ' файлов' },
+										y: { formatter: (v) => v + ' ' + labels.files },
 									},
 									states: {
 										hover: { filter: { type: 'lighten', value: 0.1 } },
 									},
 								}).render();
 							} else {
-								$el.querySelector('#files-chart-container').innerHTML = '<p class=\'text-sm text-text-muted text-center py-8\'>Нет файлов для отображения</p>';
+								$el.querySelector('#files-chart-container').innerHTML = '<p class=\'text-sm text-text-muted text-center py-8\'>' + labels.noFiles + '</p>';
 							}
 						"
 					>
@@ -554,8 +560,8 @@ templ Dashboard(data DashboardData) {
 				<svg class="w-12 h-12 text-text-muted mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
 					<path stroke-linecap="round" stroke-linejoin="round" d="M21.75 17.25v-.228a4.5 4.5 0 00-.12-1.03l-2.268-9.64a3.375 3.375 0 00-3.285-2.602H7.923a3.375 3.375 0 00-3.285 2.602l-2.268 9.64a4.5 4.5 0 00-.12 1.03v.228m19.5 0a3 3 0 01-3 3H5.25a3 3 0 01-3-3m19.5 0a3 3 0 00-3-3H5.25a3 3 0 00-3 3m16.5 0h.008v.008h-.008v-.008zm-3 0h.008v.008h-.008v-.008z"></path>
 				</svg>
-				<p class="text-text-secondary font-medium mb-1">Нет зарегистрированных Storage Elements</p>
-				<p class="text-sm text-text-muted">Зарегистрируйте SE через раздел «Storage Elements» в меню навигации</p>
+				<p class="text-text-secondary font-medium mb-1">{ i18n.T(ctx, "dashboard.empty.no_se") }</p>
+				<p class="text-sm text-text-muted">{ i18n.T(ctx, "dashboard.empty.no_se_hint") }</p>
 			</div>
 		}
 	}

@@ -2,11 +2,11 @@ package pages
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/bigkaa/goartstore/admin-module/internal/ui/components"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/i18n"
 	"github.com/bigkaa/goartstore/admin-module/internal/ui/layouts"
 )
 
@@ -164,21 +164,21 @@ func FileStatusVariantFn(status string) components.BadgeVariant {
 // FileList — страница списка файлов с фильтрами, поиском, сортировкой и пагинацией.
 templ FileList(data FileListData) {
 	@layouts.Page(layouts.PageParams{
-		Title:     "Файлы",
+		Title:     i18n.T(ctx, "nav.files"),
 		Username:  data.Username,
 		Role:      data.Role,
 		ActiveNav: "files",
 		Breadcrumbs: []layouts.BreadcrumbItem{
-			{Label: "Файлы"},
+			{Label: i18n.T(ctx, "nav.files")},
 		},
 	}) {
 		<!-- Заголовок -->
 		<div class="flex flex-wrap items-center justify-between gap-4 mb-6">
 			<div>
-				<h1 class="text-2xl font-bold text-text-primary">Файловый реестр</h1>
+				<h1 class="text-2xl font-bold text-text-primary">{ i18n.T(ctx, "files.title") }</h1>
 				<p class="text-sm text-text-muted mt-1">
-					Управление зарегистрированными файлами
-					<span class="text-text-secondary">({ strconv.Itoa(data.TotalItems) } всего)</span>
+					{ i18n.T(ctx, "files.subtitle") }
+					<span class="text-text-secondary">({ i18n.Tf(ctx, "files.total", data.TotalItems) })</span>
 				</p>
 			</div>
 		</div>
@@ -194,7 +194,7 @@ templ FileList(data FileListData) {
 			>
 				<!-- Фильтр по статусу -->
 				<div class="flex-shrink-0">
-					<label class="block text-xs font-medium text-text-muted mb-1">Статус</label>
+					<label class="block text-xs font-medium text-text-muted mb-1">{ i18n.T(ctx, "files.filter.status") }</label>
 					<select
 						name="status"
 						class="bg-bg-elevated text-text-primary text-sm rounded-button border border-border-default px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary"
@@ -203,16 +203,16 @@ templ FileList(data FileListData) {
 						hx-swap="innerHTML"
 						hx-include="closest .flex"
 					>
-						<option value="" selected?={ data.Filters.Status == "" }>Все статусы</option>
-						<option value="active" selected?={ data.Filters.Status == "active" }>Active</option>
-						<option value="deleted" selected?={ data.Filters.Status == "deleted" }>Deleted</option>
-						<option value="expired" selected?={ data.Filters.Status == "expired" }>Expired</option>
+						<option value="" selected?={ data.Filters.Status == "" }>{ i18n.T(ctx, "files.filter.all_statuses") }</option>
+						<option value="active" selected?={ data.Filters.Status == "active" }>{ i18n.T(ctx, "files.filter.active") }</option>
+						<option value="deleted" selected?={ data.Filters.Status == "deleted" }>{ i18n.T(ctx, "files.filter.deleted") }</option>
+						<option value="expired" selected?={ data.Filters.Status == "expired" }>{ i18n.T(ctx, "files.filter.expired") }</option>
 					</select>
 				</div>
 
 				<!-- Фильтр по retention -->
 				<div class="flex-shrink-0">
-					<label class="block text-xs font-medium text-text-muted mb-1">Тип хранения</label>
+					<label class="block text-xs font-medium text-text-muted mb-1">{ i18n.T(ctx, "files.filter.retention") }</label>
 					<select
 						name="retention"
 						class="bg-bg-elevated text-text-primary text-sm rounded-button border border-border-default px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary"
@@ -221,15 +221,15 @@ templ FileList(data FileListData) {
 						hx-swap="innerHTML"
 						hx-include="closest .flex"
 					>
-						<option value="" selected?={ data.Filters.Retention == "" }>Все типы</option>
-						<option value="permanent" selected?={ data.Filters.Retention == "permanent" }>Permanent</option>
-						<option value="temporary" selected?={ data.Filters.Retention == "temporary" }>Temporary</option>
+						<option value="" selected?={ data.Filters.Retention == "" }>{ i18n.T(ctx, "files.filter.all_types") }</option>
+						<option value="permanent" selected?={ data.Filters.Retention == "permanent" }>{ i18n.T(ctx, "files.filter.permanent") }</option>
+						<option value="temporary" selected?={ data.Filters.Retention == "temporary" }>{ i18n.T(ctx, "files.filter.temporary") }</option>
 					</select>
 				</div>
 
 				<!-- Фильтр по SE -->
 				<div class="flex-shrink-0">
-					<label class="block text-xs font-medium text-text-muted mb-1">Storage Element</label>
+					<label class="block text-xs font-medium text-text-muted mb-1">{ i18n.T(ctx, "files.filter.se") }</label>
 					<select
 						name="se"
 						class="bg-bg-elevated text-text-primary text-sm rounded-button border border-border-default px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary"
@@ -238,7 +238,7 @@ templ FileList(data FileListData) {
 						hx-swap="innerHTML"
 						hx-include="closest .flex"
 					>
-						<option value="" selected?={ data.Filters.SEID == "" }>Все SE</option>
+						<option value="" selected?={ data.Filters.SEID == "" }>{ i18n.T(ctx, "files.filter.all_se") }</option>
 						for _, se := range data.SEList {
 							<option value={ se.ID } selected?={ data.Filters.SEID == se.ID }>{ se.Name }</option>
 						}
@@ -247,7 +247,7 @@ templ FileList(data FileListData) {
 
 				<!-- Фильтр по content_type -->
 				<div class="flex-shrink-0">
-					<label class="block text-xs font-medium text-text-muted mb-1">Тип контента</label>
+					<label class="block text-xs font-medium text-text-muted mb-1">{ i18n.T(ctx, "files.filter.content_type") }</label>
 					<select
 						name="content_type"
 						class="bg-bg-elevated text-text-primary text-sm rounded-button border border-border-default px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary"
@@ -256,23 +256,23 @@ templ FileList(data FileListData) {
 						hx-swap="innerHTML"
 						hx-include="closest .flex"
 					>
-						<option value="" selected?={ data.Filters.ContentType == "" }>Все типы</option>
-						<option value="image" selected?={ data.Filters.ContentType == "image" }>Изображения</option>
-						<option value="video" selected?={ data.Filters.ContentType == "video" }>Видео</option>
-						<option value="audio" selected?={ data.Filters.ContentType == "audio" }>Аудио</option>
-						<option value="application" selected?={ data.Filters.ContentType == "application" }>Документы</option>
-						<option value="text" selected?={ data.Filters.ContentType == "text" }>Текст</option>
+						<option value="" selected?={ data.Filters.ContentType == "" }>{ i18n.T(ctx, "files.filter.all_content_types") }</option>
+						<option value="image" selected?={ data.Filters.ContentType == "image" }>{ i18n.T(ctx, "files.filter.images") }</option>
+						<option value="video" selected?={ data.Filters.ContentType == "video" }>{ i18n.T(ctx, "files.filter.video") }</option>
+						<option value="audio" selected?={ data.Filters.ContentType == "audio" }>{ i18n.T(ctx, "files.filter.audio") }</option>
+						<option value="application" selected?={ data.Filters.ContentType == "application" }>{ i18n.T(ctx, "files.filter.documents") }</option>
+						<option value="text" selected?={ data.Filters.ContentType == "text" }>{ i18n.T(ctx, "files.filter.text") }</option>
 					</select>
 				</div>
 
 				<!-- Поиск по имени -->
 				<div class="flex-1 min-w-[200px]">
-					<label class="block text-xs font-medium text-text-muted mb-1">Поиск</label>
+					<label class="block text-xs font-medium text-text-muted mb-1">{ i18n.T(ctx, "table.search") }</label>
 					<input
 						type="text"
 						name="q"
 						value={ data.Filters.Search }
-						placeholder="Поиск по имени файла..."
+						placeholder={ i18n.T(ctx, "files.filter.search") }
 						class="w-full bg-bg-elevated text-text-primary text-sm rounded-button border border-border-default px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary placeholder:text-text-muted"
 						hx-get="/admin/partials/file-table"
 						hx-target="#file-table-container"
@@ -303,7 +303,7 @@ templ FileList(data FileListData) {
 								x-bind:class="showDeleted ? 'translate-x-4' : 'translate-x-0'"
 							></span>
 						</button>
-						<span class="text-xs text-text-muted">Удалённые</span>
+						<span class="text-xs text-text-muted">{ i18n.T(ctx, "files.filter.show_deleted") }</span>
 					</div>
 				}
 			</div>
@@ -324,19 +324,19 @@ templ fileTableContent(data FileListData) {
 				<thead class="text-xs text-text-secondary uppercase bg-bg-surface border-b border-border-subtle">
 					<tr>
 						<th class="px-4 py-3 font-medium">
-							@fileColSort("name", "Имя файла", data.SortKey, data.SortDir)
+							@fileColSort("name", i18n.T(ctx, "files.table.name"), data.SortKey, data.SortDir)
 						</th>
 						<th class="px-4 py-3 font-medium">
-							@fileColSort("size", "Размер", data.SortKey, data.SortDir)
+							@fileColSort("size", i18n.T(ctx, "files.table.size"), data.SortKey, data.SortDir)
 						</th>
-						<th class="px-4 py-3 font-medium">Тип</th>
-						<th class="px-4 py-3 font-medium">Storage Element</th>
-						<th class="px-4 py-3 font-medium">Загрузил</th>
+						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "files.table.type") }</th>
+						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "files.table.se") }</th>
+						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "files.table.uploaded_by") }</th>
 						<th class="px-4 py-3 font-medium">
-							@fileColSort("uploaded_at", "Дата загрузки", data.SortKey, data.SortDir)
+							@fileColSort("uploaded_at", i18n.T(ctx, "files.table.upload_date"), data.SortKey, data.SortDir)
 						</th>
-						<th class="px-4 py-3 font-medium">Статус</th>
-						<th class="px-4 py-3 font-medium text-right">Действия</th>
+						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "files.table.status") }</th>
+						<th class="px-4 py-3 font-medium text-right">{ i18n.T(ctx, "files.table.actions") }</th>
 					</tr>
 				</thead>
 				<tbody class="divide-y divide-border-subtle">
@@ -346,7 +346,7 @@ templ fileTableContent(data FileListData) {
 								colspan="8"
 								class="px-4 py-8 text-center text-text-muted"
 							>
-								Нет файлов для отображения
+								{ i18n.T(ctx, "files.table.empty") }
 							</td>
 						</tr>
 					}
@@ -399,7 +399,7 @@ templ fileTableContent(data FileListData) {
 									<!-- Детали -->
 									<button
 										class="p-1.5 text-text-muted hover:text-accent-primary transition-colors rounded-button hover:bg-bg-hover"
-										title="Подробнее"
+										title={ i18n.T(ctx, "files.action.details") }
 										hx-get={ fmt.Sprintf("/admin/partials/file-detail/%s", f.ID) }
 										hx-target="#file-action-result"
 										hx-swap="innerHTML"
@@ -413,7 +413,7 @@ templ fileTableContent(data FileListData) {
 										<!-- Редактировать -->
 										<button
 											class="p-1.5 text-text-muted hover:text-status-info transition-colors rounded-button hover:bg-bg-hover"
-											title="Редактировать"
+											title={ i18n.T(ctx, "files.action.edit") }
 											hx-get={ fmt.Sprintf("/admin/partials/file-edit-form/%s", f.ID) }
 											hx-target="#file-action-result"
 											hx-swap="innerHTML"
@@ -425,11 +425,11 @@ templ fileTableContent(data FileListData) {
 										<!-- Удалить -->
 										<button
 											class="p-1.5 text-text-muted hover:text-status-error transition-colors rounded-button hover:bg-bg-hover"
-											title="Удалить"
+											title={ i18n.T(ctx, "files.action.delete") }
 											hx-delete={ fmt.Sprintf("/admin/partials/file-delete/%s", f.ID) }
 											hx-target="#file-action-result"
 											hx-swap="innerHTML"
-											hx-confirm="Вы уверены, что хотите удалить файл? Это действие пометит файл как удалённый."
+											hx-confirm={ i18n.T(ctx, "files.confirm_delete") }
 										>
 											<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
 												<path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"></path>

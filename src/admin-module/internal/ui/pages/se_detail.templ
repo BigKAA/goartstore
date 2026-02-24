@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/bigkaa/goartstore/admin-module/internal/ui/components"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/i18n"
 	"github.com/bigkaa/goartstore/admin-module/internal/ui/layouts"
 )
 
@@ -113,7 +114,7 @@ templ SEDetail(data SEDetailData) {
 						<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M2.985 19.644l3.181-3.183"></path>
 						</svg>
-						Синхронизировать
+						{ i18n.T(ctx, "btn.sync") }
 					</button>
 					<!-- Edit -->
 					<button
@@ -125,12 +126,12 @@ templ SEDetail(data SEDetailData) {
 						<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"></path>
 						</svg>
-						Редактировать
+						{ i18n.T(ctx, "btn.edit") }
 					</button>
 				}
 				<!-- Back -->
 				@components.LinkButton("/admin/storage-elements", components.ButtonParams{
-					Label:   "← Назад к списку",
+					Label:   i18n.T(ctx, "btn.back_to_list"),
 					Variant: components.ButtonGhost,
 					Size:    components.ButtonSizeMD,
 				})
@@ -144,27 +145,27 @@ templ SEDetail(data SEDetailData) {
 		<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
 			<!-- Хранилище -->
 			<div class="card col-span-1">
-				<h2 class="text-lg font-semibold text-text-primary mb-4">Хранилище</h2>
+				<h2 class="text-lg font-semibold text-text-primary mb-4">{ i18n.T(ctx, "se_detail.storage") }</h2>
 				@components.CapacityBar(components.CapacityBarParams{
 					Used:  data.UsedBytes,
 					Total: data.CapacityBytes,
-					Label: "Использование",
+					Label: i18n.T(ctx, "se_detail.usage"),
 				})
 				<div class="mt-4 grid grid-cols-2 gap-3 text-sm">
 					<div class="bg-bg-elevated rounded-lg p-3">
-						<p class="text-text-muted text-xs">Общая ёмкость</p>
+						<p class="text-text-muted text-xs">{ i18n.T(ctx, "se_detail.total_capacity") }</p>
 						<p class="text-text-primary font-medium">{ formatBytesLocal(data.CapacityBytes) }</p>
 					</div>
 					<div class="bg-bg-elevated rounded-lg p-3">
-						<p class="text-text-muted text-xs">Использовано</p>
+						<p class="text-text-muted text-xs">{ i18n.T(ctx, "se_detail.used") }</p>
 						<p class="text-text-primary font-medium">{ formatBytesLocal(data.UsedBytes) }</p>
 					</div>
 					<div class="bg-bg-elevated rounded-lg p-3">
-						<p class="text-text-muted text-xs">Доступно</p>
+						<p class="text-text-muted text-xs">{ i18n.T(ctx, "se_detail.available") }</p>
 						<p class="text-text-primary font-medium">{ seDetailFmtAvailable(data.AvailableBytes) }</p>
 					</div>
 					<div class="bg-bg-elevated rounded-lg p-3">
-						<p class="text-text-muted text-xs">Файлов</p>
+						<p class="text-text-muted text-xs">{ i18n.T(ctx, "se_detail.file_count") }</p>
 						<p class="text-text-primary font-medium">{ strconv.Itoa(data.FileCount) }</p>
 					</div>
 				</div>
@@ -172,46 +173,46 @@ templ SEDetail(data SEDetailData) {
 
 			<!-- Детали -->
 			<div class="card col-span-2">
-				<h2 class="text-lg font-semibold text-text-primary mb-4">Свойства</h2>
+				<h2 class="text-lg font-semibold text-text-primary mb-4">{ i18n.T(ctx, "se_detail.properties") }</h2>
 				<div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
 					<div>
-						<p class="text-text-muted text-xs uppercase tracking-wide mb-1">ID</p>
+						<p class="text-text-muted text-xs uppercase tracking-wide mb-1">{ i18n.T(ctx, "se_detail.id") }</p>
 						<p class="text-text-primary font-mono text-xs">{ data.ID }</p>
 					</div>
 					<div>
-						<p class="text-text-muted text-xs uppercase tracking-wide mb-1">Storage ID</p>
+						<p class="text-text-muted text-xs uppercase tracking-wide mb-1">{ i18n.T(ctx, "se_detail.storage_id") }</p>
 						<p class="text-text-primary font-mono text-xs">{ data.StorageID }</p>
 					</div>
 					<div>
-						<p class="text-text-muted text-xs uppercase tracking-wide mb-1">URL</p>
+						<p class="text-text-muted text-xs uppercase tracking-wide mb-1">{ i18n.T(ctx, "se_detail.url") }</p>
 						<p class="text-text-primary font-mono text-xs break-all">{ data.URL }</p>
 					</div>
 					<div>
-						<p class="text-text-muted text-xs uppercase tracking-wide mb-1">Режим</p>
+						<p class="text-text-muted text-xs uppercase tracking-wide mb-1">{ i18n.T(ctx, "se_detail.mode") }</p>
 						<div class="mt-0.5">
 							@components.ModeBadge(data.Mode)
 						</div>
 					</div>
 					<div>
-						<p class="text-text-muted text-xs uppercase tracking-wide mb-1">Статус</p>
+						<p class="text-text-muted text-xs uppercase tracking-wide mb-1">{ i18n.T(ctx, "se_detail.status") }</p>
 						<div class="mt-0.5">
 							@components.StatusBadge(data.Status)
 						</div>
 					</div>
 					<div>
-						<p class="text-text-muted text-xs uppercase tracking-wide mb-1">Создан</p>
+						<p class="text-text-muted text-xs uppercase tracking-wide mb-1">{ i18n.T(ctx, "se_detail.created") }</p>
 						<p class="text-text-secondary">{ seDetailFmtTime(data.CreatedAt) }</p>
 					</div>
 					<div>
-						<p class="text-text-muted text-xs uppercase tracking-wide mb-1">Обновлён</p>
+						<p class="text-text-muted text-xs uppercase tracking-wide mb-1">{ i18n.T(ctx, "se_detail.updated") }</p>
 						<p class="text-text-secondary">{ seDetailFmtTime(data.UpdatedAt) }</p>
 					</div>
 					<div>
-						<p class="text-text-muted text-xs uppercase tracking-wide mb-1">Последняя синхр. info</p>
+						<p class="text-text-muted text-xs uppercase tracking-wide mb-1">{ i18n.T(ctx, "se_detail.last_sync_info") }</p>
 						<p class="text-text-secondary">{ seDetailFmtTimePtr(data.LastSyncAt) }</p>
 					</div>
 					<div>
-						<p class="text-text-muted text-xs uppercase tracking-wide mb-1">Последняя синхр. файлов</p>
+						<p class="text-text-muted text-xs uppercase tracking-wide mb-1">{ i18n.T(ctx, "se_detail.last_file_sync") }</p>
 						<p class="text-text-secondary">{ seDetailFmtTimePtr(data.LastFileSyncAt) }</p>
 					</div>
 				</div>
@@ -222,7 +223,7 @@ templ SEDetail(data SEDetailData) {
 		<div class="card">
 			<div class="flex items-center justify-between mb-4">
 				<h2 class="text-lg font-semibold text-text-primary">
-					Файлы
+					{ i18n.T(ctx, "se_detail.files") }
 					<span class="text-sm text-text-muted font-normal ml-2">({ strconv.Itoa(data.FileCount) })</span>
 				</h2>
 			</div>
@@ -239,19 +240,19 @@ templ seDetailFilesTable(data SEDetailData) {
 		<table class="w-full text-sm text-left">
 			<thead class="text-xs text-text-secondary uppercase bg-bg-surface border-b border-border-subtle">
 				<tr>
-					<th class="px-4 py-3 font-medium">Имя файла</th>
-					<th class="px-4 py-3 font-medium">Тип</th>
-					<th class="px-4 py-3 font-medium text-right">Размер</th>
-					<th class="px-4 py-3 font-medium">Загружен</th>
-					<th class="px-4 py-3 font-medium">Кем</th>
-					<th class="px-4 py-3 font-medium">Статус</th>
+					<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "se_detail.file_table.name") }</th>
+					<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "se_detail.file_table.type") }</th>
+					<th class="px-4 py-3 font-medium text-right">{ i18n.T(ctx, "se_detail.file_table.size") }</th>
+					<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "se_detail.file_table.uploaded") }</th>
+					<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "se_detail.file_table.by") }</th>
+					<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "se_detail.file_table.status") }</th>
 				</tr>
 			</thead>
 			<tbody class="divide-y divide-border-subtle">
 				if len(data.Files) == 0 {
 					<tr>
 						<td colspan="6" class="px-4 py-8 text-center text-text-muted">
-							Нет файлов на этом SE
+							{ i18n.T(ctx, "se_detail.file_table.empty") }
 						</td>
 					</tr>
 				}

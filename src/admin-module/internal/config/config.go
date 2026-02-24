@@ -96,6 +96,10 @@ type Config struct {
 	UISessionSecret string
 	// Client ID для OIDC-аутентификации Admin UI через Keycloak
 	UIOIDCClientID string
+	// Внешний URL Keycloak, доступный из браузера (для OAuth2 redirects).
+	// Если не задан — используется KeycloakURL.
+	// Пример: https://artstore.kryukov.lan (KC проксируется через Gateway)
+	UIKeycloakURL string
 
 	// --- Graceful shutdown ---
 
@@ -273,6 +277,10 @@ func Load() (*Config, error) {
 
 	// AM_UI_OIDC_CLIENT_ID — OIDC Client ID для UI (по умолчанию artstore-admin-ui)
 	cfg.UIOIDCClientID = getEnvDefault("AM_UI_OIDC_CLIENT_ID", "artstore-admin-ui")
+
+	// AM_UI_KEYCLOAK_URL — внешний URL Keycloak для browser redirects (fallback на AM_KEYCLOAK_URL)
+	cfg.UIKeycloakURL = getEnvDefault("AM_UI_KEYCLOAK_URL", cfg.KeycloakURL)
+	cfg.UIKeycloakURL = strings.TrimRight(cfg.UIKeycloakURL, "/")
 
 	// --- Graceful shutdown ---
 

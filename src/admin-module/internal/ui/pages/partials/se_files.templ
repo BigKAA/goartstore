@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/bigkaa/goartstore/admin-module/internal/ui/components"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/i18n"
 	"github.com/bigkaa/goartstore/admin-module/internal/ui/pages"
 )
 
@@ -24,19 +25,19 @@ templ SEFilesTable(data SEFilesData) {
 		<table class="w-full text-sm text-left">
 			<thead class="text-xs text-text-secondary uppercase bg-bg-surface border-b border-border-subtle">
 				<tr>
-					<th class="px-4 py-3 font-medium">Имя файла</th>
-					<th class="px-4 py-3 font-medium">Тип</th>
-					<th class="px-4 py-3 font-medium text-right">Размер</th>
-					<th class="px-4 py-3 font-medium">Загружен</th>
-					<th class="px-4 py-3 font-medium">Кем</th>
-					<th class="px-4 py-3 font-medium">Статус</th>
+					<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "se_detail.file_table.name") }</th>
+					<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "se_detail.file_table.type") }</th>
+					<th class="px-4 py-3 font-medium text-right">{ i18n.T(ctx, "se_detail.file_table.size") }</th>
+					<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "se_detail.file_table.uploaded") }</th>
+					<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "se_detail.file_table.by") }</th>
+					<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "se_detail.file_table.status") }</th>
 				</tr>
 			</thead>
 			<tbody class="divide-y divide-border-subtle">
 				if len(data.Files) == 0 {
 					<tr>
 						<td colspan="6" class="px-4 py-8 text-center text-text-muted">
-							Нет файлов на этом SE
+							{ i18n.T(ctx, "se_detail.file_table.empty") }
 						</td>
 					</tr>
 				}

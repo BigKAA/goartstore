@@ -13,6 +13,7 @@ import (
 
 	"github.com/bigkaa/goartstore/admin-module/internal/domain/model"
 	"github.com/bigkaa/goartstore/admin-module/internal/ui/components"
+	"github.com/bigkaa/goartstore/admin-module/internal/ui/i18n"
 )
 
 // SACreateSuccess — partial: результат создания SA с отображением client_id и secret.
@@ -44,40 +45,105 @@ func SACreateSuccess(clientID, clientSecret string) templ.Component {
 		}
 		templ_7745c5c3_Err = components.Alert(components.AlertParams{
 			Variant:     components.AlertSuccess,
-			Title:       "Service Account создан",
-			Message:     "Сохраните client_id и secret — secret показывается только один раз!",
+			Title:       i18n.T(ctx, "sa_secret.created.title"),
+			Message:     i18n.T(ctx, "sa_secret.created.message"),
 			Dismissible: false,
 		}).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"bg-bg-surface border border-border-subtle rounded-lg p-4 space-y-3\"><!-- Client ID --><div><label class=\"block text-xs text-text-muted mb-1\">Client ID</label><div class=\"flex items-center gap-2\"><code id=\"sa-created-client-id\" class=\"flex-1 bg-bg-elevated text-text-primary text-sm font-mono px-3 py-2 rounded border border-border-default select-all\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"bg-bg-surface border border-border-subtle rounded-lg p-4 space-y-3\"><!-- Client ID --><div><label class=\"block text-xs text-text-muted mb-1\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var2 string
-		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(clientID)
+		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, "sa_secret.client_id"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/partials/sa_secret.templ`, Line: 29, Col: 16}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/partials/sa_secret.templ`, Line: 24, Col: 90}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</code> <button class=\"inline-flex items-center px-3 py-2 text-sm font-medium text-text-secondary bg-bg-elevated rounded-button border border-border-default hover:bg-bg-hover transition-colors\" onclick=\"navigator.clipboard.writeText(document.getElementById('sa-created-client-id').textContent.trim()); this.textContent = 'Скопировано!'; setTimeout(() => this.textContent = 'Копировать', 2000);\">Копировать</button></div></div><!-- Client Secret --><div><label class=\"block text-xs text-text-muted mb-1\">Client Secret</label><div class=\"flex items-center gap-2\"><code id=\"sa-created-secret\" class=\"flex-1 bg-bg-elevated text-status-warning text-sm font-mono px-3 py-2 rounded border border-status-warning/30 select-all\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</label><div class=\"flex items-center gap-2\"><code id=\"sa-created-client-id\" class=\"flex-1 bg-bg-elevated text-text-primary text-sm font-mono px-3 py-2 rounded border border-border-default select-all\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var3 string
-		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(clientSecret)
+		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(clientID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/partials/sa_secret.templ`, Line: 47, Col: 20}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/partials/sa_secret.templ`, Line: 30, Col: 16}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</code> <button class=\"inline-flex items-center px-3 py-2 text-sm font-medium text-text-secondary bg-bg-elevated rounded-button border border-border-default hover:bg-bg-hover transition-colors\" onclick=\"navigator.clipboard.writeText(document.getElementById('sa-created-secret').textContent.trim()); this.textContent = 'Скопировано!'; setTimeout(() => this.textContent = 'Копировать', 2000);\">Копировать</button></div><p class=\"text-xs text-status-error mt-1\">Этот секрет больше не будет показан. Сохраните его сейчас!</p></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</code> <button class=\"inline-flex items-center px-3 py-2 text-sm font-medium text-text-secondary bg-bg-elevated rounded-button border border-border-default hover:bg-bg-hover transition-colors\" onclick=\"navigator.clipboard.writeText(document.getElementById('sa-created-client-id').textContent.trim()); this.textContent = 'Copied!'; setTimeout(() => this.textContent = 'Copy', 2000);\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var4 string
+		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, "btn.copy"))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/partials/sa_secret.templ`, Line: 36, Col: 31}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</button></div></div><!-- Client Secret --><div><label class=\"block text-xs text-text-muted mb-1\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var5 string
+		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, "sa_secret.client_secret"))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/partials/sa_secret.templ`, Line: 42, Col: 94}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</label><div class=\"flex items-center gap-2\"><code id=\"sa-created-secret\" class=\"flex-1 bg-bg-elevated text-status-warning text-sm font-mono px-3 py-2 rounded border border-status-warning/30 select-all\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var6 string
+		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(clientSecret)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/partials/sa_secret.templ`, Line: 48, Col: 20}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</code> <button class=\"inline-flex items-center px-3 py-2 text-sm font-medium text-text-secondary bg-bg-elevated rounded-button border border-border-default hover:bg-bg-hover transition-colors\" onclick=\"navigator.clipboard.writeText(document.getElementById('sa-created-secret').textContent.trim()); this.textContent = 'Copied!'; setTimeout(() => this.textContent = 'Copy', 2000);\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var7 string
+		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, "btn.copy"))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/partials/sa_secret.templ`, Line: 54, Col: 31}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</button></div><p class=\"text-xs text-status-error mt-1\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var8 string
+		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, "sa_secret.secret_warning"))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/partials/sa_secret.templ`, Line: 57, Col: 87}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</p></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -102,50 +168,128 @@ func SASecretDisplay(clientID, newSecret string) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var4 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var4 == nil {
-			templ_7745c5c3_Var4 = templ.NopComponent
+		templ_7745c5c3_Var9 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var9 == nil {
+			templ_7745c5c3_Var9 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<div class=\"card mb-4\"><div class=\"flex items-center justify-between mb-4\"><h3 class=\"text-lg font-semibold text-text-primary\">Новый секрет</h3><button class=\"text-text-muted hover:text-text-primary transition-colors\" onclick=\"document.getElementById('access-action-result').innerHTML = ''; window.location.reload();\"><svg class=\"w-5 h-5\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"2\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M6 18L18 6M6 6l12 12\"></path></svg></button></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<div class=\"card mb-4\"><div class=\"flex items-center justify-between mb-4\"><h3 class=\"text-lg font-semibold text-text-primary\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var10 string
+		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, "sa_secret.rotated.title"))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/partials/sa_secret.templ`, Line: 67, Col: 95}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</h3><button class=\"text-text-muted hover:text-text-primary transition-colors\" onclick=\"document.getElementById('access-action-result').innerHTML = ''; window.location.reload();\"><svg class=\"w-5 h-5\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"2\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M6 18L18 6M6 6l12 12\"></path></svg></button></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		templ_7745c5c3_Err = components.Alert(components.AlertParams{
 			Variant:     components.AlertWarning,
-			Message:     "Старый секрет аннулирован. Обновите конфигурацию сервисов, использующих этот SA.",
+			Message:     i18n.T(ctx, "sa_secret.rotated.message"),
 			Dismissible: false,
 		}).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<div class=\"mt-4 space-y-3\"><div><label class=\"block text-xs text-text-muted mb-1\">Client ID</label><div class=\"flex items-center gap-2\"><code id=\"sa-rotated-client-id\" class=\"flex-1 bg-bg-elevated text-text-primary text-sm font-mono px-3 py-2 rounded border border-border-default select-all\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<div class=\"mt-4 space-y-3\"><div><label class=\"block text-xs text-text-muted mb-1\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var5 string
-		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(clientID)
+		var templ_7745c5c3_Var11 string
+		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, "sa_secret.client_id"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/partials/sa_secret.templ`, Line: 91, Col: 16}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/partials/sa_secret.templ`, Line: 86, Col: 90}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</code> <button class=\"inline-flex items-center px-3 py-2 text-sm font-medium text-text-secondary bg-bg-elevated rounded-button border border-border-default hover:bg-bg-hover transition-colors\" onclick=\"navigator.clipboard.writeText(document.getElementById('sa-rotated-client-id').textContent.trim()); this.textContent = 'Скопировано!'; setTimeout(() => this.textContent = 'Копировать', 2000);\">Копировать</button></div></div><div><label class=\"block text-xs text-text-muted mb-1\">Новый Client Secret</label><div class=\"flex items-center gap-2\"><code id=\"sa-rotated-secret\" class=\"flex-1 bg-bg-elevated text-status-warning text-sm font-mono px-3 py-2 rounded border border-status-warning/30 select-all\">")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var6 string
-		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(newSecret)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/partials/sa_secret.templ`, Line: 108, Col: 17}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</label><div class=\"flex items-center gap-2\"><code id=\"sa-rotated-client-id\" class=\"flex-1 bg-bg-elevated text-text-primary text-sm font-mono px-3 py-2 rounded border border-border-default select-all\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</code> <button class=\"inline-flex items-center px-3 py-2 text-sm font-medium text-text-secondary bg-bg-elevated rounded-button border border-border-default hover:bg-bg-hover transition-colors\" onclick=\"navigator.clipboard.writeText(document.getElementById('sa-rotated-secret').textContent.trim()); this.textContent = 'Скопировано!'; setTimeout(() => this.textContent = 'Копировать', 2000);\">Копировать</button></div><p class=\"text-xs text-status-error mt-1\">Этот секрет больше не будет показан. Сохраните его сейчас!</p></div></div></div>")
+		var templ_7745c5c3_Var12 string
+		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(clientID)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/partials/sa_secret.templ`, Line: 92, Col: 16}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</code> <button class=\"inline-flex items-center px-3 py-2 text-sm font-medium text-text-secondary bg-bg-elevated rounded-button border border-border-default hover:bg-bg-hover transition-colors\" onclick=\"navigator.clipboard.writeText(document.getElementById('sa-rotated-client-id').textContent.trim()); this.textContent = 'Copied!'; setTimeout(() => this.textContent = 'Copy', 2000);\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var13 string
+		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, "btn.copy"))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/partials/sa_secret.templ`, Line: 98, Col: 31}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</button></div></div><div><label class=\"block text-xs text-text-muted mb-1\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var14 string
+		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, "sa_secret.new_client_secret"))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/partials/sa_secret.templ`, Line: 103, Col: 98}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</label><div class=\"flex items-center gap-2\"><code id=\"sa-rotated-secret\" class=\"flex-1 bg-bg-elevated text-status-warning text-sm font-mono px-3 py-2 rounded border border-status-warning/30 select-all\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var15 string
+		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(newSecret)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/partials/sa_secret.templ`, Line: 109, Col: 17}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</code> <button class=\"inline-flex items-center px-3 py-2 text-sm font-medium text-text-secondary bg-bg-elevated rounded-button border border-border-default hover:bg-bg-hover transition-colors\" onclick=\"navigator.clipboard.writeText(document.getElementById('sa-rotated-secret').textContent.trim()); this.textContent = 'Copied!'; setTimeout(() => this.textContent = 'Copy', 2000);\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var16 string
+		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, "btn.copy"))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/partials/sa_secret.templ`, Line: 115, Col: 31}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</button></div><p class=\"text-xs text-status-error mt-1\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var17 string
+		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, "sa_secret.secret_warning"))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/partials/sa_secret.templ`, Line: 118, Col: 87}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</p></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -170,21 +314,21 @@ func SASyncSuccess(result *model.SASyncResult) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var7 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var7 == nil {
-			templ_7745c5c3_Var7 = templ.NopComponent
+		templ_7745c5c3_Var18 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var18 == nil {
+			templ_7745c5c3_Var18 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = components.Alert(components.AlertParams{
 			Variant:     components.AlertSuccess,
-			Title:       "Синхронизация SA завершена",
-			Message:     fmt.Sprintf("Локальных: %d, в Keycloak: %d, создано локально: %d, создано в KC: %d, обновлено: %d", result.TotalLocal, result.TotalKeycloak, result.CreatedLocal, result.CreatedKeycloak, result.Updated),
+			Title:       i18n.T(ctx, "sa_secret.sync_done.title"),
+			Message:     fmt.Sprintf(i18n.T(ctx, "sa_secret.sync_done.message"), result.TotalLocal, result.TotalKeycloak, result.CreatedLocal, result.CreatedKeycloak, result.Updated),
 			Dismissible: true,
 		}).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<script>\n\t\tsetTimeout(function() { window.location.reload(); }, 2000);\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<script>\n\t\tsetTimeout(function() { window.location.reload(); }, 2000);\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -209,9 +353,9 @@ func AccessActionSuccess(msg string) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var8 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var8 == nil {
-			templ_7745c5c3_Var8 = templ.NopComponent
+		templ_7745c5c3_Var19 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var19 == nil {
+			templ_7745c5c3_Var19 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = components.Alert(components.AlertParams{
@@ -222,7 +366,7 @@ func AccessActionSuccess(msg string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<script>\n\t\tsetTimeout(function() { window.location.reload(); }, 1000);\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<script>\n\t\tsetTimeout(function() { window.location.reload(); }, 1000);\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -247,9 +391,9 @@ func AccessAlert(variant, msg string) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var9 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var9 == nil {
-			templ_7745c5c3_Var9 = templ.NopComponent
+		templ_7745c5c3_Var20 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var20 == nil {
+			templ_7745c5c3_Var20 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = components.Alert(components.AlertParams{
