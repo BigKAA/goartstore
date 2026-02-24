@@ -17,10 +17,10 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 2
-- **Активный подпункт**: 2.1
+- **Активная фаза**: Phase 3
+- **Активный подпункт**: 3.1
 - **Последнее обновление**: 2026-02-24
-- **Примечание**: Phase 1 завершена — Admin Module Go-код реализован и протестирован
+- **Примечание**: Phase 1+2 завершены — Go-код обоих модулей реализован и протестирован
 
 ---
 
@@ -52,7 +52,7 @@ env-переменную `DEPHEALTH_NAME` и первый аргумент `deph
 ## Оглавление
 
 - [x] [Phase 1: Admin Module — Go-код](#phase-1-admin-module--go-код)
-- [ ] [Phase 2: Storage Element — Go-код](#phase-2-storage-element--go-код)
+- [x] [Phase 2: Storage Element — Go-код](#phase-2-storage-element--go-код)
 - [ ] [Phase 3: Helm charts и сборка](#phase-3-helm-charts-и-сборка)
 - [ ] [Phase 4: Деплой и верификация](#phase-4-деплой-и-верификация)
 
@@ -121,7 +121,7 @@ env-переменную `DEPHEALTH_NAME` и первый аргумент `deph
 ## Phase 2: Storage Element — Go-код
 
 **Dependencies**: None (параллельно с Phase 1)
-**Status**: Pending
+**Status**: ✅ Done
 
 ### Описание
 
@@ -130,7 +130,7 @@ env-переменную `DEPHEALTH_NAME` и первый аргумент `deph
 
 ### Подпункты
 
-- [ ] **2.1 Добавить поле `DephealthName` в конфигурацию**
+- [x] **2.1 Добавить поле `DephealthName` в конфигурацию**
   - **Dependencies**: None
   - **Description**: В `internal/config/config.go`:
     - Добавить поле `DephealthName string` в struct `Config`
@@ -140,7 +140,7 @@ env-переменную `DEPHEALTH_NAME` и первый аргумент `deph
   - **Modifies**:
     - `src/storage-element/internal/config/config.go`
 
-- [ ] **2.2 Добавить функции резолва и обновить main.go**
+- [x] **2.2 Добавить функции резолва и обновить main.go**
   - **Dependencies**: 2.1
   - **Description**: В `cmd/storage-element/main.go`:
     - Добавить `"regexp"` в imports
@@ -155,7 +155,7 @@ env-переменную `DEPHEALTH_NAME` и первый аргумент `deph
   - **Modifies**:
     - `src/storage-element/cmd/storage-element/main.go`
 
-- [ ] **2.3 Unit-тест `parseOwnerName`**
+- [x] **2.3 Unit-тест `parseOwnerName`**
   - **Dependencies**: 2.2
   - **Description**: Создать `cmd/storage-element/dephealth_name_test.go`
     с аналогичными table-driven тестами (дубль из Phase 1.3)
@@ -164,9 +164,9 @@ env-переменную `DEPHEALTH_NAME` и первый аргумент `deph
 
 ### Критерии завершения Phase 2
 
-- [ ] Все подпункты завершены (2.1, 2.2, 2.3)
-- [ ] `go build ./...` проходит без ошибок в `src/storage-element/`
-- [ ] `go test ./...` проходит без ошибок в `src/storage-element/`
+- [x] Все подпункты завершены (2.1, 2.2, 2.3)
+- [x] `go build ./...` проходит без ошибок в `src/storage-element/`
+- [x] `go test ./...` проходит без ошибок в `src/storage-element/`
 
 ---
 

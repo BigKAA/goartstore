@@ -56,6 +56,8 @@ type Config struct {
 	DephealthGroup string
 	// Имя зависимости (целевого сервиса) в метриках topologymetrics (SE_DEPHEALTH_DEP_NAME)
 	DephealthDepName string
+	// Имя владельца пода для метки name в topologymetrics (DEPHEALTH_NAME)
+	DephealthName string
 
 	// Таймаут graceful shutdown HTTP-сервера.
 	// Должен быть меньше K8s terminationGracePeriodSeconds (по умолчанию 30s),
@@ -194,6 +196,9 @@ func Load() (*Config, error) {
 
 	// SE_DEPHEALTH_DEP_NAME — имя зависимости в метриках topologymetrics (по умолчанию "admin-jwks")
 	cfg.DephealthDepName = getEnvDefault("SE_DEPHEALTH_DEP_NAME", "admin-jwks")
+
+	// DEPHEALTH_NAME — имя владельца пода для метки name в topologymetrics (без префикса модуля)
+	cfg.DephealthName = getEnvDefault("DEPHEALTH_NAME", "")
 
 	// SE_SHUTDOWN_TIMEOUT — таймаут graceful shutdown HTTP-сервера (по умолчанию 5s).
 	// Должен быть меньше K8s terminationGracePeriodSeconds, чтобы оставить время
