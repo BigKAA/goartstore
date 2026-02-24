@@ -71,6 +71,8 @@ type Config struct {
 	DephealthCheckInterval time.Duration
 	// Имя группы в метриках topologymetrics (AM_DEPHEALTH_GROUP)
 	DephealthGroup string
+	// Имя владельца пода для метки name в topologymetrics (DEPHEALTH_NAME)
+	DephealthName string
 	// Интервал синхронизации файлового реестра с SE
 	SyncInterval time.Duration
 	// Размер страницы при постраничной синхронизации файлов
@@ -231,6 +233,9 @@ func Load() (*Config, error) {
 
 	// AM_DEPHEALTH_GROUP — имя группы в метриках topologymetrics (по умолчанию "admin-module")
 	cfg.DephealthGroup = getEnvDefault("AM_DEPHEALTH_GROUP", "admin-module")
+
+	// DEPHEALTH_NAME — имя владельца пода для метки name в topologymetrics (без префикса модуля)
+	cfg.DephealthName = getEnvDefault("DEPHEALTH_NAME", "")
 
 	// AM_SYNC_INTERVAL — интервал синхронизации файлового реестра (по умолчанию 1h)
 	cfg.SyncInterval, err = getEnvDuration("AM_SYNC_INTERVAL", time.Hour)

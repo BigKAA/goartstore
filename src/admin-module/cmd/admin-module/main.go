@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -221,9 +222,19 @@ func main() {
 	saSyncSvc.Start(ctx)
 
 	// 15.1 topologymetrics — мониторинг зависимостей (PostgreSQL + Keycloak)
+	//
+	// Определение имени владельца пода для метки name:
+	// 1. DEPHEALTH_NAME (env) → использовать как есть
+	// 2. Парсинг os.Hostname() → извлечь имя владельца (Deployment/StatefulSet)
+	// 3. Fallback → "admin-module"
+	dephealthName := cfg.DephealthName
+	if dephealthName == "" {
+		dephealthName = resolveOwnerFromHostname(logger, "admin-module")
+	}
+
 	var dephealthSvc *service.DephealthService
 	dephealthSvc, dephealthErr := service.NewDephealthService(
-		"admin-module",
+		dephealthName,
 		cfg.DephealthGroup,
 		pgDB,
 		cfg.DatabaseURL(),
@@ -242,6 +253,7 @@ func main() {
 			)
 		} else {
 			logger.Info("topologymetrics запущен",
+				slog.String("name", dephealthName),
 				slog.String("group", cfg.DephealthGroup),
 				slog.String("check_interval", cfg.DephealthCheckInterval.String()),
 			)
@@ -417,6 +429,49 @@ func (a *roleOverrideAdapter) GetRoleOverride(ctx context.Context, keycloakUserI
 		return nil, nil
 	}
 	return &ro.AdditionalRole, nil
+}
+
+// --- Вспомогательные функции для DEPHEALTH_NAME ---
+
+// reDeployment — паттерн имени пода Deployment: {name}-{rs-hash 8-10}-{pod-hash 4-5}
+var reDeployment = regexp.MustCompile(`^(.+)-[a-z0-9]{8,10}-[a-z0-9]{4,5}$`)
+
+// reStatefulSet — паттерн имени пода StatefulSet: {name}-{ordinal}
+var reStatefulSet = regexp.MustCompile(`^(.+)-(\d+)$`)
+
+// parseOwnerName извлекает имя владельца (Deployment/StatefulSet) из hostname пода.
+// Порядок проверки: Deployment → StatefulSet → hostname целиком (fallback).
+func parseOwnerName(hostname string) string {
+	// Deployment: {name}-{rs-hash}-{pod-hash}
+	if m := reDeployment.FindStringSubmatch(hostname); m != nil {
+		return m[1]
+	}
+	// StatefulSet: {name}-{ordinal}
+	if m := reStatefulSet.FindStringSubmatch(hostname); m != nil {
+		return m[1]
+	}
+	// Fallback — hostname целиком
+	return hostname
+}
+
+// resolveOwnerFromHostname определяет имя владельца пода из os.Hostname()
+// и логирует предупреждение о том, что DEPHEALTH_NAME не была задана.
+func resolveOwnerFromHostname(logger *slog.Logger, fallback string) string {
+	hostname, err := os.Hostname()
+	if err != nil {
+		logger.Warn("Не удалось получить hostname, используется fallback для DEPHEALTH_NAME",
+			slog.String("fallback", fallback),
+			slog.String("error", err.Error()),
+		)
+		return fallback
+	}
+
+	resolved := parseOwnerName(hostname)
+	logger.Warn("DEPHEALTH_NAME не задана, имя определено из hostname",
+		slog.String("hostname", hostname),
+		slog.String("resolved_name", resolved),
+	)
+	return resolved
 }
 
 // buildHTTPClientWithCA создаёт HTTP-клиент с кастомным CA-сертификатом.
