@@ -82,7 +82,7 @@ func main() {
 	// 5. HTTP-клиент с кастомным CA (для Keycloak и SE)
 	var httpClientCA *http.Client
 	if cfg.CACertPath != "" {
-		httpClientCA, err = buildHTTPClientWithCA(cfg.CACertPath)
+		httpClientCA, err = buildHTTPClientWithCA(cfg.CACertPath, cfg.HTTPClientTimeout)
 		if err != nil {
 			logger.Error("Ошибка загрузки CA-сертификата", slog.String("path", cfg.CACertPath), slog.String("error", err.Error()))
 			os.Exit(1)
@@ -97,6 +97,8 @@ func main() {
 		cfg.KeycloakClientID,
 		cfg.KeycloakClientSecret,
 		httpClientCA, // nil — стандартный пул CA
+		cfg.KeycloakTokenRefreshThreshold,
+		cfg.KeycloakReadinessTimeout,
 		logger,
 	)
 	logger.Info("Keycloak клиент создан",
@@ -105,7 +107,7 @@ func main() {
 	)
 
 	// 7. SE HTTP-клиент
-	seClient, err := seclient.New(cfg.CACertPath, kcClient.TokenProvider(), logger)
+	seClient, err := seclient.New(cfg.CACertPath, cfg.SEClientTimeout, kcClient.TokenProvider(), logger)
 	if err != nil {
 		logger.Error("Ошибка создания SE-клиента", slog.String("error", err.Error()))
 		os.Exit(1)
@@ -176,7 +178,7 @@ func main() {
 
 	// 12. Readiness checkers (PostgreSQL + Keycloak)
 	pgChecker := database.NewReadinessChecker(pool)
-	kcChecker, err := middleware.NewKeycloakReadinessChecker(cfg.JWTJWKSURL, cfg.CACertPath)
+	kcChecker, err := middleware.NewKeycloakReadinessChecker(cfg.JWTJWKSURL, cfg.CACertPath, cfg.KeycloakReadinessTimeout)
 	if err != nil {
 		logger.Error("Ошибка создания Keycloak readiness checker", slog.String("error", err.Error()))
 		os.Exit(1)
@@ -205,6 +207,9 @@ func main() {
 		roleProvider,
 		cfg.RoleAdminGroups,
 		cfg.RoleReadonlyGroups,
+		cfg.JWKSClientTimeout,
+		cfg.JWKSRefreshInterval,
+		cfg.JWTLeeway,
 		logger,
 	)
 	if err != nil {
@@ -240,6 +245,7 @@ func main() {
 		cfg.DatabaseURL(),
 		cfg.JWTJWKSURL,
 		cfg.DephealthCheckInterval,
+		cfg.TLSSkipVerify,
 		logger,
 	)
 	if dephealthErr != nil {
@@ -291,6 +297,7 @@ func main() {
 			Realm:              cfg.KeycloakRealm,
 			ClientID:           cfg.UIOIDCClientID,
 			HTTPClient:         httpClientCA,
+			Timeout:            cfg.OIDCClientTimeout,
 		})
 
 		// Auth handler — login/callback/logout
@@ -340,7 +347,7 @@ func main() {
 		uiSettingsSvc := service.NewUISettingsService(uiSettingsRepo, logger)
 
 		// Prometheus-клиент для UI (опциональные графики latency)
-		promClient := uiprometheus.New(uiSettingsSvc, logger)
+		promClient := uiprometheus.New(uiSettingsSvc, cfg.PrometheusClientTimeout, logger)
 
 		// Monitoring handler — страница мониторинга
 		monitoringHandler := uihandlers.NewMonitoringHandler(
@@ -364,6 +371,7 @@ func main() {
 		eventsHandler := uihandlers.NewEventsHandler(
 			storageElemsSvc,
 			dephealthSvc,
+			cfg.SSEInterval,
 			logger,
 		)
 
@@ -475,7 +483,8 @@ func resolveOwnerFromHostname(logger *slog.Logger, fallback string) string {
 }
 
 // buildHTTPClientWithCA создаёт HTTP-клиент с кастомным CA-сертификатом.
-func buildHTTPClientWithCA(caCertPath string) (*http.Client, error) {
+// timeout — таймаут HTTP-клиента (из конфигурации).
+func buildHTTPClientWithCA(caCertPath string, timeout time.Duration) (*http.Client, error) {
 	caCert, err := os.ReadFile(caCertPath)
 	if err != nil {
 		return nil, err
@@ -488,7 +497,7 @@ func buildHTTPClientWithCA(caCertPath string) (*http.Client, error) {
 	caCertPool.AppendCertsFromPEM(caCert)
 
 	return &http.Client{
-		Timeout: 30 * time.Second,
+		Timeout: timeout,
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				RootCAs: caCertPool,

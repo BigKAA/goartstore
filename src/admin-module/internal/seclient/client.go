@@ -72,9 +72,10 @@ type Client struct {
 
 // New создаёт SE-клиент.
 // caCertPath — путь к CA-сертификату для TLS (пустая строка — стандартный пул).
+// timeout — таймаут HTTP-запросов (из конфигурации AM_SE_CLIENT_TIMEOUT).
 // tokenProvider — функция для получения JWT (может быть nil для public endpoints).
-func New(caCertPath string, tokenProvider TokenProvider, logger *slog.Logger) (*Client, error) {
-	httpClient := &http.Client{Timeout: 30 * time.Second}
+func New(caCertPath string, timeout time.Duration, tokenProvider TokenProvider, logger *slog.Logger) (*Client, error) {
+	httpClient := &http.Client{Timeout: timeout}
 
 	if caCertPath != "" {
 		tlsConfig, err := buildTLSConfig(caCertPath)

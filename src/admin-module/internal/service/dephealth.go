@@ -48,6 +48,7 @@ type DephealthService struct {
 //   - pgConnURL — URL подключения к PostgreSQL (для метрик/лейблов, не для подключения)
 //   - keycloakJWKSURL — URL JWKS endpoint Keycloak
 //   - checkInterval — интервал проверки зависимостей (AM_DEPHEALTH_CHECK_INTERVAL)
+//   - tlsSkipVerify — пропускать проверку TLS-сертификатов (AM_TLS_SKIP_VERIFY)
 func NewDephealthService(
 	serviceID string,
 	group string,
@@ -55,9 +56,10 @@ func NewDephealthService(
 	pgConnURL string,
 	keycloakJWKSURL string,
 	checkInterval time.Duration,
+	tlsSkipVerify bool,
 	logger *slog.Logger,
 ) (*DephealthService, error) {
-	return newDephealthService(serviceID, group, db, pgConnURL, keycloakJWKSURL, checkInterval, logger)
+	return newDephealthService(serviceID, group, db, pgConnURL, keycloakJWKSURL, checkInterval, tlsSkipVerify, logger)
 }
 
 // NewDephealthServiceWithRegisterer создаёт сервис с указанным Prometheus registerer.
@@ -69,11 +71,12 @@ func NewDephealthServiceWithRegisterer(
 	pgConnURL string,
 	keycloakJWKSURL string,
 	checkInterval time.Duration,
+	tlsSkipVerify bool,
 	logger *slog.Logger,
 	registerer prometheus.Registerer,
 ) (*DephealthService, error) {
-	return newDephealthService(serviceID, group, db, pgConnURL, keycloakJWKSURL, checkInterval, logger,
-		dephealth.WithRegisterer(registerer))
+	return newDephealthService(serviceID, group, db, pgConnURL, keycloakJWKSURL, checkInterval, tlsSkipVerify,
+		logger, dephealth.WithRegisterer(registerer))
 }
 
 // newDephealthService — внутренний конструктор.
@@ -84,6 +87,7 @@ func newDephealthService(
 	pgConnURL string,
 	keycloakJWKSURL string,
 	checkInterval time.Duration,
+	tlsSkipVerify bool,
 	logger *slog.Logger,
 	extraOpts ...dephealth.Option,
 ) (*DephealthService, error) {
@@ -115,7 +119,7 @@ func newDephealthService(
 			dephealth.WithHTTPHealthPath(kcHealthPath),
 			dephealth.CheckInterval(checkInterval),
 			dephealth.Critical(true),
-			dephealth.WithHTTPTLSSkipVerify(true), // Dev-среда: self-signed сертификаты
+			dephealth.WithHTTPTLSSkipVerify(tlsSkipVerify),
 		),
 	}
 	opts = append(opts, extraOpts...)

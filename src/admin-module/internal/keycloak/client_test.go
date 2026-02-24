@@ -58,6 +58,8 @@ func setupMockKeycloak(t *testing.T, tokenHandler, adminHandler http.HandlerFunc
 		"admin-module",
 		"test-secret",
 		server.Client(),
+		30*time.Second,
+		5*time.Second,
 		testLogger(),
 	)
 
@@ -484,6 +486,8 @@ func TestClient_CheckReady_Fail(t *testing.T) {
 		"admin-module",
 		"secret",
 		&http.Client{Timeout: 100 * time.Millisecond},
+		30*time.Second,
+		100*time.Millisecond,
 		testLogger(),
 	)
 

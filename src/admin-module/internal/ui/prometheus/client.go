@@ -28,9 +28,10 @@ type Client struct {
 
 // New создаёт новый Prometheus-клиент.
 // settingsSvc используется для получения URL, enabled, timeout из БД.
-func New(settingsSvc *service.UISettingsService, logger *slog.Logger) *Client {
+// timeout — таймаут HTTP-запросов (AM_PROMETHEUS_CLIENT_TIMEOUT).
+func New(settingsSvc *service.UISettingsService, timeout time.Duration, logger *slog.Logger) *Client {
 	return &Client{
-		httpClient:  &http.Client{Timeout: 30 * time.Second},
+		httpClient:  &http.Client{Timeout: timeout},
 		settingsSvc: settingsSvc,
 		logger:      logger.With(slog.String("component", "ui.prometheus")),
 	}

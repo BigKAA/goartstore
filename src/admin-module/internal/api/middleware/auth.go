@@ -150,6 +150,7 @@ type JWTAuth struct {
 	adminGroups      []string
 	readonlyGroups   []string
 	issuer           string
+	jwtLeeway        time.Duration
 }
 
 // NewJWTAuth создаёт JWT middleware с JWKS из Keycloak.
@@ -158,19 +159,25 @@ type JWTAuth struct {
 // issuer — ожидаемый issuer JWT (обычно https://keycloak/realms/artstore).
 // roleProvider — провайдер role overrides из БД (может быть nil).
 // adminGroups, readonlyGroups — группы для маппинга в роли.
+// jwksClientTimeout — таймаут HTTP-клиента JWKS (AM_JWKS_CLIENT_TIMEOUT).
+// jwksRefreshInterval — интервал обновления JWKS-ключей (AM_JWKS_REFRESH_INTERVAL).
+// jwtLeeway — допустимое отклонение времени при проверке JWT (AM_JWT_LEEWAY).
 func NewJWTAuth(
 	jwksURL string,
 	caCertPath string,
 	issuer string,
 	roleProvider RoleOverrideProvider,
 	adminGroups, readonlyGroups []string,
+	jwksClientTimeout time.Duration,
+	jwksRefreshInterval time.Duration,
+	jwtLeeway time.Duration,
 	logger *slog.Logger,
 ) (*JWTAuth, error) {
 	// HTTP-клиент для JWKS (с кастомным CA или стандартный)
 	httpClient := http.DefaultClient
 	if caCertPath != "" {
 		var err error
-		httpClient, err = httpClientWithCA(caCertPath)
+		httpClient, err = httpClientWithCA(caCertPath, jwksClientTimeout)
 		if err != nil {
 			return nil, fmt.Errorf("загрузка CA-сертификата %s: %w", caCertPath, err)
 		}
@@ -184,7 +191,7 @@ func NewJWTAuth(
 	storage, err := jwkset.NewStorageFromHTTP(jwksURL, jwkset.HTTPClientStorageOptions{
 		Client:                    httpClient,
 		NoErrorReturnFirstHTTPReq: true,
-		RefreshInterval:           15 * time.Second,
+		RefreshInterval:           jwksRefreshInterval,
 		RefreshErrorHandler: func(ctx context.Context, err error) {
 			logger.Error("Ошибка обновления JWKS",
 				slog.String("error", err.Error()),
@@ -210,11 +217,13 @@ func NewJWTAuth(
 		adminGroups:    adminGroups,
 		readonlyGroups: readonlyGroups,
 		issuer:         issuer,
+		jwtLeeway:      jwtLeeway,
 	}, nil
 }
 
 // httpClientWithCA создаёт HTTP-клиент с кастомным CA-сертификатом.
-func httpClientWithCA(caCertPath string) (*http.Client, error) {
+// timeout — таймаут HTTP-запросов.
+func httpClientWithCA(caCertPath string, timeout time.Duration) (*http.Client, error) {
 	caCert, err := os.ReadFile(caCertPath)
 	if err != nil {
 		return nil, err
@@ -227,7 +236,7 @@ func httpClientWithCA(caCertPath string) (*http.Client, error) {
 	caCertPool.AppendCertsFromPEM(caCert)
 
 	return &http.Client{
-		Timeout: 30 * time.Second,
+		Timeout: timeout,
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				RootCAs: caCertPool,
@@ -285,7 +294,7 @@ func (j *JWTAuth) Middleware() func(http.Handler) http.Handler {
 			parserOpts := []jwt.ParserOption{
 				jwt.WithValidMethods([]string{"RS256"}),
 				jwt.WithExpirationRequired(),
-				jwt.WithLeeway(5 * time.Second),
+				jwt.WithLeeway(j.jwtLeeway),
 			}
 			if j.issuer != "" {
 				parserOpts = append(parserOpts, jwt.WithIssuer(j.issuer))
@@ -525,15 +534,15 @@ type KeycloakReadinessChecker struct {
 }
 
 // NewKeycloakReadinessChecker создаёт checker доступности Keycloak.
-func NewKeycloakReadinessChecker(jwksURL string, caCertPath string) (*KeycloakReadinessChecker, error) {
-	client := &http.Client{Timeout: 5 * time.Second}
+// readinessTimeout — таймаут проверки готовности (AM_KEYCLOAK_READINESS_TIMEOUT).
+func NewKeycloakReadinessChecker(jwksURL string, caCertPath string, readinessTimeout time.Duration) (*KeycloakReadinessChecker, error) {
+	client := &http.Client{Timeout: readinessTimeout}
 	if caCertPath != "" {
 		var err error
-		client, err = httpClientWithCA(caCertPath)
+		client, err = httpClientWithCA(caCertPath, readinessTimeout)
 		if err != nil {
 			return nil, fmt.Errorf("загрузка CA для readiness checker: %w", err)
 		}
-		client.Timeout = 5 * time.Second
 	}
 
 	return &KeycloakReadinessChecker{

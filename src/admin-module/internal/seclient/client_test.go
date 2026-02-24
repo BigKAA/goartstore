@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 )
 
 // testLogger создаёт logger для тестов.
@@ -69,7 +70,7 @@ func TestClient_Info(t *testing.T) {
 		})
 	})
 
-	client, err := New("", nil, testLogger())
+	client, err := New("", 30*time.Second, nil, testLogger())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,7 +108,7 @@ func TestClient_Info_TrailingSlash(t *testing.T) {
 		w.WriteHeader(http.StatusNotFound)
 	})
 
-	client, err := New("", nil, testLogger())
+	client, err := New("", 30*time.Second, nil, testLogger())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +130,7 @@ func TestClient_Info_Error(t *testing.T) {
 		w.Write([]byte("service unavailable"))
 	})
 
-	client, err := New("", nil, testLogger())
+	client, err := New("", 30*time.Second, nil, testLogger())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +143,7 @@ func TestClient_Info_Error(t *testing.T) {
 
 // TestClient_Info_Unreachable проверяет обработку недоступного SE.
 func TestClient_Info_Unreachable(t *testing.T) {
-	client, err := New("", nil, testLogger())
+	client, err := New("", 30*time.Second, nil, testLogger())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -211,7 +212,7 @@ func TestClient_ListFiles(t *testing.T) {
 		})
 	})
 
-	client, err := New("", mockTokenProvider("test-token"), testLogger())
+	client, err := New("", 30*time.Second, mockTokenProvider("test-token"), testLogger())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -254,7 +255,7 @@ func TestClient_ListFiles_NoToken(t *testing.T) {
 		})
 	})
 
-	client, err := New("", nil, testLogger())
+	client, err := New("", 30*time.Second, nil, testLogger())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -274,7 +275,7 @@ func TestClient_ListFiles_TokenError(t *testing.T) {
 		t.Error("запрос не должен быть отправлен")
 	})
 
-	client, err := New("", mockTokenProviderError(), testLogger())
+	client, err := New("", 30*time.Second, mockTokenProviderError(), testLogger())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -292,7 +293,7 @@ func TestClient_ListFiles_Unauthorized(t *testing.T) {
 		w.Write([]byte(`{"error":{"code":"UNAUTHORIZED","message":"invalid token"}}`))
 	})
 
-	client, err := New("", mockTokenProvider("bad-token"), testLogger())
+	client, err := New("", 30*time.Second, mockTokenProvider("bad-token"), testLogger())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -346,7 +347,7 @@ func TestClient_ListFiles_Pagination(t *testing.T) {
 		}
 	})
 
-	client, err := New("", mockTokenProvider("token"), testLogger())
+	client, err := New("", 30*time.Second, mockTokenProvider("token"), testLogger())
 	if err != nil {
 		t.Fatal(err)
 	}

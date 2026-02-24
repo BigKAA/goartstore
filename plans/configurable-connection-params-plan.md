@@ -17,17 +17,17 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 2
-- **Активный подпункт**: 2.1
+- **Активная фаза**: Phase 3
+- **Активный подпункт**: 3.1
 - **Последнее обновление**: 2026-02-24
-- **Примечание**: Phase 1 завершена — Config struct расширен, тесты написаны
+- **Примечание**: Phase 2 завершена — все hardcoded значения Admin Module заменены на параметры из Config
 
 ---
 
 ## Оглавление
 
 - [x] [Phase 1: Admin Module — конфигурация и config struct](#phase-1-admin-module--конфигурация-и-config-struct)
-- [ ] [Phase 2: Admin Module — применение конфигурации в коде](#phase-2-admin-module--применение-конфигурации-в-коде)
+- [x] [Phase 2: Admin Module — применение конфигурации в коде](#phase-2-admin-module--применение-конфигурации-в-коде)
 - [ ] [Phase 3: Storage Element — конфигурация и применение](#phase-3-storage-element--конфигурация-и-применение)
 - [ ] [Phase 4: Helm charts, CLAUDE.md, документация](#phase-4-helm-charts-claudemd-документация)
 - [ ] [Phase 5: Сборка и тестирование](#phase-5-сборка-и-тестирование)
@@ -112,7 +112,7 @@
 ## Phase 2: Admin Module — применение конфигурации в коде
 
 **Dependencies**: Phase 1
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -120,7 +120,7 @@
 
 ### Подпункты
 
-- [ ] **2.1 TLS: dephealth и HTTP-клиенты**
+- [x] **2.1 TLS: dephealth и HTTP-клиенты**
   - **Dependencies**: None
   - **Description**: В `dephealth.go`: заменить `dephealth.WithHTTPTLSSkipVerify(true)` на значение из конфигурации, передаваемое как параметр `tlsSkipVerify bool`. Обновить сигнатуры `NewDephealthService` и `NewDephealthServiceWithRegisterer`. В `main.go`: обновить вызов `NewDephealthService` с передачей `cfg.TLSSkipVerify`. Обновить ссылку `cfg.SECACertPath` → `cfg.CACertPath` во всех местах main.go.
   - **Modifies**:
@@ -128,7 +128,7 @@
     - `src/admin-module/cmd/admin-module/main.go`
   - **Links**: N/A
 
-- [ ] **2.2 HTTP Client Timeouts**
+- [x] **2.2 HTTP Client Timeouts**
   - **Dependencies**: None
   - **Description**: Заменить hardcoded таймауты во всех HTTP-клиентах на значения из конфигурации. Файлы и текущие hardcoded значения:
     - `seclient/client.go:77` — `30s` → `cfg.SEClientTimeout`
@@ -149,7 +149,7 @@
     - `src/admin-module/cmd/admin-module/main.go`
   - **Links**: N/A
 
-- [ ] **2.3 HTTP Server Timeouts**
+- [x] **2.3 HTTP Server Timeouts**
   - **Dependencies**: None
   - **Description**: В `server/server.go`: заменить hardcoded `ReadTimeout: 30s, WriteTimeout: 60s, IdleTimeout: 120s` на параметры из конфигурации. Расширить конструктор `New()` или структуру `Config` сервера для приёма таймаутов.
   - **Modifies**:
@@ -157,7 +157,7 @@
     - `src/admin-module/cmd/admin-module/main.go`
   - **Links**: N/A
 
-- [ ] **2.4 JWT/JWKS и Keycloak параметры**
+- [x] **2.4 JWT/JWKS и Keycloak параметры**
   - **Dependencies**: None
   - **Description**: Замена hardcoded значений:
     - `api/middleware/auth.go:187` — JWKS RefreshInterval `15s` → `cfg.JWKSRefreshInterval`
@@ -169,7 +169,7 @@
     - `src/admin-module/internal/keycloak/client.go`
   - **Links**: N/A
 
-- [ ] **2.5 SSE Interval**
+- [x] **2.5 SSE Interval**
   - **Dependencies**: None
   - **Description**: В `ui/handlers/events.go:21`: заменить `sseInterval = 15 * time.Second` на значение из конфигурации `cfg.SSEInterval`. Передать через конструктор handlers.
   - **Modifies**:
@@ -177,7 +177,7 @@
     - `src/admin-module/cmd/admin-module/main.go` (или где создаётся UI handler)
   - **Links**: N/A
 
-- [ ] **2.6 Обновление тестов dephealth**
+- [x] **2.6 Обновление тестов dephealth**
   - **Dependencies**: 2.1
   - **Description**: Обновить unit-тесты `dephealth_test.go` для новой сигнатуры с `tlsSkipVerify`. Проверить что `false` корректно передаётся в опции dephealth.
   - **Modifies**:
@@ -186,12 +186,12 @@
 
 ### Критерии завершения Phase 2
 
-- [ ] Все подпункты завершены (2.1 — 2.6)
-- [ ] `go build ./...` проходит без ошибок
-- [ ] `go test ./...` проходит
-- [ ] Grep по `InsecureSkipVerify: true` в admin-module возвращает 0 результатов (кроме комментариев)
-- [ ] Grep по `30 * time.Second` в HTTP-клиентах admin-module возвращает 0 результатов
-- [ ] Поведение по умолчанию не изменилось (defaults совпадают со старыми hardcoded значениями)
+- [x] Все подпункты завершены (2.1 — 2.6)
+- [x] `go build ./...` проходит без ошибок
+- [x] `go test ./...` проходит
+- [x] Grep по `InsecureSkipVerify: true` в admin-module возвращает 0 результатов (кроме комментариев)
+- [x] Grep по `30 * time.Second` в HTTP-клиентах admin-module возвращает 0 результатов (осталось 2 fallback default)
+- [x] Поведение по умолчанию не изменилось (defaults совпадают со старыми hardcoded значениями)
 
 ---
 

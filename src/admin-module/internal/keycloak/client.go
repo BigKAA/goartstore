@@ -26,13 +26,17 @@ type Client struct {
 	clientID     string // Client ID для Client Credentials flow
 	clientSecret string // Client Secret
 
-	httpClient *http.Client
-	logger     *slog.Logger
+	httpClient            *http.Client
+	logger                *slog.Logger
+	tokenRefreshThreshold time.Duration // Порог обновления токена перед истечением
 
 	// Кэш токена доступа
 	mu          sync.Mutex
 	accessToken string
 	tokenExpiry time.Time
+
+	// Таймаут readiness checker (для CheckReady)
+	readinessTimeout time.Duration
 }
 
 // New создаёт клиент к Keycloak Admin REST API.
@@ -40,18 +44,22 @@ type Client struct {
 // realm — имя realm (например, artstore).
 // clientID, clientSecret — credentials для Client Credentials flow.
 // httpClient — HTTP-клиент (может содержать TLS конфигурацию).
-func New(baseURL, realm, clientID, clientSecret string, httpClient *http.Client, logger *slog.Logger) *Client {
+// tokenRefreshThreshold — порог обновления токена перед истечением (AM_KEYCLOAK_TOKEN_REFRESH_THRESHOLD).
+// readinessTimeout — таймаут проверки готовности Keycloak (AM_KEYCLOAK_READINESS_TIMEOUT).
+func New(baseURL, realm, clientID, clientSecret string, httpClient *http.Client, tokenRefreshThreshold, readinessTimeout time.Duration, logger *slog.Logger) *Client {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 30 * time.Second}
 	}
 
 	return &Client{
-		baseURL:      strings.TrimRight(baseURL, "/"),
-		realm:        realm,
-		clientID:     clientID,
-		clientSecret: clientSecret,
-		httpClient:   httpClient,
-		logger:       logger.With(slog.String("component", "keycloak_client")),
+		baseURL:               strings.TrimRight(baseURL, "/"),
+		realm:                 realm,
+		clientID:              clientID,
+		clientSecret:          clientSecret,
+		httpClient:            httpClient,
+		tokenRefreshThreshold: tokenRefreshThreshold,
+		readinessTimeout:      readinessTimeout,
+		logger:                logger.With(slog.String("component", "keycloak_client")),
 	}
 }
 
@@ -73,8 +81,8 @@ func (c *Client) getToken(ctx context.Context) (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Проверяем кэш: если токен валиден ещё 30 секунд — используем его
-	if c.accessToken != "" && time.Now().Add(30*time.Second).Before(c.tokenExpiry) {
+	// Проверяем кэш: если токен валиден ещё tokenRefreshThreshold — используем его
+	if c.accessToken != "" && time.Now().Add(c.tokenRefreshThreshold).Before(c.tokenExpiry) {
 		return c.accessToken, nil
 	}
 
@@ -414,7 +422,7 @@ func (c *Client) RealmInfo(ctx context.Context) (*RealmRepresentation, error) {
 // CheckReady проверяет доступность Keycloak через realm info.
 // Реализует handlers.ReadinessChecker.
 func (c *Client) CheckReady() (string, string) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), c.readinessTimeout)
 	defer cancel()
 
 	realm, err := c.RealmInfo(ctx)

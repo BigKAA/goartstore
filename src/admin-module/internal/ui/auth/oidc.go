@@ -43,8 +43,10 @@ type OIDCConfig struct {
 	Realm string
 	// ClientID — OIDC Client ID (public client).
 	ClientID string
-	// HTTPClient — HTTP-клиент (nil = http.DefaultClient).
+	// HTTPClient — HTTP-клиент (nil — создаётся новый с Timeout).
 	HTTPClient *http.Client
+	// Timeout — таймаут HTTP-запросов (AM_OIDC_CLIENT_TIMEOUT). Используется при HTTPClient == nil.
+	Timeout time.Duration
 }
 
 // NewOIDCClient создаёт новый OIDC-клиент на основе конфигурации.
@@ -65,7 +67,11 @@ func NewOIDCClient(cfg OIDCConfig) *OIDCClient {
 
 	httpClient := cfg.HTTPClient
 	if httpClient == nil {
-		httpClient = &http.Client{Timeout: 30 * time.Second}
+		timeout := cfg.Timeout
+		if timeout <= 0 {
+			timeout = 30 * time.Second
+		}
+		httpClient = &http.Client{Timeout: timeout}
 	}
 
 	return &OIDCClient{

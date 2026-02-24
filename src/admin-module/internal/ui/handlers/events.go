@@ -17,25 +17,26 @@ import (
 	uimiddleware "github.com/bigkaa/goartstore/admin-module/internal/ui/middleware"
 )
 
-// SSE event интервал отправки (каждые 15 секунд).
-const sseInterval = 15 * time.Second
-
 // EventsHandler — обработчик SSE endpoints для real-time обновлений.
 type EventsHandler struct {
 	storageElemsSvc *service.StorageElementService
 	dephealthSvc    *service.DephealthService // может быть nil
+	sseInterval     time.Duration
 	logger          *slog.Logger
 }
 
 // NewEventsHandler создаёт новый EventsHandler.
+// sseInterval — интервал отправки SSE-обновлений (AM_SSE_INTERVAL).
 func NewEventsHandler(
 	storageElemsSvc *service.StorageElementService,
 	dephealthSvc *service.DephealthService,
+	sseInterval time.Duration,
 	logger *slog.Logger,
 ) *EventsHandler {
 	return &EventsHandler{
 		storageElemsSvc: storageElemsSvc,
 		dephealthSvc:    dephealthSvc,
+		sseInterval:     sseInterval,
 		logger:          logger.With(slog.String("component", "ui.events")),
 	}
 }
@@ -106,7 +107,7 @@ func (h *EventsHandler) HandleSystemStatus(w http.ResponseWriter, r *http.Reques
 	h.sendSEStatus(ctx, w, rc)
 
 	// Периодическая отправка
-	ticker := time.NewTicker(sseInterval)
+	ticker := time.NewTicker(h.sseInterval)
 	defer ticker.Stop()
 
 	for {
