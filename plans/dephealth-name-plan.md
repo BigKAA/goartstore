@@ -17,10 +17,10 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 3
-- **Активный подпункт**: 3.1
+- **Активная фаза**: Phase 4
+- **Активный подпункт**: 4.1
 - **Последнее обновление**: 2026-02-24
-- **Примечание**: Phase 1+2 завершены — Go-код обоих модулей реализован и протестирован
+- **Примечание**: Phase 1+2+3 завершены — Go-код, Helm charts обновлены, Docker-образы v0.1.0-3 запушены в Harbor
 
 ---
 
@@ -173,7 +173,7 @@ env-переменную `DEPHEALTH_NAME` и первый аргумент `deph
 ## Phase 3: Helm charts и сборка
 
 **Dependencies**: Phase 1, Phase 2
-**Status**: Pending
+**Status**: ✅ Done
 
 ### Описание
 
@@ -182,7 +182,7 @@ env-переменную `DEPHEALTH_NAME` и первый аргумент `deph
 
 ### Подпункты
 
-- [ ] **3.1 Helm chart Admin Module**
+- [x] **3.1 Helm chart Admin Module**
   - **Dependencies**: None
   - **Description**: В `charts/admin-module/templates/configmap.yaml`:
     - Добавить строку `DEPHEALTH_NAME: {{ include "am.fullname" . | quote }}`
@@ -191,7 +191,7 @@ env-переменную `DEPHEALTH_NAME` и первый аргумент `deph
   - **Modifies**:
     - `src/admin-module/charts/admin-module/templates/configmap.yaml`
 
-- [ ] **3.2 Helm chart Storage Element**
+- [x] **3.2 Helm chart Storage Element**
   - **Dependencies**: None
   - **Description**: В `charts/storage-element/templates/_helpers.tpl`:
     - Добавить переменную в define `se.envVars`:
@@ -203,7 +203,7 @@ env-переменную `DEPHEALTH_NAME` и первый аргумент `deph
   - **Modifies**:
     - `src/storage-element/charts/storage-element/templates/_helpers.tpl`
 
-- [ ] **3.3 Сборка Docker-образов**
+- [x] **3.3 Сборка Docker-образов**
   - **Dependencies**: 3.1, 3.2
   - **Description**: Собрать и запушить образы обоих модулей в Harbor:
     - `harbor.kryukov.lan/library/admin-module:v<next-tag>`
@@ -215,9 +215,9 @@ env-переменную `DEPHEALTH_NAME` и первый аргумент `deph
 
 ### Критерии завершения Phase 3
 
-- [ ] Все подпункты завершены (3.1, 3.2, 3.3)
-- [ ] `helm template` рендерит `DEPHEALTH_NAME` корректно для обоих модулей
-- [ ] Docker-образы собраны и запушены в Harbor
+- [x] Все подпункты завершены (3.1, 3.2, 3.3)
+- [x] `helm template` рендерит `DEPHEALTH_NAME` корректно для обоих модулей
+- [x] Docker-образы собраны и запушены в Harbor
 
 ---
 

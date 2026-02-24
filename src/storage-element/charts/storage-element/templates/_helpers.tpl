@@ -78,6 +78,8 @@ app.kubernetes.io/instance: {{ .Values.elementId }}
   value: {{ .Values.port | quote }}
 - name: SE_STORAGE_ID
   value: {{ .Values.elementId | quote }}
+- name: DEPHEALTH_NAME
+  value: {{ include "se.fullname" . | quote }}
 - name: SE_DATA_DIR
   value: "/data"
 - name: SE_WAL_DIR

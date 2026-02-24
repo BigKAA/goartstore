@@ -40,6 +40,7 @@ data:
   AM_SE_CA_CERT_PATH: "/certs/ca.crt"
   {{- end }}
   # --- Dependency health (topologymetrics) ---
+  DEPHEALTH_NAME: {{ include "am.fullname" . | quote }}
   AM_DEPHEALTH_CHECK_INTERVAL: {{ .Values.dephealth.checkInterval | quote }}
   AM_DEPHEALTH_GROUP: {{ .Values.dephealth.group | quote }}
   # --- Admin UI ---
