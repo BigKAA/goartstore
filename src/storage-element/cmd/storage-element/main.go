@@ -208,6 +208,7 @@ func main() {
 		cfg.JWKSUrl,
 		cfg.DephealthCheckInterval,
 		cfg.TLSSkipVerify,
+		cfg.DephealthIsEntry,
 		logger,
 	)
 	if dephealthErr != nil {
@@ -226,6 +227,7 @@ func main() {
 				slog.String("dep_name", cfg.DephealthDepName),
 				slog.String("jwks_url", cfg.JWKSUrl),
 				slog.String("check_interval", cfg.DephealthCheckInterval.String()),
+				slog.Bool("is_entry", cfg.DephealthIsEntry),
 			)
 		}
 	}

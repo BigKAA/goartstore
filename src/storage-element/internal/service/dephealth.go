@@ -39,6 +39,7 @@ type DephealthService struct {
 //   - jwksURL — URL зависимости для проверки (SE_JWKS_URL)
 //   - checkInterval — интервал проверки (SE_DEPHEALTH_CHECK_INTERVAL)
 //   - tlsSkipVerify — пропускать проверку TLS-сертификатов (SE_TLS_SKIP_VERIFY)
+//   - isEntry — при true добавляет лейбл isentry=yes ко всем зависимостям (DEPHEALTH_ISENTRY)
 func NewDephealthService(
 	storageID string,
 	group string,
@@ -46,9 +47,10 @@ func NewDephealthService(
 	jwksURL string,
 	checkInterval time.Duration,
 	tlsSkipVerify bool,
+	isEntry bool,
 	logger *slog.Logger,
 ) (*DephealthService, error) {
-	return newDephealthService(storageID, group, depName, jwksURL, checkInterval, tlsSkipVerify, logger)
+	return newDephealthService(storageID, group, depName, jwksURL, checkInterval, tlsSkipVerify, isEntry, logger)
 }
 
 // NewDephealthServiceWithRegisterer создаёт сервис с указанным Prometheus registerer.
@@ -60,10 +62,11 @@ func NewDephealthServiceWithRegisterer(
 	jwksURL string,
 	checkInterval time.Duration,
 	tlsSkipVerify bool,
+	isEntry bool,
 	logger *slog.Logger,
 	registerer prometheus.Registerer,
 ) (*DephealthService, error) {
-	return newDephealthService(storageID, group, depName, jwksURL, checkInterval, tlsSkipVerify, logger, dephealth.WithRegisterer(registerer))
+	return newDephealthService(storageID, group, depName, jwksURL, checkInterval, tlsSkipVerify, isEntry, logger, dephealth.WithRegisterer(registerer))
 }
 
 // newDephealthService — внутренний конструктор.
@@ -74,6 +77,7 @@ func newDephealthService(
 	jwksURL string,
 	checkInterval time.Duration,
 	tlsSkipVerify bool,
+	isEntry bool,
 	logger *slog.Logger,
 	extraOpts ...dephealth.Option,
 ) (*DephealthService, error) {
@@ -86,16 +90,24 @@ func newDephealthService(
 		healthPath = parsed.Path
 	}
 
-	// Собираем опции: встроенный HTTP checker с per-dependency интервалом
+	// Опции зависимости: HTTP checker с per-dependency интервалом
+	depOpts := []dephealth.DependencyOption{
+		dephealth.FromURL(jwksURL),
+		dephealth.WithHTTPHealthPath(healthPath),
+		dephealth.CheckInterval(checkInterval),
+		dephealth.Critical(true),
+		dephealth.WithHTTPTLSSkipVerify(tlsSkipVerify),
+	}
+
+	// При isEntry=true добавляем лейбл isentry=yes к зависимости
+	if isEntry {
+		depOpts = append(depOpts, dephealth.WithLabel("isentry", "yes"))
+	}
+
+	// Собираем опции DepHealth
 	opts := []dephealth.Option{
 		dephealth.WithLogger(logger),
-		dephealth.HTTP(depName,
-			dephealth.FromURL(jwksURL),
-			dephealth.WithHTTPHealthPath(healthPath),
-			dephealth.CheckInterval(checkInterval),
-			dephealth.Critical(true),
-			dephealth.WithHTTPTLSSkipVerify(tlsSkipVerify),
-		),
+		dephealth.HTTP(depName, depOpts...),
 	}
 	opts = append(opts, extraOpts...)
 

@@ -4,3 +4,4 @@ tests/jwks-mock/jwks-mock
 
 # Dev-сертификаты (генерируются через make dev-certs)
 certs/
+/storage-element

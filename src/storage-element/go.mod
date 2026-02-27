@@ -3,7 +3,7 @@ module github.com/bigkaa/goartstore/storage-element
 go 1.25.6
 
 require (
-	github.com/BigKAA/topologymetrics/sdk-go v0.6.0
+	github.com/BigKAA/topologymetrics/sdk-go v0.8.0
 	github.com/MicahParks/jwkset v0.11.0
 	github.com/MicahParks/keyfunc/v3 v3.8.0
 	github.com/getkin/kin-openapi v0.133.0

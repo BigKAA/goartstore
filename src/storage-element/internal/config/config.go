@@ -99,6 +99,8 @@ type Config struct {
 	DephealthDepName string
 	// Имя владельца пода для метки name в topologymetrics (DEPHEALTH_NAME)
 	DephealthName string
+	// Флаг isEntry: при true добавляет лейбл isentry=yes ко всем зависимостям (DEPHEALTH_ISENTRY)
+	DephealthIsEntry bool
 
 	// Таймаут graceful shutdown HTTP-сервера.
 	// Должен быть меньше K8s terminationGracePeriodSeconds (по умолчанию 30s),
@@ -299,6 +301,12 @@ func Load() (*Config, error) {
 
 	// DEPHEALTH_NAME — имя владельца пода для метки name в topologymetrics (без префикса модуля)
 	cfg.DephealthName = getEnvDefault("DEPHEALTH_NAME", "")
+
+	// DEPHEALTH_ISENTRY — при true добавляет лейбл isentry=yes ко всем зависимостям (по умолчанию false)
+	cfg.DephealthIsEntry, err = getEnvBool("DEPHEALTH_ISENTRY", false)
+	if err != nil {
+		return nil, fmt.Errorf("DEPHEALTH_ISENTRY: %w", err)
+	}
 
 	// SE_SHUTDOWN_TIMEOUT — таймаут graceful shutdown HTTP-сервера (по умолчанию 5s).
 	// Должен быть меньше K8s terminationGracePeriodSeconds, чтобы оставить время
