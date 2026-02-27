@@ -265,6 +265,12 @@ func main() {
 				slog.String("check_interval", cfg.DephealthCheckInterval.String()),
 				slog.Bool("is_entry", cfg.DephealthIsEntry),
 			)
+
+			// 15.1.1 Подключаем dephealth к StorageElementService
+			storageElemsSvc.SetDephealthService(dephealthSvc)
+
+			// 15.1.2 Загрузка всех SE из БД как динамических endpoints
+			loadSEEndpoints(ctx, seRepo, dephealthSvc, logger)
 		}
 	}
 
@@ -414,6 +420,51 @@ func main() {
 	saSyncSvc.Stop()
 
 	logger.Info("Admin Module остановлен")
+}
+
+// --- Загрузка SE endpoints при старте ---
+
+// loadSEEndpoints загружает все SE из БД и регистрирует их как динамические endpoints
+// в dephealth для мониторинга через Prometheus-метрики.
+// Ошибки регистрации отдельных SE логируются как Warn и не прерывают загрузку.
+func loadSEEndpoints(
+	ctx context.Context,
+	seRepo repository.StorageElementRepository,
+	dephealthSvc *service.DephealthService,
+	logger *slog.Logger,
+) {
+	// Загружаем все SE (limit 10000 — достаточно для любого реального развёртывания)
+	seList, err := seRepo.List(ctx, nil, nil, 10000, 0)
+	if err != nil {
+		logger.Warn("Не удалось загрузить SE для dephealth",
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+
+	if len(seList) == 0 {
+		logger.Info("Нет зарегистрированных SE для dephealth")
+		return
+	}
+
+	var registered int
+	for _, se := range seList {
+		if regErr := dephealthSvc.RegisterSEEndpoint(se.Name, se.URL); regErr != nil {
+			logger.Warn("Не удалось зарегистрировать SE в dephealth при старте",
+				slog.String("se_id", se.ID),
+				slog.String("name", se.Name),
+				slog.String("url", se.URL),
+				slog.String("error", regErr.Error()),
+			)
+			continue
+		}
+		registered++
+	}
+
+	logger.Info("SE endpoints загружены в dephealth",
+		slog.Int("total", len(seList)),
+		slog.Int("registered", registered),
+	)
 }
 
 // --- Вспомогательные типы ---
