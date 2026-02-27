@@ -23,10 +23,11 @@ https://{{ .Values.infraReleaseName }}-keycloak.{{ .Values.namespace }}.svc.clus
 {{- end }}
 
 {{/*
-JWKS URL для SE (Keycloak HTTPS endpoint)
+JWKS URL для SE — через внешний API Gateway (эмуляция продакшена)
+SE получают JWKS ключи через: SE → artstore.kryukov.lan:443 → Envoy → Keycloak:8080
 */}}
 {{- define "artstore-se.jwksUrl" -}}
-{{ include "artstore-se.keycloakHttpsUrl" . }}/realms/{{ .Values.keycloak.realm }}/protocol/openid-connect/certs
+https://{{ .Values.gateway.hostname }}/realms/{{ .Values.keycloak.realm }}/protocol/openid-connect/certs
 {{- end }}
 
 {{/*
