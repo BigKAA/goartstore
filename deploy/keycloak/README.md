@@ -1,6 +1,56 @@
-# Keycloak Realm — Artstore
+# Keycloak — Artstore
 
-Конфигурация Keycloak realm `artstore` для всех модулей системы.
+Кастомный Docker-образ Keycloak с темой Artstore и конфигурация realm `artstore`.
+
+## Кастомный образ
+
+Базовый образ: `quay.io/keycloak/keycloak:26.1`
+Registry: `harbor.kryukov.lan/library/keycloak-artstore`
+
+Образ включает кастомную login-тему `artstore` — тёмная зелёная тема,
+соответствующая дизайну Admin Module.
+
+### Сборка и push
+
+```bash
+# Из директории tests/
+make docker-build-kc docker-push-kc
+
+# Или вручную
+docker build --platform linux/amd64 \
+  -t harbor.kryukov.lan/library/keycloak-artstore:v26.1-1 \
+  deploy/keycloak/
+docker push harbor.kryukov.lan/library/keycloak-artstore:v26.1-1
+```
+
+### Структура темы
+
+```
+themes/artstore/login/
+├── theme.properties            # parent=keycloak.v2, darkMode=true
+├── template.ftl                # Логотип Artstore (единственный .ftl)
+├── messages/
+│   ├── messages_en.properties  # EN
+│   └── messages_ru.properties  # RU
+└── resources/
+    ├── css/artstore.css        # Переопределение PatternFly 5 → палитра Artstore
+    └── img/logo.svg            # SVG логотип
+```
+
+Подход: CSS-only кастомизация с наследованием от `keycloak.v2`.
+Переопределяется только `template.ftl` (для логотипа). Все страницы
+стилизуются единым CSS-файлом.
+
+### Обновление Keycloak
+
+При обновлении версии Keycloak:
+
+1. Обновить `FROM` в `Dockerfile`
+2. Проверить совместимость `template.ftl` с новой версией `keycloak.v2`
+3. Собрать и протестировать новый образ
+4. Обновить тег в `tests/helm/artstore-infra/values.yaml`
+
+## Содержимое realm
 
 ## Содержимое realm
 

@@ -34,30 +34,9 @@ spec:
       backendRefs:
         - name: admin-module
           port: {{ .Values.adminModule.port }}
-    # Keycloak Admin Console — более специфичные prefix-ы,
-    # приоритетнее общего /admin (longest prefix match в Gateway API).
-    - matches:
-        - path:
-            type: PathPrefix
-            value: /admin/master
-      backendRefs:
-        - name: {{ .Values.infraReleaseName }}-keycloak
-          port: 8080
-    - matches:
-        - path:
-            type: PathPrefix
-            value: /admin/realms
-      backendRefs:
-        - name: {{ .Values.infraReleaseName }}-keycloak
-          port: 8080
-    # Keycloak JS ресурсы (admin console загружает /js/...)
-    - matches:
-        - path:
-            type: PathPrefix
-            value: /js
-      backendRefs:
-        - name: {{ .Values.infraReleaseName }}-keycloak
-          port: 8080
+    # Keycloak маршруты (/admin/master, /admin/realms, /js, /realms, /resources)
+    # вынесены в artstore-infra/templates/keycloak-httproute.yaml,
+    # чтобы Keycloak был доступен без artstore-apps.
     # Admin UI (Admin Module)
     - matches:
         - path:
@@ -82,21 +61,5 @@ spec:
       backendRefs:
         - name: admin-module
           port: {{ .Values.adminModule.port }}
-    # Keycloak — проксирование OAuth2 endpoints для browser flow.
-    # Browser redirect идёт на artstore.kryukov.lan/realms/... вместо внутреннего KC.
-    - matches:
-        - path:
-            type: PathPrefix
-            value: /realms
-      backendRefs:
-        - name: {{ .Values.infraReleaseName }}-keycloak
-          port: 8080
-    # Keycloak — статические ресурсы (темы, JS, CSS для login-страницы)
-    - matches:
-        - path:
-            type: PathPrefix
-            value: /resources
-      backendRefs:
-        - name: {{ .Values.infraReleaseName }}-keycloak
-          port: 8080
+    # Keycloak маршруты (/realms, /resources) — в artstore-infra/keycloak-httproute.yaml
 {{- end }}

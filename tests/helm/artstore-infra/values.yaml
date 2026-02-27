@@ -37,7 +37,7 @@ postgresql:
 # https://www.keycloak.org/server/containers
 # -----------------------------------------------------------------------------
 keycloak:
-  image: quay.io/keycloak/keycloak:26.1
+  image: harbor.kryukov.lan/library/keycloak-artstore:v26.1-1
   # Admin credentials (bootstrap admin)
   adminUser: admin
   adminPassword: admin
@@ -57,6 +57,17 @@ keycloak:
     limits:
       memory: "1Gi"
       cpu: "1000m"
+
+# -----------------------------------------------------------------------------
+# HTTPRoute (Gateway API) — внешний доступ к Keycloak через Envoy Gateway
+# Маршрутизирует /realms/*, /resources/*, /js/* к Keycloak
+# -----------------------------------------------------------------------------
+httproute:
+  enabled: true
+  hostname: artstore.kryukov.lan
+  gateway:
+    name: eg
+    namespace: envoy-gateway-system
 
 # StorageClass для PVC
 storageClass: nfs-client

@@ -3,6 +3,7 @@
   "realm": "artstore",
   "displayName": "Artstore",
   "displayNameHtml": "<b>Artstore</b>",
+  "loginTheme": "artstore",
   "enabled": true,
   "sslRequired": "none",
   "registrationAllowed": false,

@@ -18,6 +18,7 @@
 DOCKER_REGISTRY ?= harbor.kryukov.lan/library
 AM_TAG          ?= v0.2.0-7
 SE_TAG          ?= v0.1.0-5
+KC_TAG          ?= v26.1-1
 NAMESPACE       ?= artstore-test
 AM_PORT         ?= 8000
 SE_PORT         ?= 8010
@@ -37,6 +38,7 @@ INIT_JOB_SRC    := helm/init-job/job.yaml
 # Директории
 AM_ROOT         := ../src/admin-module
 SE_ROOT         := ../src/storage-element
+KC_ROOT         := ../deploy/keycloak
 REALM_SRC       := ../deploy/keycloak/artstore-realm.json
 REALM_DST       := helm/artstore-infra/files/artstore-realm.json
 SCRIPTS_DIR     := scripts
@@ -45,6 +47,7 @@ PF_PID_DIR      := .port-forward
 # Образы
 AM_IMAGE        := $(DOCKER_REGISTRY)/admin-module
 SE_IMAGE        := $(DOCKER_REGISTRY)/storage-element
+KC_IMAGE        := $(DOCKER_REGISTRY)/keycloak-artstore
 
 # Port-forward: локальный порт → сервис K8s
 PF_PG           := 15432:5432
@@ -80,7 +83,8 @@ export KC_VIEWER_PASSWORD         := viewer
 export KC_SA_CLIENT_ID            := artstore-admin-module
 export KC_SA_CLIENT_SECRET        := admin-module-test-secret
 
-.PHONY: help docker-build docker-build-am docker-build-se docker-push-am docker-push-se \
+.PHONY: help docker-build docker-build-am docker-build-se docker-build-kc \
+        docker-push-am docker-push-se docker-push-kc \
         copy-realm infra-up infra-down kc-setup se-up se-down apps-up apps-down \
         init-data init-data-clean test-env-up test-env-down \
         test-env-status test-env-logs \
@@ -99,9 +103,10 @@ help:
 	@echo "============================================================"
 	@echo ""
 	@echo "Сборка образов:"
-	@echo "  docker-build         Собрать и запушить AM + SE в Harbor"
+	@echo "  docker-build         Собрать и запушить AM + SE + KC в Harbor"
 	@echo "  docker-build-am      Собрать образ Admin Module"
 	@echo "  docker-build-se      Собрать образ Storage Element"
+	@echo "  docker-build-kc      Собрать образ Keycloak с темой Artstore"
 	@echo ""
 	@echo "Тестовая среда (по слоям):"
 	@echo "  infra-up             Деплой инфраструктуры (PG + KC)"
@@ -136,6 +141,7 @@ help:
 	@echo "  DOCKER_REGISTRY      $(DOCKER_REGISTRY)"
 	@echo "  AM_TAG               $(AM_TAG)"
 	@echo "  SE_TAG               $(SE_TAG)"
+	@echo "  KC_TAG               $(KC_TAG)"
 	@echo "  NAMESPACE            $(NAMESPACE)"
 	@echo ""
 	@echo "Быстрый старт:"
@@ -145,12 +151,13 @@ help:
 # Сборка Docker-образов
 # -----------------------------------------------------------------------------
 
-## docker-build: Собрать и запушить оба образа
-docker-build: docker-build-am docker-push-am docker-build-se docker-push-se
+## docker-build: Собрать и запушить все образы (AM + SE + KC)
+docker-build: docker-build-am docker-push-am docker-build-se docker-push-se docker-build-kc docker-push-kc
 	@echo ""
 	@echo "Образы собраны и запушены:"
 	@echo "  $(AM_IMAGE):$(AM_TAG)"
 	@echo "  $(SE_IMAGE):$(SE_TAG)"
+	@echo "  $(KC_IMAGE):$(KC_TAG)"
 
 ## docker-build-am: Собрать образ Admin Module
 docker-build-am:
@@ -173,6 +180,17 @@ docker-build-se:
 docker-push-se:
 	@echo ">>> Push $(SE_IMAGE):$(SE_TAG)..."
 	docker push $(SE_IMAGE):$(SE_TAG)
+
+## docker-build-kc: Собрать образ Keycloak с темой Artstore
+docker-build-kc:
+	@echo ">>> Сборка Keycloak $(KC_TAG) (linux/amd64)..."
+	docker build --platform linux/amd64 \
+		-t $(KC_IMAGE):$(KC_TAG) -f $(KC_ROOT)/Dockerfile $(KC_ROOT)
+
+## docker-push-kc: Запушить образ Keycloak в Harbor
+docker-push-kc:
+	@echo ">>> Push $(KC_IMAGE):$(KC_TAG)..."
+	docker push $(KC_IMAGE):$(KC_TAG)
 
 # -----------------------------------------------------------------------------
 # Подготовка
@@ -452,6 +470,7 @@ clean: test-env-down
 	@echo ">>> Удаление локальных образов..."
 	@docker rmi $(AM_IMAGE):$(AM_TAG) 2>/dev/null || true
 	@docker rmi $(SE_IMAGE):$(SE_TAG) 2>/dev/null || true
+	@docker rmi $(KC_IMAGE):$(KC_TAG) 2>/dev/null || true
 	@rm -rf $(PF_PID_DIR)
 	@rm -f $(REALM_DST)
 	@echo ">>> Очистка завершена"

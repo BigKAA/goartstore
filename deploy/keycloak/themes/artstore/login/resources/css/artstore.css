@@ -1,0 +1,415 @@
+/*
+ * Кастомная тема Artstore для Keycloak
+ * Переопределение PatternFly 5 переменных на палитру Admin Module
+ * Тёмная зелёная тема: фон #0a0f0a, акцент #22c55e
+ */
+
+/* ============================================================
+ * Шрифт Inter (Google Fonts)
+ * ============================================================ */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* ============================================================
+ * Палитра Admin Module — CSS-переменные
+ * ============================================================ */
+:root {
+  /* Фоны */
+  --artstore-bg-base: #0a0f0a;
+  --artstore-bg-surface: #111c11;
+  --artstore-bg-elevated: #1a2e1a;
+  --artstore-bg-hover: #243824;
+
+  /* Текст */
+  --artstore-text-primary: #e8f5e8;
+  --artstore-text-secondary: #9cb89c;
+  --artstore-text-muted: #5a7a5a;
+
+  /* Акценты */
+  --artstore-accent: #22c55e;
+  --artstore-accent-hover: #4ade80;
+  --artstore-accent-bright: #86efac;
+
+  /* Границы */
+  --artstore-border-subtle: #1a2e1a;
+  --artstore-border-default: #243824;
+
+  /* Статусы */
+  --artstore-error: #ef4444;
+  --artstore-warning: #eab308;
+  --artstore-success: #22c55e;
+  --artstore-info: #3b82f6;
+}
+
+/* ============================================================
+ * Принудительный тёмный режим (без переключения)
+ * ============================================================ */
+html.pf-v5-theme-dark,
+html {
+  /* PatternFly 5 — глобальные цвета фона */
+  --pf-t--global--background--color--primary--default: var(--artstore-bg-base);
+  --pf-t--global--background--color--secondary--default: var(--artstore-bg-surface);
+  --pf-t--global--background--color--fill--secondary: var(--artstore-bg-elevated);
+  --pf-t--global--background--color--fill--hover: var(--artstore-bg-hover);
+
+  /* PatternFly 5 — глобальные цвета текста */
+  --pf-t--global--text--color--regular: var(--artstore-text-primary);
+  --pf-t--global--text--color--subtle: var(--artstore-text-secondary);
+  --pf-t--global--text--color--placeholder: var(--artstore-text-muted);
+  --pf-t--global--text--color--on-brand--default: var(--artstore-bg-base);
+  --pf-t--global--text--color--brand--default: var(--artstore-accent);
+  --pf-t--global--text--color--link--default: var(--artstore-accent);
+  --pf-t--global--text--color--link--hover: var(--artstore-accent-hover);
+
+  /* PatternFly 5 — brand цвет (кнопки, ссылки, фокус) */
+  --pf-t--global--color--brand--default: var(--artstore-accent);
+  --pf-t--global--color--brand--hover: var(--artstore-accent-hover);
+  --pf-t--global--color--brand--clicked: var(--artstore-accent-bright);
+
+  /* PatternFly 5 — границы */
+  --pf-t--global--border--color--default: var(--artstore-border-subtle);
+  --pf-t--global--border--color--hover: var(--artstore-border-default);
+
+  /* PatternFly 5 — семантические статусы */
+  --pf-t--global--color--status--danger--default: var(--artstore-error);
+  --pf-t--global--color--status--warning--default: var(--artstore-warning);
+  --pf-t--global--color--status--success--default: var(--artstore-success);
+  --pf-t--global--color--status--info--default: var(--artstore-info);
+
+  /* PatternFly 5 — шрифт */
+  --pf-t--global--font--family--body: 'Inter', system-ui, -apple-system, sans-serif;
+  --pf-t--global--font--family--heading: 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* Тень карточки */
+  --pf-t--global--box-shadow--sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --pf-t--global--box-shadow--md: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+/* ============================================================
+ * Фон страницы
+ * ============================================================ */
+body#keycloak-bg {
+  background: var(--artstore-bg-base) !important;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.login-pf body {
+  background: var(--artstore-bg-base) !important;
+  background-image: none !important;
+}
+
+/* ============================================================
+ * Логотип (заменяем стандартный Keycloak)
+ * ============================================================ */
+:root {
+  --keycloak-logo-url: url('../img/logo.svg');
+  --keycloak-logo-height: 48px;
+  --keycloak-logo-width: 200px;
+}
+
+div.kc-logo-text {
+  background-image: var(--keycloak-logo-url) !important;
+  background-repeat: no-repeat !important;
+  background-size: contain !important;
+  background-position: center !important;
+  height: var(--keycloak-logo-height) !important;
+  width: var(--keycloak-logo-width) !important;
+  margin: 0 auto 1rem auto !important;
+}
+
+/* ============================================================
+ * Заголовок страницы
+ * ============================================================ */
+#kc-header-wrapper {
+  color: var(--artstore-text-primary) !important;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+  font-size: 1.25rem !important;
+  font-weight: 600 !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+
+/* ============================================================
+ * Контейнер логина — карточка в стиле Admin Module
+ * ============================================================ */
+.pf-v5-c-login {
+  background: var(--artstore-bg-base) !important;
+}
+
+.pf-v5-c-login__main {
+  background: var(--artstore-bg-surface) !important;
+  border: 1px solid var(--artstore-border-subtle) !important;
+  border-radius: 0.5rem !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Заголовок карточки */
+.pf-v5-c-login__main-header {
+  border-bottom: 1px solid var(--artstore-border-subtle) !important;
+}
+
+/* Заголовок (h1) страницы */
+.pf-v5-c-login__main-header .pf-v5-c-title {
+  color: var(--artstore-text-primary) !important;
+  font-weight: 600 !important;
+}
+
+/* ============================================================
+ * Поля ввода
+ * ============================================================ */
+.pf-v5-c-form-control {
+  background-color: var(--artstore-bg-elevated) !important;
+  border: 1px solid var(--artstore-border-default) !important;
+  color: var(--artstore-text-primary) !important;
+  border-radius: 0.375rem !important;
+  transition: border-color 150ms ease, box-shadow 150ms ease !important;
+}
+
+.pf-v5-c-form-control:focus-within,
+.pf-v5-c-form-control:focus {
+  border-color: var(--artstore-accent) !important;
+  box-shadow: 0 0 0 1px var(--artstore-accent) !important;
+  outline: none !important;
+}
+
+.pf-v5-c-form-control:hover {
+  border-color: var(--artstore-border-default) !important;
+}
+
+.pf-v5-c-form-control input,
+.pf-v5-c-form-control select,
+.pf-v5-c-form-control textarea {
+  color: var(--artstore-text-primary) !important;
+}
+
+.pf-v5-c-form-control input::placeholder {
+  color: var(--artstore-text-muted) !important;
+}
+
+/* ============================================================
+ * Лейблы формы
+ * ============================================================ */
+.pf-v5-c-form__label-text {
+  color: var(--artstore-text-secondary) !important;
+  font-weight: 500 !important;
+}
+
+/* ============================================================
+ * Кнопки
+ * ============================================================ */
+
+/* Primary — зелёная кнопка */
+.pf-v5-c-button.pf-m-primary {
+  background-color: var(--artstore-accent) !important;
+  color: var(--artstore-bg-base) !important;
+  border: none !important;
+  border-radius: 0.375rem !important;
+  font-weight: 600 !important;
+  transition: background-color 150ms ease !important;
+}
+
+.pf-v5-c-button.pf-m-primary:hover {
+  background-color: var(--artstore-accent-hover) !important;
+}
+
+.pf-v5-c-button.pf-m-primary:active {
+  background-color: var(--artstore-accent-bright) !important;
+}
+
+/* Secondary */
+.pf-v5-c-button.pf-m-secondary {
+  background-color: var(--artstore-bg-elevated) !important;
+  color: var(--artstore-text-primary) !important;
+  border: 1px solid var(--artstore-accent) !important;
+  border-radius: 0.375rem !important;
+  transition: background-color 150ms ease !important;
+}
+
+.pf-v5-c-button.pf-m-secondary:hover {
+  background-color: var(--artstore-bg-hover) !important;
+}
+
+/* Link-кнопки (ссылки) */
+.pf-v5-c-button.pf-m-link {
+  color: var(--artstore-accent) !important;
+}
+
+.pf-v5-c-button.pf-m-link:hover {
+  color: var(--artstore-accent-hover) !important;
+}
+
+/* Control (toggle password visibility и др.) */
+.pf-v5-c-button.pf-m-control {
+  background-color: var(--artstore-bg-elevated) !important;
+  color: var(--artstore-text-secondary) !important;
+  border: 1px solid var(--artstore-border-default) !important;
+}
+
+.pf-v5-c-button.pf-m-control:hover {
+  color: var(--artstore-text-primary) !important;
+  background-color: var(--artstore-bg-hover) !important;
+}
+
+/* ============================================================
+ * Ссылки
+ * ============================================================ */
+a {
+  color: var(--artstore-accent) !important;
+  transition: color 150ms ease !important;
+}
+
+a:hover {
+  color: var(--artstore-accent-hover) !important;
+}
+
+/* ============================================================
+ * Алерты / сообщения
+ * ============================================================ */
+
+/* Общий стиль алертов */
+.pf-v5-c-alert {
+  border-radius: 0.375rem !important;
+}
+
+/* Ошибка (danger) */
+.pf-v5-c-alert.pf-m-danger {
+  background-color: rgba(239, 68, 68, 0.1) !important;
+  border-left: 3px solid var(--artstore-error) !important;
+}
+
+.pf-v5-c-alert.pf-m-danger .pf-v5-c-alert__title {
+  color: var(--artstore-error) !important;
+}
+
+/* Предупреждение */
+.pf-v5-c-alert.pf-m-warning {
+  background-color: rgba(234, 179, 8, 0.1) !important;
+  border-left: 3px solid var(--artstore-warning) !important;
+}
+
+.pf-v5-c-alert.pf-m-warning .pf-v5-c-alert__title {
+  color: var(--artstore-warning) !important;
+}
+
+/* Успех */
+.pf-v5-c-alert.pf-m-success {
+  background-color: rgba(34, 197, 94, 0.1) !important;
+  border-left: 3px solid var(--artstore-success) !important;
+}
+
+.pf-v5-c-alert.pf-m-success .pf-v5-c-alert__title {
+  color: var(--artstore-success) !important;
+}
+
+/* Информация */
+.pf-v5-c-alert.pf-m-info {
+  background-color: rgba(59, 130, 246, 0.1) !important;
+  border-left: 3px solid var(--artstore-info) !important;
+}
+
+.pf-v5-c-alert.pf-m-info .pf-v5-c-alert__title {
+  color: var(--artstore-info) !important;
+}
+
+/* ============================================================
+ * Чекбоксы
+ * ============================================================ */
+.pf-v5-c-check__label {
+  color: var(--artstore-text-secondary) !important;
+}
+
+/* ============================================================
+ * Helper text
+ * ============================================================ */
+.pf-v5-c-helper-text__item-text {
+  color: var(--artstore-text-secondary) !important;
+}
+
+.pf-v5-c-helper-text__item.pf-m-error .pf-v5-c-helper-text__item-text {
+  color: var(--artstore-error) !important;
+}
+
+/* ============================================================
+ * Футер (ссылки на регистрацию, social login и т.д.)
+ * ============================================================ */
+.pf-v5-c-login__main-footer {
+  border-top: 1px solid var(--artstore-border-subtle) !important;
+}
+
+.pf-v5-c-login__main-footer-band {
+  background-color: var(--artstore-bg-elevated) !important;
+  border-top: 1px solid var(--artstore-border-subtle) !important;
+  border-radius: 0 0 0.5rem 0.5rem !important;
+}
+
+/* ============================================================
+ * Выбор языка (select)
+ * ============================================================ */
+#login-select-toggle {
+  background-color: var(--artstore-bg-elevated) !important;
+  color: var(--artstore-text-primary) !important;
+  border-color: var(--artstore-border-default) !important;
+}
+
+/* ============================================================
+ * Панель (используется для WebAuthn, recovery codes и др.)
+ * ============================================================ */
+.pf-v5-c-panel.pf-m-raised {
+  background-color: var(--artstore-bg-elevated) !important;
+  border: 1px solid var(--artstore-border-default) !important;
+  border-radius: 0.5rem !important;
+}
+
+/* ============================================================
+ * Data list (выбор аутентификатора)
+ * ============================================================ */
+.pf-v5-c-data-list__item {
+  border-bottom-color: var(--artstore-border-subtle) !important;
+}
+
+.pf-v5-c-data-list__item.pf-m-clickable:hover {
+  background-color: var(--artstore-bg-hover) !important;
+}
+
+/* ============================================================
+ * Tile (OTP list)
+ * ============================================================ */
+.pf-v5-c-tile {
+  background-color: var(--artstore-bg-elevated) !important;
+  border: 1px solid var(--artstore-border-default) !important;
+  border-radius: 0.375rem !important;
+}
+
+.pf-v5-c-tile.pf-m-selected {
+  border-color: var(--artstore-accent) !important;
+  background-color: rgba(34, 197, 94, 0.05) !important;
+}
+
+/* ============================================================
+ * Разделители
+ * ============================================================ */
+hr {
+  border-color: var(--artstore-border-subtle) !important;
+}
+
+/* ============================================================
+ * Скроллбар (Webkit)
+ * ============================================================ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--artstore-bg-base);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--artstore-border-default);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--artstore-text-muted);
+}

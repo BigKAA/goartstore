@@ -26,7 +26,7 @@ services:
 
   # Keycloak 26.1 — Identity Provider
   keycloak:
-    image: quay.io/keycloak/keycloak:26.1
+    image: harbor.kryukov.lan/library/keycloak-artstore:v26.1-1
     command: start-dev
     environment:
       KC_DB: postgres
