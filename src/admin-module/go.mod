@@ -3,7 +3,7 @@ module github.com/bigkaa/goartstore/admin-module
 go 1.25.6
 
 require (
-	github.com/BigKAA/topologymetrics/sdk-go v0.6.0
+	github.com/BigKAA/topologymetrics/sdk-go v0.8.0
 	github.com/MicahParks/jwkset v0.11.0
 	github.com/MicahParks/keyfunc/v3 v3.8.0
 	github.com/a-h/templ v0.3.977
@@ -17,6 +17,7 @@ require (
 	github.com/prometheus/client_golang v1.23.2
 	github.com/testcontainers/testcontainers-go v0.40.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.40.0
+	golang.org/x/text v0.34.0
 )
 
 require (
@@ -93,7 +94,6 @@ require (
 	golang.org/x/crypto v0.45.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.39.0 // indirect
-	golang.org/x/text v0.34.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
 	google.golang.org/grpc v1.79.1 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect

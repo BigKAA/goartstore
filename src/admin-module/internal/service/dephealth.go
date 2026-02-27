@@ -49,6 +49,7 @@ type DephealthService struct {
 //   - keycloakJWKSURL — URL JWKS endpoint Keycloak
 //   - checkInterval — интервал проверки зависимостей (AM_DEPHEALTH_CHECK_INTERVAL)
 //   - tlsSkipVerify — пропускать проверку TLS-сертификатов (AM_TLS_SKIP_VERIFY)
+//   - isEntry — при true добавляет лейбл isentry=yes ко всем зависимостям (DEPHEALTH_ISENTRY)
 func NewDephealthService(
 	serviceID string,
 	group string,
@@ -57,9 +58,10 @@ func NewDephealthService(
 	keycloakJWKSURL string,
 	checkInterval time.Duration,
 	tlsSkipVerify bool,
+	isEntry bool,
 	logger *slog.Logger,
 ) (*DephealthService, error) {
-	return newDephealthService(serviceID, group, db, pgConnURL, keycloakJWKSURL, checkInterval, tlsSkipVerify, logger)
+	return newDephealthService(serviceID, group, db, pgConnURL, keycloakJWKSURL, checkInterval, tlsSkipVerify, isEntry, logger)
 }
 
 // NewDephealthServiceWithRegisterer создаёт сервис с указанным Prometheus registerer.
@@ -72,10 +74,11 @@ func NewDephealthServiceWithRegisterer(
 	keycloakJWKSURL string,
 	checkInterval time.Duration,
 	tlsSkipVerify bool,
+	isEntry bool,
 	logger *slog.Logger,
 	registerer prometheus.Registerer,
 ) (*DephealthService, error) {
-	return newDephealthService(serviceID, group, db, pgConnURL, keycloakJWKSURL, checkInterval, tlsSkipVerify,
+	return newDephealthService(serviceID, group, db, pgConnURL, keycloakJWKSURL, checkInterval, tlsSkipVerify, isEntry,
 		logger, dephealth.WithRegisterer(registerer))
 }
 
@@ -88,6 +91,7 @@ func newDephealthService(
 	keycloakJWKSURL string,
 	checkInterval time.Duration,
 	tlsSkipVerify bool,
+	isEntry bool,
 	logger *slog.Logger,
 	extraOpts ...dephealth.Option,
 ) (*DephealthService, error) {
@@ -100,27 +104,37 @@ func newDephealthService(
 		kcHealthPath = parsed.Path
 	}
 
+	// Опции зависимости PostgreSQL
+	pgDepOpts := []dephealth.DependencyOption{
+		dephealth.FromURL(pgConnURL),
+		dephealth.CheckInterval(checkInterval),
+		dephealth.Critical(true),
+	}
+	if isEntry {
+		pgDepOpts = append(pgDepOpts, dephealth.WithLabel("isentry", "yes"))
+	}
+
+	// Опции зависимости Keycloak
+	kcDepOpts := []dephealth.DependencyOption{
+		dephealth.FromURL(keycloakJWKSURL),
+		dephealth.WithHTTPHealthPath(kcHealthPath),
+		dephealth.CheckInterval(checkInterval),
+		dephealth.Critical(true),
+		dephealth.WithHTTPTLSSkipVerify(tlsSkipVerify),
+	}
+	if isEntry {
+		kcDepOpts = append(kcDepOpts, dephealth.WithLabel("isentry", "yes"))
+	}
+
 	opts := []dephealth.Option{
 		dephealth.WithLogger(logger),
 		// PostgreSQL — connection pool mode через существующий pgxpool.
 		// Проверка идёт через *sql.DB (адаптер pgxpool), что отражает реальное
 		// состояние пула соединений и может обнаружить его исчерпание.
-		// Используем pgcheck.New + dephealth.AddDependency напрямую,
-		// чтобы не тянуть contrib/sqldb с транзитивной зависимостью на MySQL.
 		dephealth.AddDependency("postgresql", dephealth.TypePostgres,
-			pgcheck.New(pgcheck.WithDB(db)),
-			dephealth.FromURL(pgConnURL),
-			dephealth.CheckInterval(checkInterval),
-			dephealth.Critical(true),
-		),
+			pgcheck.New(pgcheck.WithDB(db)), pgDepOpts...),
 		// Keycloak — HTTP checker к JWKS endpoint
-		dephealth.HTTP("keycloak-jwks",
-			dephealth.FromURL(keycloakJWKSURL),
-			dephealth.WithHTTPHealthPath(kcHealthPath),
-			dephealth.CheckInterval(checkInterval),
-			dephealth.Critical(true),
-			dephealth.WithHTTPTLSSkipVerify(tlsSkipVerify),
-		),
+		dephealth.HTTP("keycloak-jwks", kcDepOpts...),
 	}
 	opts = append(opts, extraOpts...)
 

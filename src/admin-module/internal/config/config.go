@@ -114,6 +114,8 @@ type Config struct {
 	DephealthGroup string
 	// Имя владельца пода для метки name в topologymetrics (DEPHEALTH_NAME)
 	DephealthName string
+	// Флаг isEntry: при true добавляет лейбл isentry=yes ко всем зависимостям (DEPHEALTH_ISENTRY)
+	DephealthIsEntry bool
 	// Интервал синхронизации файлового реестра с SE
 	SyncInterval time.Duration
 	// Размер страницы при постраничной синхронизации файлов
@@ -390,6 +392,12 @@ func Load() (*Config, error) {
 
 	// DEPHEALTH_NAME — имя владельца пода для метки name в topologymetrics (без префикса модуля)
 	cfg.DephealthName = getEnvDefault("DEPHEALTH_NAME", "")
+
+	// DEPHEALTH_ISENTRY — при true добавляет лейбл isentry=yes ко всем зависимостям (по умолчанию false)
+	cfg.DephealthIsEntry, err = getEnvBool("DEPHEALTH_ISENTRY", false)
+	if err != nil {
+		return nil, fmt.Errorf("DEPHEALTH_ISENTRY: %w", err)
+	}
 
 	// AM_SYNC_INTERVAL — интервал синхронизации файлового реестра (по умолчанию 1h)
 	cfg.SyncInterval, err = getEnvDuration("AM_SYNC_INTERVAL", time.Hour)

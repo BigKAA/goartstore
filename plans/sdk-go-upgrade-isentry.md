@@ -17,8 +17,8 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 2
-- **Активный подпункт**: 2.1
+- **Активная фаза**: Phase 3
+- **Активный подпункт**: 3.1
 - **Последнее обновление**: 2026-02-27
 
 ---
@@ -26,7 +26,7 @@
 ## Оглавление
 
 - [x] [Phase 1: Обновление sdk-go и добавление IsEntry в Storage Element](#phase-1-обновление-sdk-go-и-добавление-isentry-в-storage-element)
-- [ ] [Phase 2: Обновление sdk-go и добавление IsEntry в Admin Module](#phase-2-обновление-sdk-go-и-добавление-isentry-в-admin-module)
+- [x] [Phase 2: Обновление sdk-go и добавление IsEntry в Admin Module](#phase-2-обновление-sdk-go-и-добавление-isentry-в-admin-module)
 - [ ] [Phase 3: Обновление Helm charts модулей](#phase-3-обновление-helm-charts-модулей)
 - [ ] [Phase 4: Обновление тестовых Helm charts](#phase-4-обновление-тестовых-helm-charts)
 - [ ] [Phase 5: Сборка, деплой и верификация](#phase-5-сборка-деплой-и-верификация)
@@ -88,7 +88,7 @@
 ## Phase 2: Обновление sdk-go и добавление IsEntry в Admin Module
 
 **Dependencies**: None (может выполняться параллельно с Phase 1)
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -97,42 +97,42 @@
 
 ### Подпункты
 
-- [ ] **2.1 Обновить go.mod / go.sum**
+- [x] **2.1 Обновить go.mod / go.sum**
   - **Dependencies**: None
   - **Description**: Изменить версию sdk-go с v0.6.0 на v0.8.0 в `go.mod`. Запустить `go mod tidy`.
   - **Modifies**:
     - `src/admin-module/go.mod`
     - `src/admin-module/go.sum`
 
-- [ ] **2.2 Добавить DephealthIsEntry в Config**
+- [x] **2.2 Добавить DephealthIsEntry в Config**
   - **Dependencies**: None
   - **Description**: Добавить поле `DephealthIsEntry bool` в struct Config (рядом с DephealthGroup, строка ~116). Добавить загрузку из `DEPHEALTH_ISENTRY` через `getEnvBool("DEPHEALTH_ISENTRY", false)` (после строки 392).
   - **Modifies**:
     - `src/admin-module/internal/config/config.go`
 
-- [ ] **2.3 Добавить isEntry в DephealthService**
+- [x] **2.3 Добавить isEntry в DephealthService**
   - **Dependencies**: 2.2
   - **Description**: Добавить параметр `isEntry bool` в конструкторы `NewDephealthService`, `NewDephealthServiceWithRegisterer` и `newDephealthService`. Если `isEntry == true` — добавлять `dephealth.WithLabel("isentry", "yes")` к обеим зависимостям (PostgreSQL AddDependency и HTTP "keycloak-jwks").
   - **Modifies**:
     - `src/admin-module/internal/service/dephealth.go`
 
-- [ ] **2.4 Передать isEntry из main.go**
+- [x] **2.4 Передать isEntry из main.go**
   - **Dependencies**: 2.2, 2.3
   - **Description**: Обновить вызов `service.NewDephealthService()` в `main.go` (строка ~241): добавить `cfg.DephealthIsEntry`. Добавить логирование при `isEntry=true`.
   - **Modifies**:
     - `src/admin-module/cmd/admin-module/main.go`
 
-- [ ] **2.5 Проверка компиляции**
+- [x] **2.5 Проверка компиляции**
   - **Dependencies**: 2.1, 2.4
   - **Description**: Запустить `go build ./...` и `go vet ./...` в `src/admin-module/`.
   - **Creates**: N/A
 
 ### Критерии завершения Phase 2
 
-- [ ] Все подпункты завершены (2.1-2.5)
-- [ ] `go build ./...` — успешно
-- [ ] `go vet ./...` — без ошибок
-- [ ] sdk-go v0.8.0 в go.mod
+- [x] Все подпункты завершены (2.1-2.5)
+- [x] `go build ./...` — успешно
+- [x] `go vet ./...` — без ошибок
+- [x] sdk-go v0.8.0 в go.mod
 
 ---
 
