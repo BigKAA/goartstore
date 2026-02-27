@@ -11,7 +11,7 @@ namespace: artstore-test
 # -----------------------------------------------------------------------------
 registry: harbor.kryukov.lan/library
 amImage: admin-module
-amTag: v0.2.0-6
+amTag: v0.2.0-7
 imagePullPolicy: Always
 
 # -----------------------------------------------------------------------------
