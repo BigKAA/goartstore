@@ -137,6 +137,10 @@ spec:
               value: {{ .Values.adminModule.dephealthCheckInterval | quote }}
             - name: AM_DEPHEALTH_GROUP
               value: {{ .Values.adminModule.dephealthGroup | quote }}
+            {{- if .Values.adminModule.dephealthIsEntry }}
+            - name: DEPHEALTH_ISENTRY
+              value: "true"
+            {{- end }}
             # --- Admin UI ---
             - name: AM_UI_ENABLED
               value: {{ .Values.adminModule.uiEnabled | quote }}

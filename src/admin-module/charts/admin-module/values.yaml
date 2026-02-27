@@ -70,6 +70,7 @@ tls:
 dephealth:
   checkInterval: "15s"
   group: "admin-module"
+  isEntry: false
 
 # --- Admin UI ---
 ui:

@@ -63,6 +63,7 @@ shutdownTimeout: "5s"
 dephealthCheckInterval: "15s"
 dephealthGroup: "storage-element"
 dephealthDepName: "admin-jwks"
+dephealthIsEntry: false
 
 # --- Index refresh (только replicated mode) ---
 indexRefreshInterval: "30s"

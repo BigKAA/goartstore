@@ -17,8 +17,8 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 3
-- **Активный подпункт**: 3.1
+- **Активная фаза**: Phase 5
+- **Активный подпункт**: 5.1
 - **Последнее обновление**: 2026-02-27
 
 ---
@@ -27,8 +27,8 @@
 
 - [x] [Phase 1: Обновление sdk-go и добавление IsEntry в Storage Element](#phase-1-обновление-sdk-go-и-добавление-isentry-в-storage-element)
 - [x] [Phase 2: Обновление sdk-go и добавление IsEntry в Admin Module](#phase-2-обновление-sdk-go-и-добавление-isentry-в-admin-module)
-- [ ] [Phase 3: Обновление Helm charts модулей](#phase-3-обновление-helm-charts-модулей)
-- [ ] [Phase 4: Обновление тестовых Helm charts](#phase-4-обновление-тестовых-helm-charts)
+- [x] [Phase 3: Обновление Helm charts модулей](#phase-3-обновление-helm-charts-модулей)
+- [x] [Phase 4: Обновление тестовых Helm charts](#phase-4-обновление-тестовых-helm-charts)
 - [ ] [Phase 5: Сборка, деплой и верификация](#phase-5-сборка-деплой-и-верификация)
 
 ---
@@ -139,7 +139,7 @@
 ## Phase 3: Обновление Helm charts модулей
 
 **Dependencies**: Phase 1, Phase 2
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -148,7 +148,7 @@
 
 ### Подпункты
 
-- [ ] **3.1 Admin Module Helm chart**
+- [x] **3.1 Admin Module Helm chart**
   - **Dependencies**: None
   - **Description**:
     1. `values.yaml`: добавить `isEntry: false` в секцию `dephealth` (после `group`).
@@ -162,7 +162,7 @@
     - `src/admin-module/charts/admin-module/values.yaml`
     - `src/admin-module/charts/admin-module/templates/configmap.yaml`
 
-- [ ] **3.2 Storage Element Helm chart**
+- [x] **3.2 Storage Element Helm chart**
   - **Dependencies**: None
   - **Description**:
     1. `values.yaml`: добавить `dephealthIsEntry: false` (после `dephealthDepName`, строка ~65).
@@ -177,7 +177,7 @@
     - `src/storage-element/charts/storage-element/values.yaml`
     - `src/storage-element/charts/storage-element/templates/_helpers.tpl`
 
-- [ ] **3.3 Helm template validation**
+- [x] **3.3 Helm template validation**
   - **Dependencies**: 3.1, 3.2
   - **Description**: Запустить `helm template` для обоих charts и проверить что templates рендерятся корректно:
     - С `isEntry: false` (default) — `DEPHEALTH_ISENTRY` отсутствует в output
@@ -186,17 +186,17 @@
 
 ### Критерии завершения Phase 3
 
-- [ ] Все подпункты завершены (3.1-3.3)
-- [ ] `helm template` — без ошибок для обоих charts
-- [ ] При `isEntry: false` переменная не появляется в output
-- [ ] При `isEntry: true` переменная корректно пробрасывается
+- [x] Все подпункты завершены (3.1-3.3)
+- [x] `helm template` — без ошибок для обоих charts
+- [x] При `isEntry: false` переменная не появляется в output
+- [x] При `isEntry: true` переменная корректно пробрасывается
 
 ---
 
 ## Phase 4: Обновление тестовых Helm charts
 
 **Dependencies**: Phase 3
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -205,7 +205,7 @@
 
 ### Подпункты
 
-- [ ] **4.1 artstore-apps (Admin Module)**
+- [x] **4.1 artstore-apps (Admin Module)**
   - **Dependencies**: None
   - **Description**:
     1. `values.yaml`: добавить `dephealthIsEntry: false` в секцию `adminModule` (после `dephealthGroup`).
@@ -220,7 +220,7 @@
     - `tests/helm/artstore-apps/values.yaml`
     - `tests/helm/artstore-apps/templates/admin-module.yaml`
 
-- [ ] **4.2 artstore-se (Storage Elements)**
+- [x] **4.2 artstore-se (Storage Elements)**
   - **Dependencies**: None
   - **Description**:
     1. `values.yaml`: добавить `dephealthIsEntry: false` в секцию `seCommon` (после `dephealthDepName`).
@@ -237,16 +237,16 @@
     - `tests/helm/artstore-se/templates/se-standalone.yaml`
     - `tests/helm/artstore-se/templates/se-replicated.yaml`
 
-- [ ] **4.3 Helm template validation**
+- [x] **4.3 Helm template validation**
   - **Dependencies**: 4.1, 4.2
   - **Description**: Запустить `helm template` для тестовых charts и проверить корректность.
   - **Creates**: N/A
 
 ### Критерии завершения Phase 4
 
-- [ ] Все подпункты завершены (4.1-4.3)
-- [ ] `helm template` — без ошибок
-- [ ] Тестовые charts содержат `dephealthIsEntry` с default false
+- [x] Все подпункты завершены (4.1-4.3)
+- [x] `helm template` — без ошибок
+- [x] Тестовые charts содержат `dephealthIsEntry` с default false
 
 ---
 

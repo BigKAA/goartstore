@@ -62,6 +62,7 @@ adminModule:
   # topologymetrics
   dephealthCheckInterval: "15s"
   dephealthGroup: "admin-module"
+  dephealthIsEntry: false
   # Admin UI
   uiEnabled: "true"
   uiOidcClientId: "artstore-admin-ui"

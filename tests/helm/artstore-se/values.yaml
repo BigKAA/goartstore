@@ -46,6 +46,7 @@ seCommon:
   dephealthCheckInterval: "15s"
   dephealthGroup: "storage-element"
   dephealthDepName: "admin-jwks"
+  dephealthIsEntry: false
   resources:
     requests:
       memory: "128Mi"

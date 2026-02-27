@@ -114,6 +114,10 @@ spec:
               value: {{ $.Values.seCommon.dephealthGroup | quote }}
             - name: SE_DEPHEALTH_DEP_NAME
               value: {{ $.Values.seCommon.dephealthDepName | quote }}
+            {{- if $.Values.seCommon.dephealthIsEntry }}
+            - name: DEPHEALTH_ISENTRY
+              value: "true"
+            {{- end }}
             - name: SE_SHUTDOWN_TIMEOUT
               value: "5s"
           volumeMounts:

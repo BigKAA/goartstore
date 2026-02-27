@@ -118,6 +118,10 @@ app.kubernetes.io/instance: {{ .Values.elementId }}
   value: {{ .Values.dephealthGroup | quote }}
 - name: SE_DEPHEALTH_DEP_NAME
   value: {{ .Values.dephealthDepName | quote }}
+{{- if .Values.dephealthIsEntry }}
+- name: DEPHEALTH_ISENTRY
+  value: "true"
+{{- end }}
 - name: SE_SHUTDOWN_TIMEOUT
   value: {{ .Values.shutdownTimeout | quote }}
 {{- if eq .Values.replicaMode "replicated" }}
