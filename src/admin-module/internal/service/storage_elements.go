@@ -19,11 +19,12 @@ import (
 
 // StorageElementService — сервис управления Storage Elements.
 type StorageElementService struct {
-	seClient  *seclient.Client
-	seRepo    repository.StorageElementRepository
-	fileRepo  repository.FileRegistryRepository
-	syncSvc   *StorageSyncService
-	logger    *slog.Logger
+	seClient    *seclient.Client
+	seRepo      repository.StorageElementRepository
+	fileRepo    repository.FileRegistryRepository
+	syncSvc     *StorageSyncService
+	dephealthSvc *DephealthService
+	logger      *slog.Logger
 }
 
 // NewStorageElementService создаёт сервис Storage Elements.
@@ -45,6 +46,13 @@ func NewStorageElementService(
 // Вызывается после создания обоих сервисов для избежания циклической зависимости.
 func (s *StorageElementService) SetSyncService(syncSvc *StorageSyncService) {
 	s.syncSvc = syncSvc
+}
+
+// SetDephealthService устанавливает ссылку на DephealthService для мониторинга SE.
+// Вызывается после создания dephealth, аналогично SetSyncService.
+// Если nil — мониторинг SE через dephealth отключён.
+func (s *StorageElementService) SetDephealthService(dephealthSvc *DephealthService) {
+	s.dephealthSvc = dephealthSvc
 }
 
 // DiscoverResult — результат предпросмотра SE.
@@ -125,6 +133,17 @@ func (s *StorageElementService) Create(ctx context.Context, name, url string) (*
 		slog.String("storage_id", info.StorageID),
 	)
 
+	// Регистрация SE endpoint в dephealth (non-blocking, ошибки → Warn)
+	if s.dephealthSvc != nil {
+		if dhErr := s.dephealthSvc.RegisterSEEndpoint(name, url); dhErr != nil {
+			s.logger.Warn("Не удалось зарегистрировать SE в dephealth",
+				slog.String("se_id", seID),
+				slog.String("name", name),
+				slog.String("error", dhErr.Error()),
+			)
+		}
+	}
+
 	// Запуск полной синхронизации файлов в фоне (не блокируем Create)
 	if s.syncSvc != nil {
 		go func() {
@@ -185,6 +204,10 @@ func (s *StorageElementService) Update(ctx context.Context, id string, name, url
 		return nil, fmt.Errorf("получение SE для обновления: %w", err)
 	}
 
+	// Сохраняем старые значения для dephealth update
+	oldName := se.Name
+	oldURL := se.URL
+
 	// Применяем обновления
 	if name != nil {
 		se.Name = *name
@@ -205,11 +228,30 @@ func (s *StorageElementService) Update(ctx context.Context, id string, name, url
 		slog.String("se_id", id),
 	)
 
+	// Обновление SE endpoint в dephealth (non-blocking, ошибки → Warn)
+	if s.dephealthSvc != nil && (oldName != se.Name || oldURL != se.URL) {
+		if dhErr := s.dephealthSvc.UpdateSEEndpoint(oldName, oldURL, se.Name, se.URL); dhErr != nil {
+			s.logger.Warn("Не удалось обновить SE в dephealth",
+				slog.String("se_id", id),
+				slog.String("error", dhErr.Error()),
+			)
+		}
+	}
+
 	return se, nil
 }
 
 // Delete удаляет SE из реестра. Физические файлы не удаляются.
 func (s *StorageElementService) Delete(ctx context.Context, id string) error {
+	// Получаем SE для dephealth (name, URL) перед удалением
+	var seName, seURL string
+	if s.dephealthSvc != nil {
+		if se, getErr := s.seRepo.GetByID(ctx, id); getErr == nil {
+			seName = se.Name
+			seURL = se.URL
+		}
+	}
+
 	if err := s.seRepo.Delete(ctx, id); err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			return ErrNotFound
@@ -220,6 +262,17 @@ func (s *StorageElementService) Delete(ctx context.Context, id string) error {
 	s.logger.Info("SE удалён из реестра",
 		slog.String("se_id", id),
 	)
+
+	// Удаление SE endpoint из dephealth (non-blocking, ошибки → Warn)
+	if s.dephealthSvc != nil && seName != "" && seURL != "" {
+		if dhErr := s.dephealthSvc.UnregisterSEEndpoint(seName, seURL); dhErr != nil {
+			s.logger.Warn("Не удалось удалить SE из dephealth",
+				slog.String("se_id", id),
+				slog.String("name", seName),
+				slog.String("error", dhErr.Error()),
+			)
+		}
+	}
 
 	return nil
 }
