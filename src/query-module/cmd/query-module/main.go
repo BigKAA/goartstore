@@ -1,7 +1,6 @@
 // main.go — точка входа Query Module.
 // Загружает конфигурацию, подключается к PostgreSQL, применяет миграции (индексы),
-// инициализирует JWT middleware, создаёт health handler и HTTP-сервер.
-// Бизнес-логика (search, download) добавляется в Phase 3-4.
+// инициализирует JWT middleware, создаёт repository/cache/service/handlers и HTTP-сервер.
 package main
 
 import (
@@ -9,11 +8,14 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/bigkaa/goartstore/query-module/internal/adminclient"
 	"github.com/bigkaa/goartstore/query-module/internal/api/handlers"
 	"github.com/bigkaa/goartstore/query-module/internal/api/middleware"
 	"github.com/bigkaa/goartstore/query-module/internal/config"
 	"github.com/bigkaa/goartstore/query-module/internal/database"
+	"github.com/bigkaa/goartstore/query-module/internal/repository"
 	"github.com/bigkaa/goartstore/query-module/internal/server"
+	"github.com/bigkaa/goartstore/query-module/internal/service"
 )
 
 func main() {
@@ -68,16 +70,47 @@ func main() {
 		slog.String("jwks_url", cfg.JWKSURL),
 	)
 
-	// 6. Readiness checkers
+	// 6. Admin Module HTTP-клиент
+	adminClient, err := adminclient.New(
+		cfg.AdminURL,
+		cfg.CACertPath,
+		cfg.AdminTimeout,
+		cfg.ClientID,
+		cfg.ClientSecret,
+		logger,
+	)
+	if err != nil {
+		logger.Error("Ошибка создания Admin Module клиента", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+	_ = adminClient // будет использован в Phase 4 (download service)
+	logger.Info("Admin Module клиент инициализирован",
+		slog.String("admin_url", cfg.AdminURL),
+	)
+
+	// 7. Repository слой
+	fileRepo := repository.NewFileRepository(pool)
+
+	// 8. LRU-кэш метаданных файлов
+	cacheService := service.NewCacheService(cfg.CacheMaxSize, cfg.CacheTTL)
+	logger.Info("LRU-кэш инициализирован",
+		slog.Int("max_size", cfg.CacheMaxSize),
+		slog.Duration("ttl", cfg.CacheTTL),
+	)
+
+	// 9. Search service (repository + cache)
+	searchService := service.NewSearchService(fileRepo, cacheService, logger)
+
+	// 10. Readiness checkers
 	pgChecker := database.NewReadinessChecker(pool)
 
-	// 7. Health handler (с PostgreSQL checker)
+	// 11. Health handler (с PostgreSQL checker)
 	healthHandler := handlers.NewHealthHandler(pgChecker)
 
-	// 8. API handler (stubs для бизнес-endpoints, будут реализованы в Phase 3-4)
-	apiHandler := handlers.NewAPIHandler(healthHandler, logger)
+	// 12. API handler (search, file metadata + stubs для download)
+	apiHandler := handlers.NewAPIHandler(healthHandler, searchService, logger)
 
-	// 9. HTTP-сервер с middleware (metrics → logging → JWT с exclusions)
+	// 13. HTTP-сервер с middleware (metrics → logging → JWT с exclusions)
 	srv := server.New(cfg, logger, apiHandler,
 		middleware.MetricsMiddleware(),
 		middleware.RequestLogger(logger),
@@ -87,7 +120,7 @@ func main() {
 		),
 	)
 
-	// 10. Запуск сервера (блокирующий вызов с graceful shutdown)
+	// 14. Запуск сервера (блокирующий вызов с graceful shutdown)
 	if err = srv.Run(); err != nil {
 		logger.Error("Ошибка сервера", slog.String("error", err.Error()))
 		os.Exit(1)

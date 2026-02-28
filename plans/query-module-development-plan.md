@@ -17,10 +17,10 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 3
-- **Активный подпункт**: 3.1
+- **Активная фаза**: Phase 4
+- **Активный подпункт**: 4.1
 - **Последнее обновление**: 2026-02-28
-- **Примечание**: Phase 2 завершена — БД, конфиг, JWT middleware, logging/metrics
+- **Примечание**: Phase 3 завершена — repository, cache, search service, handlers, admin client
 
 ---
 
@@ -28,7 +28,7 @@
 
 - [x] [Phase 1: Каркас проекта и кодогенерация](#phase-1-каркас-проекта-и-кодогенерация)
 - [x] [Phase 2: Инфраструктурный слой (БД, конфиг, middleware)](#phase-2-инфраструктурный-слой-бд-конфиг-middleware)
-- [ ] [Phase 3: Бизнес-логика (поиск, метаданные, кэш)](#phase-3-бизнес-логика-поиск-метаданные-кэш)
+- [x] [Phase 3: Бизнес-логика (поиск, метаданные, кэш)](#phase-3-бизнес-логика-поиск-метаданные-кэш)
 - [ ] [Phase 4: Proxy Download и ленивая очистка](#phase-4-proxy-download-и-ленивая-очистка)
 - [ ] [Phase 5: Сборка, деплой и интеграционные тесты](#phase-5-сборка-деплой-и-интеграционные-тесты)
 
@@ -197,7 +197,7 @@ logging/metrics middleware, полная конфигурация из env-vars.
 ## Phase 3: Бизнес-логика (поиск, метаданные, кэш)
 
 **Dependencies**: Phase 2
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -207,7 +207,7 @@ HTTP-обработчики для search и file metadata. Admin Module HTTP-к
 
 ### Подпункты
 
-- [ ] **3.1 Доменная модель и repository**
+- [x] **3.1 Доменная модель и repository**
   - **Dependencies**: None
   - **Description**: `domain/model/file.go` — `FileRecord` struct (маппинг таблицы
     `file_registry`). `repository/repository.go` — `DBTX` interface, `ErrNotFound`.
@@ -225,7 +225,7 @@ HTTP-обработчики для search и file metadata. Admin Module HTTP-к
   - **Links**:
     - Паттерн: `src/admin-module/internal/repository/repository.go`
 
-- [ ] **3.2 LRU Cache**
+- [x] **3.2 LRU Cache**
   - **Dependencies**: None
   - **Description**: `service/cache.go` — обёртка над `hashicorp/golang-lru/v2`
     с поддержкой TTL. Интерфейс: `Get(fileID) (*FileRecord, bool)`,
@@ -236,7 +236,7 @@ HTTP-обработчики для search и file metadata. Admin Module HTTP-к
   - **Creates**:
     - `src/query-module/internal/service/cache.go`
 
-- [ ] **3.3 Admin Module HTTP-клиент**
+- [x] **3.3 Admin Module HTTP-клиент**
   - **Dependencies**: None
   - **Description**: `adminclient/client.go` — HTTP-клиент к Admin Module:
     - `GetToken(ctx) (string, error)` — client_credentials grant к Keycloak
@@ -250,7 +250,7 @@ HTTP-обработчики для search и file metadata. Admin Module HTTP-к
   - **Links**:
     - Паттерн: `src/admin-module/internal/seclient/client.go`
 
-- [ ] **3.4 Service-слой (search, file metadata)**
+- [x] **3.4 Service-слой (search, file metadata)**
   - **Dependencies**: 3.1, 3.2
   - **Description**: `service/search.go` — `SearchService`:
     - `Search(ctx, params) (*SearchResponse, error)` — вызывает repository,
@@ -260,7 +260,7 @@ HTTP-обработчики для search и file metadata. Admin Module HTTP-к
   - **Creates**:
     - `src/query-module/internal/service/search.go`
 
-- [ ] **3.5 HTTP-обработчики (search, file metadata)**
+- [x] **3.5 HTTP-обработчики (search, file metadata)**
   - **Dependencies**: 3.4
   - **Description**: `handlers/search.go` — `SearchFiles(w, r)`:
     десериализация `SearchRequest`, валидация, вызов service, сериализация `SearchResponse`.
@@ -273,7 +273,7 @@ HTTP-обработчики для search и file metadata. Admin Module HTTP-к
     - `src/query-module/internal/api/handlers/files.go`
     - `src/query-module/internal/api/handlers/handler.go` (обновление)
 
-- [ ] **3.6 Интеграция в main.go и unit-тесты**
+- [x] **3.6 Интеграция в main.go и unit-тесты**
   - **Dependencies**: 3.3, 3.5
   - **Description**: Обновление main.go — создание repository, cache, adminclient,
     search service, wiring в APIHandler.
@@ -287,14 +287,14 @@ HTTP-обработчики для search и file metadata. Admin Module HTTP-к
 
 ### Критерии завершения Phase 3
 
-- [ ] Все подпункты завершены (3.1–3.6)
-- [ ] `POST /api/v1/search` возвращает результаты с пагинацией
-- [ ] `GET /api/v1/files/{file_id}` возвращает метаданные файла
-- [ ] LRU cache работает (hit/miss метрики)
-- [ ] Admin Module client получает SA токен и информацию о SE
-- [ ] `go test ./...` проходит, unit-тесты покрывают ключевые сценарии
-- [ ] `go vet ./...` без ошибок
-- [ ] `make lint` проходит без ошибок
+- [x] Все подпункты завершены (3.1–3.6)
+- [x] `POST /api/v1/search` возвращает результаты с пагинацией
+- [x] `GET /api/v1/files/{file_id}` возвращает метаданные файла
+- [x] LRU cache работает (hit/miss метрики)
+- [x] Admin Module client получает SA токен и информацию о SE
+- [x] `go test ./...` проходит, unit-тесты покрывают ключевые сценарии
+- [x] `go vet ./...` без ошибок
+- [x] `make lint` проходит без ошибок
 
 ---
 
