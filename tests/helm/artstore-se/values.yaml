@@ -66,8 +66,9 @@ seCommon:
 storageClass: nfs-client
 
 # -----------------------------------------------------------------------------
-# Replicated instances (StatefulSet + headless Service + shared PVC RWX)
-# Каждый экземпляр — 2 пода с общим хранилищем /data и отдельным WAL per pod
+# Replicated instances (Deployment + ClusterIP Service + shared PVC RWX)
+# Каждый экземпляр — 2 пода с общим хранилищем /data (RWX NFS) и WAL emptyDir
+# Leader election через flock() на shared /data/.leader.lock
 # -----------------------------------------------------------------------------
 replicatedInstances:
   - name: se-edit-1
@@ -103,18 +104,24 @@ standaloneInstances:
     dataSize: 200Mi
     walSize: 200Mi
 
-  # Стартует как rw, init job переведёт в ro
+  # Стартует сразу в режиме ro с предзагруженными данными (initContainer)
   - name: se-ro
     storageId: se-ro
-    mode: rw
+    mode: ro
     dataSize: 200Mi
     walSize: 200Mi
+    initData:
+      type: ro-files
+      fileCount: 20
+      fileSizeKB: 9216  # ~9MB на файл, суммарно ~180MB
 
-  # Стартует как rw, init job переведёт rw -> ro -> ar
-  # dataAccessMode: ReadWriteMany — для доступа из init job
+  # Стартует сразу в режиме ar с предзагруженными метаданными (initContainer)
   - name: se-ar
     storageId: se-ar
-    mode: rw
+    mode: ar
     dataSize: 200Mi
     walSize: 200Mi
-    dataAccessMode: ReadWriteMany
+    initData:
+      type: ar-metadata
+      fileCount: 200
+      metadataSize: 943718  # ~921KB на файл, суммарно ~180MB в метаданных

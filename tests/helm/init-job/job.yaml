@@ -1,8 +1,7 @@
 # =============================================================================
 # Init Job — standalone manifest для инициализации тестовых данных.
 #
-# Получает токен из Keycloak (Client Credentials), ждёт готовности AM и SE,
-# загружает файлы в SE, переводит se-ro и se-ar в нужные режимы.
+# Получает токен из Keycloak (Client Credentials), ждёт готовности AM и SE.
 #
 # Запуск: make init-data (envsubst подставит переменные)
 # Перезапуск: make init-data-clean && make init-data
@@ -196,7 +195,7 @@ data:
     log_info ""
 
     # --- Шаг 1: Дождаться готовности Keycloak ---
-    log_info "[1/9] Ожидание готовности Keycloak..."
+    log_info "[1/5] Ожидание готовности Keycloak..."
     KC_READY=false
     KC_TIMEOUT=120
     KC_ELAPSED=0
@@ -214,7 +213,7 @@ data:
     log_ok "Keycloak доступен (${KC_ELAPSED}с)"
 
     # --- Шаг 2: Получить JWT токен ---
-    log_info "[2/9] Получение JWT токена из Keycloak (Client Credentials)..."
+    log_info "[2/5] Получение JWT токена из Keycloak (Client Credentials)..."
     TOKEN=$(get_token_from_keycloak "$KC_TOKEN_ENDPOINT" "$KC_CLIENT_ID" "$KC_CLIENT_SECRET")
     if [[ -z "$TOKEN" || "$TOKEN" == "null" ]]; then
         log_fail "Не удалось получить JWT токен из Keycloak"; exit 1
@@ -222,7 +221,7 @@ data:
     log_ok "JWT получен (client_id=${KC_CLIENT_ID})"
 
     # --- Шаг 3: Дождаться готовности Admin Module ---
-    log_info "[3/9] Ожидание готовности Admin Module..."
+    log_info "[3/5] Ожидание готовности Admin Module..."
     if wait_ready "$AM_URL" 120; then
         log_ok "Admin Module готов"
     else
@@ -230,7 +229,7 @@ data:
     fi
 
     # --- Шаг 4: Дождаться готовности всех SE ---
-    log_info "[4/9] Ожидание готовности Storage Elements..."
+    log_info "[4/5] Ожидание готовности Storage Elements..."
     SE_NAMES=("SE_EDIT_1" "SE_EDIT_2" "SE_RW_1" "SE_RW_2" "SE_RO" "SE_AR")
     SE_URLS=("$SE_EDIT_1_URL" "$SE_EDIT_2_URL" "$SE_RW_1_URL" "$SE_RW_2_URL" "$SE_RO_URL" "$SE_AR_URL")
     SE_TIMEOUT=120
@@ -249,80 +248,7 @@ data:
     fi
     log_ok "Все 6 SE экземпляров готовы"
 
-    # --- Шаг 5: Загрузка 4 файлов в se-ro ---
-    log_info "[5/9] Загрузка тестовых файлов в se-ro (4 файла)..."
-    RO_UPLOADED=0
-    RO_FILES=("test-ro-doc.bin" "test-ro-image.bin" "test-ro-data.bin" "test-ro-backup.bin")
-    RO_DESCS=("Тестовый документ" "Тестовое изображение" "Тестовые данные" "Тестовый бэкап")
-    for i in "${!RO_FILES[@]}"; do
-        FILENAME="${RO_FILES[$i]}"; DESC="${RO_DESCS[$i]}"
-        RESPONSE=$(upload_file "$SE_RO_URL" "$TOKEN" "$FILENAME" "application/octet-stream" "$DESC")
-        if assert_status "$RESPONSE" 201 "Upload ${FILENAME}"; then
-            RO_UPLOADED=$((RO_UPLOADED + 1))
-            FILE_ID=$(get_response_body "$RESPONSE" | jq -r '.file_id // .id // "unknown"')
-            log_ok "  ${FILENAME} -> ${FILE_ID}"
-        else
-            log_fail "Не удалось загрузить ${FILENAME} в se-ro"; exit 1
-        fi
-    done
-    log_ok "Загружено ${RO_UPLOADED} файлов в se-ro"
-
-    # --- Шаг 6: Загрузка 200 файлов в se-ar ---
-    log_info "[6/9] Загрузка тестовых файлов в se-ar (200 файлов, ~1KB каждый)..."
-    AR_UPLOADED=0; AR_FAILED=0
-    for i in $(seq 1 200); do
-        FILENAME="test-ar-$(printf '%03d' "$i").bin"
-        RESPONSE=$(upload_file "$SE_AR_URL" "$TOKEN" "$FILENAME" "application/octet-stream" "Архивный файл ${i}/200")
-        if assert_status "$RESPONSE" 201 ""; then
-            AR_UPLOADED=$((AR_UPLOADED + 1))
-        else
-            AR_FAILED=$((AR_FAILED + 1)); log_warn "  Ошибка при загрузке ${FILENAME}"
-        fi
-        (( i % 50 == 0 )) && log_info "  Прогресс: ${i}/200 (загружено: ${AR_UPLOADED}, ошибок: ${AR_FAILED})"
-    done
-    if [[ $AR_UPLOADED -ne 200 ]]; then
-        log_fail "Загружено ${AR_UPLOADED}/200 файлов в se-ar (${AR_FAILED} ошибок)"; exit 1
-    fi
-    log_ok "Загружено ${AR_UPLOADED} файлов в se-ar"
-
-    # --- Шаг 7: Перевод se-ro: rw -> ro ---
-    log_info "[7/9] Перевод se-ro в режим ro..."
-    RESPONSE=$(transition_mode "$SE_RO_URL" "$TOKEN" "ro" "false")
-    if assert_status "$RESPONSE" 200 "Transition se-ro rw->ro"; then
-        BODY=$(get_response_body "$RESPONSE")
-        log_ok "se-ro: $(echo "$BODY" | jq -r '.previous_mode') -> $(echo "$BODY" | jq -r '.current_mode')"
-    else
-        log_fail "Не удалось перевести se-ro в режим ro"; exit 1
-    fi
-
-    # --- Шаг 8: Перевод se-ar: rw -> ro -> ar ---
-    log_info "[8/9] Перевод se-ar в режим ar (rw -> ro -> ar)..."
-    RESPONSE=$(transition_mode "$SE_AR_URL" "$TOKEN" "ro" "false")
-    if assert_status "$RESPONSE" 200 "Transition se-ar rw->ro"; then
-        BODY=$(get_response_body "$RESPONSE")
-        log_ok "se-ar: $(echo "$BODY" | jq -r '.previous_mode') -> $(echo "$BODY" | jq -r '.current_mode')"
-    else
-        log_fail "Не удалось перевести se-ar в режим ro"; exit 1
-    fi
-    RESPONSE=$(transition_mode "$SE_AR_URL" "$TOKEN" "ar" "false")
-    if assert_status "$RESPONSE" 200 "Transition se-ar ro->ar"; then
-        BODY=$(get_response_body "$RESPONSE")
-        log_ok "se-ar: $(echo "$BODY" | jq -r '.previous_mode') -> $(echo "$BODY" | jq -r '.current_mode')"
-    else
-        log_fail "Не удалось перевести se-ar в режим ar"; exit 1
-    fi
-
-    # Удаление физических файлов из se-ar
-    log_info "  Удаление физических файлов из se-ar (оставляем только *.attr.json)..."
-    if [[ -d "${SE_AR_DATA_DIR:-}" ]]; then
-        DELETED_COUNT=$(find "$SE_AR_DATA_DIR" -maxdepth 1 -type f \
-            ! -name '*.attr.json' ! -name '.*' -delete -print | wc -l)
-        log_ok "  Удалено ${DELETED_COUNT} файлов данных, attr.json сохранены"
-    else
-        log_warn "  SE_AR_DATA_DIR не смонтирован — пропуск очистки"
-    fi
-
-    # --- Шаг 9: Итоговый отчёт ---
+    # --- Шаг 5: Итоговый отчёт ---
     log_info ""
     log_info "========================================================"
     log_info "  Инициализация завершена успешно"
@@ -331,8 +257,8 @@ data:
     log_ok "se-edit-2 : режим edit, replicated (2 реплики)"
     log_ok "se-rw-1   : режим rw, standalone"
     log_ok "se-rw-2   : режим rw, standalone"
-    log_ok "se-ro     : режим ro, standalone, ${RO_UPLOADED} файлов"
-    log_ok "se-ar     : режим ar, standalone, ${AR_UPLOADED} attr.json (только метаданные)"
+    log_ok "se-ro     : режим ro, standalone (данные от initContainer)"
+    log_ok "se-ar     : режим ar, standalone (метаданные от initContainer)"
     log_ok "AM        : Admin Module работает"
     log_ok "KC        : Keycloak realm artstore импортирован"
     log_ok "PG        : PostgreSQL с БД artstore + keycloak"
@@ -387,9 +313,6 @@ spec:
               value: "https://se-ar.${NAMESPACE}.svc.cluster.local:${SE_PORT}"
             - name: CURL_OPTS
               value: "-k -s --connect-timeout 5"
-            # Путь к PVC se-ar для удаления data-файлов
-            - name: SE_AR_DATA_DIR
-              value: /mnt/se-ar-data
           volumeMounts:
             - name: init-lib
               mountPath: /scripts/lib.sh
@@ -397,8 +320,6 @@ spec:
             - name: init-data
               mountPath: /scripts/init-data.sh
               subPath: init-data.sh
-            - name: se-ar-data
-              mountPath: /mnt/se-ar-data
       volumes:
         - name: init-lib
           configMap:
@@ -408,6 +329,3 @@ spec:
           configMap:
             name: artstore-init-data
             defaultMode: 0755
-        - name: se-ar-data
-          persistentVolumeClaim:
-            claimName: se-ar-data

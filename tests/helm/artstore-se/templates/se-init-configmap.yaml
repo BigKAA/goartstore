@@ -1,0 +1,151 @@
+# ConfigMap с init-скриптами для заполнения SE данными через initContainers.
+# Два скрипта: init-ro-files.sh (данные + метаданные), init-ar-metadata.sh (только метаданные).
+# Скрипты идемпотентны — при наличии данных на PVC пропускают инициализацию.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: se-init-scripts
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "artstore-se.labels" . | nindent 4 }}
+data:
+  # ============================================================================
+  # init-ro-files.sh — генерация data-файлов + attr.json для SE в режиме ro
+  #
+  # Env: DATA_DIR, FILE_COUNT, FILE_SIZE_KB
+  # Результат: FILE_COUNT файлов по FILE_SIZE_KB КБ + соответствующие attr.json
+  # ============================================================================
+  init-ro-files.sh: |
+    #!/bin/sh
+    set -e
+
+    echo "[init-ro-files] Проверка наличия данных в ${DATA_DIR}..."
+
+    # Идемпотентность: если attr.json уже есть — пропускаем
+    EXISTING=$(find "${DATA_DIR}" -maxdepth 1 -name '*.attr.json' 2>/dev/null | head -1)
+    if [ -n "$EXISTING" ]; then
+        COUNT=$(find "${DATA_DIR}" -maxdepth 1 -name '*.attr.json' | wc -l)
+        echo "[init-ro-files] Данные уже существуют (${COUNT} attr.json) — пропуск"
+        exit 0
+    fi
+
+    echo "[init-ro-files] Генерация ${FILE_COUNT} файлов по ${FILE_SIZE_KB}KB..."
+    # RFC3339 формат для Go time.Time JSON десериализации
+    TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    # Компактный timestamp для имён файлов (без спецсимволов)
+    TS_COMPACT=$(date -u +%Y%m%dT%H%M%SZ)
+
+    i=1
+    while [ "$i" -le "$FILE_COUNT" ]; do
+        # Генерация уникального UUID v4 (через /proc/sys/kernel/random/uuid или urandom)
+        UUID=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || \
+            od -x /dev/urandom | head -1 | awk '{OFS="-"; print $2$3,$4,$5,$6,$7$8$9}')
+        FILE_ID=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || \
+            od -x /dev/urandom | head -1 | awk '{OFS="-"; print $2$3,$4,$5,$6,$7$8$9}')
+
+        NUM=$(printf '%03d' "$i")
+        STORAGE_PATH="test-ro-doc-${NUM}_init_${TS_COMPACT}_${UUID}.bin"
+        DATA_FILE="${DATA_DIR}/${STORAGE_PATH}"
+
+        # Генерация data-файла из /dev/urandom
+        dd if=/dev/urandom of="${DATA_FILE}" bs=1024 count="${FILE_SIZE_KB}" 2>/dev/null
+
+        # Вычисление контрольной суммы и размера
+        CHECKSUM=$(sha256sum "${DATA_FILE}" | awk '{print $1}')
+        FILE_SIZE=$(stat -c %s "${DATA_FILE}" 2>/dev/null || stat -f %z "${DATA_FILE}")
+
+        # Запись attr.json
+        cat > "${DATA_FILE}.attr.json" <<ATTREOF
+    {
+      "file_id": "${FILE_ID}",
+      "original_filename": "test-ro-doc-${NUM}.bin",
+      "storage_path": "${STORAGE_PATH}",
+      "content_type": "application/octet-stream",
+      "size": ${FILE_SIZE},
+      "checksum": "${CHECKSUM}",
+      "uploaded_by": "init-container",
+      "uploaded_at": "${TIMESTAMP}",
+      "status": "active",
+      "retention_policy": "permanent",
+      "description": "Тестовый RO файл ${NUM}/${FILE_COUNT}"
+    }
+    ATTREOF
+
+        i=$((i + 1))
+
+        # Прогресс каждые 5 файлов
+        if [ $((i % 5)) -eq 1 ] && [ "$i" -gt 1 ]; then
+            echo "[init-ro-files] Прогресс: $((i - 1))/${FILE_COUNT}"
+        fi
+    done
+
+    echo "[init-ro-files] Готово: ${FILE_COUNT} файлов создано в ${DATA_DIR}"
+    ls -la "${DATA_DIR}" | head -5
+    echo "..."
+    echo "Всего файлов: $(ls -1 "${DATA_DIR}" | wc -l)"
+
+  # ============================================================================
+  # init-ar-metadata.sh — генерация только attr.json для SE в режиме ar
+  #
+  # Env: DATA_DIR, FILE_COUNT, METADATA_SIZE
+  # Результат: FILE_COUNT attr.json файлов (без data-файлов)
+  # ============================================================================
+  init-ar-metadata.sh: |
+    #!/bin/sh
+    set -e
+
+    echo "[init-ar-metadata] Проверка наличия данных в ${DATA_DIR}..."
+
+    # Идемпотентность: если attr.json уже есть — пропускаем
+    EXISTING=$(find "${DATA_DIR}" -maxdepth 1 -name '*.attr.json' 2>/dev/null | head -1)
+    if [ -n "$EXISTING" ]; then
+        COUNT=$(find "${DATA_DIR}" -maxdepth 1 -name '*.attr.json' | wc -l)
+        echo "[init-ar-metadata] Данные уже существуют (${COUNT} attr.json) — пропуск"
+        exit 0
+    fi
+
+    echo "[init-ar-metadata] Генерация ${FILE_COUNT} attr.json (только метаданные)..."
+    # RFC3339 формат для Go time.Time JSON десериализации
+    TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    # Компактный timestamp для имён файлов (без спецсимволов)
+    TS_COMPACT=$(date -u +%Y%m%dT%H%M%SZ)
+    # Фиктивная контрольная сумма (64 нуля — sha256 placeholder)
+    FAKE_CHECKSUM="0000000000000000000000000000000000000000000000000000000000000000"
+
+    i=1
+    while [ "$i" -le "$FILE_COUNT" ]; do
+        UUID=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || \
+            od -x /dev/urandom | head -1 | awk '{OFS="-"; print $2$3,$4,$5,$6,$7$8$9}')
+        FILE_ID=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || \
+            od -x /dev/urandom | head -1 | awk '{OFS="-"; print $2$3,$4,$5,$6,$7$8$9}')
+
+        NUM=$(printf '%03d' "$i")
+        STORAGE_PATH="test-ar-doc-${NUM}_init_${TS_COMPACT}_${UUID}.bin"
+
+        # Только attr.json, без data-файла (архивный режим — данные удалены)
+        cat > "${DATA_DIR}/${STORAGE_PATH}.attr.json" <<ATTREOF
+    {
+      "file_id": "${FILE_ID}",
+      "original_filename": "test-ar-doc-${NUM}.bin",
+      "storage_path": "${STORAGE_PATH}",
+      "content_type": "application/octet-stream",
+      "size": ${METADATA_SIZE},
+      "checksum": "${FAKE_CHECKSUM}",
+      "uploaded_by": "init-container",
+      "uploaded_at": "${TIMESTAMP}",
+      "status": "active",
+      "retention_policy": "permanent",
+      "description": "Архивный файл ${NUM}/${FILE_COUNT} (только метаданные)"
+    }
+    ATTREOF
+
+        i=$((i + 1))
+
+        # Прогресс каждые 50 файлов
+        if [ $((i % 50)) -eq 1 ] && [ "$i" -gt 1 ]; then
+            echo "[init-ar-metadata] Прогресс: $((i - 1))/${FILE_COUNT}"
+        fi
+    done
+
+    echo "[init-ar-metadata] Готово: ${FILE_COUNT} attr.json создано в ${DATA_DIR}"
+    echo "Всего файлов: $(ls -1 "${DATA_DIR}" | wc -l)"

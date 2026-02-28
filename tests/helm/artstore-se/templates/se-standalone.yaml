@@ -63,6 +63,34 @@ spec:
         prometheus.io/path: "/metrics"
         prometheus.io/scheme: "https"
     spec:
+      {{- if $instance.initData }}
+      # InitContainer для предзагрузки данных на data-volume перед стартом SE
+      initContainers:
+        - name: init-data
+          image: alpine:3.19
+          command: ["/bin/sh", "/scripts/init-{{ $instance.initData.type }}.sh"]
+          env:
+            - name: DATA_DIR
+              value: /data
+            {{- if eq $instance.initData.type "ro-files" }}
+            - name: FILE_COUNT
+              value: {{ $instance.initData.fileCount | quote }}
+            - name: FILE_SIZE_KB
+              value: {{ $instance.initData.fileSizeKB | quote }}
+            {{- end }}
+            {{- if eq $instance.initData.type "ar-metadata" }}
+            - name: FILE_COUNT
+              value: {{ $instance.initData.fileCount | quote }}
+            - name: METADATA_SIZE
+              value: {{ $instance.initData.metadataSize | quote }}
+            {{- end }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: init-scripts
+              mountPath: /scripts
+              readOnly: true
+      {{- end }}
       containers:
         - name: storage-element
           image: {{ include "artstore-se.seImage" $ }}
@@ -155,6 +183,13 @@ spec:
         - name: tls-certs
           secret:
             secretName: {{ $.Values.tls.secretName }}
+        {{- if $instance.initData }}
+        # Init-скрипты из ConfigMap (для initContainer)
+        - name: init-scripts
+          configMap:
+            name: se-init-scripts
+            defaultMode: 0755
+        {{- end }}
 ---
 apiVersion: v1
 kind: Service

@@ -1,6 +1,6 @@
-# Replicated SE instances — StatefulSet + headless Service + shared PVC RWX.
+# Replicated SE instances — Deployment + ClusterIP Service + shared PVC RWX.
 # Итерация по .Values.replicatedInstances: se-edit-1, se-edit-2.
-# Каждый экземпляр — 2 пода, общее хранилище /data (RWX NFS), WAL per pod (RWO volumeClaimTemplates).
+# Каждый экземпляр — 2 пода, общее хранилище /data (RWX NFS), WAL emptyDir per pod.
 # Leader election через flock() на shared /data/.leader.lock.
 # JWKS URL указывает на Keycloak через infraReleaseName.
 {{- range $instance := .Values.replicatedInstances }}
@@ -22,7 +22,7 @@ spec:
     requests:
       storage: {{ $instance.dataSize }}
 ---
-# Headless Service для StatefulSet DNS (pod-0.se-edit-1.artstore-test.svc.cluster.local)
+# ClusterIP Service (обычный, не headless)
 apiVersion: v1
 kind: Service
 metadata:
@@ -33,7 +33,6 @@ metadata:
     {{- include "artstore-se.se.selectorLabels" (dict "name" $instance.name "Release" $.Release) | nindent 4 }}
 spec:
   type: ClusterIP
-  clusterIP: None
   selector:
     {{- include "artstore-se.se.selectorLabels" (dict "name" $instance.name "Release" $.Release) | nindent 4 }}
   ports:
@@ -42,7 +41,7 @@ spec:
       name: https
 ---
 apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment
 metadata:
   name: {{ $instance.name }}
   namespace: {{ $.Values.namespace }}
@@ -50,8 +49,9 @@ metadata:
     {{- include "artstore-se.labels" $ | nindent 4 }}
     {{- include "artstore-se.se.selectorLabels" (dict "name" $instance.name "Release" $.Release) | nindent 4 }}
 spec:
-  serviceName: {{ $instance.name }}
   replicas: {{ $instance.replicas }}
+  strategy:
+    type: RollingUpdate
   selector:
     matchLabels:
       {{- include "artstore-se.se.selectorLabels" (dict "name" $instance.name "Release" $.Release) | nindent 6 }}
@@ -155,19 +155,11 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: {{ $instance.name }}-data
+        # WAL — эфемерный per pod (emptyDir), не требует персистентности
+        - name: wal
+          emptyDir: {}
         # TLS сертификаты из cert-manager (secret из artstore-infra)
         - name: tls-certs
           secret:
             secretName: {{ $.Values.tls.secretName }}
-  # WAL — отдельный PVC per pod через volumeClaimTemplates (RWO)
-  volumeClaimTemplates:
-    - metadata:
-        name: wal
-      spec:
-        accessModes:
-          - ReadWriteOnce
-        storageClassName: {{ $.Values.storageClass }}
-        resources:
-          requests:
-            storage: {{ $instance.walSize }}
 {{- end }}
