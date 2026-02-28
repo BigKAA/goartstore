@@ -5,8 +5,8 @@ description: >-
   Keycloak IdP интеграция, RBAC, реестр Storage Elements и файлов,
   Service Accounts. Stateless Deployment + ClusterIP Service + HTTPRoute.
 type: application
-version: 0.1.0
-appVersion: "0.1.0"
+version: 0.3.0
+appVersion: "0.3.0"
 keywords:
   - artstore
   - admin-module
