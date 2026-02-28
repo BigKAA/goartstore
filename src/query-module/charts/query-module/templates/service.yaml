@@ -1,0 +1,16 @@
+# ClusterIP Service для доступа к Query Module
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "qm.fullname" . }}
+  labels:
+    {{- include "qm.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "qm.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.port }}
+      targetPort: http
+      protocol: TCP

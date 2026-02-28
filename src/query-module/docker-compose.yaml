@@ -1,0 +1,118 @@
+# Docker Compose для разработки Query Module
+# Запускает PostgreSQL + Keycloak + Admin Module + Query Module
+#
+# Использование:
+#   docker compose up -d
+#   curl http://localhost:8030/health/live
+#   docker compose down
+
+services:
+  # PostgreSQL 17 — общая БД для Admin Module и Query Module
+  postgresql:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: artstore
+      POSTGRES_USER: artstore
+      POSTGRES_PASSWORD: artstore-dev-password
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U artstore"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Keycloak 26.1 — Identity Provider
+  keycloak:
+    image: harbor.kryukov.lan/library/keycloak-artstore:v26.1-1
+    command: start-dev
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgresql:5432/artstore
+      KC_DB_USERNAME: artstore
+      KC_DB_PASSWORD: artstore-dev-password
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HTTP_PORT: 8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+
+  # Admin Module — управление реестром файлов и SE
+  # QM использует AM как источник данных о SE и для получения SA-токенов
+  admin-module:
+    image: harbor.kryukov.lan/library/admin-module:v0.3.0-1
+    environment:
+      AM_PORT: "8000"
+      AM_LOG_LEVEL: debug
+      AM_LOG_FORMAT: json
+      AM_DB_HOST: postgresql
+      AM_DB_PORT: "5432"
+      AM_DB_NAME: artstore
+      AM_DB_USER: artstore
+      AM_DB_PASSWORD: artstore-dev-password
+      AM_DB_SSL_MODE: disable
+      AM_KEYCLOAK_URL: http://keycloak:8080
+      AM_KEYCLOAK_REALM: artstore
+      AM_KEYCLOAK_CLIENT_ID: artstore-admin-module
+      AM_KEYCLOAK_CLIENT_SECRET: dev-secret
+      AM_SYNC_INTERVAL: "1h"
+      AM_SYNC_PAGE_SIZE: "1000"
+      AM_SA_SYNC_INTERVAL: "15m"
+      AM_DEPHEALTH_CHECK_INTERVAL: "15s"
+      AM_DEPHEALTH_GROUP: admin-module
+      AM_UI_ENABLED: "true"
+      AM_UI_OIDC_CLIENT_ID: artstore-admin-ui
+      AM_UI_SESSION_SECRET: "dev-session-secret-32-bytes-ok!"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+
+  # Query Module — поиск и скачивание файлов
+  query-module:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: dev
+    environment:
+      QM_PORT: "8030"
+      QM_LOG_LEVEL: debug
+      QM_LOG_FORMAT: json
+      # PostgreSQL (shared с AM)
+      QM_DB_HOST: postgresql
+      QM_DB_PORT: "5432"
+      QM_DB_NAME: artstore
+      QM_DB_USER: artstore
+      QM_DB_PASSWORD: artstore-dev-password
+      QM_DB_SSL_MODE: disable
+      # JWT/JWKS
+      QM_JWKS_URL: http://keycloak:8080/realms/artstore/protocol/openid-connect/certs
+      # Admin Module
+      QM_ADMIN_URL: http://admin-module:8000
+      # Keycloak OAuth2 (Client Credentials для SA)
+      QM_CLIENT_ID: artstore-query-module
+      QM_CLIENT_SECRET: dev-secret
+      # topologymetrics
+      QM_DEPHEALTH_CHECK_INTERVAL: "15s"
+      QM_DEPHEALTH_GROUP: query-module
+    ports:
+      - "8030:8030"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      admin-module:
+        condition: service_started
+
+volumes:
+  pgdata:

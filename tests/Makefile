@@ -17,10 +17,12 @@
 # -----------------------------------------------------------------------------
 DOCKER_REGISTRY ?= harbor.kryukov.lan/library
 AM_TAG          ?= v0.3.0-1
+QM_TAG          ?= v0.1.0-1
 SE_TAG          ?= v0.2.0-1
 KC_TAG          ?= v26.1-1
 NAMESPACE       ?= artstore-test
 AM_PORT         ?= 8000
+QM_PORT         ?= 8030
 SE_PORT         ?= 8010
 TEST_AM_ARGS    ?=
 
@@ -37,6 +39,7 @@ INIT_JOB_SRC    := helm/init-job/job.yaml
 
 # Директории
 AM_ROOT         := ../src/admin-module
+QM_ROOT         := ../src/query-module
 SE_ROOT         := ../src/storage-element
 KC_ROOT         := ../deploy/keycloak
 REALM_SRC       := ../deploy/keycloak/artstore-realm.json
@@ -46,6 +49,7 @@ PF_PID_DIR      := .port-forward
 
 # Образы
 AM_IMAGE        := $(DOCKER_REGISTRY)/admin-module
+QM_IMAGE        := $(DOCKER_REGISTRY)/query-module
 SE_IMAGE        := $(DOCKER_REGISTRY)/storage-element
 KC_IMAGE        := $(DOCKER_REGISTRY)/keycloak-artstore
 
@@ -53,6 +57,7 @@ KC_IMAGE        := $(DOCKER_REGISTRY)/keycloak-artstore
 PF_PG           := 15432:5432
 PF_KC           := 18080:8443
 PF_AM           := 18000:$(AM_PORT)
+PF_QM           := 18030:$(QM_PORT)
 PF_SE_EDIT_1    := 18010:$(SE_PORT)
 PF_SE_EDIT_2    := 18011:$(SE_PORT)
 PF_SE_RW_1      := 18012:$(SE_PORT)
@@ -64,6 +69,7 @@ PF_SE_AR        := 18015:$(SE_PORT)
 export KC_URL         := https://localhost:18080
 export KC_TOKEN_URL   := https://localhost:18080/realms/artstore/protocol/openid-connect/token
 export AM_URL         := http://localhost:18000
+export QM_URL         := http://localhost:18030
 export SE_EDIT_1_URL  := https://localhost:18010
 export SE_EDIT_2_URL  := https://localhost:18011
 export SE_RW_1_URL    := https://localhost:18012
@@ -82,15 +88,17 @@ export KC_VIEWER_USERNAME         := viewer
 export KC_VIEWER_PASSWORD         := viewer
 export KC_SA_CLIENT_ID            := artstore-admin-module
 export KC_SA_CLIENT_SECRET        := admin-module-test-secret
+export KC_QM_SA_CLIENT_ID         := artstore-query
+export KC_QM_SA_CLIENT_SECRET     := query-test-secret
 
-.PHONY: help docker-build docker-build-am docker-build-se docker-build-kc \
-        docker-push-am docker-push-se docker-push-kc \
+.PHONY: help docker-build docker-build-am docker-build-qm docker-build-se docker-build-kc \
+        docker-push-am docker-push-qm docker-push-se docker-push-kc \
         copy-realm infra-up infra-down kc-setup se-up se-down apps-up apps-down \
         init-data init-data-clean test-env-up test-env-down \
         test-env-status test-env-logs \
         port-forward-start port-forward-stop port-forward-status \
         port-forward-infra port-forward-se port-forward-apps \
-        test-am test-am-ui test-all clean
+        test-am test-am-ui test-qm test-all clean
 
 # -----------------------------------------------------------------------------
 # Справка
@@ -103,8 +111,9 @@ help:
 	@echo "============================================================"
 	@echo ""
 	@echo "Сборка образов:"
-	@echo "  docker-build         Собрать и запушить AM + SE + KC в Harbor"
+	@echo "  docker-build         Собрать и запушить AM + QM + SE + KC в Harbor"
 	@echo "  docker-build-am      Собрать образ Admin Module"
+	@echo "  docker-build-qm      Собрать образ Query Module"
 	@echo "  docker-build-se      Собрать образ Storage Element"
 	@echo "  docker-build-kc      Собрать образ Keycloak с темой Artstore"
 	@echo ""
@@ -113,7 +122,7 @@ help:
 	@echo "  infra-down           Удалить инфраструктуру"
 	@echo "  se-up                Деплой Storage Elements (6 SE)"
 	@echo "  se-down              Удалить Storage Elements"
-	@echo "  apps-up              Деплой приложений (Admin Module)"
+	@echo "  apps-up              Деплой приложений (Admin Module + Query Module)"
 	@echo "  apps-down            Удалить приложения"
 	@echo "  init-data            Запустить Init Job (загрузка данных)"
 	@echo "  init-data-clean      Удалить Init Job (для перезапуска)"
@@ -132,6 +141,7 @@ help:
 	@echo "Тесты (требуют port-forward-start):"
 	@echo "  test-am              Запустить интеграционные тесты Admin Module"
 	@echo "  test-am-ui           Запустить интеграционные тесты Admin UI"
+	@echo "  test-qm              Запустить интеграционные тесты Query Module"
 	@echo "  test-all             Запустить все интеграционные тесты"
 	@echo ""
 	@echo "Очистка:"
@@ -140,6 +150,7 @@ help:
 	@echo "Переменные:"
 	@echo "  DOCKER_REGISTRY      $(DOCKER_REGISTRY)"
 	@echo "  AM_TAG               $(AM_TAG)"
+	@echo "  QM_TAG               $(QM_TAG)"
 	@echo "  SE_TAG               $(SE_TAG)"
 	@echo "  KC_TAG               $(KC_TAG)"
 	@echo "  NAMESPACE            $(NAMESPACE)"
@@ -151,11 +162,12 @@ help:
 # Сборка Docker-образов
 # -----------------------------------------------------------------------------
 
-## docker-build: Собрать и запушить все образы (AM + SE + KC)
-docker-build: docker-build-am docker-push-am docker-build-se docker-push-se docker-build-kc docker-push-kc
+## docker-build: Собрать и запушить все образы (AM + QM + SE + KC)
+docker-build: docker-build-am docker-push-am docker-build-qm docker-push-qm docker-build-se docker-push-se docker-build-kc docker-push-kc
 	@echo ""
 	@echo "Образы собраны и запушены:"
 	@echo "  $(AM_IMAGE):$(AM_TAG)"
+	@echo "  $(QM_IMAGE):$(QM_TAG)"
 	@echo "  $(SE_IMAGE):$(SE_TAG)"
 	@echo "  $(KC_IMAGE):$(KC_TAG)"
 
@@ -169,6 +181,17 @@ docker-build-am:
 docker-push-am:
 	@echo ">>> Push $(AM_IMAGE):$(AM_TAG)..."
 	docker push $(AM_IMAGE):$(AM_TAG)
+
+## docker-build-qm: Собрать образ Query Module
+docker-build-qm:
+	@echo ">>> Сборка Query Module $(QM_TAG) (linux/amd64)..."
+	docker build --platform linux/amd64 --build-arg VERSION=$(QM_TAG) \
+		-t $(QM_IMAGE):$(QM_TAG) -f $(QM_ROOT)/Dockerfile $(QM_ROOT)
+
+## docker-push-qm: Запушить образ QM в Harbor
+docker-push-qm:
+	@echo ">>> Push $(QM_IMAGE):$(QM_TAG)..."
+	docker push $(QM_IMAGE):$(QM_TAG)
 
 ## docker-build-se: Собрать образ Storage Element
 docker-build-se:
@@ -270,17 +293,21 @@ se-down:
 	@helm uninstall $(SE_RELEASE) -n $(NAMESPACE) 2>/dev/null || true
 	@echo ">>> artstore-se удалён"
 
-## apps-up: Деплой artstore-apps (AM)
+## apps-up: Деплой artstore-apps (AM + QM)
 apps-up:
 	@echo ">>> Деплой artstore-apps в namespace $(NAMESPACE)..."
 	helm upgrade --install $(APPS_RELEASE) $(APPS_CHART) \
 		--namespace $(NAMESPACE) \
 		--set amTag=$(AM_TAG) \
+		--set qmTag=$(QM_TAG) \
 		--wait --timeout 10m
 	@echo ">>> Ожидание готовности Admin Module..."
 	@kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=admin-module \
 		-n $(NAMESPACE) --timeout=300s
-	@echo ">>> artstore-apps развёрнут"
+	@echo ">>> Ожидание готовности Query Module..."
+	@kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=query-module \
+		-n $(NAMESPACE) --timeout=300s
+	@echo ">>> artstore-apps развёрнут (AM + QM)"
 
 ## apps-down: Удалить artstore-apps
 apps-down:
@@ -384,12 +411,14 @@ port-forward-se:
 	@kubectl port-forward -n $(NAMESPACE) svc/se-ar $(PF_SE_AR) >/dev/null 2>&1 & \
 		echo $$! > $(PF_PID_DIR)/se-ar.pid
 
-## port-forward-apps: Port-forward для AM
+## port-forward-apps: Port-forward для AM + QM
 port-forward-apps:
 	@mkdir -p $(PF_PID_DIR)
-	@echo ">>> Port-forward: apps (AM)..."
+	@echo ">>> Port-forward: apps (AM + QM)..."
 	@kubectl port-forward -n $(NAMESPACE) svc/admin-module $(PF_AM) >/dev/null 2>&1 & \
 		echo $$! > $(PF_PID_DIR)/admin-module.pid
+	@kubectl port-forward -n $(NAMESPACE) svc/query-module $(PF_QM) >/dev/null 2>&1 & \
+		echo $$! > $(PF_PID_DIR)/query-module.pid
 
 ## port-forward-stop: Остановить все port-forward
 port-forward-stop:
@@ -435,6 +464,7 @@ port-forward-status:
 	@echo "    PostgreSQL:   localhost:15432 → postgresql:5432"
 	@echo "    Keycloak:     localhost:18080 → keycloak:8443"
 	@echo "    Admin Module: localhost:18000 → admin-module:$(AM_PORT)"
+	@echo "    Query Module: localhost:18030 → query-module:$(QM_PORT)"
 	@echo "    se-edit-1:    localhost:18010 → se-edit-1:$(SE_PORT)"
 	@echo "    se-edit-2:    localhost:18011 → se-edit-2:$(SE_PORT)"
 	@echo "    se-rw-1:      localhost:18012 → se-rw-1:$(SE_PORT)"
@@ -456,8 +486,13 @@ test-am-ui:
 	@echo ">>> Запуск интеграционных тестов Admin UI..."
 	@$(SCRIPTS_DIR)/test-am-ui.sh
 
+## test-qm: Запустить интеграционные тесты Query Module
+test-qm:
+	@echo ">>> Запуск интеграционных тестов Query Module..."
+	@$(SCRIPTS_DIR)/test-qm-all.sh
+
 ## test-all: Запустить все интеграционные тесты
-test-all: test-am
+test-all: test-am test-qm
 	@echo ""
 	@echo ">>> Все интеграционные тесты завершены"
 
@@ -469,6 +504,7 @@ test-all: test-am
 clean: test-env-down
 	@echo ">>> Удаление локальных образов..."
 	@docker rmi $(AM_IMAGE):$(AM_TAG) 2>/dev/null || true
+	@docker rmi $(QM_IMAGE):$(QM_TAG) 2>/dev/null || true
 	@docker rmi $(SE_IMAGE):$(SE_TAG) 2>/dev/null || true
 	@docker rmi $(KC_IMAGE):$(KC_TAG) 2>/dev/null || true
 	@rm -rf $(PF_PID_DIR)

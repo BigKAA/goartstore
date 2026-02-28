@@ -1,0 +1,112 @@
+# Query Module — production Helm chart values
+# Stateless HTTP-сервис, TLS termination на API Gateway
+
+# --- Образ контейнера ---
+registry: harbor.kryukov.lan
+image: library/query-module
+tag: latest
+imagePullPolicy: IfNotPresent
+
+# --- Реплики ---
+replicas: 1
+
+# --- Сервер ---
+port: 8030
+logLevel: info
+logFormat: json
+
+# --- PostgreSQL (shared с Admin Module) ---
+database:
+  host: ""          # обязательный: хост PostgreSQL
+  port: 5432
+  name: artstore
+  user: artstore
+  password: ""      # обязательный: пароль PostgreSQL
+  sslMode: disable  # disable, require, verify-ca, verify-full
+  maxConns: 10      # максимальное количество подключений в пуле
+
+# --- JWT/JWKS ---
+jwt:
+  jwksUrl: ""       # обязательный: URL JWKS endpoint Keycloak
+  # issuer: ""      # авто-вычисляется из JWKS URL, если не задан
+  # jwksRefreshInterval: "15s"
+  # leeway: "5s"
+
+# --- Маппинг групп Keycloak → ролей QM ---
+rbac:
+  adminGroups: "artstore-admins"
+  readonlyGroups: "artstore-viewers"
+
+# --- Admin Module HTTP-клиент ---
+adminModule:
+  url: ""           # обязательный: URL Admin Module (например, http://admin-module:8000)
+  # timeout: "10s"  # таймаут HTTP-клиента Admin Module
+
+# --- Keycloak OAuth2 (Client Credentials для SA) ---
+oauth:
+  clientId: ""      # обязательный: Client ID для client_credentials grant
+  clientSecret: ""  # обязательный: Client Secret для client_credentials grant
+
+# --- SE Download ---
+seDownload:
+  # timeout: "5m"   # таймаут скачивания из SE
+  # caCertPath: ""  # путь к CA-сертификату для SE (если отличается от общего)
+
+# --- LRU Cache ---
+cache:
+  # ttl: "5m"       # TTL кэша метаданных файлов
+  # maxSize: 10000  # максимальный размер LRU-кэша
+
+# --- TLS ---
+# QM не использует собственный TLS — HTTP внутри кластера,
+# TLS termination выполняется на API Gateway.
+# CA-сертификат используется для TLS-соединений к JWKS, AM, SE.
+tls:
+  # Существующий Secret с CA-сертификатом для TLS-соединений
+  # Если задан — монтируется в /certs и QM_CA_CERT_PATH=/certs/ca.crt
+  caSecret: ""
+
+# --- Dependency health (topologymetrics) ---
+dephealth:
+  checkInterval: "15s"
+  group: "query-module"
+  isEntry: false
+
+# --- Таймауты HTTP-клиентов ---
+# Глобальный таймаут для всех исходящих HTTP-запросов.
+# Per-client таймауты (если заданы) переопределяют глобальный.
+# timeouts:
+#   httpClient: "30s"           # QM_HTTP_CLIENT_TIMEOUT (глобальный)
+#   jwksClient: ""              # QM_JWKS_CLIENT_TIMEOUT (→ httpClient если пусто)
+#   # --- Таймауты HTTP-сервера ---
+#   httpRead: "30s"             # QM_HTTP_READ_TIMEOUT
+#   httpWrite: "60s"            # QM_HTTP_WRITE_TIMEOUT
+#   httpIdle: "120s"            # QM_HTTP_IDLE_TIMEOUT
+
+# --- Graceful shutdown ---
+shutdownTimeout: "5s"
+
+# --- HTTPRoute (Gateway API) ---
+# Внешний доступ через API Gateway (Envoy Gateway)
+# QM использует prefix /query с URLRewrite для strip prefix
+httproute:
+  enabled: false
+  gatewayName: eg
+  gatewayNamespace: envoy-gateway-system
+  hostname: "artstore.kryukov.lan"
+  # Маршруты: /query/* → QM (с strip /query prefix)
+  # /health/* и /metrics — прямые (без strip)
+
+# --- Prometheus метрики ---
+metrics:
+  enabled: true
+  path: /metrics
+
+# --- Ресурсы контейнера ---
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi

@@ -5,7 +5,7 @@
 - **Версия плана**: 1.0.0
 - **Дата создания**: 2026-02-28
 - **Последнее обновление**: 2026-02-28
-- **Статус**: In Progress
+- **Статус**: Done
 
 ---
 
@@ -17,10 +17,10 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 5
-- **Активный подпункт**: 5.1
+- **Активная фаза**: Phase 5 (завершена)
+- **Активный подпункт**: —
 - **Последнее обновление**: 2026-02-28
-- **Примечание**: Phase 4 завершена — seclient, download service, download handler, dephealth, main.go интеграция
+- **Примечание**: Phase 5 завершена — Dockerfile, Helm chart, тестовая инфраструктура, Docker-образ v0.1.0-1, 16 интеграционных тестов
 
 ---
 
@@ -30,7 +30,7 @@
 - [x] [Phase 2: Инфраструктурный слой (БД, конфиг, middleware)](#phase-2-инфраструктурный-слой-бд-конфиг-middleware)
 - [x] [Phase 3: Бизнес-логика (поиск, метаданные, кэш)](#phase-3-бизнес-логика-поиск-метаданные-кэш)
 - [x] [Phase 4: Proxy Download и ленивая очистка](#phase-4-proxy-download-и-ленивая-очистка)
-- [ ] [Phase 5: Сборка, деплой и интеграционные тесты](#phase-5-сборка-деплой-и-интеграционные-тесты)
+- [x] [Phase 5: Сборка, деплой и интеграционные тесты](#phase-5-сборка-деплой-и-интеграционные-тесты)
 
 ---
 
@@ -410,7 +410,7 @@ SE HTTP-клиент для proxy download, поддержка HTTP Range reques
 ## Phase 5: Сборка, деплой и интеграционные тесты
 
 **Dependencies**: Phase 4
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -420,7 +420,7 @@ Gateway API routing. Результат: QM работает в Kubernetes, до
 
 ### Подпункты
 
-- [ ] **5.1 Dockerfile и docker-compose.yaml**
+- [x] **5.1 Dockerfile и docker-compose.yaml**
   - **Dependencies**: None
   - **Description**: Dockerfile — multi-stage build (без templ/tailwind, проще AM):
     Stage 1: `golang:1.25-alpine` — `go mod download`, `go build` с `-ldflags`.
@@ -433,7 +433,7 @@ Gateway API routing. Результат: QM работает в Kubernetes, до
   - **Links**:
     - Паттерн: `src/admin-module/Dockerfile`
 
-- [ ] **5.2 Helm chart (charts/query-module/)**
+- [x] **5.2 Helm chart (charts/query-module/)**
   - **Dependencies**: None
   - **Description**: Helm chart для production-деплоя:
     `Chart.yaml`, `values.yaml`, `templates/` (deployment, service, httproute).
@@ -450,7 +450,7 @@ Gateway API routing. Результат: QM работает в Kubernetes, до
   - **Links**:
     - Паттерн: `src/admin-module/charts/admin-module/`
 
-- [ ] **5.3 Тестовая инфраструктура (artstore-apps)**
+- [x] **5.3 Тестовая инфраструктура (artstore-apps)**
   - **Dependencies**: 5.1
   - **Description**: Добавление QM в `tests/helm/artstore-apps/`:
     - `templates/query-module.yaml` — Deployment + Service
@@ -469,7 +469,7 @@ Gateway API routing. Результат: QM работает в Kubernetes, до
     - `tests/helm/artstore-apps/values.yaml` (обновление)
     - `tests/Makefile` (обновление)
 
-- [ ] **5.4 Сборка Docker-образа и деплой в тестовый кластер**
+- [x] **5.4 Сборка Docker-образа и деплой в тестовый кластер**
   - **Dependencies**: 5.1, 5.2, 5.3
   - **Description**: Сборка Docker-образа с тегом `v0.1.0-1`,
     push в Harbor (`harbor.kryukov.lan/library/query-module:v0.1.0-1`).
@@ -479,7 +479,7 @@ Gateway API routing. Результат: QM работает в Kubernetes, до
   - **Creates**:
     - Docker image `harbor.kryukov.lan/library/query-module:v0.1.0-1`
 
-- [ ] **5.5 Интеграционные тесты**
+- [x] **5.5 Интеграционные тесты**
   - **Dependencies**: 5.4
   - **Description**: Bash + curl тесты в `tests/scripts/`:
     - `test-qm-health.sh` — health/live, health/ready, metrics
@@ -498,15 +498,15 @@ Gateway API routing. Результат: QM работает в Kubernetes, до
 
 ### Критерии завершения Phase 5
 
-- [ ] Все подпункты завершены (5.1–5.5)
-- [ ] Docker-образ собран и загружен в Harbor
-- [ ] QM работает в тестовом кластере Kubernetes
-- [ ] Gateway API маршрутизирует `artstore.kryukov.lan/query/*` → QM
-- [ ] Все интеграционные тесты проходят
-- [ ] `make test-qm` — все тесты green
-- [ ] `go vet ./...` без ошибок
-- [ ] `make lint` проходит без ошибок
-- [ ] Helm chart lint проходит (`helm lint`)
+- [x] Все подпункты завершены (5.1–5.5)
+- [x] Docker-образ собран и загружен в Harbor
+- [x] QM работает в тестовом кластере Kubernetes
+- [x] Gateway API маршрутизирует `artstore.kryukov.lan/query/*` → QM
+- [x] Все интеграционные тесты проходят
+- [x] `make test-qm` — все тесты green (16 PASS / 0 FAIL)
+- [x] `go vet ./...` без ошибок
+- [x] `make lint` проходит без ошибок
+- [x] Helm chart lint проходит (`helm lint`)
 - [ ] Документация обновлена
 
 ---

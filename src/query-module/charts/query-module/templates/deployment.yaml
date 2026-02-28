@@ -1,0 +1,54 @@
+# Deployment Query Module — stateless HTTP-сервис
+# TLS termination на API Gateway, внутри кластера — HTTP
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "qm.fullname" . }}
+  labels:
+    {{- include "qm.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicas }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      {{- include "qm.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "qm.selectorLabels" . | nindent 8 }}
+      annotations:
+        # Перезапуск pod при изменении ConfigMap или Secret
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- if .Values.metrics.enabled }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ .Values.port | quote }}
+        prometheus.io/path: {{ .Values.metrics.path | quote }}
+        {{- end }}
+    spec:
+      containers:
+        - name: query-module
+          image: {{ include "qm.image" . }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.port }}
+              protocol: TCP
+          envFrom:
+            {{- include "qm.configEnvFrom" . | nindent 12 }}
+            {{- include "qm.secretEnvFrom" . | nindent 12 }}
+          {{- with (include "qm.volumeMounts" .) }}
+          volumeMounts:
+            {{- . | nindent 12 }}
+          {{- end }}
+          {{- include "qm.probes" . | nindent 10 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with (include "qm.volumes" .) }}
+      volumes:
+        {{- . | nindent 8 }}
+      {{- end }}
