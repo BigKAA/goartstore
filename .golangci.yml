@@ -1,0 +1,231 @@
+# Базовая конфигурация golangci-lint v2 для проекта Artstore
+# Все Go-модули наследуют эти правила.
+# Модуль может переопределить настройки через свой .golangci.yml в src/<module>/
+#
+# Документация: https://golangci-lint.run/docs/configuration/file/
+
+version: "2"
+
+# --- Настройки запуска ---
+run:
+  timeout: 5m
+  tests: true
+  modules-download-mode: readonly
+  relative-path-mode: gomod
+
+# --- Форматирование ---
+formatters:
+  enable:
+    - goimports
+    - gofmt
+
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/bigkaa/goartstore
+
+# --- Линтеры ---
+linters:
+  default: none
+
+  enable:
+    # Безопасность
+    - gosec          # Анализ безопасности Go-кода (G101-G601)
+    - staticcheck    # Расширенный статический анализ (включает SA* проверки)
+
+    # Мёртвый/неиспользуемый код
+    - unused         # Неиспользуемые переменные, типы, функции
+    - unparam        # Неиспользуемые параметры функций
+    - ineffassign    # Присваивания, результат которых не используется
+    - wastedassign   # Присваивания переменным, которые потом перезаписываются
+
+    # Обработка ошибок
+    - errcheck       # Непроверенные возвращаемые ошибки
+    - errorlint      # Проблемы с обёрткой и сравнением ошибок (Go 1.13+)
+    - nilerr         # Возврат nil вместо ошибки после проверки err != nil
+
+    # Качество кода
+    - govet          # Проверки из go vet (shadow, printf, structtag и др.)
+    - gocritic       # Расширенные проверки качества кода
+    - revive         # Замена golint — стиль и best practices
+    - goconst        # Повторяющиеся строковые/числовые литералы → const
+    - prealloc       # Предвыделение памяти для slice (append в цикле)
+    - dupl           # Дублирование кода
+    - gocognit       # Когнитивная сложность функций
+    - cyclop         # Цикломатическая сложность
+    - nestif         # Глубоко вложенные if-блоки
+    - unconvert      # Ненужные приведения типов
+    - bodyclose      # Незакрытые тела HTTP-ответов
+    - noctx          # HTTP-запросы без context.Context
+    - sqlclosecheck  # Незакрытые sql.Rows и sql.Stmt
+    - rowserrcheck   # Непроверённые ошибки sql.Rows.Err()
+    - makezero       # append к slice инициализированному через make([]T, n)
+    - durationcheck  # Проверка умножения time.Duration
+    - copyloopvar    # Копирование переменной цикла (Go 1.22+)
+
+    # Стиль и именование
+    - misspell       # Опечатки в комментариях и строках
+    - errname        # Именование типов ошибок (должны заканчиваться на Error)
+    - predeclared    # Переопределение встроенных идентификаторов (new, len, etc.)
+    - asciicheck     # Не-ASCII идентификаторы
+
+    # Тесты
+    - tparallel      # Неправильное использование t.Parallel()
+
+  settings:
+    # Безопасность — gosec
+    gosec:
+      excludes:
+        # G304 — File path provided as taint input. Допускаем для конфигурируемых путей.
+        - G304
+
+    # Качество — цикломатическая сложность
+    cyclop:
+      max-complexity: 20
+      package-average: 10.0
+
+    # Качество — когнитивная сложность
+    gocognit:
+      min-complexity: 25
+
+    # Качество — дублирование кода
+    dupl:
+      threshold: 120
+
+    # Качество — глубина вложенности if
+    nestif:
+      min-complexity: 5
+
+    # Качество — повторяющиеся константы
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+
+    # Стиль — revive
+    revive:
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: empty-block
+        - name: error-naming
+        - name: error-return
+        - name: error-strings
+        - name: errorf
+        - name: exported
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: range
+        - name: receiver-naming
+        - name: redefines-builtin-id
+        - name: superfluous-else
+        - name: time-naming
+        - name: unexported-return
+        - name: unreachable-code
+        - name: unused-parameter
+        - name: var-declaration
+        - name: var-naming
+
+    # Стиль — опечатки
+    misspell:
+      locale: US
+
+    # Качество — gocritic
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+        - opinionated
+      disabled-checks:
+        # Слишком строгие для текущего этапа разработки
+        - hugeParam
+        - rangeValCopy
+
+    # Качество — govet
+    govet:
+      enable-all: true
+      disable:
+        # fieldalignment генерирует много шума, не критично для correctness
+        - fieldalignment
+
+  # --- Исключения ---
+  exclusions:
+    # Обработка сгенерированного кода
+    generated: lax
+
+    # Предупреждать о неиспользуемых nolint директивах
+    warn-unused: true
+
+    # Стандартные наборы исключений
+    presets:
+      - comments
+      - std-error-handling
+
+    # Правила исключений
+    rules:
+      # В тестах допускаем: длинные функции, дублирование, магические числа
+      - path: _test\.go
+        linters:
+          - dupl
+          - goconst
+          - gocognit
+          - cyclop
+          - errcheck
+          - gocritic
+          - nestif
+
+      # Сгенерированный код (oapi-codegen) — пропускаем все линтеры
+      - path: ".*\\.gen\\.go$"
+        linters:
+          - ALL
+
+      # Templ-сгенерированный код
+      - path: ".*_templ\\.go$"
+        linters:
+          - ALL
+
+    # Исключённые пути (не анализируются вообще)
+    paths:
+      - "third_party"
+      - "vendor"
+
+# --- Управление issues ---
+issues:
+  # Показывать все найденные проблемы (без лимита)
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  uniq-by-line: false
+
+# --- Формат вывода ---
+output:
+  formats:
+    text:
+      print-linter-name: true
+      print-issued-lines: true
+      colors: true
+  sort-order:
+    - linter
+    - severity
+    - file
+  show-stats: true
+
+# --- Строгость ---
+severity:
+  default: warning
+  rules:
+    # Проблемы безопасности — всегда error
+    - linters:
+        - gosec
+      severity: error
+    # Неиспользуемый код — error
+    - linters:
+        - unused
+        - ineffassign
+      severity: error
+    # Обработка ошибок — error
+    - linters:
+        - errcheck
+        - errorlint
+      severity: error

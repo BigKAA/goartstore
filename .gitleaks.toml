@@ -1,0 +1,36 @@
+# Конфигурация gitleaks для сканирования репозитория на утечку секретов
+# Документация: https://github.com/gitleaks/gitleaks#configuration
+#
+# Запуск: gitleaks detect --config .gitleaks.toml --source . -v
+
+title = "Artstore gitleaks config"
+
+# Используем встроенные правила gitleaks (default rules)
+# и добавляем исключения для тестовых данных
+
+# --- Allowlist: глобальные исключения ---
+[allowlist]
+  description = "Тестовые и dev-секреты проекта Artstore"
+
+  # Пути, полностью исключённые из сканирования
+  paths = [
+    '''old_artstore/''',
+    '''\.claude/''',
+    '''plans/''',
+    '''docs/''',
+    '''\.gitleaks\.toml''',
+  ]
+
+  # Тестовые секреты из CLAUDE.md и тестовой инфраструктуры
+  regexTarget = "match"
+  regexes = [
+    # Тестовые Keycloak client secrets
+    '''test-user-secret''',
+    '''admin-module-test-secret''',
+    '''test-init-secret''',
+    '''test-session-secret-32bytes-ok!''',
+    # Тестовые пароли БД и Keycloak
+    '''artstore-test-password''',
+    # Harbor (указан в CLAUDE.md как публичный)
+    '''harbor\.kryukov\.lan''',
+  ]

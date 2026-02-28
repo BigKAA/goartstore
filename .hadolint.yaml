@@ -1,0 +1,26 @@
+# Конфигурация hadolint для линтинга Dockerfile
+# Документация: https://github.com/hadolint/hadolint#configure
+#
+# Уровни: error, warning, info, style
+# Применяется ко всем Dockerfile проекта:
+#   - src/admin-module/Dockerfile
+#   - src/storage-element/Dockerfile
+#   - src/storage-element/tests/jwks-mock/Dockerfile
+#   - deploy/keycloak/Dockerfile
+#   - tests/Dockerfile.tools
+
+# Пропущенные правила (с обоснованием)
+ignored:
+  # DL3018: Pin versions in apk add — в alpine используем latest для простоты разработки
+  - DL3018
+  # DL3008: Pin versions in apt-get install — аналогично для debian-based образов
+  - DL3008
+  # DL3029: Do not use --platform flag with FROM — используем для multi-arch сборки
+  - DL3029
+  # DL3062: Pin versions in go install — версии фиксируются в go.mod, не в Dockerfile
+  - DL3062
+
+# Доверенные базовые образы (не требуют версионных тегов)
+trustedRegistries:
+  - docker.io
+  - harbor.kryukov.lan
