@@ -12,10 +12,9 @@ info:
 
     ## Поиск
 
-    Три режима поиска по метаданным файлов:
-    - `exact` — точное совпадение (поле = значение)
+    Два режима поиска по атрибутам файлов:
+    - `exact` — точное совпадение (поле = значение, case-insensitive)
     - `partial` — частичное совпадение (ILIKE '%value%')
-    - `fulltext` — полнотекстовый поиск (PostgreSQL FTS, GIN-индексы)
 
     Поиск выполняется через `POST /api/v1/search` с JSON body (POST вместо
     GET из-за сложной структуры фильтров: массивы тегов, множество параметров).
@@ -40,7 +39,7 @@ info:
 
     Query Module использует **Shared PostgreSQL** с Admin Module:
     - Admin Module владеет таблицей файлов (file registry) и пишет в неё
-    - Query Module добавляет GIN/FTS индексы и читает из неё
+    - Query Module добавляет индексы для поиска по атрибутам и читает из неё
     - Синхронизация не нужна — оба модуля работают с одной БД
     - In-memory LRU cache (30-60s TTL) для горячих метаданных
 
@@ -90,15 +89,12 @@ paths:
       tags: [search]
       summary: Поиск файлов
       description: |
-        Поиск файлов по метаданным с поддержкой трёх режимов:
+        Поиск файлов по атрибутам с поддержкой двух режимов:
 
         - **`exact`** — точное совпадение. Ищет файлы, где значение поля
           точно совпадает с указанным (case-insensitive для строк).
-        - **`partial`** — частичное совпадение. Ищет файлы, где значение
-          поля содержит указанную подстроку (ILIKE).
-        - **`fulltext`** — полнотекстовый поиск. Использует PostgreSQL
-          Full-Text Search (GIN-индексы) по полям `original_filename`,
-          `description`, `tags`. Результаты ранжируются по `relevance_score`.
+        - **`partial`** — частичное совпадение (по умолчанию). Ищет файлы,
+          где значение поля содержит указанную подстроку (ILIKE).
 
         Все фильтры опциональны. Если не указан ни один фильтр,
         возвращаются все файлы со статусом `active` (с пагинацией).
@@ -133,7 +129,7 @@ paths:
                   value:
                     error:
                       code: VALIDATION_ERROR
-                      message: "Недопустимый режим поиска, допустимые: exact, partial, fulltext"
+                      message: "Недопустимый режим поиска, допустимые: exact, partial"
                 invalidDateRange:
                   summary: Некорректный диапазон дат
                   value:
@@ -344,7 +340,7 @@ paths:
       summary: Prometheus metrics
       description: |
         Метрики в формате Prometheus. Включают:
-        - Счётчики поисковых запросов (по mode: exact/partial/fulltext)
+        - Счётчики поисковых запросов
         - Гистограммы латентности поиска
         - Счётчики скачиваний (успешные, ошибки)
         - Гистограммы латентности скачивания
@@ -367,9 +363,8 @@ paths:
                 example: |
                   # HELP query_search_total Общее количество поисковых запросов
                   # TYPE query_search_total counter
-                  query_search_total{mode="fulltext"} 8523
-                  query_search_total{mode="partial"} 3201
-                  query_search_total{mode="exact"} 1150
+                  query_search_total{status="success"} 12874
+                  query_search_total{status="error"} 42
                   # HELP query_downloads_total Общее количество скачиваний
                   # TYPE query_downloads_total counter
                   query_downloads_total{status="success"} 12480
@@ -475,11 +470,10 @@ components:
           type: string
           maxLength: 500
           description: |
-            Поисковый запрос. Используется в зависимости от `mode`:
-            - `exact` — точное совпадение с `original_filename`
-            - `partial` — подстрока в `original_filename`
-            - `fulltext` — FTS по `original_filename`, `description`, `tags`
-          example: логотип
+            Поисковый запрос по имени файла. Используется в зависимости от `mode`:
+            - `exact` — точное совпадение с `original_filename` (case-insensitive)
+            - `partial` — подстрока в `original_filename` (ILIKE)
+          example: logo
         filename:
           type: string
           maxLength: 255
@@ -536,13 +530,12 @@ components:
           example: "2026-02-21T23:59:59Z"
         mode:
           type: string
-          enum: [exact, partial, fulltext]
+          enum: [exact, partial]
           default: partial
           description: |
             Режим поиска:
-            - `exact` — точное совпадение
-            - `partial` — частичное совпадение (по умолчанию)
-            - `fulltext` — полнотекстовый поиск (PostgreSQL FTS)
+            - `exact` — точное совпадение (case-insensitive)
+            - `partial` — частичное совпадение, ILIKE (по умолчанию)
         limit:
           type: integer
           minimum: 1
@@ -556,15 +549,13 @@ components:
           description: Смещение от начала списка
         sort_by:
           type: string
-          enum: [uploaded_at, original_filename, size, relevance]
+          enum: [uploaded_at, original_filename, size]
           default: uploaded_at
           description: |
             Поле сортировки:
             - `uploaded_at` — по дате загрузки (по умолчанию)
             - `original_filename` — по имени файла
             - `size` — по размеру файла
-            - `relevance` — по релевантности (только для `mode=fulltext`,
-              игнорируется в других режимах)
         sort_order:
           type: string
           enum: [asc, desc]
@@ -604,9 +595,7 @@ components:
 
     SearchResultItem:
       type: object
-      description: |
-        Элемент результатов поиска. Содержит метаданные файла
-        и опциональный `relevance_score` (только для fulltext-поиска).
+      description: Элемент результатов поиска. Содержит метаданные файла.
       required:
         - file_id
         - original_filename
@@ -672,15 +661,6 @@ components:
           nullable: true
           description: Дата истечения (для temporary)
           example: "2026-03-23T15:30:00Z"
-        relevance_score:
-          type: number
-          format: float
-          nullable: true
-          description: |
-            Оценка релевантности (0.0–1.0). Присутствует только
-            в результатах fulltext-поиска. `null` для exact/partial.
-          example: 0.85
-
     # -----------------------------------------------------------------------
     # Files
     # -----------------------------------------------------------------------

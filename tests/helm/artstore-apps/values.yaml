@@ -1,6 +1,6 @@
 # =============================================================================
 # artstore-apps — Helm values для приложений тестовой среды
-# Компоненты: Admin Module
+# Компоненты: Admin Module, Query Module
 # =============================================================================
 
 # Namespace для тестовой среды (должен совпадать с artstore-infra)
@@ -12,6 +12,8 @@ namespace: artstore-test
 registry: harbor.kryukov.lan/library
 amImage: admin-module
 amTag: v0.3.0-1
+qmImage: query-module
+qmTag: v0.1.0-1
 imagePullPolicy: Always
 
 # -----------------------------------------------------------------------------
@@ -80,7 +82,36 @@ adminModule:
       cpu: "500m"
 
 # -----------------------------------------------------------------------------
-# HTTPRoute (Gateway API) — внешний доступ к Admin Module через Envoy Gateway
+# Query Module
+# -----------------------------------------------------------------------------
+queryModule:
+  port: 8030
+  logLevel: debug
+  logFormat: json
+  # Keycloak
+  keycloakRealm: artstore
+  clientId: artstore-query
+  clientSecret: query-test-secret
+  # Маппинг групп → ролей
+  roleAdminGroups: "artstore-admins"
+  roleReadonlyGroups: "artstore-viewers"
+  # topologymetrics
+  dephealthCheckInterval: "15s"
+  dephealthGroup: "query-module"
+  # Graceful shutdown
+  shutdownTimeout: "5s"
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "500m"
+
+# -----------------------------------------------------------------------------
+# HTTPRoute (Gateway API) — внешний доступ через Envoy Gateway
+# AM: /api/v1/*, /health/*, /admin/*, /static/*, /metrics
+# QM: /query/* → strip /query prefix
 # -----------------------------------------------------------------------------
 httproute:
   enabled: true

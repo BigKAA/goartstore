@@ -1,0 +1,88 @@
+# ConfigMap с не-секретными переменными окружения Query Module
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "qm.fullname" . }}-config
+  labels:
+    {{- include "qm.labels" . | nindent 4 }}
+data:
+  # --- Сервер ---
+  QM_PORT: {{ .Values.port | quote }}
+  QM_LOG_LEVEL: {{ .Values.logLevel | quote }}
+  QM_LOG_FORMAT: {{ .Values.logFormat | quote }}
+  # --- PostgreSQL (не-секретные) ---
+  QM_DB_HOST: {{ .Values.database.host | quote }}
+  QM_DB_PORT: {{ .Values.database.port | quote }}
+  QM_DB_NAME: {{ .Values.database.name | quote }}
+  QM_DB_SSL_MODE: {{ .Values.database.sslMode | quote }}
+  QM_DB_MAX_CONNS: {{ .Values.database.maxConns | quote }}
+  # --- JWT/JWKS ---
+  QM_JWKS_URL: {{ .Values.jwt.jwksUrl | quote }}
+  {{- if .Values.jwt.issuer }}
+  QM_JWT_ISSUER: {{ .Values.jwt.issuer | quote }}
+  {{- end }}
+  {{- if .Values.jwt.jwksRefreshInterval }}
+  QM_JWKS_REFRESH_INTERVAL: {{ .Values.jwt.jwksRefreshInterval | quote }}
+  {{- end }}
+  {{- if .Values.jwt.leeway }}
+  QM_JWT_LEEWAY: {{ .Values.jwt.leeway | quote }}
+  {{- end }}
+  # --- Маппинг групп → ролей ---
+  QM_ROLE_ADMIN_GROUPS: {{ .Values.rbac.adminGroups | quote }}
+  QM_ROLE_READONLY_GROUPS: {{ .Values.rbac.readonlyGroups | quote }}
+  # --- Admin Module ---
+  QM_ADMIN_URL: {{ .Values.adminModule.url | quote }}
+  {{- if .Values.adminModule.timeout }}
+  QM_ADMIN_TIMEOUT: {{ .Values.adminModule.timeout | quote }}
+  {{- end }}
+  # --- SE Download ---
+  {{- if .Values.seDownload }}
+  {{- if .Values.seDownload.timeout }}
+  QM_SE_DOWNLOAD_TIMEOUT: {{ .Values.seDownload.timeout | quote }}
+  {{- end }}
+  {{- if .Values.seDownload.caCertPath }}
+  QM_SE_CA_CERT_PATH: {{ .Values.seDownload.caCertPath | quote }}
+  {{- end }}
+  {{- end }}
+  # --- LRU Cache ---
+  {{- if .Values.cache }}
+  {{- if .Values.cache.ttl }}
+  QM_CACHE_TTL: {{ .Values.cache.ttl | quote }}
+  {{- end }}
+  {{- if .Values.cache.maxSize }}
+  QM_CACHE_MAX_SIZE: {{ .Values.cache.maxSize | quote }}
+  {{- end }}
+  {{- end }}
+  # --- TLS ---
+  {{- if .Values.tls.caSecret }}
+  QM_CA_CERT_PATH: "/certs/ca.crt"
+  QM_SE_CA_CERT_PATH: "/certs/ca.crt"
+  {{- end }}
+  # --- Dependency health (topologymetrics) ---
+  DEPHEALTH_NAME: {{ include "qm.fullname" . | quote }}
+  QM_DEPHEALTH_CHECK_INTERVAL: {{ .Values.dephealth.checkInterval | quote }}
+  QM_DEPHEALTH_GROUP: {{ .Values.dephealth.group | quote }}
+  {{- if .Values.dephealth.isEntry }}
+  DEPHEALTH_ISENTRY: "true"
+  {{- end }}
+  # --- Таймауты HTTP-клиентов ---
+  {{- with .Values.timeouts }}
+  {{- if .httpClient }}
+  QM_HTTP_CLIENT_TIMEOUT: {{ .httpClient | quote }}
+  {{- end }}
+  {{- if .jwksClient }}
+  QM_JWKS_CLIENT_TIMEOUT: {{ .jwksClient | quote }}
+  {{- end }}
+  # --- Таймауты HTTP-сервера ---
+  {{- if .httpRead }}
+  QM_HTTP_READ_TIMEOUT: {{ .httpRead | quote }}
+  {{- end }}
+  {{- if .httpWrite }}
+  QM_HTTP_WRITE_TIMEOUT: {{ .httpWrite | quote }}
+  {{- end }}
+  {{- if .httpIdle }}
+  QM_HTTP_IDLE_TIMEOUT: {{ .httpIdle | quote }}
+  {{- end }}
+  {{- end }}
+  # --- Graceful shutdown ---
+  QM_SHUTDOWN_TIMEOUT: {{ .Values.shutdownTimeout | quote }}

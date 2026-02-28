@@ -1,0 +1,170 @@
+# Query Module — Deployment + Service.
+# Init containers: wait-for-pg (PostgreSQL ready) + wait-for-am (Admin Module ready).
+# QM зависит от AM для получения информации о SE и SA-токенов.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: query-module
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "artstore-apps.labels" . | nindent 4 }}
+    {{- include "artstore-apps.qm.selectorLabels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "artstore-apps.qm.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "artstore-apps.qm.selectorLabels" . | nindent 8 }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ .Values.queryModule.port | quote }}
+        prometheus.io/path: "/metrics"
+    spec:
+      initContainers:
+        # Ожидание готовности PostgreSQL (pg_isready)
+        - name: wait-for-pg
+          image: {{ .Values.postgresql.image }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Ожидание PostgreSQL..."
+              until pg_isready -h postgresql -p {{ .Values.postgresql.port }} -U {{ .Values.postgresql.user }}; do
+                echo "  PostgreSQL не готов, повтор через 2 секунды..."
+                sleep 2
+              done
+              echo "PostgreSQL готов!"
+        # Ожидание готовности Admin Module (health/ready endpoint)
+        - name: wait-for-am
+          image: alpine:3.19
+          command:
+            - /bin/sh
+            - -c
+            - |
+              apk add --no-cache curl > /dev/null 2>&1
+              echo "Ожидание Admin Module..."
+              AM_URL="http://admin-module.{{ .Values.namespace }}.svc.cluster.local:{{ .Values.adminModule.port }}"
+              TIMEOUT=300
+              ELAPSED=0
+              until curl -sf "${AM_URL}/health/ready" > /dev/null 2>&1; do
+                if [ $ELAPSED -ge $TIMEOUT ]; then
+                  echo "ОШИБКА: Admin Module не стал доступен за ${TIMEOUT} секунд"
+                  exit 1
+                fi
+                echo "  Admin Module не готов (${ELAPSED}s), повтор через 5 секунд..."
+                sleep 5
+                ELAPSED=$((ELAPSED + 5))
+              done
+              echo "Admin Module готов!"
+      containers:
+        - name: query-module
+          image: {{ include "artstore-apps.qmImage" . }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.queryModule.port }}
+              name: http
+          env:
+            # --- Сервер ---
+            - name: QM_PORT
+              value: {{ .Values.queryModule.port | quote }}
+            - name: QM_LOG_LEVEL
+              value: {{ .Values.queryModule.logLevel | quote }}
+            - name: QM_LOG_FORMAT
+              value: {{ .Values.queryModule.logFormat | quote }}
+            # --- PostgreSQL ---
+            - name: QM_DB_HOST
+              value: postgresql
+            - name: QM_DB_PORT
+              value: {{ .Values.postgresql.port | quote }}
+            - name: QM_DB_NAME
+              value: {{ .Values.postgresql.database | quote }}
+            - name: QM_DB_USER
+              value: {{ .Values.postgresql.user | quote }}
+            - name: QM_DB_PASSWORD
+              value: {{ .Values.postgresql.password | quote }}
+            - name: QM_DB_SSL_MODE
+              value: disable
+            # --- JWT/JWKS ---
+            - name: QM_JWKS_URL
+              value: "{{ include "artstore-apps.keycloakHttpUrl" . }}/realms/{{ .Values.queryModule.keycloakRealm }}/protocol/openid-connect/certs"
+            {{- if .Values.httproute.enabled }}
+            - name: QM_JWT_ISSUER
+              value: "https://{{ .Values.httproute.hostname }}/realms/{{ .Values.queryModule.keycloakRealm }}"
+            {{- end }}
+            # --- Маппинг групп → ролей ---
+            - name: QM_ROLE_ADMIN_GROUPS
+              value: {{ .Values.queryModule.roleAdminGroups | quote }}
+            - name: QM_ROLE_READONLY_GROUPS
+              value: {{ .Values.queryModule.roleReadonlyGroups | quote }}
+            # --- Admin Module ---
+            - name: QM_ADMIN_URL
+              value: "http://admin-module.{{ .Values.namespace }}.svc.cluster.local:{{ .Values.adminModule.port }}"
+            # --- OAuth2 (Client Credentials) ---
+            - name: QM_CLIENT_ID
+              value: {{ .Values.queryModule.clientId | quote }}
+            - name: QM_CLIENT_SECRET
+              value: {{ .Values.queryModule.clientSecret | quote }}
+            # --- TLS ---
+            - name: QM_CA_CERT_PATH
+              value: /certs/ca.crt
+            - name: QM_SE_CA_CERT_PATH
+              value: /certs/ca.crt
+            # --- topologymetrics ---
+            - name: DEPHEALTH_NAME
+              value: "query-module"
+            - name: QM_DEPHEALTH_CHECK_INTERVAL
+              value: {{ .Values.queryModule.dephealthCheckInterval | quote }}
+            - name: QM_DEPHEALTH_GROUP
+              value: {{ .Values.queryModule.dephealthGroup | quote }}
+            # --- Graceful shutdown ---
+            - name: QM_SHUTDOWN_TIMEOUT
+              value: {{ .Values.queryModule.shutdownTimeout | quote }}
+          volumeMounts:
+            - name: tls-certs
+              mountPath: /certs
+              readOnly: true
+          resources:
+            {{- toYaml .Values.queryModule.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: {{ .Values.queryModule.port }}
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: {{ .Values.queryModule.port }}
+              scheme: HTTP
+            initialDelaySeconds: 20
+            periodSeconds: 15
+      volumes:
+        # TLS сертификаты из cert-manager (secret из artstore-infra)
+        - name: tls-certs
+          secret:
+            secretName: {{ .Values.tls.secretName }}
+---
+# Service Query Module
+apiVersion: v1
+kind: Service
+metadata:
+  name: query-module
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "artstore-apps.labels" . | nindent 4 }}
+    {{- include "artstore-apps.qm.selectorLabels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "artstore-apps.qm.selectorLabels" . | nindent 4 }}
+  ports:
+    - port: {{ .Values.queryModule.port }}
+      targetPort: {{ .Values.queryModule.port }}
+      name: http

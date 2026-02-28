@@ -1,0 +1,62 @@
+{{- if and .Values.httproute .Values.httproute.enabled }}
+# Gateway API HTTPRoute для внешнего доступа к Query Module
+# Маршрутизация /query/* через artstore.kryukov.lan с strip prefix /query
+# Прямые маршруты: /health/*, /metrics — без strip
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "qm.fullname" . }}
+  labels:
+    {{- include "qm.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ .Values.httproute.gatewayName }}
+      {{- if .Values.httproute.gatewayNamespace }}
+      namespace: {{ .Values.httproute.gatewayNamespace }}
+      {{- end }}
+  hostnames:
+    - {{ .Values.httproute.hostname | quote }}
+  rules:
+    # /query/api/v1/* → QM /api/v1/* (strip /query prefix)
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /query/api/v1
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /api/v1
+      backendRefs:
+        - name: {{ include "qm.fullname" . }}
+          port: {{ .Values.port }}
+    # /query/health/* → QM /health/* (strip /query prefix)
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /query/health
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /health
+      backendRefs:
+        - name: {{ include "qm.fullname" . }}
+          port: {{ .Values.port }}
+    # /query/metrics → QM /metrics (strip /query prefix)
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /query/metrics
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /metrics
+      backendRefs:
+        - name: {{ include "qm.fullname" . }}
+          port: {{ .Values.port }}
+{{- end }}

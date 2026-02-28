@@ -36,3 +36,18 @@ https://admin-module.{{ .Values.namespace }}.svc.cluster.local:{{ .Values.adminM
 app.kubernetes.io/name: admin-module
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
+
+{{/*
+Полный URL Docker-образа Query Module
+*/}}
+{{- define "artstore-apps.qmImage" -}}
+{{ .Values.registry }}/{{ .Values.qmImage }}:{{ .Values.qmTag }}
+{{- end }}
+
+{{/*
+Метки selector для Query Module
+*/}}
+{{- define "artstore-apps.qm.selectorLabels" -}}
+app.kubernetes.io/name: query-module
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
