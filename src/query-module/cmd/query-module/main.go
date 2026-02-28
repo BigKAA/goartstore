@@ -1,12 +1,15 @@
 // main.go — точка входа Query Module.
 // Загружает конфигурацию, подключается к PostgreSQL, применяет миграции (индексы),
 // инициализирует JWT middleware, создаёт repository/cache/service/handlers и HTTP-сервер.
-package main
+// Поддерживает proxy download с lazy cleanup и мониторинг зависимостей (topologymetrics).
+package main //nolint:cyclop // main — точка входа, высокая сложность обусловлена инициализацией компонентов
 
 import (
 	"context"
 	"log/slog"
 	"os"
+
+	"github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/bigkaa/goartstore/query-module/internal/adminclient"
 	"github.com/bigkaa/goartstore/query-module/internal/api/handlers"
@@ -14,6 +17,7 @@ import (
 	"github.com/bigkaa/goartstore/query-module/internal/config"
 	"github.com/bigkaa/goartstore/query-module/internal/database"
 	"github.com/bigkaa/goartstore/query-module/internal/repository"
+	"github.com/bigkaa/goartstore/query-module/internal/seclient"
 	"github.com/bigkaa/goartstore/query-module/internal/server"
 	"github.com/bigkaa/goartstore/query-module/internal/service"
 )
@@ -49,7 +53,11 @@ func main() {
 	}
 	defer pool.Close()
 
-	// 5. JWT middleware
+	// 5. *sql.DB адаптер pgxpool (для topologymetrics)
+	sqlDB := stdlib.OpenDBFromPool(pool)
+	defer sqlDB.Close()
+
+	// 6. JWT middleware
 	jwtAuth, err := middleware.NewJWTAuth(
 		cfg.JWKSURL,
 		cfg.CACertPath,
@@ -70,7 +78,7 @@ func main() {
 		slog.String("jwks_url", cfg.JWKSURL),
 	)
 
-	// 6. Admin Module HTTP-клиент
+	// 7. Admin Module HTTP-клиент
 	adminClient, err := adminclient.New(
 		cfg.AdminURL,
 		cfg.CACertPath,
@@ -83,34 +91,51 @@ func main() {
 		logger.Error("Ошибка создания Admin Module клиента", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
-	_ = adminClient // будет использован в Phase 4 (download service)
 	logger.Info("Admin Module клиент инициализирован",
 		slog.String("admin_url", cfg.AdminURL),
 	)
 
-	// 7. Repository слой
+	// 8. SE HTTP-клиент (proxy download)
+	seClient, err := seclient.New(
+		cfg.SECACertPath,
+		cfg.SEDownloadTimeout,
+		adminClient.GetToken,
+		logger,
+	)
+	if err != nil {
+		logger.Error("Ошибка создания SE клиента", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+	logger.Info("SE клиент инициализирован",
+		slog.Duration("timeout", cfg.SEDownloadTimeout),
+	)
+
+	// 9. Repository слой
 	fileRepo := repository.NewFileRepository(pool)
 
-	// 8. LRU-кэш метаданных файлов
+	// 10. LRU-кэш метаданных файлов
 	cacheService := service.NewCacheService(cfg.CacheMaxSize, cfg.CacheTTL)
 	logger.Info("LRU-кэш инициализирован",
 		slog.Int("max_size", cfg.CacheMaxSize),
 		slog.Duration("ttl", cfg.CacheTTL),
 	)
 
-	// 9. Search service (repository + cache)
+	// 11. Search service (repository + cache)
 	searchService := service.NewSearchService(fileRepo, cacheService, logger)
 
-	// 10. Readiness checkers
+	// 12. Download service (repository + cache + admin client + SE client)
+	downloadService := service.NewDownloadService(fileRepo, cacheService, adminClient, seClient, logger)
+
+	// 13. Readiness checker
 	pgChecker := database.NewReadinessChecker(pool)
 
-	// 11. Health handler (с PostgreSQL checker)
+	// 14. Health handler (с PostgreSQL checker)
 	healthHandler := handlers.NewHealthHandler(pgChecker)
 
-	// 12. API handler (search, file metadata + stubs для download)
-	apiHandler := handlers.NewAPIHandler(healthHandler, searchService, logger)
+	// 15. API handler (search, file metadata, download)
+	apiHandler := handlers.NewAPIHandler(healthHandler, searchService, downloadService, logger)
 
-	// 13. HTTP-сервер с middleware (metrics → logging → JWT с exclusions)
+	// 16. HTTP-сервер с middleware (metrics → logging → JWT с exclusions)
 	srv := server.New(cfg, logger, apiHandler,
 		middleware.MetricsMiddleware(),
 		middleware.RequestLogger(logger),
@@ -120,7 +145,37 @@ func main() {
 		),
 	)
 
-	// 14. Запуск сервера (блокирующий вызов с graceful shutdown)
+	// 17. Topologymetrics — мониторинг зависимостей (graceful start)
+	serviceID := cfg.DephealthName
+	if serviceID == "" {
+		serviceID = "query-module"
+	}
+	dephealthSvc, dephealthErr := service.NewDephealthService(
+		serviceID,
+		cfg.DephealthGroup,
+		sqlDB,
+		cfg.DatabaseURL(),
+		cfg.AdminURL,
+		cfg.DephealthCheckInterval,
+		cfg.DephealthIsEntry,
+		logger,
+	)
+	if dephealthErr != nil {
+		// Graceful start: логируем предупреждение, не прерываем запуск
+		logger.Warn("Не удалось инициализировать мониторинг зависимостей",
+			slog.String("error", dephealthErr.Error()),
+		)
+	} else {
+		if startErr := dephealthSvc.Start(ctx); startErr != nil {
+			logger.Warn("Не удалось запустить мониторинг зависимостей",
+				slog.String("error", startErr.Error()),
+			)
+		} else {
+			defer dephealthSvc.Stop()
+		}
+	}
+
+	// 18. Запуск сервера (блокирующий вызов с graceful shutdown)
 	if err = srv.Run(); err != nil {
 		logger.Error("Ошибка сервера", slog.String("error", err.Error()))
 		os.Exit(1)

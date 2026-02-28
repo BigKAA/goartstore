@@ -17,10 +17,10 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 4
-- **Активный подпункт**: 4.1
+- **Активная фаза**: Phase 5
+- **Активный подпункт**: 5.1
 - **Последнее обновление**: 2026-02-28
-- **Примечание**: Phase 3 завершена — repository, cache, search service, handlers, admin client
+- **Примечание**: Phase 4 завершена — seclient, download service, download handler, dephealth, main.go интеграция
 
 ---
 
@@ -29,7 +29,7 @@
 - [x] [Phase 1: Каркас проекта и кодогенерация](#phase-1-каркас-проекта-и-кодогенерация)
 - [x] [Phase 2: Инфраструктурный слой (БД, конфиг, middleware)](#phase-2-инфраструктурный-слой-бд-конфиг-middleware)
 - [x] [Phase 3: Бизнес-логика (поиск, метаданные, кэш)](#phase-3-бизнес-логика-поиск-метаданные-кэш)
-- [ ] [Phase 4: Proxy Download и ленивая очистка](#phase-4-proxy-download-и-ленивая-очистка)
+- [x] [Phase 4: Proxy Download и ленивая очистка](#phase-4-proxy-download-и-ленивая-очистка)
 - [ ] [Phase 5: Сборка, деплой и интеграционные тесты](#phase-5-сборка-деплой-и-интеграционные-тесты)
 
 ---
@@ -301,7 +301,7 @@ HTTP-обработчики для search и file metadata. Admin Module HTTP-к
 ## Phase 4: Proxy Download и ленивая очистка
 
 **Dependencies**: Phase 3
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -311,7 +311,7 @@ SE HTTP-клиент для proxy download, поддержка HTTP Range reques
 
 ### Подпункты
 
-- [ ] **4.1 SE HTTP-клиент (proxy download)**
+- [x] **4.1 SE HTTP-клиент (proxy download)**
   - **Dependencies**: None
   - **Description**: `seclient/client.go` — HTTP-клиент к Storage Element:
     - `Download(ctx, seURL, fileID, rangeHeader) (*http.Response, error)` — streaming.
@@ -326,7 +326,7 @@ SE HTTP-клиент для proxy download, поддержка HTTP Range reques
   - **Links**:
     - Паттерн: `src/admin-module/internal/seclient/client.go`
 
-- [ ] **4.2 Download service**
+- [x] **4.2 Download service**
   - **Dependencies**: 4.1
   - **Description**: `service/download.go` — `DownloadService`:
     - `Download(ctx, w, r, fileID)` — полный pipeline:
@@ -343,7 +343,7 @@ SE HTTP-клиент для proxy download, поддержка HTTP Range reques
   - **Creates**:
     - `src/query-module/internal/service/download.go`
 
-- [ ] **4.3 Download HTTP-обработчик**
+- [x] **4.3 Download HTTP-обработчик**
   - **Dependencies**: 4.2
   - **Description**: `handlers/files.go` — добавление `DownloadFile(w, r)`:
     извлечение `file_id` из path, `Range` header из запроса.
@@ -354,7 +354,7 @@ SE HTTP-клиент для proxy download, поддержка HTTP Range reques
     - `src/query-module/internal/api/handlers/files.go` (обновление)
     - `src/query-module/internal/api/handlers/handler.go` (обновление)
 
-- [ ] **4.4 Topologymetrics**
+- [x] **4.4 Topologymetrics**
   - **Dependencies**: None
   - **Description**: `service/dephealth.go` — настройка topologymetrics:
     зависимости PostgreSQL (critical) + Admin Module (critical).
@@ -365,7 +365,7 @@ SE HTTP-клиент для proxy download, поддержка HTTP Range reques
   - **Links**:
     - Паттерн: `src/admin-module/internal/service/dephealth.go`
 
-- [ ] **4.5 Интеграция в main.go и unit-тесты**
+- [x] **4.5 Интеграция в main.go и unit-тесты**
   - **Dependencies**: 4.1, 4.2, 4.3, 4.4
   - **Description**: Полная интеграция в main.go: SE client, download service,
     dephealth. Финальная последовательность инициализации:
@@ -395,15 +395,15 @@ SE HTTP-клиент для proxy download, поддержка HTTP Range reques
 
 ### Критерии завершения Phase 4
 
-- [ ] Все подпункты завершены (4.1–4.5)
-- [ ] Proxy download работает (200, streaming)
-- [ ] HTTP Range requests работают (206 Partial Content)
-- [ ] Lazy cleanup при 404 от SE — обновляет статус в БД, инвалидирует кэш
-- [ ] Topologymetrics отображает состояние PostgreSQL и Admin Module
-- [ ] Все Prometheus-метрики регистрируются и обновляются
-- [ ] `go test ./...` проходит
-- [ ] `go vet ./...` без ошибок
-- [ ] `make lint` проходит без ошибок
+- [x] Все подпункты завершены (4.1–4.5)
+- [x] Proxy download работает (200, streaming)
+- [x] HTTP Range requests работают (206 Partial Content)
+- [x] Lazy cleanup при 404 от SE — обновляет статус в БД, инвалидирует кэш
+- [x] Topologymetrics отображает состояние PostgreSQL и Admin Module
+- [x] Все Prometheus-метрики регистрируются и обновляются
+- [x] `go test ./...` проходит
+- [x] `go vet ./...` без ошибок
+- [x] `make lint` проходит без ошибок
 
 ---
 

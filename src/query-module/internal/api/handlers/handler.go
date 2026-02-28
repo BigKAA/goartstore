@@ -18,21 +18,24 @@ import (
 // APIHandler — основной обработчик API Query Module.
 // Реализует generated.ServerInterface, делегируя запросы в сервисный слой.
 type APIHandler struct {
-	health        *HealthHandler
-	searchService *service.SearchService
-	logger        *slog.Logger
+	health          *HealthHandler
+	searchService   *service.SearchService
+	downloadService *service.DownloadService
+	logger          *slog.Logger
 }
 
 // NewAPIHandler создаёт основной обработчик API.
 func NewAPIHandler(
 	health *HealthHandler,
 	searchService *service.SearchService,
+	downloadService *service.DownloadService,
 	logger *slog.Logger,
 ) *APIHandler {
 	return &APIHandler{
-		health:        health,
-		searchService: searchService,
-		logger:        logger.With(slog.String("component", "api_handler")),
+		health:          health,
+		searchService:   searchService,
+		downloadService: downloadService,
+		logger:          logger.With(slog.String("component", "api_handler")),
 	}
 }
 
@@ -75,9 +78,14 @@ func (h *APIHandler) GetFileMetadata(w http.ResponseWriter, r *http.Request, fil
 	h.handleGetFileMetadata(w, r, fileID)
 }
 
-// DownloadFile — скачивание файла (stub, будет реализован в Phase 4).
-func (h *APIHandler) DownloadFile(w http.ResponseWriter, _ *http.Request, _ generated.FileId, _ generated.DownloadFileParams) {
-	errors.WriteError(w, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Скачивание файла ещё не реализовано")
+// DownloadFile — скачивание файла (GET /api/v1/files/{file_id}/download).
+// Авторизация: admin, readonly / files:read.
+func (h *APIHandler) DownloadFile(w http.ResponseWriter, r *http.Request, fileID generated.FileId, params generated.DownloadFileParams) {
+	// Проверка авторизации
+	if !h.checkAuth(w, r) {
+		return
+	}
+	h.handleDownloadFile(w, r, fileID, params)
 }
 
 // --- Авторизация ---
