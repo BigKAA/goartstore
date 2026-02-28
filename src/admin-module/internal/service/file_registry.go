@@ -13,6 +13,9 @@ import (
 	"github.com/bigkaa/goartstore/admin-module/internal/repository"
 )
 
+// Константа статуса файла по умолчанию.
+const statusActive = "active"
+
 // FileRegistryService — сервис файлового реестра.
 type FileRegistryService struct {
 	fileRepo repository.FileRegistryRepository
@@ -47,7 +50,7 @@ func (s *FileRegistryService) Register(ctx context.Context, f *model.FileRecord)
 
 	// Устанавливаем значения по умолчанию
 	if f.Status == "" {
-		f.Status = "active"
+		f.Status = statusActive
 	}
 	if f.UploadedAt.IsZero() {
 		f.UploadedAt = time.Now().UTC()

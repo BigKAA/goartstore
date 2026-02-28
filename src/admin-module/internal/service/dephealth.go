@@ -141,7 +141,8 @@ func newDephealthService(
 		kcDepOpts = append(kcDepOpts, dephealth.WithLabel("isentry", "yes"))
 	}
 
-	opts := []dephealth.Option{
+	opts := make([]dephealth.Option, 0, 3+len(extraOpts))
+	opts = append(opts,
 		dephealth.WithLogger(logger),
 		// PostgreSQL — connection pool mode через существующий pgxpool.
 		// Проверка идёт через *sql.DB (адаптер pgxpool), что отражает реальное
@@ -150,7 +151,7 @@ func newDephealthService(
 			pgcheck.New(pgcheck.WithDB(db)), pgDepOpts...),
 		// Keycloak — HTTP checker к JWKS endpoint
 		dephealth.HTTP("keycloak-jwks", kcDepOpts...),
-	}
+	)
 	opts = append(opts, extraOpts...)
 
 	dh, err := dephealth.New(serviceID, group, opts...)

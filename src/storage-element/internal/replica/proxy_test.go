@@ -16,9 +16,9 @@ type mockRoleProvider struct {
 	leaderAddr string
 }
 
-func (m *mockRoleProvider) CurrentRole() Role   { return m.role }
-func (m *mockRoleProvider) IsLeader() bool       { return m.role == RoleLeader }
-func (m *mockRoleProvider) LeaderAddr() string   { return m.leaderAddr }
+func (m *mockRoleProvider) CurrentRole() Role  { return m.role }
+func (m *mockRoleProvider) IsLeader() bool     { return m.role == RoleLeader }
+func (m *mockRoleProvider) LeaderAddr() string { return m.leaderAddr }
 
 // localHandler — обработчик, который возвращает "local" в теле ответа.
 func localHandler() http.Handler {

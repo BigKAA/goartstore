@@ -150,7 +150,7 @@ func (h *AuthHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var sd stateData
-	if err := json.Unmarshal(sdJSON, &sd); err != nil {
+	if err = json.Unmarshal(sdJSON, &sd); err != nil {
 		h.logger.Warn("Ошибка парсинга state cookie", slog.String("error", err.Error()))
 		http.Error(w, "Некорректный state cookie", http.StatusBadRequest)
 		return
@@ -305,7 +305,7 @@ func (h *AuthHandler) buildSessionFromToken(tokenResp *auth.TokenResponse) (*aut
 // jwtClaims — минимальная структура JWT claims для извлечения данных пользователя.
 type jwtClaims struct {
 	Sub               string       `json:"sub"`
-	PreferredUsername  string       `json:"preferred_username"`
+	PreferredUsername string       `json:"preferred_username"`
 	Email             string       `json:"email"`
 	Groups            []string     `json:"groups"`
 	RealmAccess       *realmAccess `json:"realm_access"`

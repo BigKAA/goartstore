@@ -144,13 +144,13 @@ type realmAccess struct {
 
 // JWTAuth — middleware для JWT-аутентификации через JWKS Keycloak.
 type JWTAuth struct {
-	jwks             keyfunc.Keyfunc
-	logger           *slog.Logger
-	roleProvider     RoleOverrideProvider
-	adminGroups      []string
-	readonlyGroups   []string
-	issuer           string
-	jwtLeeway        time.Duration
+	jwks           keyfunc.Keyfunc
+	logger         *slog.Logger
+	roleProvider   RoleOverrideProvider
+	adminGroups    []string
+	readonlyGroups []string
+	issuer         string
+	jwtLeeway      time.Duration
 }
 
 // NewJWTAuth создаёт JWT middleware с JWKS из Keycloak.
@@ -192,7 +192,7 @@ func NewJWTAuth(
 		Client:                    httpClient,
 		NoErrorReturnFirstHTTPReq: true,
 		RefreshInterval:           jwksRefreshInterval,
-		RefreshErrorHandler: func(ctx context.Context, err error) {
+		RefreshErrorHandler: func(_ context.Context, err error) {
 			logger.Error("Ошибка обновления JWKS",
 				slog.String("error", err.Error()),
 				slog.String("url", jwksURL),
@@ -336,14 +336,15 @@ func (j *JWTAuth) Middleware() func(http.Handler) http.Handler {
 // Определяет тип субъекта, маппит группы → роли, применяет role overrides.
 func (j *JWTAuth) buildAuthClaims(ctx context.Context, raw *keycloakClaims) *AuthClaims {
 	claims := &AuthClaims{
-		Subject:          raw.Subject,
+		Subject:           raw.Subject,
 		PreferredUsername: raw.PreferredUsername,
-		Email:            raw.Email,
+		Email:             raw.Email,
 	}
 
 	// Определяем тип субъекта.
 	// Service Account в Keycloak имеет client_id в JWT и scope.
 	// Admin User имеет groups и realm_access.roles.
+	//nolint:nestif // TODO: упростить парсинг claims
 	if raw.ClientID != "" && raw.Scope != "" {
 		// Service Account (Client Credentials flow)
 		claims.SubjectType = SubjectTypeSA
@@ -410,6 +411,8 @@ func parseScopeString(scope string) []string {
 // RequireRole возвращает middleware, требующий одну из указанных ролей.
 // Работает только для Admin Users. SA с подходящим scope не пропускаются.
 // Должен использоваться ПОСЛЕ JWTAuth.Middleware().
+//
+//nolint:dupl // TODO: обобщить RequireRole/RequireScope
 func RequireRole(roles ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -437,6 +440,8 @@ func RequireRole(roles ...string) func(http.Handler) http.Handler {
 // RequireScope возвращает middleware, требующий один из указанных scopes.
 // Работает только для Service Accounts. Users с подходящей ролью не пропускаются.
 // Должен использоваться ПОСЛЕ JWTAuth.Middleware().
+//
+//nolint:dupl // TODO: обобщить RequireRole/RequireScope
 func RequireScope(scopes ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -465,7 +470,7 @@ func RequireScope(scopes ...string) func(http.Handler) http.Handler {
 // из указанных ролей ИЛИ Service Accounts с одним из указанных scopes.
 // Это основной middleware для endpoints, доступных обоим типам субъектов.
 // Должен использоваться ПОСЛЕ JWTAuth.Middleware().
-func RequireRoleOrScope(roles []string, scopes []string) func(http.Handler) http.Handler {
+func RequireRoleOrScope(roles, scopes []string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			claims := ClaimsFromContext(r.Context())
@@ -535,7 +540,7 @@ type KeycloakReadinessChecker struct {
 
 // NewKeycloakReadinessChecker создаёт checker доступности Keycloak.
 // readinessTimeout — таймаут проверки готовности (AM_KEYCLOAK_READINESS_TIMEOUT).
-func NewKeycloakReadinessChecker(jwksURL string, caCertPath string, readinessTimeout time.Duration) (*KeycloakReadinessChecker, error) {
+func NewKeycloakReadinessChecker(jwksURL, caCertPath string, readinessTimeout time.Duration) (*KeycloakReadinessChecker, error) {
 	client := &http.Client{Timeout: readinessTimeout}
 	if caCertPath != "" {
 		var err error
@@ -551,16 +556,22 @@ func NewKeycloakReadinessChecker(jwksURL string, caCertPath string, readinessTim
 	}, nil
 }
 
+const statusFail = "fail"
+
 // CheckReady проверяет доступность JWKS endpoint Keycloak.
-func (k *KeycloakReadinessChecker) CheckReady() (string, string) {
-	resp, err := k.client.Get(k.jwksURL)
+func (k *KeycloakReadinessChecker) CheckReady() (status, message string) {
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, k.jwksURL, http.NoBody)
 	if err != nil {
-		return "fail", fmt.Sprintf("Keycloak JWKS недоступен: %v", err)
+		return statusFail, "ошибка создания запроса: " + err.Error()
+	}
+	resp, err := k.client.Do(req) //nolint:gosec // G704: URL из конфигурации Keycloak
+	if err != nil {
+		return statusFail, fmt.Sprintf("Keycloak JWKS недоступен: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "fail", fmt.Sprintf("Keycloak JWKS вернул статус %d", resp.StatusCode)
+		return statusFail, fmt.Sprintf("Keycloak JWKS вернул статус %d", resp.StatusCode)
 	}
 
 	// Проверяем, что ответ — валидный JSON с ключами

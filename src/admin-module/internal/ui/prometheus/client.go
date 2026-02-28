@@ -88,13 +88,13 @@ func (c *Client) IsAvailable(ctx context.Context) bool {
 
 	// Проверяем /api/v1/status/build
 	reqURL := baseURL + "/api/v1/status/build"
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, http.NoBody)
 	if err != nil {
 		c.logger.Debug("Ошибка создания запроса к Prometheus", slog.String("error", err.Error()))
 		return false
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req) //nolint:gosec // G704: URL из конфигурации Prometheus
 	if err != nil {
 		c.logger.Debug("Prometheus недоступен", slog.String("error", err.Error()))
 		return false
@@ -122,6 +122,7 @@ func (c *Client) QueryLatency(ctx context.Context, target string, period time.Du
 	// Определяем шаг на основе периода
 	step := c.calculateStep(period)
 
+	//nolint:gocritic // PromQL-запрос: кавычки должны быть двойные без экранирования
 	query := fmt.Sprintf(`rate(app_dependency_latency_seconds_sum{target="%s"}[5m]) / rate(app_dependency_latency_seconds_count{target="%s"}[5m])`, target, target)
 
 	results, err := c.queryRange(ctx, query, period, step)
@@ -211,7 +212,7 @@ func (c *Client) QueryStorageUsage(ctx context.Context, period time.Duration) ([
 func (c *Client) queryRange(ctx context.Context, query string, period time.Duration, step string) ([]queryResult, error) {
 	baseURL := c.settingsSvc.GetPrometheusURL(ctx)
 	if baseURL == "" {
-		return nil, fmt.Errorf("Prometheus URL не настроен")
+		return nil, fmt.Errorf("prometheus URL не настроен")
 	}
 
 	timeout := c.settingsSvc.GetPrometheusTimeout(ctx)
@@ -229,12 +230,12 @@ func (c *Client) queryRange(ctx context.Context, query string, period time.Durat
 
 	reqURL := fmt.Sprintf("%s/api/v1/query_range?%s", baseURL, params.Encode())
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("создание запроса: %w", err)
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req) //nolint:gosec // G704: URL из конфигурации Prometheus
 	if err != nil {
 		return nil, fmt.Errorf("выполнение запроса: %w", err)
 	}
@@ -246,7 +247,7 @@ func (c *Client) queryRange(ctx context.Context, query string, period time.Durat
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Prometheus вернул код %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("prometheus вернул код %d: %s", resp.StatusCode, string(body))
 	}
 
 	var qr queryResponse
@@ -255,7 +256,7 @@ func (c *Client) queryRange(ctx context.Context, query string, period time.Durat
 	}
 
 	if qr.Status != "success" {
-		return nil, fmt.Errorf("Prometheus error: status=%s", qr.Status)
+		return nil, fmt.Errorf("prometheus error: status=%s", qr.Status)
 	}
 
 	return qr.Data.Result, nil

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
@@ -63,7 +64,7 @@ func (r *roleOverrideRepo) GetByKeycloakUserID(ctx context.Context, keycloakUser
 		&ro.CreatedBy, &ro.CreatedAt, &ro.UpdatedAt,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("ошибка получения role override: %w", err)

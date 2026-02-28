@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -215,7 +214,7 @@ func (s *UploadService) Upload(params UploadParams) (*UploadResult, *UploadError
 		UploadedAt:       now,
 		Status:           model.StatusActive,
 		RetentionPolicy:  retentionPolicy,
-		TtlDays:          ttlDays,
+		TTLDays:          ttlDays,
 		ExpiresAt:        expiresAt,
 		Tags:             tags,
 		Description:      params.Description,
@@ -263,17 +262,4 @@ func (s *UploadService) Upload(params UploadParams) (*UploadResult, *UploadError
 	)
 
 	return &UploadResult{Metadata: metadata}, nil
-}
-
-// detectContentType определяет Content-Type из заголовка multipart part.
-// Если не указан — используется application/octet-stream.
-func detectContentType(contentType string) string {
-	if contentType == "" {
-		return "application/octet-stream"
-	}
-	// Убираем параметры (charset и т.д.)
-	if idx := strings.Index(contentType, ";"); idx != -1 {
-		contentType = strings.TrimSpace(contentType[:idx])
-	}
-	return contentType
 }

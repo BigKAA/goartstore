@@ -25,7 +25,7 @@ func testMetadata() *model.FileMetadata {
 		UploadedAt:       time.Now().UTC().Truncate(time.Second),
 		Status:           model.StatusActive,
 		RetentionPolicy:  model.RetentionTemporary,
-		TtlDays:          &ttl,
+		TTLDays:          &ttl,
 		ExpiresAt:        &expiresAt,
 		Tags:             []string{"test", "photo"},
 		Description:      "Тестовый файл",
@@ -79,8 +79,8 @@ func TestWriteAndRead(t *testing.T) {
 	if readMeta.RetentionPolicy != meta.RetentionPolicy {
 		t.Errorf("RetentionPolicy: ожидалось %q, получено %q", meta.RetentionPolicy, readMeta.RetentionPolicy)
 	}
-	if *readMeta.TtlDays != *meta.TtlDays {
-		t.Errorf("TtlDays: ожидалось %d, получено %d", *meta.TtlDays, *readMeta.TtlDays)
+	if *readMeta.TTLDays != *meta.TTLDays {
+		t.Errorf("TTLDays: ожидалось %d, получено %d", *meta.TTLDays, *readMeta.TTLDays)
 	}
 	if len(readMeta.Tags) != len(meta.Tags) {
 		t.Errorf("Tags: ожидалось %d тегов, получено %d", len(meta.Tags), len(readMeta.Tags))
@@ -166,8 +166,8 @@ func TestWrite_PermanentRetention(t *testing.T) {
 		t.Fatalf("ошибка чтения: %v", err)
 	}
 
-	if readMeta.TtlDays != nil {
-		t.Error("TtlDays должен быть nil для permanent")
+	if readMeta.TTLDays != nil {
+		t.Error("TTLDays должен быть nil для permanent")
 	}
 	if readMeta.ExpiresAt != nil {
 		t.Error("ExpiresAt должен быть nil для permanent")
@@ -283,7 +283,7 @@ func TestScanDir(t *testing.T) {
 		meta.FileID = "scan-" + name
 		meta.OriginalFilename = name
 		ttl := 30 + i
-		meta.TtlDays = &ttl
+		meta.TTLDays = &ttl
 		path := filepath.Join(dir, name+AttrSuffix)
 		if err := Write(path, meta); err != nil {
 			t.Fatalf("ошибка записи %s: %v", name, err)

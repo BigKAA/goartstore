@@ -1,7 +1,7 @@
 // Пакет errors — конструкторы стандартных ошибок в формате Artstore.
 // Единый формат: {"error": {"code": "...", "message": "..."}}.
 // Все HTTP-ответы с ошибками должны использовать WriteError.
-package errors
+package errors //nolint:revive // TODO: переименовать пакет errors, конфликт со stdlib
 
 import (
 	"encoding/json"

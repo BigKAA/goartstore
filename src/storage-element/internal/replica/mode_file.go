@@ -97,7 +97,7 @@ func LoadMode(path string) (mode.StorageMode, error) {
 	}
 
 	var modeData ModeFileData
-	if err := json.Unmarshal(data, &modeData); err != nil {
+	if err = json.Unmarshal(data, &modeData); err != nil {
 		return "", fmt.Errorf("ошибка десериализации mode.json: %w", err)
 	}
 

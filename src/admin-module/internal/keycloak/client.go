@@ -116,7 +116,7 @@ func (c *Client) requestToken(ctx context.Context) (*TokenResponse, error) {
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req) //nolint:gosec // G704: URL из конфигурации Keycloak
 	if err != nil {
 		return nil, fmt.Errorf("запрос токена Keycloak: %w", err)
 	}
@@ -124,7 +124,7 @@ func (c *Client) requestToken(ctx context.Context) (*TokenResponse, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Keycloak вернул статус %d при запросе токена: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("keycloak вернул статус %d при запросе токена: %s", resp.StatusCode, string(body))
 	}
 
 	var token TokenResponse
@@ -146,7 +146,8 @@ func (c *Client) doAuthorized(ctx context.Context, method, path string, body any
 
 	var bodyReader io.Reader
 	if body != nil {
-		data, err := json.Marshal(body)
+		var data []byte
+		data, err = json.Marshal(body)
 		if err != nil {
 			return nil, fmt.Errorf("сериализация тела запроса: %w", err)
 		}
@@ -164,7 +165,7 @@ func (c *Client) doAuthorized(ctx context.Context, method, path string, body any
 		req.Header.Set("Content-Type", "application/json")
 	}
 
-	return c.httpClient.Do(req)
+	return c.httpClient.Do(req) //nolint:gosec // G704: URL из конфигурации Keycloak
 }
 
 // decodeResponse декодирует JSON ответ в target.
@@ -173,7 +174,7 @@ func decodeResponse(resp *http.Response, target any) error {
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("Keycloak API вернул статус %d: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("keycloak API вернул статус %d: %s", resp.StatusCode, string(body))
 	}
 
 	if target != nil {
@@ -191,7 +192,7 @@ func checkResponse(resp *http.Response, expectedStatus int) error {
 
 	if resp.StatusCode != expectedStatus {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("Keycloak API вернул статус %d (ожидался %d): %s",
+		return fmt.Errorf("keycloak API вернул статус %d (ожидался %d): %s",
 			resp.StatusCode, expectedStatus, string(body))
 	}
 
@@ -203,8 +204,8 @@ func checkResponse(resp *http.Response, expectedStatus int) error {
 // ListUsers возвращает пользователей realm с фильтрацией по поисковому запросу.
 // query — строка поиска (по username, email, firstName, lastName).
 // Если query пустой — возвращает всех.
-func (c *Client) ListUsers(ctx context.Context, query string, first, max int) ([]KeycloakUser, error) {
-	path := fmt.Sprintf("/users?first=%d&max=%d", first, max)
+func (c *Client) ListUsers(ctx context.Context, query string, first, maxResults int) ([]KeycloakUser, error) {
+	path := fmt.Sprintf("/users?first=%d&max=%d", first, maxResults)
 	if query != "" {
 		path += "&search=" + url.QueryEscape(query)
 	}
@@ -271,8 +272,8 @@ func (c *Client) GetUserGroups(ctx context.Context, userID string) ([]KeycloakGr
 
 // ListClients возвращает клиентов realm с фильтрацией по clientId prefix.
 // clientIDFilter — фильтр по clientId (Keycloak использует startsWith).
-func (c *Client) ListClients(ctx context.Context, clientIDFilter string, first, max int) ([]KeycloakClient, error) {
-	path := fmt.Sprintf("/clients?first=%d&max=%d", first, max)
+func (c *Client) ListClients(ctx context.Context, clientIDFilter string, first, maxResults int) ([]KeycloakClient, error) {
+	path := fmt.Sprintf("/clients?first=%d&max=%d", first, maxResults)
 	if clientIDFilter != "" {
 		path += "&clientId=" + url.QueryEscape(clientIDFilter)
 	}
@@ -421,7 +422,7 @@ func (c *Client) RealmInfo(ctx context.Context) (*RealmRepresentation, error) {
 
 // CheckReady проверяет доступность Keycloak через realm info.
 // Реализует handlers.ReadinessChecker.
-func (c *Client) CheckReady() (string, string) {
+func (c *Client) CheckReady() (status, message string) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.readinessTimeout)
 	defer cancel()
 

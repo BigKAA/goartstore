@@ -15,6 +15,9 @@ import (
 	"github.com/bigkaa/goartstore/admin-module/internal/ui/prometheus"
 )
 
+// Константа роли администратора для проверки доступа.
+const roleAdmin = "admin"
+
 // SettingsHandler — обработчик страницы настроек.
 type SettingsHandler struct {
 	settingsSvc *service.UISettingsService
@@ -44,7 +47,7 @@ func (h *SettingsHandler) HandleSettings(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Только admin может просматривать настройки
-	if session.Role != "admin" {
+	if session.Role != roleAdmin {
 		http.Redirect(w, r, "/admin/", http.StatusFound)
 		return
 	}
@@ -81,7 +84,7 @@ func (h *SettingsHandler) HandlePrometheusUpdate(w http.ResponseWriter, r *http.
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	if session.Role != "admin" {
+	if session.Role != roleAdmin {
 		h.renderAlert(w, r, "error", "Нет прав для изменения настроек")
 		return
 	}
@@ -130,7 +133,7 @@ func (h *SettingsHandler) HandlePrometheusTest(w http.ResponseWriter, r *http.Re
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	if session.Role != "admin" {
+	if session.Role != roleAdmin {
 		h.renderAlert(w, r, "error", "Нет прав для этого действия")
 		return
 	}

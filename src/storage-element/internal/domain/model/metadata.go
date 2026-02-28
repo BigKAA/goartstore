@@ -65,9 +65,9 @@ type FileMetadata struct {
 	// RetentionPolicy — политика хранения
 	RetentionPolicy RetentionPolicy `json:"retention_policy"`
 
-	// TtlDays — срок хранения в днях (только для temporary).
+	// TTLDays — срок хранения в днях (только для temporary).
 	// nil для permanent файлов.
-	TtlDays *int `json:"ttl_days,omitempty"`
+	TTLDays *int `json:"ttl_days,omitempty"`
 
 	// ExpiresAt — дата истечения (uploaded_at + ttl_days).
 	// nil для permanent файлов.

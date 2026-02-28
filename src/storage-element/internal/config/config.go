@@ -13,12 +13,12 @@ import (
 
 // Значения по умолчанию для таймаутов и интервалов.
 const (
-	defaultHTTPClientTimeout  = 30 * time.Second
-	defaultHTTPReadTimeout    = 30 * time.Second
-	defaultHTTPWriteTimeout   = 60 * time.Second
-	defaultHTTPIdleTimeout    = 120 * time.Second
+	defaultHTTPClientTimeout   = 30 * time.Second
+	defaultHTTPReadTimeout     = 30 * time.Second
+	defaultHTTPWriteTimeout    = 60 * time.Second
+	defaultHTTPIdleTimeout     = 120 * time.Second
 	defaultJWKSRefreshInterval = 15 * time.Second
-	defaultJWTLeeway          = 5 * time.Second
+	defaultJWTLeeway           = 5 * time.Second
 )
 
 // Версия приложения, задаётся при сборке через -ldflags.
@@ -113,6 +113,8 @@ type Config struct {
 
 // Load загружает конфигурацию из переменных окружения, валидирует
 // обязательные поля и возвращает Config или ошибку.
+//
+//nolint:cyclop,gocognit // TODO: разбить Load на подфункции
 func Load() (*Config, error) {
 	cfg := &Config{}
 

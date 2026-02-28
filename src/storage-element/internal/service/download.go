@@ -115,8 +115,8 @@ func (s *DownloadService) Serve(w http.ResponseWriter, r *http.Request, fileID s
 
 	// 6. Устанавливаем заголовки
 	w.Header().Set("Content-Type", meta.ContentType)
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", meta.OriginalFilename))
-	w.Header().Set("ETag", fmt.Sprintf("\"%s\"", meta.Checksum))
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", meta.OriginalFilename))
+	w.Header().Set("ETag", fmt.Sprintf("%q", meta.Checksum))
 	w.Header().Set("Accept-Ranges", "bytes")
 
 	// 7. http.ServeContent автоматически обрабатывает:

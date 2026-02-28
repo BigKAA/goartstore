@@ -19,12 +19,12 @@ import (
 
 // StorageElementService — сервис управления Storage Elements.
 type StorageElementService struct {
-	seClient    *seclient.Client
-	seRepo      repository.StorageElementRepository
-	fileRepo    repository.FileRegistryRepository
-	syncSvc     *StorageSyncService
+	seClient     *seclient.Client
+	seRepo       repository.StorageElementRepository
+	fileRepo     repository.FileRegistryRepository
+	syncSvc      *StorageSyncService
 	dephealthSvc *DephealthService
-	logger      *slog.Logger
+	logger       *slog.Logger
 }
 
 // NewStorageElementService создаёт сервис Storage Elements.
@@ -71,7 +71,7 @@ type DiscoverResult struct {
 func (s *StorageElementService) Discover(ctx context.Context, url string) (*DiscoverResult, error) {
 	info, err := s.seClient.Info(ctx, url)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrSEUnavailable, err)
+		return nil, fmt.Errorf("%w: %w", ErrSEUnavailable, err) //nolint:errorlint // намеренный двойной wrap
 	}
 
 	result := &DiscoverResult{
@@ -95,19 +95,19 @@ func (s *StorageElementService) Create(ctx context.Context, name, url string) (*
 	// Предпросмотр SE
 	info, err := s.seClient.Info(ctx, url)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrSEUnavailable, err)
+		return nil, fmt.Errorf("%w: %w", ErrSEUnavailable, err) //nolint:errorlint // намеренный двойной wrap
 	}
 
 	seID := uuid.New().String()
 	now := time.Now().UTC()
 
 	se := &model.StorageElement{
-		ID:        seID,
-		Name:      name,
-		URL:       url,
-		StorageID: info.StorageID,
-		Mode:      info.Mode,
-		Status:    info.Status,
+		ID:         seID,
+		Name:       name,
+		URL:        url,
+		StorageID:  info.StorageID,
+		Mode:       info.Mode,
+		Status:     info.Status,
 		LastSyncAt: &now,
 	}
 

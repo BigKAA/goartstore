@@ -20,6 +20,9 @@ import (
 	"github.com/bigkaa/goartstore/admin-module/internal/ui/prometheus"
 )
 
+// Константа периода по умолчанию для графиков.
+const defaultPeriod = "24h"
+
 // MonitoringHandler — обработчик страницы мониторинга.
 type MonitoringHandler struct {
 	storageElemsSvc *service.StorageElementService
@@ -53,6 +56,8 @@ func NewMonitoringHandler(
 }
 
 // HandleMonitoring обрабатывает GET /admin/monitoring — страница мониторинга.
+//
+//nolint:dupl // TODO: вынести общий паттерн рендеринга страниц
 func (h *MonitoringHandler) HandleMonitoring(w http.ResponseWriter, r *http.Request) {
 	session := uimiddleware.SessionFromContext(r.Context())
 	if session == nil {
@@ -128,7 +133,7 @@ func (h *MonitoringHandler) collectMonitoringData(ctx context.Context, username,
 }
 
 // collectDepStatus собирает статусы зависимостей.
-func (h *MonitoringHandler) collectDepStatus(ctx context.Context, data *pages.MonitoringData) {
+func (h *MonitoringHandler) collectDepStatus(_ context.Context, data *pages.MonitoringData) {
 	if h.dephealthSvc == nil {
 		data.Dependencies = []pages.MonitoringDepStatus{
 			{Name: "PostgreSQL", Status: "unavailable", Type: "database"},
@@ -317,7 +322,7 @@ func parsePeriod(s string) time.Duration {
 		return time.Hour
 	case "6h":
 		return 6 * time.Hour
-	case "24h":
+	case defaultPeriod:
 		return 24 * time.Hour
 	case "7d":
 		return 7 * 24 * time.Hour
@@ -334,10 +339,10 @@ func formatPeriod(d time.Duration) string {
 	case d <= 6*time.Hour:
 		return "6h"
 	case d <= 24*time.Hour:
-		return "24h"
+		return defaultPeriod
 	case d <= 7*24*time.Hour:
 		return "7d"
 	default:
-		return "24h"
+		return defaultPeriod
 	}
 }

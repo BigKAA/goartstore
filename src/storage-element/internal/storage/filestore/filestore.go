@@ -68,26 +68,26 @@ func (fs *FileStore) SaveFile(reader io.Reader, originalFilename, uploadedBy str
 
 	size, err := io.Copy(f, tee)
 	if err != nil {
-		f.Close()
-		os.Remove(tmpPath)
+		_ = f.Close()
+		_ = os.Remove(tmpPath)
 		return nil, fmt.Errorf("ошибка записи данных: %w", err)
 	}
 
 	// fsync для гарантии записи на диск
 	if err := f.Sync(); err != nil {
-		f.Close()
-		os.Remove(tmpPath)
+		_ = f.Close()
+		_ = os.Remove(tmpPath)
 		return nil, fmt.Errorf("ошибка fsync: %w", err)
 	}
 
 	if err := f.Close(); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath)
 		return nil, fmt.Errorf("ошибка закрытия файла: %w", err)
 	}
 
 	// Атомарный rename
 	if err := os.Rename(tmpPath, fullPath); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath)
 		return nil, fmt.Errorf("ошибка атомарного переименования: %w", err)
 	}
 

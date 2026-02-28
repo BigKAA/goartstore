@@ -35,6 +35,7 @@ import (
 	uiprometheus "github.com/bigkaa/goartstore/admin-module/internal/ui/prometheus"
 )
 
+//nolint:cyclop,gocognit // TODO: разбить main на подфункции
 func main() {
 	// 1. Загрузка конфигурации из переменных окружения
 	cfg, err := config.Load()
@@ -59,7 +60,7 @@ func main() {
 
 	// 3. Применение миграций БД
 	logger.Info("Применение миграций БД...")
-	if err := database.Migrate(cfg, logger); err != nil {
+	if err = database.Migrate(cfg, logger); err != nil {
 		logger.Error("Ошибка миграций БД", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
@@ -85,7 +86,7 @@ func main() {
 		httpClientCA, err = buildHTTPClientWithCA(cfg.CACertPath, cfg.HTTPClientTimeout)
 		if err != nil {
 			logger.Error("Ошибка загрузки CA-сертификата", slog.String("path", cfg.CACertPath), slog.String("error", err.Error()))
-			os.Exit(1)
+			os.Exit(1) //nolint:gocritic // exitAfterDefer: допустимо в main — defer выполняется при нормальном завершении
 		}
 		logger.Info("CA-сертификат загружен", slog.String("path", cfg.CACertPath))
 	}
@@ -276,7 +277,7 @@ func main() {
 
 	// 15.2 i18n — интернационализация Admin UI (English + Русский)
 	i18nBundle := i18n.Init(logger)
-	if err := i18n.LoadFromEmbedFS(i18nBundle, logger); err != nil {
+	if err = i18n.LoadFromEmbedFS(i18nBundle, logger); err != nil {
 		logger.Error("Ошибка загрузки i18n каталогов", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
@@ -405,7 +406,7 @@ func main() {
 
 	// 17. Создание и запуск HTTP-сервера
 	srv := server.New(cfg, logger, apiHandler, jwtAuth, uiComponents)
-	if err := srv.Run(); err != nil {
+	if err = srv.Run(); err != nil {
 		logger.Error("Ошибка сервера", slog.String("error", err.Error()))
 		os.Exit(1)
 	}

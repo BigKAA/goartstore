@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"os"
 	"testing"
@@ -165,7 +166,7 @@ func TestStorageElementCRUD(t *testing.T) {
 		t.Fatalf("Delete() ошибка: %v", err)
 	}
 	_, err = repo.GetByID(ctx, seID)
-	if err != ErrNotFound {
+	if !errors.Is(err, ErrNotFound) {
 		t.Errorf("После Delete ожидали ErrNotFound, получили: %v", err)
 	}
 }
@@ -231,7 +232,7 @@ func TestServiceAccountCRUD(t *testing.T) {
 		t.Fatalf("Delete() ошибка: %v", err)
 	}
 	_, err = repo.GetByID(ctx, saID)
-	if err != ErrNotFound {
+	if !errors.Is(err, ErrNotFound) {
 		t.Errorf("После Delete ожидали ErrNotFound, получили: %v", err)
 	}
 }
@@ -291,7 +292,7 @@ func TestRoleOverrideCRUD(t *testing.T) {
 		t.Fatalf("Delete() ошибка: %v", err)
 	}
 	_, err = repo.GetByKeycloakUserID(ctx, "kc-user-001")
-	if err != ErrNotFound {
+	if !errors.Is(err, ErrNotFound) {
 		t.Errorf("После Delete ожидали ErrNotFound, получили: %v", err)
 	}
 }

@@ -23,12 +23,12 @@ type TokenProvider func(ctx context.Context) (string, error)
 
 // SEInfo — информация о Storage Element (ответ GET /api/v1/info).
 type SEInfo struct {
-	StorageID   string `json:"storage_id"`
-	Mode        string `json:"mode"`
-	Status      string `json:"status"`
-	Version     string `json:"version"`
+	StorageID   string      `json:"storage_id"`
+	Mode        string      `json:"mode"`
+	Status      string      `json:"status"`
+	Version     string      `json:"version"`
 	Capacity    *SECapacity `json:"capacity,omitempty"`
-	ReplicaMode string `json:"replica_mode,omitempty"`
+	ReplicaMode string      `json:"replica_mode,omitempty"`
 }
 
 // SECapacity — данные о ёмкости Storage Element.
@@ -57,10 +57,10 @@ type SEFileMetadata struct {
 
 // FileListResponse — ответ SE на GET /api/v1/files с пагинацией.
 type FileListResponse struct {
-	Files      []SEFileMetadata `json:"files"`
-	Total      int              `json:"total"`
-	Limit      int              `json:"limit"`
-	Offset     int              `json:"offset"`
+	Files  []SEFileMetadata `json:"files"`
+	Total  int              `json:"total"`
+	Limit  int              `json:"limit"`
+	Offset int              `json:"offset"`
 }
 
 // Client — HTTP-клиент для Storage Elements.
@@ -120,12 +120,12 @@ func buildTLSConfig(caCertPath string) (*tls.Config, error) {
 func (c *Client) Info(ctx context.Context, seURL string) (*SEInfo, error) {
 	reqURL := normalizeURL(seURL) + "/api/v1/info"
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("создание запроса Info: %w", err)
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req) //nolint:gosec // G704: URL из конфигурации SE
 	if err != nil {
 		return nil, fmt.Errorf("запрос Info к %s: %w", seURL, err)
 	}
@@ -149,21 +149,22 @@ func (c *Client) Info(ctx context.Context, seURL string) (*SEInfo, error) {
 func (c *Client) ListFiles(ctx context.Context, seURL string, limit, offset int) (*FileListResponse, error) {
 	reqURL := fmt.Sprintf("%s/api/v1/files?limit=%d&offset=%d", normalizeURL(seURL), limit, offset)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("создание запроса ListFiles: %w", err)
 	}
 
 	// Добавляем авторизацию
 	if c.tokenProvider != nil {
-		token, err := c.tokenProvider(ctx)
+		var token string
+		token, err = c.tokenProvider(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("получение токена для SE: %w", err)
 		}
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req) //nolint:gosec // G704: URL из конфигурации SE
 	if err != nil {
 		return nil, fmt.Errorf("запрос ListFiles к %s: %w", seURL, err)
 	}

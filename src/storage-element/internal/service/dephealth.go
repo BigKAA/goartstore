@@ -105,10 +105,11 @@ func newDephealthService(
 	}
 
 	// Собираем опции DepHealth
-	opts := []dephealth.Option{
+	opts := make([]dephealth.Option, 0, 2+len(extraOpts))
+	opts = append(opts,
 		dephealth.WithLogger(logger),
 		dephealth.HTTP(depName, depOpts...),
-	}
+	)
 	opts = append(opts, extraOpts...)
 
 	dh, err := dephealth.New(

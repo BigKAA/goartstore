@@ -140,7 +140,7 @@ func New(cfg *config.Config, logger *slog.Logger, handler generated.ServerInterf
 }
 
 // defaultErrorHandler — обработчик ошибок парсинга параметров из сгенерированного кода.
-func defaultErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
+func defaultErrorHandler(w http.ResponseWriter, _ *http.Request, err error) {
 	apierrors.ValidationError(w, err.Error())
 }
 

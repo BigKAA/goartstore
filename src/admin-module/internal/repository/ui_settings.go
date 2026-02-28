@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -56,7 +57,7 @@ func (r *uiSettingsRepo) Get(ctx context.Context, key string) (*UISetting, error
 		&s.Key, &s.Value, &s.UpdatedAt, &s.UpdatedBy,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("ошибка получения ui_settings[%s]: %w", key, err)

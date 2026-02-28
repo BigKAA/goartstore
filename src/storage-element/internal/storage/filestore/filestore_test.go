@@ -98,10 +98,6 @@ func TestSaveFile_NoExtension(t *testing.T) {
 		t.Fatalf("ошибка сохранения: %v", err)
 	}
 
-	if strings.Contains(result.StoragePath, ".") {
-		// Файл без расширения не должен иметь точку в конце
-		// (допускается точка внутри UUID-части)
-	}
 	if result.Size != 4 {
 		t.Errorf("размер: ожидалось 4, получено %d", result.Size)
 	}

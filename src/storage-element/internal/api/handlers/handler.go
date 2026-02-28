@@ -49,19 +49,19 @@ func (h *APIHandler) UploadFile(w http.ResponseWriter, r *http.Request) {
 	h.files.UploadFile(w, r)
 }
 
-func (h *APIHandler) DeleteFile(w http.ResponseWriter, r *http.Request, fileId generated.FileId) {
+func (h *APIHandler) DeleteFile(w http.ResponseWriter, r *http.Request, fileId generated.FileId) { //nolint:revive // имя fileId задано сгенерированным интерфейсом
 	h.files.DeleteFile(w, r, fileId)
 }
 
-func (h *APIHandler) GetFileMetadata(w http.ResponseWriter, r *http.Request, fileId generated.FileId) {
+func (h *APIHandler) GetFileMetadata(w http.ResponseWriter, r *http.Request, fileId generated.FileId) { //nolint:revive // имя fileId задано сгенерированным интерфейсом
 	h.files.GetFileMetadata(w, r, fileId)
 }
 
-func (h *APIHandler) UpdateFileMetadata(w http.ResponseWriter, r *http.Request, fileId generated.FileId) {
+func (h *APIHandler) UpdateFileMetadata(w http.ResponseWriter, r *http.Request, fileId generated.FileId) { //nolint:revive // имя fileId задано сгенерированным интерфейсом
 	h.files.UpdateFileMetadata(w, r, fileId)
 }
 
-func (h *APIHandler) DownloadFile(w http.ResponseWriter, r *http.Request, fileId generated.FileId, params generated.DownloadFileParams) {
+func (h *APIHandler) DownloadFile(w http.ResponseWriter, r *http.Request, fileId generated.FileId, params generated.DownloadFileParams) { //nolint:revive // имя fileId задано сгенерированным интерфейсом
 	h.files.DownloadFile(w, r, fileId, params)
 }
 

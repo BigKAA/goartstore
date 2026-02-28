@@ -214,6 +214,8 @@ func (rs *ReconcileService) RunOnce() (*generated.ReconcileResponse, bool) {
 }
 
 // reconcile выполняет сверку данных на диске.
+//
+//nolint:gocognit // TODO: упростить reconcile
 func (rs *ReconcileService) reconcile() []generated.ReconcileIssue {
 	var issues []generated.ReconcileIssue
 

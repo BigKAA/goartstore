@@ -84,10 +84,10 @@ func TestOIDCClientAuthorizeURL(t *testing.T) {
 	params := parsed.Query()
 	tests := map[string]string{
 		"client_id":             "artstore-admin-ui",
-		"response_type":        "code",
-		"redirect_uri":         "http://localhost:8000/admin/callback",
-		"state":                "test-state-123",
-		"code_challenge":       "test-challenge-456",
+		"response_type":         "code",
+		"redirect_uri":          "http://localhost:8000/admin/callback",
+		"state":                 "test-state-123",
+		"code_challenge":        "test-challenge-456",
 		"code_challenge_method": "S256",
 	}
 

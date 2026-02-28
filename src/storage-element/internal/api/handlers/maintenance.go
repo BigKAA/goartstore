@@ -39,7 +39,7 @@ func NewMaintenanceHandler(reconciler ...ReconcileRunner) *MaintenanceHandler {
 // Reconcile обрабатывает POST /api/v1/maintenance/reconcile.
 // Запускает синхронный цикл reconciliation и возвращает результат.
 // Если reconciliation уже выполняется — 409 RECONCILE_IN_PROGRESS.
-func (h *MaintenanceHandler) Reconcile(w http.ResponseWriter, r *http.Request) {
+func (h *MaintenanceHandler) Reconcile(w http.ResponseWriter, _ *http.Request) {
 	// Если reconciler не настроен — возвращаем заглушку
 	if h.reconciler == nil {
 		now := time.Now().UTC()

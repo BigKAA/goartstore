@@ -11,9 +11,9 @@ var (
 	// ErrInvalidRole — некорректная роль.
 	ErrInvalidRole = errors.New("некорректная роль: допустимые значения — admin, readonly")
 	// ErrSEUnavailable — Storage Element недоступен.
-	ErrSEUnavailable = errors.New("Storage Element недоступен")
+	ErrSEUnavailable = errors.New("storage element недоступен")
 	// ErrIDPUnavailable — Identity Provider (Keycloak) недоступен.
-	ErrIDPUnavailable = errors.New("Identity Provider недоступен")
+	ErrIDPUnavailable = errors.New("identity provider недоступен")
 	// ErrValidation — ошибка валидации входных данных.
 	ErrValidation = errors.New("ошибка валидации")
 )

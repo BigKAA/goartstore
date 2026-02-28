@@ -20,6 +20,7 @@ import (
 	"github.com/bigkaa/goartstore/storage-element/internal/storage/wal"
 )
 
+//nolint:cyclop,gocognit // TODO: разбить main на подфункции
 func main() {
 	// Загрузка конфигурации из переменных окружения
 	cfg, err := config.Load()
@@ -118,7 +119,7 @@ func main() {
 
 	// 5. In-memory индекс метаданных
 	idx := index.New(logger)
-	if err := idx.BuildFromDir(cfg.DataDir); err != nil {
+	if err = idx.BuildFromDir(cfg.DataDir); err != nil {
 		logger.Error("Ошибка построения индекса", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
@@ -167,7 +168,7 @@ func main() {
 			logger,
 		)
 
-		if err := election.Start(); err != nil {
+		if err = election.Start(); err != nil {
 			logger.Error("Ошибка запуска leader election", slog.String("error", err.Error()))
 			os.Exit(1)
 		}

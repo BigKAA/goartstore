@@ -23,6 +23,8 @@ const maxAttrFileSize = 4096
 
 // AttrFilePath возвращает путь к attr.json для данного файла данных.
 // Пример: "/data/photo.jpg" → "/data/photo.jpg.attr.json"
+//
+//nolint:revive // stuttering допустим — используется как attr.AttrFilePath
 func AttrFilePath(dataFilePath string) string {
 	return dataFilePath + AttrSuffix
 }
@@ -54,7 +56,7 @@ func Write(path string, meta *model.FileMetadata) error {
 
 	// Создаём директорию если не существует
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o750); err != nil {
+	if err = os.MkdirAll(dir, 0o750); err != nil {
 		return fmt.Errorf("не удалось создать директорию %s: %w", dir, err)
 	}
 
@@ -66,25 +68,25 @@ func Write(path string, meta *model.FileMetadata) error {
 		return fmt.Errorf("ошибка создания временного файла: %w", err)
 	}
 
-	if _, err := f.Write(data); err != nil {
-		f.Close()
-		os.Remove(tmpPath)
+	if _, err = f.Write(data); err != nil {
+		_ = f.Close()
+		_ = os.Remove(tmpPath)
 		return fmt.Errorf("ошибка записи: %w", err)
 	}
 
-	if err := f.Sync(); err != nil {
-		f.Close()
-		os.Remove(tmpPath)
+	if err = f.Sync(); err != nil {
+		_ = f.Close()
+		_ = os.Remove(tmpPath)
 		return fmt.Errorf("ошибка fsync: %w", err)
 	}
 
-	if err := f.Close(); err != nil {
-		os.Remove(tmpPath)
+	if err = f.Close(); err != nil {
+		_ = os.Remove(tmpPath)
 		return fmt.Errorf("ошибка закрытия файла: %w", err)
 	}
 
-	if err := os.Rename(tmpPath, path); err != nil {
-		os.Remove(tmpPath)
+	if err = os.Rename(tmpPath, path); err != nil {
+		_ = os.Remove(tmpPath)
 		return fmt.Errorf("ошибка атомарного переименования: %w", err)
 	}
 

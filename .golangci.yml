@@ -165,7 +165,8 @@ linters:
 
     # Правила исключений
     rules:
-      # В тестах допускаем: длинные функции, дублирование, магические числа
+      # В тестах допускаем: длинные функции, дублирование, магические числа,
+      # небезопасные операции, shadowing, неиспользуемые параметры
       - path: _test\.go
         linters:
           - dupl
@@ -175,6 +176,17 @@ linters:
           - errcheck
           - gocritic
           - nestif
+          - gosec
+          - unparam
+          - wastedassign
+      - path: _test\.go
+        linters:
+          - revive
+        text: "unused-parameter"
+      - path: _test\.go
+        linters:
+          - govet
+        text: "shadow"
 
       # Сгенерированный код (oapi-codegen) — пропускаем все линтеры
       - path: ".*\\.gen\\.go$"

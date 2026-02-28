@@ -97,12 +97,12 @@ func TestNormalizeSEDepName(t *testing.T) {
 // TestParseSEURL проверяет парсинг URL Storage Element.
 func TestParseSEURL(t *testing.T) {
 	tests := []struct {
-		name       string
-		input      string
-		wantHost   string
-		wantPort   string
-		wantTLS    bool
-		wantErr    bool
+		name     string
+		input    string
+		wantHost string
+		wantPort string
+		wantTLS  bool
+		wantErr  bool
 	}{
 		{
 			name:     "HTTPS с портом",

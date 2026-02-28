@@ -17,13 +17,13 @@ import (
 // ReadinessChecker — интерфейс проверки готовности зависимости.
 type ReadinessChecker interface {
 	// CheckReady возвращает статус ("ok", "degraded", "fail") и сообщение.
-	CheckReady() (status string, message string)
+	CheckReady() (status, message string)
 }
 
 // HealthHandler — обработчик health endpoints.
 type HealthHandler struct {
-	pgChecker ReadinessChecker
-	kcChecker ReadinessChecker
+	pgChecker   ReadinessChecker
+	kcChecker   ReadinessChecker
 	promHandler http.Handler
 }
 
@@ -65,7 +65,7 @@ type healthReadyResponse struct {
 }
 
 // HealthLive — liveness probe. Возвращает 200 если процесс жив.
-func (h *HealthHandler) HealthLive(w http.ResponseWriter, r *http.Request) {
+func (h *HealthHandler) HealthLive(w http.ResponseWriter, _ *http.Request) {
 	resp := healthLiveResponse{
 		Status:    "ok",
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
@@ -80,7 +80,7 @@ func (h *HealthHandler) HealthLive(w http.ResponseWriter, r *http.Request) {
 
 // HealthReady — readiness probe. Проверяет PostgreSQL и Keycloak.
 // Возвращает 200 (ok/degraded) или 503 (fail).
-func (h *HealthHandler) HealthReady(w http.ResponseWriter, r *http.Request) {
+func (h *HealthHandler) HealthReady(w http.ResponseWriter, _ *http.Request) {
 	resp := healthReadyResponse{
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
 		Version:   config.Version,
@@ -92,7 +92,7 @@ func (h *HealthHandler) HealthReady(w http.ResponseWriter, r *http.Request) {
 		pgStatus, pgMsg := h.pgChecker.CheckReady()
 		resp.Checks.PostgreSQL = healthCheckResult{Status: pgStatus, Message: pgMsg}
 	} else {
-		resp.Checks.PostgreSQL = healthCheckResult{Status: "fail", Message: "не инициализирован"}
+		resp.Checks.PostgreSQL = healthCheckResult{Status: statusFail, Message: "не инициализирован"}
 	}
 
 	// Проверяем Keycloak
@@ -100,14 +100,14 @@ func (h *HealthHandler) HealthReady(w http.ResponseWriter, r *http.Request) {
 		kcStatus, kcMsg := h.kcChecker.CheckReady()
 		resp.Checks.Keycloak = healthCheckResult{Status: kcStatus, Message: kcMsg}
 	} else {
-		resp.Checks.Keycloak = healthCheckResult{Status: "fail", Message: "не инициализирован"}
+		resp.Checks.Keycloak = healthCheckResult{Status: statusFail, Message: "не инициализирован"}
 	}
 
 	// Определяем итоговый статус
 	resp.Status = overallStatus(resp.Checks.PostgreSQL.Status, resp.Checks.Keycloak.Status)
 
 	w.Header().Set("Content-Type", "application/json")
-	if resp.Status == "fail" {
+	if resp.Status == statusFail {
 		w.WriteHeader(http.StatusServiceUnavailable)
 	} else {
 		w.WriteHeader(http.StatusOK)
@@ -120,6 +120,9 @@ func (h *HealthHandler) GetMetrics(w http.ResponseWriter, r *http.Request) {
 	h.promHandler.ServeHTTP(w, r)
 }
 
+// Константы статусов health check.
+const statusFail = "fail"
+
 // overallStatus определяет итоговый статус из статусов зависимостей.
 // Если хотя бы одна зависимость fail — итог fail.
 // Если хотя бы одна degraded — итог degraded.
@@ -127,8 +130,8 @@ func (h *HealthHandler) GetMetrics(w http.ResponseWriter, r *http.Request) {
 func overallStatus(statuses ...string) string {
 	hasDegraded := false
 	for _, s := range statuses {
-		if s == "fail" {
-			return "fail"
+		if s == statusFail {
+			return statusFail
 		}
 		if s == "degraded" {
 			hasDegraded = true

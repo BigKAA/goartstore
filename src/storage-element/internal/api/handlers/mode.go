@@ -4,11 +4,12 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"time"
 
-	"github.com/bigkaa/goartstore/storage-element/internal/api/errors"
+	apierrors "github.com/bigkaa/goartstore/storage-element/internal/api/errors"
 	"github.com/bigkaa/goartstore/storage-element/internal/api/generated"
 	"github.com/bigkaa/goartstore/storage-element/internal/api/middleware"
 	"github.com/bigkaa/goartstore/storage-element/internal/domain/mode"
@@ -42,7 +43,7 @@ func (h *ModeHandler) TransitionMode(w http.ResponseWriter, r *http.Request) {
 	// Парсим тело запроса
 	var req generated.ModeTransitionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		errors.ValidationError(w, "Некорректный JSON: "+err.Error())
+		apierrors.ValidationError(w, "Некорректный JSON: "+err.Error())
 		return
 	}
 
@@ -65,18 +66,19 @@ func (h *ModeHandler) TransitionMode(w http.ResponseWriter, r *http.Request) {
 	err := h.sm.TransitionTo(targetMode, confirm, subject)
 	if err != nil {
 		// Обрабатываем ошибки перехода
-		if transErr, ok := err.(*mode.TransitionError); ok {
+		var transErr *mode.TransitionError
+		if errors.As(err, &transErr) {
 			switch transErr.Code {
 			case "CONFIRMATION_REQUIRED":
-				errors.ConfirmationRequired(w, transErr.Message)
+				apierrors.ConfirmationRequired(w, transErr.Message)
 			case "INVALID_TRANSITION":
-				errors.InvalidTransition(w, transErr.Message)
+				apierrors.InvalidTransition(w, transErr.Message)
 			default:
-				errors.InvalidTransition(w, transErr.Message)
+				apierrors.InvalidTransition(w, transErr.Message)
 			}
 			return
 		}
-		errors.InternalError(w, "Ошибка смены режима")
+		apierrors.InternalError(w, "Ошибка смены режима")
 		return
 	}
 

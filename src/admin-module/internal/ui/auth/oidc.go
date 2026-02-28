@@ -3,6 +3,7 @@
 package auth
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -103,6 +104,7 @@ func GeneratePKCE() (*PKCEParams, error) {
 	}
 	codeVerifier := base64.RawURLEncoding.EncodeToString(verifierBytes)
 
+	//nolint:gocritic // это документация формулы, не закомментированный код
 	// code_challenge = base64url(SHA-256(code_verifier))
 	hash := sha256.Sum256([]byte(codeVerifier))
 	codeChallenge := base64.RawURLEncoding.EncodeToString(hash[:])
@@ -120,11 +122,11 @@ func GeneratePKCE() (*PKCEParams, error) {
 func (c *OIDCClient) AuthorizeURL(redirectURI, state, codeChallenge string) string {
 	params := url.Values{
 		"client_id":             {c.clientID},
-		"response_type":        {"code"},
-		"redirect_uri":         {redirectURI},
-		"state":                {state},
-		"scope":                {"openid profile email groups"},
-		"code_challenge":       {codeChallenge},
+		"response_type":         {"code"},
+		"redirect_uri":          {redirectURI},
+		"state":                 {state},
+		"scope":                 {"openid profile email groups"},
+		"code_challenge":        {codeChallenge},
 		"code_challenge_method": {"S256"},
 	}
 	return c.authorizeURL + "?" + params.Encode()
@@ -132,8 +134,8 @@ func (c *OIDCClient) AuthorizeURL(redirectURI, state, codeChallenge string) stri
 
 // TokenResponse — ответ от token endpoint Keycloak.
 type TokenResponse struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
+	AccessToken  string `json:"access_token"`  //nolint:gosec // G117: структура токена OAuth2
+	RefreshToken string `json:"refresh_token"` //nolint:gosec // G117: структура токена OAuth2
 	TokenType    string `json:"token_type"`
 	ExpiresIn    int    `json:"expires_in"`
 	IDToken      string `json:"id_token"`
@@ -198,13 +200,13 @@ func GenerateState() (string, error) {
 
 // doTokenRequest выполняет POST-запрос к token endpoint Keycloak.
 func (c *OIDCClient) doTokenRequest(data url.Values) (*TokenResponse, error) {
-	req, err := http.NewRequest(http.MethodPost, c.tokenURL, strings.NewReader(data.Encode()))
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, c.tokenURL, strings.NewReader(data.Encode()))
 	if err != nil {
 		return nil, fmt.Errorf("ошибка создания запроса: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req) //nolint:gosec // G704: URL из конфигурации OIDC
 	if err != nil {
 		return nil, fmt.Errorf("ошибка запроса к token endpoint: %w", err)
 	}

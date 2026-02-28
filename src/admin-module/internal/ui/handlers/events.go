@@ -126,7 +126,7 @@ func (h *EventsHandler) HandleSystemStatus(w http.ResponseWriter, r *http.Reques
 }
 
 // sendDepStatus отправляет SSE-событие со статусами зависимостей.
-func (h *EventsHandler) sendDepStatus(ctx context.Context, w http.ResponseWriter, rc *http.ResponseController) {
+func (h *EventsHandler) sendDepStatus(_ context.Context, w http.ResponseWriter, rc *http.ResponseController) {
 	event := depStatusEvent{}
 
 	if h.dephealthSvc == nil {
@@ -177,11 +177,11 @@ func (h *EventsHandler) sendSEStatus(ctx context.Context, w http.ResponseWriter,
 		})
 		event.Total++
 		switch se.Status {
-		case "online":
+		case seStatusOnline:
 			event.Online++
-		case "offline":
+		case seStatusOffline:
 			event.Offline++
-		case "degraded":
+		case seStatusDegraded:
 			event.Degraded++
 		}
 	}

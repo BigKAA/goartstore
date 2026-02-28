@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -72,7 +73,7 @@ func (r *storageElementRepo) GetByID(ctx context.Context, id string) (*model.Sto
 		&se.LastSyncAt, &se.LastFileSyncAt, &se.CreatedAt, &se.UpdatedAt,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("ошибка получения SE: %w", err)
@@ -149,7 +150,7 @@ func (r *storageElementRepo) Update(ctx context.Context, se *model.StorageElemen
 		se.LastSyncAt, se.LastFileSyncAt,
 	).Scan(&se.UpdatedAt)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
 		}
 		if isUniqueViolation(err) {

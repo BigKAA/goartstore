@@ -6,13 +6,13 @@ import "time"
 
 // TokenResponse — ответ на запрос токена через Client Credentials flow.
 type TokenResponse struct {
-	AccessToken string `json:"access_token"`
+	AccessToken string `json:"access_token"` //nolint:gosec // G117: структура токена OAuth2
 	TokenType   string `json:"token_type"`
 	ExpiresIn   int    `json:"expires_in"`
 }
 
 // KeycloakUser — пользователь в Keycloak.
-type KeycloakUser struct {
+type KeycloakUser struct { //nolint:revive // stuttering допустим — внешний API Keycloak
 	ID            string `json:"id"`
 	Username      string `json:"username"`
 	Email         string `json:"email"`
@@ -30,7 +30,7 @@ func (u *KeycloakUser) CreatedAtTime() time.Time {
 }
 
 // KeycloakGroup — группа в Keycloak.
-type KeycloakGroup struct {
+type KeycloakGroup struct { //nolint:revive // stuttering допустим — внешний API Keycloak
 	ID   string `json:"id"`
 	Name string `json:"name"`
 	Path string `json:"path"`
@@ -38,7 +38,7 @@ type KeycloakGroup struct {
 
 // KeycloakClient — клиент (application) в Keycloak.
 // Используется для Service Accounts (Client Credentials grant).
-type KeycloakClient struct {
+type KeycloakClient struct { //nolint:revive // stuttering допустим — внешний API Keycloak
 	ID                      string `json:"id"`
 	ClientID                string `json:"clientId"`
 	Name                    string `json:"name,omitempty"`
@@ -53,7 +53,7 @@ type KeycloakClient struct {
 }
 
 // KeycloakClientSecret — секрет клиента.
-type KeycloakClientSecret struct {
+type KeycloakClientSecret struct { //nolint:revive // stuttering допустим — внешний API Keycloak
 	Type  string `json:"type"`
 	Value string `json:"value"`
 }
@@ -67,15 +67,15 @@ type RealmRepresentation struct {
 // clientCreateRequest — запрос на создание клиента в Keycloak.
 // Используется внутренне; поля соответствуют Keycloak Admin REST API.
 type clientCreateRequest struct {
-	ClientID                string            `json:"clientId"`
-	Name                    string            `json:"name,omitempty"`
-	Description             string            `json:"description,omitempty"`
-	Enabled                 bool              `json:"enabled"`
-	ServiceAccountsEnabled  bool              `json:"serviceAccountsEnabled"`
-	ClientAuthenticatorType string            `json:"clientAuthenticatorType"`
-	DirectAccessGrantsEnabled bool            `json:"directAccessGrantsEnabled"`
-	StandardFlowEnabled     bool              `json:"standardFlowEnabled"`
-	PublicClient            bool              `json:"publicClient"`
-	DefaultClientScopes     []string          `json:"defaultClientScopes,omitempty"`
-	Attributes              map[string]string `json:"attributes,omitempty"`
+	ClientID                  string            `json:"clientId"`
+	Name                      string            `json:"name,omitempty"`
+	Description               string            `json:"description,omitempty"`
+	Enabled                   bool              `json:"enabled"`
+	ServiceAccountsEnabled    bool              `json:"serviceAccountsEnabled"`
+	ClientAuthenticatorType   string            `json:"clientAuthenticatorType"`
+	DirectAccessGrantsEnabled bool              `json:"directAccessGrantsEnabled"`
+	StandardFlowEnabled       bool              `json:"standardFlowEnabled"`
+	PublicClient              bool              `json:"publicClient"`
+	DefaultClientScopes       []string          `json:"defaultClientScopes,omitempty"`
+	Attributes                map[string]string `json:"attributes,omitempty"`
 }

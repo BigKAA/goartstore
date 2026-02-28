@@ -122,6 +122,8 @@ func (s *SASyncService) Stop() {
 
 // SyncNow выполняет немедленную синхронизацию SA с Keycloak.
 // Reconciliation: сравниваем локальные SA с Keycloak clients.
+//
+//nolint:gocognit // TODO: упростить SyncNow
 func (s *SASyncService) SyncNow(ctx context.Context) (*model.SASyncResult, error) {
 	startedAt := time.Now().UTC()
 

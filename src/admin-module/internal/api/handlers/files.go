@@ -21,6 +21,8 @@ import (
 // RegisterFile — POST /api/v1/files.
 // Регистрация файла после загрузки на SE.
 // Доступ: SA с scope files:write.
+//
+//nolint:cyclop // TODO: упростить RegisterFile
 func (h *APIHandler) RegisterFile(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.ClaimsFromContext(r.Context())
 	if claims == nil {
@@ -192,7 +194,9 @@ func (h *APIHandler) ListFiles(w http.ResponseWriter, r *http.Request, params ge
 // GetFile — GET /api/v1/files/{file_id}.
 // Возвращает метаданные файла.
 // Доступ: admin, readonly или SA с scope files:read.
-func (h *APIHandler) GetFile(w http.ResponseWriter, r *http.Request, fileId generated.FileId) {
+//
+//nolint:dupl // TODO: вынести общую логику проверки прав
+func (h *APIHandler) GetFile(w http.ResponseWriter, r *http.Request, fileId generated.FileId) { //nolint:revive // имя из сгенерированного интерфейса oapi-codegen
 	claims := middleware.ClaimsFromContext(r.Context())
 	if claims == nil {
 		apierrors.Unauthorized(w, "Отсутствуют claims")
@@ -232,7 +236,7 @@ func (h *APIHandler) GetFile(w http.ResponseWriter, r *http.Request, fileId gene
 // UpdateFile — PUT /api/v1/files/{file_id}.
 // Обновляет метаданные файла (description, tags, status).
 // Доступ: admin или SA с scope files:write.
-func (h *APIHandler) UpdateFile(w http.ResponseWriter, r *http.Request, fileId generated.FileId) {
+func (h *APIHandler) UpdateFile(w http.ResponseWriter, r *http.Request, fileId generated.FileId) { //nolint:revive // имя из сгенерированного интерфейса oapi-codegen
 	claims := middleware.ClaimsFromContext(r.Context())
 	if claims == nil {
 		apierrors.Unauthorized(w, "Отсутствуют claims")
@@ -284,7 +288,7 @@ func (h *APIHandler) UpdateFile(w http.ResponseWriter, r *http.Request, fileId g
 // DeleteFile — DELETE /api/v1/files/{file_id}.
 // Soft delete файла (status → deleted).
 // Доступ: admin или SA с scope files:write.
-func (h *APIHandler) DeleteFile(w http.ResponseWriter, r *http.Request, fileId generated.FileId) {
+func (h *APIHandler) DeleteFile(w http.ResponseWriter, r *http.Request, fileId generated.FileId) { //nolint:revive // имя из сгенерированного интерфейса oapi-codegen
 	claims := middleware.ClaimsFromContext(r.Context())
 	if claims == nil {
 		apierrors.Unauthorized(w, "Отсутствуют claims")

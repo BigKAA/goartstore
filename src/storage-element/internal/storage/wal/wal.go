@@ -37,10 +37,10 @@ func New(dir string, logger *slog.Logger) (*WAL, error) {
 
 	// Проверяем доступность на запись через temp файл
 	testFile := filepath.Join(dir, ".wal_write_test")
-	if err := os.WriteFile(testFile, []byte("ok"), 0o640); err != nil {
+	if err := os.WriteFile(testFile, []byte("ok"), 0o600); err != nil {
 		return nil, fmt.Errorf("директория WAL %s недоступна для записи: %w", dir, err)
 	}
-	os.Remove(testFile)
+	_ = os.Remove(testFile)
 
 	return &WAL{
 		dir:    dir,
@@ -242,26 +242,26 @@ func (w *WAL) writeEntry(entry *Entry) error {
 	}
 
 	if _, err := f.Write(data); err != nil {
-		f.Close()
-		os.Remove(tmpPath)
+		_ = f.Close()
+		_ = os.Remove(tmpPath)
 		return fmt.Errorf("ошибка записи: %w", err)
 	}
 
 	// fsync для гарантии записи на диск
 	if err := f.Sync(); err != nil {
-		f.Close()
-		os.Remove(tmpPath)
+		_ = f.Close()
+		_ = os.Remove(tmpPath)
 		return fmt.Errorf("ошибка fsync: %w", err)
 	}
 
 	if err := f.Close(); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath)
 		return fmt.Errorf("ошибка закрытия файла: %w", err)
 	}
 
 	// Атомарный rename
 	if err := os.Rename(tmpPath, targetPath); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath)
 		return fmt.Errorf("ошибка атомарного переименования: %w", err)
 	}
 

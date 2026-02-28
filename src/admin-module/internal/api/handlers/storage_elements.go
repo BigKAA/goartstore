@@ -176,6 +176,8 @@ func (h *APIHandler) ListStorageElements(w http.ResponseWriter, r *http.Request,
 // GetStorageElement — GET /api/v1/storage-elements/{id}.
 // Возвращает SE по ID.
 // Доступ: admin, readonly или SA с scope storage:read.
+//
+//nolint:dupl // TODO: вынести общую логику проверки прав
 func (h *APIHandler) GetStorageElement(w http.ResponseWriter, r *http.Request, id generated.StorageElementId) {
 	claims := middleware.ClaimsFromContext(r.Context())
 	if claims == nil {
@@ -250,6 +252,8 @@ func (h *APIHandler) UpdateStorageElement(w http.ResponseWriter, r *http.Request
 // DeleteStorageElement — DELETE /api/v1/storage-elements/{id}.
 // Удаляет SE из реестра. Физические файлы не удаляются.
 // Доступ: admin.
+//
+//nolint:dupl // TODO: вынести общую логику удаления
 func (h *APIHandler) DeleteStorageElement(w http.ResponseWriter, r *http.Request, id generated.StorageElementId) {
 	claims := middleware.ClaimsFromContext(r.Context())
 	if claims == nil || claims.SubjectType != middleware.SubjectTypeUser || !claims.HasRole("admin") {

@@ -82,7 +82,7 @@ func TestGCRunOnce_MarkExpired(t *testing.T) {
 		UploadedAt:       expiredAt.Add(-48 * time.Hour),
 		Status:           model.StatusActive,
 		RetentionPolicy:  model.RetentionTemporary,
-		TtlDays:          &ttlDays,
+		TTLDays:          &ttlDays,
 		ExpiresAt:        &expiredAt,
 	}
 
@@ -195,7 +195,7 @@ func TestGCRunOnce_ActiveNotExpired_Untouched(t *testing.T) {
 		UploadedAt:       time.Now().UTC(),
 		Status:           model.StatusActive,
 		RetentionPolicy:  model.RetentionTemporary,
-		TtlDays:          &ttlDays,
+		TTLDays:          &ttlDays,
 		ExpiresAt:        &futureExpiry,
 	}
 
@@ -237,7 +237,7 @@ func TestGCRunOnce_CombinedExpiredAndDeleted(t *testing.T) {
 		UploadedAt:       time.Now().UTC().Add(-48 * time.Hour),
 		Status:           model.StatusActive,
 		RetentionPolicy:  model.RetentionTemporary,
-		TtlDays:          &ttlDays,
+		TTLDays:          &ttlDays,
 		ExpiresAt:        &expiredAt,
 	}
 	createTestFile(t, dir, expiredMeta)

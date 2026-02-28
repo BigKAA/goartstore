@@ -21,7 +21,7 @@ import (
 )
 
 // ServiceAccountService — сервис управления Service Accounts.
-type ServiceAccountService struct {
+type ServiceAccountService struct { //nolint:revive // stuttering допустим — DDD naming
 	kcClient *keycloak.Client
 	saRepo   repository.ServiceAccountRepository
 	saPrefix string // Префикс client_id (по умолчанию "sa_")
@@ -44,9 +44,9 @@ func NewServiceAccountService(
 }
 
 // ServiceAccountWithSecret — SA с секретом (возвращается только при создании).
-type ServiceAccountWithSecret struct {
+type ServiceAccountWithSecret struct { //nolint:revive // stuttering допустим — DDD naming
 	*model.ServiceAccount
-	ClientSecret string
+	ClientSecret string //nolint:gosec // G117: структура SA с секретом
 }
 
 // Create создаёт новый Service Account: регистрирует в Keycloak + сохраняет в БД.
@@ -85,7 +85,7 @@ func (s *ServiceAccountService) Create(ctx context.Context, name, description st
 		Description:      desc,
 		Scopes:           scopes,
 		Status:           "active",
-		Source:            "local",
+		Source:           "local",
 		LastSyncedAt:     &now,
 	}
 
@@ -235,7 +235,7 @@ func (s *ServiceAccountService) Delete(ctx context.Context, id string) error {
 
 // RotateSecret генерирует новый секрет SA в Keycloak.
 // Возвращает client_id и новый секрет.
-func (s *ServiceAccountService) RotateSecret(ctx context.Context, id string) (string, string, error) {
+func (s *ServiceAccountService) RotateSecret(ctx context.Context, id string) (clientID, newSecret string, err error) {
 	// Получаем SA
 	sa, err := s.saRepo.GetByID(ctx, id)
 	if err != nil {
@@ -250,7 +250,7 @@ func (s *ServiceAccountService) RotateSecret(ctx context.Context, id string) (st
 	}
 
 	// Регенерируем секрет в Keycloak
-	newSecret, err := s.kcClient.RegenerateClientSecret(ctx, *sa.KeycloakClientID)
+	newSecret, err = s.kcClient.RegenerateClientSecret(ctx, *sa.KeycloakClientID)
 	if err != nil {
 		return "", "", fmt.Errorf("регенерация секрета в Keycloak: %w", err)
 	}

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -76,7 +77,7 @@ func (r *serviceAccountRepo) GetByID(ctx context.Context, id string) (*model.Ser
 	query := fmt.Sprintf(`SELECT %s FROM service_accounts WHERE id = $1`, saColumns)
 	sa, err := scanServiceAccount(r.db.QueryRow(ctx, query, id))
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("ошибка получения SA: %w", err)
@@ -88,7 +89,7 @@ func (r *serviceAccountRepo) GetByClientID(ctx context.Context, clientID string)
 	query := fmt.Sprintf(`SELECT %s FROM service_accounts WHERE client_id = $1`, saColumns)
 	sa, err := scanServiceAccount(r.db.QueryRow(ctx, query, clientID))
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("ошибка получения SA по client_id: %w", err)
@@ -155,7 +156,7 @@ func (r *serviceAccountRepo) Update(ctx context.Context, sa *model.ServiceAccoun
 		sa.Scopes, sa.Status, sa.Source, sa.LastSyncedAt,
 	).Scan(&sa.UpdatedAt)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
 		}
 		if isUniqueViolation(err) {

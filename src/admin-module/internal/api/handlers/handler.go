@@ -69,7 +69,7 @@ func writeJSON(w http.ResponseWriter, status int, data any) {
 
 // paginationDefaults нормализует параметры пагинации.
 // Возвращает корректные limit и offset.
-func paginationDefaults(limit *int, offset *int) (int, int) {
+func paginationDefaults(limit, offset *int) (limitVal, offsetVal int) {
 	l := 100
 	o := 0
 

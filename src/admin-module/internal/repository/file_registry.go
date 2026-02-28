@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -85,7 +86,7 @@ func (r *fileRegistryRepo) GetByID(ctx context.Context, fileID string) (*model.F
 		&f.Status, &f.RetentionPolicy, &f.TTLDays, &f.ExpiresAt, &f.CreatedAt, &f.UpdatedAt,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("ошибка получения файла: %w", err)
@@ -94,9 +95,8 @@ func (r *fileRegistryRepo) GetByID(ctx context.Context, fileID string) (*model.F
 }
 
 // buildFileWhere строит WHERE-условие и аргументы для фильтрации файлов.
-func buildFileWhere(filters FileListFilters, startArg int) (string, []any) {
+func buildFileWhere(filters FileListFilters, startArg int) (whereClause string, args []any) {
 	var conditions []string
-	var args []any
 	argNum := startArg
 
 	if filters.Status != nil {
@@ -175,7 +175,7 @@ func (r *fileRegistryRepo) Update(ctx context.Context, f *model.FileRecord) erro
 		f.RetentionPolicy, f.TTLDays, f.ExpiresAt,
 	).Scan(&f.UpdatedAt)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
 		}
 		return fmt.Errorf("ошибка обновления файла: %w", err)

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"time"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
@@ -103,7 +102,7 @@ func (h *FilesHandler) UploadFile(w http.ResponseWriter, r *http.Request) {
 
 // DownloadFile обрабатывает GET /api/v1/files/{file_id}/download.
 // Поддерживает Range requests (206) и ETag (If-None-Match → 304).
-func (h *FilesHandler) DownloadFile(w http.ResponseWriter, r *http.Request, fileId generated.FileId, params generated.DownloadFileParams) {
+func (h *FilesHandler) DownloadFile(w http.ResponseWriter, r *http.Request, fileId generated.FileId, _ generated.DownloadFileParams) { //nolint:revive // имя fileId задано сгенерированным интерфейсом
 	downloadErr := h.downloadSvc.Serve(w, r, fileId.String())
 	if downloadErr != nil {
 		errors.WriteError(w, downloadErr.StatusCode, downloadErr.Code, downloadErr.Message)
@@ -112,7 +111,7 @@ func (h *FilesHandler) DownloadFile(w http.ResponseWriter, r *http.Request, file
 
 // ListFiles обрабатывает GET /api/v1/files.
 // Пагинация: limit, offset. Фильтр: status.
-func (h *FilesHandler) ListFiles(w http.ResponseWriter, r *http.Request, params generated.ListFilesParams) {
+func (h *FilesHandler) ListFiles(w http.ResponseWriter, _ *http.Request, params generated.ListFilesParams) {
 	// Значения по умолчанию
 	limit := 50
 	offset := 0
@@ -171,7 +170,7 @@ func (h *FilesHandler) ListFiles(w http.ResponseWriter, r *http.Request, params 
 }
 
 // GetFileMetadata обрабатывает GET /api/v1/files/{file_id}.
-func (h *FilesHandler) GetFileMetadata(w http.ResponseWriter, r *http.Request, fileId generated.FileId) {
+func (h *FilesHandler) GetFileMetadata(w http.ResponseWriter, _ *http.Request, fileId generated.FileId) { //nolint:revive // имя fileId задано сгенерированным интерфейсом
 	meta := h.idx.Get(fileId.String())
 	if meta == nil {
 		errors.NotFound(w, fmt.Sprintf("Файл %s не найден", fileId.String()))
@@ -187,7 +186,7 @@ func (h *FilesHandler) GetFileMetadata(w http.ResponseWriter, r *http.Request, f
 
 // UpdateFileMetadata обрабатывает PATCH /api/v1/files/{file_id}.
 // Обновляет description и/или tags.
-func (h *FilesHandler) UpdateFileMetadata(w http.ResponseWriter, r *http.Request, fileId generated.FileId) {
+func (h *FilesHandler) UpdateFileMetadata(w http.ResponseWriter, r *http.Request, fileId generated.FileId) { //nolint:revive // имя fileId задано сгенерированным интерфейсом
 	// Проверяем допустимость update
 	if !h.sm.CanPerform(mode.OpUpdate) {
 		errors.ModeNotAllowed(w, fmt.Sprintf("Обновление метаданных недоступно в режиме %s", h.sm.CurrentMode()))
@@ -251,7 +250,7 @@ func (h *FilesHandler) UpdateFileMetadata(w http.ResponseWriter, r *http.Request
 // DeleteFile обрабатывает DELETE /api/v1/files/{file_id}.
 // Soft delete: помечает файл как deleted (физическое удаление — GC).
 // Доступно только в режиме edit.
-func (h *FilesHandler) DeleteFile(w http.ResponseWriter, r *http.Request, fileId generated.FileId) {
+func (h *FilesHandler) DeleteFile(w http.ResponseWriter, _ *http.Request, fileId generated.FileId) { //nolint:revive // имя fileId задано сгенерированным интерфейсом
 	// Проверяем допустимость delete
 	if !h.sm.CanPerform(mode.OpDelete) {
 		errors.ModeNotAllowed(w, fmt.Sprintf("Удаление файлов недоступно в режиме %s", h.sm.CurrentMode()))
@@ -295,11 +294,11 @@ func (h *FilesHandler) DeleteFile(w http.ResponseWriter, r *http.Request, fileId
 // domainToAPIMetadata преобразует доменную модель в API-формат.
 // Исключает поле StoragePath (внутреннее).
 func domainToAPIMetadata(m *model.FileMetadata) generated.FileMetadata {
-	fileId := openapi_types.UUID{}
-	_ = fileId.UnmarshalText([]byte(m.FileID))
+	fileID := openapi_types.UUID{}
+	_ = fileID.UnmarshalText([]byte(m.FileID))
 
 	result := generated.FileMetadata{
-		FileId:           fileId,
+		FileId:           fileID,
 		OriginalFilename: m.OriginalFilename,
 		ContentType:      m.ContentType,
 		Size:             m.Size,
@@ -308,7 +307,7 @@ func domainToAPIMetadata(m *model.FileMetadata) generated.FileMetadata {
 		UploadedAt:       m.UploadedAt,
 		Status:           generated.FileMetadataStatus(m.Status),
 		RetentionPolicy:  generated.FileMetadataRetentionPolicy(m.RetentionPolicy),
-		TtlDays:          m.TtlDays,
+		TtlDays:          m.TTLDays,
 		ExpiresAt:        m.ExpiresAt,
 	}
 
@@ -326,16 +325,4 @@ func domainToAPIMetadata(m *model.FileMetadata) generated.FileMetadata {
 	}
 
 	return result
-}
-
-// writeJSON вспомогательная функция для записи JSON-ответа.
-func writeJSON(w http.ResponseWriter, statusCode int, data any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	_ = json.NewEncoder(w).Encode(data)
-}
-
-// formatTime форматирует время для API-ответов.
-func formatTime(t time.Time) string {
-	return t.UTC().Format(time.RFC3339)
 }

@@ -5,12 +5,13 @@ package database
 import (
 	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/pgx/v5"
+	_ "github.com/golang-migrate/migrate/v4/database/pgx/v5" // драйвер миграций для pgx/v5
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -72,7 +73,7 @@ func Migrate(cfg *config.Config, logger *slog.Logger) error {
 	defer m.Close()
 
 	// Применяем все миграции
-	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		return fmt.Errorf("ошибка применения миграций: %w", err)
 	}
 
@@ -98,7 +99,7 @@ func NewReadinessChecker(pool *pgxpool.Pool) *ReadinessChecker {
 
 // CheckReady проверяет подключение к PostgreSQL через ping.
 // Возвращает статус ("ok", "fail") и сообщение.
-func (c *ReadinessChecker) CheckReady() (status string, message string) {
+func (c *ReadinessChecker) CheckReady() (status, message string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 

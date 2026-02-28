@@ -10,6 +10,7 @@
 package replica
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net"
@@ -117,7 +118,7 @@ func (e *Election) Stop() {
 
 	if e.lockFile != nil {
 		// Снимаем flock и закрываем файл
-		fd := int(e.lockFile.Fd())
+		fd := int(e.lockFile.Fd()) //nolint:gosec // G115: платформо-специфичный syscall, переполнение невозможно
 		_ = syscall.Flock(fd, syscall.LOCK_UN)
 		_ = e.lockFile.Close()
 		e.lockFile = nil
@@ -151,18 +152,18 @@ func (e *Election) LeaderAddr() string {
 func (e *Election) tryAcquireLock() (bool, error) {
 	lockPath := filepath.Join(e.dataDir, leaderLockFile)
 
-	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o640)
+	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
 		return false, fmt.Errorf("не удалось открыть lock-файл %s: %w", lockPath, err)
 	}
 
 	// Неблокирующая попытка захватить эксклюзивную блокировку
-	fd := int(f.Fd())
+	fd := int(f.Fd()) //nolint:gosec // G115: платформо-специфичный syscall, переполнение невозможно
 	err = syscall.Flock(fd, syscall.LOCK_EX|syscall.LOCK_NB)
 	if err != nil {
-		// Блокировка занята другим процессом
+		// Блокировка занята другим процессом — это штатная ситуация, не ошибка
 		_ = f.Close()
-		return false, nil
+		return false, nil //nolint:nilerr // EWOULDBLOCK — блокировка занята, возвращаем false без ошибки
 	}
 
 	e.mu.Lock()
@@ -264,9 +265,9 @@ func (e *Election) buildAddr() string {
 	}
 
 	// Пытаемся получить FQDN через DNS: hostname → IP → reverse lookup
-	addrs, err := net.LookupHost(hostname)
+	addrs, err := net.DefaultResolver.LookupHost(context.Background(), hostname)
 	if err == nil && len(addrs) > 0 {
-		names, err := net.LookupAddr(addrs[0])
+		names, err := net.DefaultResolver.LookupAddr(context.Background(), addrs[0])
 		if err == nil && len(names) > 0 {
 			fqdn := strings.TrimSuffix(names[0], ".")
 			if fqdn != "" {
@@ -287,7 +288,7 @@ func (e *Election) writeLeaderInfo(addr string) error {
 	infoPath := filepath.Join(e.dataDir, leaderInfoFile)
 	tmpPath := infoPath + ".tmp"
 
-	if err := os.WriteFile(tmpPath, []byte(addr), 0o640); err != nil {
+	if err := os.WriteFile(tmpPath, []byte(addr), 0o600); err != nil {
 		return fmt.Errorf("ошибка записи temp .leader.info: %w", err)
 	}
 

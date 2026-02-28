@@ -50,6 +50,8 @@ func NewAccessHandler(
 }
 
 // HandleAccess обрабатывает GET /admin/access — страница с табами.
+//
+//nolint:cyclop,gocognit // TODO: упростить HandleAccess
 func (h *AccessHandler) HandleAccess(w http.ResponseWriter, r *http.Request) {
 	session := uimiddleware.SessionFromContext(r.Context())
 	if session == nil {
@@ -84,7 +86,7 @@ func (h *AccessHandler) HandleAccess(w http.ResponseWriter, r *http.Request) {
 
 	// Преобразуем в UI-модели с клиентской фильтрацией
 	userItems := make([]pages.UserListItem, 0, len(users))
-	for _, u := range users {
+	for _, u := range users { //nolint:dupl // TODO: вынести общую логику фильтрации пользователей
 		item := pages.UserListItem{
 			ID:            u.ID,
 			Username:      u.Username,
@@ -142,7 +144,7 @@ func (h *AccessHandler) HandleAccess(w http.ResponseWriter, r *http.Request) {
 
 	// === Service Accounts ===
 	saPage := 1
-	if p, err := strconv.Atoi(r.URL.Query().Get("sa_page")); err == nil && p > 0 {
+	if p, saPageErr := strconv.Atoi(r.URL.Query().Get("sa_page")); saPageErr == nil && p > 0 {
 		saPage = p
 	}
 	saStatus := r.URL.Query().Get("sa_status")
@@ -234,12 +236,12 @@ func (h *AccessHandler) HandleAccess(w http.ResponseWriter, r *http.Request) {
 		SATotalItems: saTotalFiltered,
 
 		// IdP статус
-		IDPConnected:   idpStatus.Connected,
-		IDPRealm:       idpStatus.Realm,
-		IDPUsersCount:  idpStatus.UsersCount,
+		IDPConnected:    idpStatus.Connected,
+		IDPRealm:        idpStatus.Realm,
+		IDPUsersCount:   idpStatus.UsersCount,
 		IDPClientsCount: idpStatus.ClientsCount,
-		IDPLastSyncAt:  idpStatus.LastSASyncAt,
-		IDPError:       idpStatus.Error,
+		IDPLastSyncAt:   idpStatus.LastSASyncAt,
+		IDPError:        idpStatus.Error,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -277,7 +279,7 @@ func (h *AccessHandler) HandleUsersTablePartial(w http.ResponseWriter, r *http.R
 
 	// Фильтрация
 	items := make([]pages.UserListItem, 0, len(users))
-	for _, u := range users {
+	for _, u := range users { //nolint:dupl // TODO: вынести общую логику фильтрации пользователей
 		item := pages.UserListItem{
 			ID:            u.ID,
 			Username:      u.Username,
@@ -355,7 +357,7 @@ func (h *AccessHandler) HandleUserDetail(w http.ResponseWriter, r *http.Request)
 
 	user, err := h.usersSvc.GetUser(ctx, id)
 	if err != nil {
-		h.renderAlert(w, r, "error", "Ошибка получения пользователя: "+err.Error())
+		h.renderAlert(w, r, "Ошибка получения пользователя: "+err.Error())
 		return
 	}
 
@@ -388,8 +390,8 @@ func (h *AccessHandler) HandleAddRoleOverride(w http.ResponseWriter, r *http.Req
 	id := chi.URLParam(r, "id")
 
 	session := uimiddleware.SessionFromContext(ctx)
-	if session == nil || session.Role != "admin" {
-		h.renderAlert(w, r, "error", "Нет прав для этого действия")
+	if session == nil || session.Role != roleAdmin {
+		h.renderAlert(w, r, "Нет прав для этого действия")
 		return
 	}
 
@@ -399,7 +401,7 @@ func (h *AccessHandler) HandleAddRoleOverride(w http.ResponseWriter, r *http.Req
 			slog.String("user_id", id),
 			slog.String("error", err.Error()),
 		)
-		h.renderAlert(w, r, "error", "Ошибка повышения роли: "+err.Error())
+		h.renderAlert(w, r, "Ошибка повышения роли: "+err.Error())
 		return
 	}
 
@@ -412,13 +414,15 @@ func (h *AccessHandler) HandleAddRoleOverride(w http.ResponseWriter, r *http.Req
 }
 
 // HandleRemoveRoleOverride обрабатывает DELETE /admin/partials/user-role-override/{id} — снятие override.
+//
+//nolint:dupl // TODO: вынести общую логику удаления
 func (h *AccessHandler) HandleRemoveRoleOverride(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	id := chi.URLParam(r, "id")
 
 	session := uimiddleware.SessionFromContext(ctx)
-	if session == nil || session.Role != "admin" {
-		h.renderAlert(w, r, "error", "Нет прав для этого действия")
+	if session == nil || session.Role != roleAdmin {
+		h.renderAlert(w, r, "Нет прав для этого действия")
 		return
 	}
 
@@ -429,9 +433,9 @@ func (h *AccessHandler) HandleRemoveRoleOverride(w http.ResponseWriter, r *http.
 			slog.String("error", err.Error()),
 		)
 		if errors.Is(err, service.ErrNotFound) {
-			h.renderAlert(w, r, "error", "Role override не найден")
+			h.renderAlert(w, r, "Role override не найден")
 		} else {
-			h.renderAlert(w, r, "error", "Ошибка удаления дополнения роли: "+err.Error())
+			h.renderAlert(w, r, "Ошибка удаления дополнения роли: "+err.Error())
 		}
 		return
 	}
@@ -532,13 +536,13 @@ func (h *AccessHandler) HandleSACreate(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	session := uimiddleware.SessionFromContext(ctx)
-	if session == nil || session.Role != "admin" {
-		h.renderAlert(w, r, "error", "Нет прав для создания SA")
+	if session == nil || session.Role != roleAdmin {
+		h.renderAlert(w, r, "Нет прав для создания SA")
 		return
 	}
 
 	if err := r.ParseForm(); err != nil {
-		h.renderAlert(w, r, "error", "Ошибка разбора формы")
+		h.renderAlert(w, r, "Ошибка разбора формы")
 		return
 	}
 
@@ -546,7 +550,7 @@ func (h *AccessHandler) HandleSACreate(w http.ResponseWriter, r *http.Request) {
 	description := strings.TrimSpace(r.FormValue("description"))
 
 	if name == "" {
-		h.renderAlert(w, r, "error", "Имя SA обязательно")
+		h.renderAlert(w, r, "Имя SA обязательно")
 		return
 	}
 
@@ -560,9 +564,9 @@ func (h *AccessHandler) HandleSACreate(w http.ResponseWriter, r *http.Request) {
 			slog.String("error", err.Error()),
 		)
 		if errors.Is(err, service.ErrConflict) {
-			h.renderAlert(w, r, "error", fmt.Sprintf("SA с именем '%s' уже существует", name))
+			h.renderAlert(w, r, fmt.Sprintf("SA с именем '%s' уже существует", name))
 		} else {
-			h.renderAlert(w, r, "error", "Ошибка создания SA: "+err.Error())
+			h.renderAlert(w, r, "Ошибка создания SA: "+err.Error())
 		}
 		return
 	}
@@ -583,9 +587,9 @@ func (h *AccessHandler) HandleSAEditForm(w http.ResponseWriter, r *http.Request)
 	sa, err := h.saSvc.Get(ctx, id)
 	if err != nil {
 		if errors.Is(err, service.ErrNotFound) {
-			h.renderAlert(w, r, "error", "SA не найден")
+			h.renderAlert(w, r, "SA не найден")
 		} else {
-			h.renderAlert(w, r, "error", "Ошибка получения SA: "+err.Error())
+			h.renderAlert(w, r, "Ошибка получения SA: "+err.Error())
 		}
 		return
 	}
@@ -609,13 +613,13 @@ func (h *AccessHandler) HandleSAEdit(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
 	session := uimiddleware.SessionFromContext(ctx)
-	if session == nil || session.Role != "admin" {
-		h.renderAlert(w, r, "error", "Нет прав для редактирования SA")
+	if session == nil || session.Role != roleAdmin {
+		h.renderAlert(w, r, "Нет прав для редактирования SA")
 		return
 	}
 
 	if err := r.ParseForm(); err != nil {
-		h.renderAlert(w, r, "error", "Ошибка разбора формы")
+		h.renderAlert(w, r, "Ошибка разбора формы")
 		return
 	}
 
@@ -642,9 +646,9 @@ func (h *AccessHandler) HandleSAEdit(w http.ResponseWriter, r *http.Request) {
 			slog.String("error", err.Error()),
 		)
 		if errors.Is(err, service.ErrNotFound) {
-			h.renderAlert(w, r, "error", "SA не найден")
+			h.renderAlert(w, r, "SA не найден")
 		} else {
-			h.renderAlert(w, r, "error", "Ошибка обновления: "+err.Error())
+			h.renderAlert(w, r, "Ошибка обновления: "+err.Error())
 		}
 		return
 	}
@@ -658,13 +662,15 @@ func (h *AccessHandler) HandleSAEdit(w http.ResponseWriter, r *http.Request) {
 }
 
 // HandleSADelete обрабатывает DELETE /admin/partials/sa-delete/{id} — удаление SA.
+//
+//nolint:dupl // TODO: вынести общую логику удаления
 func (h *AccessHandler) HandleSADelete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	id := chi.URLParam(r, "id")
 
 	session := uimiddleware.SessionFromContext(ctx)
-	if session == nil || session.Role != "admin" {
-		h.renderAlert(w, r, "error", "Нет прав для удаления SA")
+	if session == nil || session.Role != roleAdmin {
+		h.renderAlert(w, r, "Нет прав для удаления SA")
 		return
 	}
 
@@ -675,9 +681,9 @@ func (h *AccessHandler) HandleSADelete(w http.ResponseWriter, r *http.Request) {
 			slog.String("error", err.Error()),
 		)
 		if errors.Is(err, service.ErrNotFound) {
-			h.renderAlert(w, r, "error", "SA не найден")
+			h.renderAlert(w, r, "SA не найден")
 		} else {
-			h.renderAlert(w, r, "error", "Ошибка удаления: "+err.Error())
+			h.renderAlert(w, r, "Ошибка удаления: "+err.Error())
 		}
 		return
 	}
@@ -696,8 +702,8 @@ func (h *AccessHandler) HandleSARotateSecret(w http.ResponseWriter, r *http.Requ
 	id := chi.URLParam(r, "id")
 
 	session := uimiddleware.SessionFromContext(ctx)
-	if session == nil || session.Role != "admin" {
-		h.renderAlert(w, r, "error", "Нет прав для ротации секрета")
+	if session == nil || session.Role != roleAdmin {
+		h.renderAlert(w, r, "Нет прав для ротации секрета")
 		return
 	}
 
@@ -708,9 +714,9 @@ func (h *AccessHandler) HandleSARotateSecret(w http.ResponseWriter, r *http.Requ
 			slog.String("error", err.Error()),
 		)
 		if errors.Is(err, service.ErrNotFound) {
-			h.renderAlert(w, r, "error", "SA не найден")
+			h.renderAlert(w, r, "SA не найден")
 		} else {
-			h.renderAlert(w, r, "error", "Ошибка ротации секрета: "+err.Error())
+			h.renderAlert(w, r, "Ошибка ротации секрета: "+err.Error())
 		}
 		return
 	}
@@ -728,8 +734,8 @@ func (h *AccessHandler) HandleSASync(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	session := uimiddleware.SessionFromContext(ctx)
-	if session == nil || session.Role != "admin" {
-		h.renderAlert(w, r, "error", "Нет прав для синхронизации")
+	if session == nil || session.Role != roleAdmin {
+		h.renderAlert(w, r, "Нет прав для синхронизации")
 		return
 	}
 
@@ -738,7 +744,7 @@ func (h *AccessHandler) HandleSASync(w http.ResponseWriter, r *http.Request) {
 		h.logger.Warn("Ошибка синхронизации SA",
 			slog.String("error", err.Error()),
 		)
-		h.renderAlert(w, r, "error", "Ошибка синхронизации: "+err.Error())
+		h.renderAlert(w, r, "Ошибка синхронизации: "+err.Error())
 		return
 	}
 
@@ -750,10 +756,10 @@ func (h *AccessHandler) HandleSASync(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// renderAlert рендерит alert-компонент.
-func (h *AccessHandler) renderAlert(w http.ResponseWriter, r *http.Request, variant, msg string) {
+// renderAlert рендерит alert-компонент с вариантом "error".
+func (h *AccessHandler) renderAlert(w http.ResponseWriter, r *http.Request, msg string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := partials.AccessAlert(variant, msg).Render(r.Context(), w); err != nil {
+	if err := partials.AccessAlert("error", msg).Render(r.Context(), w); err != nil {
 		h.logger.Error("Ошибка рендеринга alert",
 			slog.String("error", err.Error()),
 		)

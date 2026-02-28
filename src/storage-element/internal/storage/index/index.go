@@ -181,7 +181,7 @@ func (idx *Index) Get(fileID string) *model.FileMetadata {
 //
 // Возвращает срез метаданных и общее количество файлов (с учётом фильтра).
 // Файлы отсортированы по дате загрузки (новые первые).
-func (idx *Index) List(limit, offset int, statusFilter model.FileStatus) ([]*model.FileMetadata, int) {
+func (idx *Index) List(limit, offset int, statusFilter model.FileStatus) (items []*model.FileMetadata, total int) {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
 
@@ -200,7 +200,7 @@ func (idx *Index) List(limit, offset int, statusFilter model.FileStatus) ([]*mod
 		return filtered[i].UploadedAt.After(filtered[j].UploadedAt)
 	})
 
-	total := len(filtered)
+	total = len(filtered)
 
 	// Применяем пагинацию
 	if offset >= total {

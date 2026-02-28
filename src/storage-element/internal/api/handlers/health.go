@@ -11,6 +11,9 @@ import (
 	"github.com/bigkaa/goartstore/storage-element/internal/config"
 )
 
+// statusFail — строковая константа для статуса "fail" в health checks.
+const statusFail = "fail"
+
 // IndexReadinessChecker — интерфейс для проверки готовности индекса.
 type IndexReadinessChecker interface {
 	IsReady() bool
@@ -51,7 +54,7 @@ func NewHealthHandlerFull(dataDir, walDir string, idx IndexReadinessChecker, rol
 
 // HealthLive обрабатывает GET /health/live.
 // Возвращает 200, если процесс SE жив. Не проверяет зависимости.
-func (h *HealthHandler) HealthLive(w http.ResponseWriter, r *http.Request) {
+func (h *HealthHandler) HealthLive(w http.ResponseWriter, _ *http.Request) {
 	resp := map[string]any{
 		"status":    "ok",
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
@@ -66,21 +69,21 @@ func (h *HealthHandler) HealthLive(w http.ResponseWriter, r *http.Request) {
 
 // HealthReady обрабатывает GET /health/ready.
 // Проверяет: файловая система, WAL директория, готовность индекса.
-func (h *HealthHandler) HealthReady(w http.ResponseWriter, r *http.Request) {
+func (h *HealthHandler) HealthReady(w http.ResponseWriter, _ *http.Request) {
 	overallStatus := "ok"
 	httpStatus := http.StatusOK
 
 	// Проверка файловой системы
 	fsCheck := h.checkFilesystem()
 	if fsCheck["status"] != "ok" {
-		overallStatus = "fail"
+		overallStatus = statusFail
 		httpStatus = http.StatusServiceUnavailable
 	}
 
 	// Проверка WAL
 	walCheck := h.checkWAL()
 	if walCheck["status"] != "ok" {
-		if overallStatus != "fail" {
+		if overallStatus != statusFail {
 			overallStatus = "degraded"
 		}
 	}
@@ -91,7 +94,7 @@ func (h *HealthHandler) HealthReady(w http.ResponseWriter, r *http.Request) {
 		indexReady = h.idx.IsReady()
 	}
 	if !indexReady {
-		overallStatus = "fail"
+		overallStatus = statusFail
 		httpStatus = http.StatusServiceUnavailable
 	}
 
@@ -105,7 +108,7 @@ func (h *HealthHandler) HealthReady(w http.ResponseWriter, r *http.Request) {
 		leaderCheck := h.checkLeaderConnection()
 		checks["leader_connection"] = leaderCheck
 		if leaderCheck["status"] != "ok" {
-			if overallStatus != "fail" {
+			if overallStatus != statusFail {
 				overallStatus = "degraded"
 			}
 		}
@@ -134,13 +137,13 @@ func (h *HealthHandler) checkFilesystem() map[string]any {
 	}
 
 	testFile := filepath.Join(h.dataDir, ".health_check")
-	if err := os.WriteFile(testFile, []byte("ok"), 0o640); err != nil {
+	if err := os.WriteFile(testFile, []byte("ok"), 0o600); err != nil {
 		return map[string]any{
-			"status":  "fail",
+			"status":  statusFail,
 			"message": "Директория данных недоступна для записи: " + err.Error(),
 		}
 	}
-	os.Remove(testFile)
+	_ = os.Remove(testFile)
 
 	return map[string]any{
 		"status": "ok",
@@ -159,7 +162,7 @@ func (h *HealthHandler) checkLeaderConnection() map[string]any {
 	addr := h.roleProvider.LeaderAddr()
 	if addr == "" {
 		return map[string]any{
-			"status":  "fail",
+			"status":  statusFail,
 			"message": "Адрес leader неизвестен",
 		}
 	}
@@ -180,13 +183,13 @@ func (h *HealthHandler) checkWAL() map[string]any {
 	}
 
 	testFile := filepath.Join(h.walDir, ".health_check")
-	if err := os.WriteFile(testFile, []byte("ok"), 0o640); err != nil {
+	if err := os.WriteFile(testFile, []byte("ok"), 0o600); err != nil {
 		return map[string]any{
-			"status":  "fail",
+			"status":  statusFail,
 			"message": "Директория WAL недоступна для записи: " + err.Error(),
 		}
 	}
-	os.Remove(testFile)
+	_ = os.Remove(testFile)
 
 	return map[string]any{
 		"status": "ok",

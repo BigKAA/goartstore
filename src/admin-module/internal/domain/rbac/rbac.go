@@ -14,7 +14,7 @@ const (
 // Чем выше вес, тем больше привилегий.
 var roleWeight = map[string]int{
 	RoleReadonly: 1,
-	RoleAdmin:   2,
+	RoleAdmin:    2,
 }
 
 // EffectiveRole вычисляет итоговую роль = max(idpRole, roleOverride).
@@ -54,7 +54,7 @@ func HighestRole(roles []string) string {
 // Проверяет принадлежность к adminGroups и readonlyGroups.
 // Возвращает максимальную роль из всех совпадений.
 // Если ни одна группа не совпала — возвращает пустую строку.
-func MapGroupsToRole(groups []string, adminGroups, readonlyGroups []string) string {
+func MapGroupsToRole(groups, adminGroups, readonlyGroups []string) string {
 	adminSet := toSet(adminGroups)
 	readonlySet := toSet(readonlyGroups)
 

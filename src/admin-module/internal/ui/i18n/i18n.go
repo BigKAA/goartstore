@@ -173,7 +173,7 @@ func Tf(ctx context.Context, key string, args ...any) string {
 // и аргументов, но формат-строки загружаются из JSON-каталогов во время выполнения,
 // поэтому статическая проверка невозможна.
 //
-//nolint:govet
+//nolint:govet // обход go vet printf-анализатора
 var formatFunc = fmt.Sprintf
 
 // MatchLanguage определяет лучший язык из Accept-Language заголовка.

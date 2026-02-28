@@ -180,6 +180,8 @@ func (h *APIHandler) UpdateServiceAccount(w http.ResponseWriter, r *http.Request
 // DeleteServiceAccount — DELETE /api/v1/service-accounts/{id}.
 // Удаляет SA из БД и Keycloak.
 // Доступ: admin.
+//
+//nolint:dupl // TODO: вынести общую логику удаления
 func (h *APIHandler) DeleteServiceAccount(w http.ResponseWriter, r *http.Request, id generated.ServiceAccountId) {
 	claims := middleware.ClaimsFromContext(r.Context())
 	if claims == nil || claims.SubjectType != middleware.SubjectTypeUser || !claims.HasRole("admin") {

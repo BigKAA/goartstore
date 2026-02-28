@@ -46,7 +46,7 @@ func NewSystemHandler(
 
 // GetStorageInfo обрабатывает GET /api/v1/info.
 // Без аутентификации. Возвращает информацию о SE для service discovery.
-func (h *SystemHandler) GetStorageInfo(w http.ResponseWriter, r *http.Request) {
+func (h *SystemHandler) GetStorageInfo(w http.ResponseWriter, _ *http.Request) {
 	currentMode := h.sm.CurrentMode()
 
 	// Формируем allowed_operations

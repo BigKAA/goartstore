@@ -252,11 +252,11 @@ func (h *FilesHandler) HandleTablePartial(w http.ResponseWriter, r *http.Request
 	}
 
 	tableData := partials.FileTableData{
-		Items:   items,
-		Role:    role,
-		SortKey: sortKey,
-		SortDir: sortDir,
-		Page:    page,
+		Items:      items,
+		Role:       role,
+		SortKey:    sortKey,
+		SortDir:    sortDir,
+		Page:       page,
 		TotalPages: totalPages,
 		TotalItems: totalFiltered,
 		PageSize:   filePageSize,
@@ -285,9 +285,9 @@ func (h *FilesHandler) HandleDetailModal(w http.ResponseWriter, r *http.Request)
 	f, err := h.filesSvc.Get(ctx, id)
 	if err != nil {
 		if errors.Is(err, service.ErrNotFound) {
-			h.renderAlert(w, r, "error", "Файл не найден")
+			h.renderAlert(w, r, "Файл не найден")
 		} else {
-			h.renderAlert(w, r, "error", "Ошибка получения файла: "+err.Error())
+			h.renderAlert(w, r, "Ошибка получения файла: "+err.Error())
 		}
 		return
 	}
@@ -332,7 +332,7 @@ func (h *FilesHandler) HandleEditForm(w http.ResponseWriter, r *http.Request) {
 
 	f, err := h.filesSvc.Get(ctx, id)
 	if err != nil {
-		h.renderAlert(w, r, "error", "Файл не найден")
+		h.renderAlert(w, r, "Файл не найден")
 		return
 	}
 
@@ -356,7 +356,7 @@ func (h *FilesHandler) HandleUpdate(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
 	if err := r.ParseForm(); err != nil {
-		h.renderAlert(w, r, "error", "Ошибка разбора формы")
+		h.renderAlert(w, r, "Ошибка разбора формы")
 		return
 	}
 
@@ -381,9 +381,9 @@ func (h *FilesHandler) HandleUpdate(w http.ResponseWriter, r *http.Request) {
 			slog.String("error", err.Error()),
 		)
 		if errors.Is(err, service.ErrNotFound) {
-			h.renderAlert(w, r, "error", "Файл не найден")
+			h.renderAlert(w, r, "Файл не найден")
 		} else {
-			h.renderAlert(w, r, "error", "Ошибка обновления: "+err.Error())
+			h.renderAlert(w, r, "Ошибка обновления: "+err.Error())
 		}
 		return
 	}
@@ -408,9 +408,9 @@ func (h *FilesHandler) HandleDelete(w http.ResponseWriter, r *http.Request) {
 			slog.String("error", err.Error()),
 		)
 		if errors.Is(err, service.ErrNotFound) {
-			h.renderAlert(w, r, "error", "Файл не найден")
+			h.renderAlert(w, r, "Файл не найден")
 		} else {
-			h.renderAlert(w, r, "error", "Ошибка удаления: "+err.Error())
+			h.renderAlert(w, r, "Ошибка удаления: "+err.Error())
 		}
 		return
 	}
@@ -476,10 +476,10 @@ func (h *FilesHandler) findSEName(seList []pages.SEOption, seID string) string {
 	return seID[:8] + "..." // Сокращённый UUID как fallback
 }
 
-// renderAlert рендерит alert-компонент.
-func (h *FilesHandler) renderAlert(w http.ResponseWriter, r *http.Request, variant, msg string) {
+// renderAlert рендерит alert-компонент с вариантом "error".
+func (h *FilesHandler) renderAlert(w http.ResponseWriter, r *http.Request, msg string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := partials.FileAlert(variant, msg).Render(r.Context(), w); err != nil {
+	if err := partials.FileAlert("error", msg).Render(r.Context(), w); err != nil {
 		h.logger.Error("Ошибка рендеринга alert",
 			slog.String("error", err.Error()),
 		)

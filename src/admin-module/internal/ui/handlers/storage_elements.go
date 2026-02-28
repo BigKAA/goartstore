@@ -22,6 +22,9 @@ import (
 // Размер страницы по умолчанию для таблицы SE
 const sePageSize = 20
 
+// Константа статуса "active" для фильтрации файлов.
+const statusActive = "active"
+
 // StorageElementsHandler — обработчик страниц Storage Elements.
 type StorageElementsHandler struct {
 	storageElemsSvc *service.StorageElementService
@@ -107,7 +110,7 @@ func (h *StorageElementsHandler) HandleList(w http.ResponseWriter, r *http.Reque
 		}
 
 		// Подсчитываем файлы SE
-		activeStatus := "active"
+		activeStatus := statusActive
 		filters := repository.FileListFilters{
 			StorageElementID: &se.ID,
 			Status:           &activeStatus,
@@ -228,7 +231,7 @@ func (h *StorageElementsHandler) HandleTablePartial(w http.ResponseWriter, r *ht
 			LastSyncAt:    se.LastSyncAt,
 		}
 
-		activeStatus := "active"
+		activeStatus := statusActive
 		filters := repository.FileListFilters{
 			StorageElementID: &se.ID,
 			Status:           &activeStatus,
@@ -324,7 +327,7 @@ func (h *StorageElementsHandler) HandleRegister(w http.ResponseWriter, r *http.R
 	ctx := r.Context()
 
 	if err := r.ParseForm(); err != nil {
-		h.renderAlert(w, r, "error", "Ошибка разбора формы")
+		h.renderAlert(w, r, "Ошибка разбора формы")
 		return
 	}
 
@@ -332,7 +335,7 @@ func (h *StorageElementsHandler) HandleRegister(w http.ResponseWriter, r *http.R
 	url := r.FormValue("url")
 
 	if name == "" || url == "" {
-		h.renderAlert(w, r, "error", "Имя и URL обязательны")
+		h.renderAlert(w, r, "Имя и URL обязательны")
 		return
 	}
 
@@ -344,9 +347,9 @@ func (h *StorageElementsHandler) HandleRegister(w http.ResponseWriter, r *http.R
 			slog.String("error", err.Error()),
 		)
 		if errors.Is(err, service.ErrConflict) {
-			h.renderAlert(w, r, "error", "SE с таким URL уже зарегистрирован")
+			h.renderAlert(w, r, "SE с таким URL уже зарегистрирован")
 		} else {
-			h.renderAlert(w, r, "error", "Ошибка регистрации: "+err.Error())
+			h.renderAlert(w, r, "Ошибка регистрации: "+err.Error())
 		}
 		return
 	}
@@ -366,7 +369,7 @@ func (h *StorageElementsHandler) HandleEdit(w http.ResponseWriter, r *http.Reque
 	id := chi.URLParam(r, "id")
 
 	if err := r.ParseForm(); err != nil {
-		h.renderAlert(w, r, "error", "Ошибка разбора формы")
+		h.renderAlert(w, r, "Ошибка разбора формы")
 		return
 	}
 
@@ -387,12 +390,13 @@ func (h *StorageElementsHandler) HandleEdit(w http.ResponseWriter, r *http.Reque
 			slog.String("se_id", id),
 			slog.String("error", err.Error()),
 		)
-		if errors.Is(err, service.ErrNotFound) {
-			h.renderAlert(w, r, "error", "SE не найден")
-		} else if errors.Is(err, service.ErrConflict) {
-			h.renderAlert(w, r, "error", "URL или storage_id уже зарегистрирован")
-		} else {
-			h.renderAlert(w, r, "error", "Ошибка обновления: "+err.Error())
+		switch {
+		case errors.Is(err, service.ErrNotFound):
+			h.renderAlert(w, r, "SE не найден")
+		case errors.Is(err, service.ErrConflict):
+			h.renderAlert(w, r, "URL или storage_id уже зарегистрирован")
+		default:
+			h.renderAlert(w, r, "Ошибка обновления: "+err.Error())
 		}
 		return
 	}
@@ -411,14 +415,14 @@ func (h *StorageElementsHandler) HandleDelete(w http.ResponseWriter, r *http.Req
 	id := chi.URLParam(r, "id")
 
 	// Проверяем наличие файлов
-	activeStatus := "active"
+	activeStatus := statusActive
 	filters := repository.FileListFilters{
 		StorageElementID: &id,
 		Status:           &activeStatus,
 	}
 	_, fileCount, fErr := h.filesSvc.List(ctx, filters, 0, 0)
 	if fErr == nil && fileCount > 0 {
-		h.renderAlert(w, r, "error",
+		h.renderAlert(w, r,
 			"Невозможно удалить SE: есть "+strconv.Itoa(fileCount)+" активных файлов. Сначала удалите файлы.")
 		return
 	}
@@ -430,9 +434,9 @@ func (h *StorageElementsHandler) HandleDelete(w http.ResponseWriter, r *http.Req
 			slog.String("error", err.Error()),
 		)
 		if errors.Is(err, service.ErrNotFound) {
-			h.renderAlert(w, r, "error", "SE не найден")
+			h.renderAlert(w, r, "SE не найден")
 		} else {
-			h.renderAlert(w, r, "error", "Ошибка удаления: "+err.Error())
+			h.renderAlert(w, r, "Ошибка удаления: "+err.Error())
 		}
 		return
 	}
@@ -457,9 +461,9 @@ func (h *StorageElementsHandler) HandleSync(w http.ResponseWriter, r *http.Reque
 			slog.String("error", err.Error()),
 		)
 		if errors.Is(err, service.ErrNotFound) {
-			h.renderAlert(w, r, "error", "SE не найден")
+			h.renderAlert(w, r, "SE не найден")
 		} else {
-			h.renderAlert(w, r, "error", "Ошибка синхронизации: "+err.Error())
+			h.renderAlert(w, r, "Ошибка синхронизации: "+err.Error())
 		}
 		return
 	}
@@ -479,7 +483,7 @@ func (h *StorageElementsHandler) HandleSyncAll(w http.ResponseWriter, r *http.Re
 	// Получаем все SE
 	ses, _, err := h.storageElemsSvc.List(ctx, nil, nil, 1000, 0)
 	if err != nil {
-		h.renderAlert(w, r, "error", "Ошибка получения списка SE: "+err.Error())
+		h.renderAlert(w, r, "Ошибка получения списка SE: "+err.Error())
 		return
 	}
 
@@ -532,7 +536,7 @@ func (h *StorageElementsHandler) HandleDetail(w http.ResponseWriter, r *http.Req
 	}
 
 	// Подсчёт файлов
-	activeStatus := "active"
+	activeStatus := statusActive
 	filters := repository.FileListFilters{
 		StorageElementID: &id,
 		Status:           &activeStatus,
@@ -598,7 +602,7 @@ func (h *StorageElementsHandler) HandleFilesPartial(w http.ResponseWriter, r *ht
 
 	const filesPageSize = 20
 
-	activeStatus := "active"
+	activeStatus := statusActive
 	filters := repository.FileListFilters{
 		StorageElementID: &id,
 		Status:           &activeStatus,
@@ -655,7 +659,7 @@ func (h *StorageElementsHandler) HandleEditForm(w http.ResponseWriter, r *http.R
 
 	se, err := h.storageElemsSvc.Get(ctx, id)
 	if err != nil {
-		h.renderAlert(w, r, "error", "SE не найден")
+		h.renderAlert(w, r, "SE не найден")
 		return
 	}
 
@@ -677,10 +681,10 @@ func (h *StorageElementsHandler) renderDiscoverError(w http.ResponseWriter, r *h
 	}
 }
 
-// renderAlert рендерит alert-компонент.
-func (h *StorageElementsHandler) renderAlert(w http.ResponseWriter, r *http.Request, variant, msg string) {
+// renderAlert рендерит alert-компонент с вариантом "error".
+func (h *StorageElementsHandler) renderAlert(w http.ResponseWriter, r *http.Request, msg string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := partials.SEAlert(variant, msg).Render(r.Context(), w); err != nil {
+	if err := partials.SEAlert("error", msg).Render(r.Context(), w); err != nil {
 		h.logger.Error("Ошибка рендеринга alert",
 			slog.String("error", err.Error()),
 		)

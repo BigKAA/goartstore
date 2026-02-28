@@ -154,6 +154,8 @@ type Config struct {
 
 // Load загружает конфигурацию из переменных окружения, валидирует
 // обязательные поля и возвращает Config или ошибку.
+//
+//nolint:cyclop,gocognit // TODO: разбить Load на подфункции
 func Load() (*Config, error) {
 	cfg := &Config{}
 	var err error

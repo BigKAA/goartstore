@@ -281,7 +281,7 @@ func TestList_WithStatusFilter(t *testing.T) {
 	}
 
 	// Только deleted
-	items, total = idx.List(0, 0, model.StatusDeleted)
+	_, total = idx.List(0, 0, model.StatusDeleted)
 	if total != 1 {
 		t.Errorf("deleted total: ожидалось 1, получено %d", total)
 	}

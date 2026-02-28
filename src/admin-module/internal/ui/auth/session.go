@@ -25,9 +25,9 @@ const SessionCookieMaxAge = 24 * 60 * 60
 // SessionData — данные сессии Admin UI, хранящиеся в зашифрованном cookie.
 type SessionData struct {
 	// AccessToken — JWT access token от Keycloak.
-	AccessToken string `json:"access_token"`
+	AccessToken string `json:"access_token"` //nolint:gosec // G117: данные сессии
 	// RefreshToken — refresh token для обновления access token.
-	RefreshToken string `json:"refresh_token"`
+	RefreshToken string `json:"refresh_token"` //nolint:gosec // G117: данные сессии
 	// ExpiresAt — время истечения access token (Unix timestamp).
 	ExpiresAt int64 `json:"expires_at"`
 	// Username — preferred_username из JWT.

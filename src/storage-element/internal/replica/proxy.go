@@ -95,7 +95,7 @@ func (p *LeaderProxy) Middleware(next http.Handler) http.Handler {
 				req.Host = target.Host
 			},
 			Transport: p.transport,
-			ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
+			ErrorHandler: func(w http.ResponseWriter, _ *http.Request, err error) {
 				p.logger.Error("Ошибка проксирования к leader",
 					slog.String("error", err.Error()),
 					slog.String("leader", target.String()),
@@ -107,6 +107,6 @@ func (p *LeaderProxy) Middleware(next http.Handler) http.Handler {
 			},
 		}
 
-		proxy.ServeHTTP(w, r)
+		proxy.ServeHTTP(w, r) //nolint:gosec // G704: URL формируется из доверенной конфигурации SE
 	})
 }

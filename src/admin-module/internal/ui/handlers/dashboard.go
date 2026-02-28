@@ -13,13 +13,20 @@ import (
 	"github.com/bigkaa/goartstore/admin-module/internal/ui/pages"
 )
 
+// Константы статусов SE для Dashboard.
+const (
+	seStatusOnline   = "online"
+	seStatusOffline  = "offline"
+	seStatusDegraded = "degraded"
+)
+
 // DashboardHandler — обработчик страницы Dashboard.
 type DashboardHandler struct {
-	storageElemsSvc  *service.StorageElementService
-	filesSvc         *service.FileRegistryService
-	serviceAcctsSvc  *service.ServiceAccountService
-	dephealthSvc     *service.DephealthService // может быть nil
-	logger           *slog.Logger
+	storageElemsSvc *service.StorageElementService
+	filesSvc        *service.FileRegistryService
+	serviceAcctsSvc *service.ServiceAccountService
+	dephealthSvc    *service.DephealthService // может быть nil
+	logger          *slog.Logger
 }
 
 // NewDashboardHandler создаёт новый DashboardHandler.
@@ -42,6 +49,8 @@ func NewDashboardHandler(
 // HandleDashboard обрабатывает GET /admin/ — отображает страницу Dashboard.
 // Собирает агрегированные метрики из сервисов для отображения карточек,
 // списка SE и графиков.
+//
+//nolint:dupl // TODO: вынести общий паттерн рендеринга страниц
 func (h *DashboardHandler) HandleDashboard(w http.ResponseWriter, r *http.Request) {
 	session := uimiddleware.SessionFromContext(r.Context())
 	if session == nil {
@@ -103,11 +112,11 @@ func (h *DashboardHandler) collectSEMetrics(ctx context.Context, data *pages.Das
 	for _, se := range ses {
 		// Счётчики по статусам
 		switch se.Status {
-		case "online":
+		case seStatusOnline:
 			data.SEOnline++
-		case "offline":
+		case seStatusOffline:
 			data.SEOffline++
-		case "degraded":
+		case seStatusDegraded:
 			data.SEDegraded++
 		case "maintenance":
 			data.SEMaintenance++
@@ -136,7 +145,7 @@ func (h *DashboardHandler) collectSEMetrics(ctx context.Context, data *pages.Das
 func (h *DashboardHandler) collectFilesPerSE(ctx context.Context, data *pages.DashboardData) {
 	for i := range data.StorageElements {
 		seID := data.StorageElements[i].ID
-		activeStatus := "active"
+		activeStatus := statusActive
 		filters := repository.FileListFilters{
 			StorageElementID: &seID,
 			Status:           &activeStatus,
@@ -156,7 +165,7 @@ func (h *DashboardHandler) collectFilesPerSE(ctx context.Context, data *pages.Da
 // collectFileMetrics собирает метрики файлов: всего, по статусу, по retention.
 func (h *DashboardHandler) collectFileMetrics(ctx context.Context, data *pages.DashboardData) {
 	// Общее число активных файлов
-	activeStatus := "active"
+	activeStatus := statusActive
 	_, totalActive, err := h.filesSvc.List(ctx, repository.FileListFilters{Status: &activeStatus}, 0, 0)
 	if err != nil {
 		h.logger.Error("Ошибка подсчёта активных файлов",
@@ -197,7 +206,7 @@ func (h *DashboardHandler) collectSAMetrics(ctx context.Context, data *pages.Das
 	data.SATotal = total
 
 	// Active SA
-	activeStatus := "active"
+	activeStatus := statusActive
 	_, activeCount, err := h.serviceAcctsSvc.List(ctx, &activeStatus, 0, 0)
 	if err != nil {
 		h.logger.Warn("Ошибка подсчёта active SA",
@@ -207,6 +216,7 @@ func (h *DashboardHandler) collectSAMetrics(ctx context.Context, data *pages.Das
 		data.SAActive = activeCount
 	}
 
+	//nolint:gocritic // это документация формулы, не закомментированный код
 	// Suspended = total - active
 	data.SASuspended = data.SATotal - data.SAActive
 }
@@ -240,9 +250,9 @@ func (h *DashboardHandler) collectDepHealth(data *pages.DashboardData) {
 // depHealthStatus преобразует bool в строку статуса для UI.
 func depHealthStatus(ok bool) string {
 	if ok {
-		return "online"
+		return seStatusOnline
 	}
-	return "offline"
+	return seStatusOffline
 }
 
 // FormatBytes форматирует байты для использования в шаблонах.

@@ -99,7 +99,7 @@ func NewJWTAuth(authCfg JWTAuthConfig, logger *slog.Logger) (*JWTAuth, error) {
 		Client:                    httpClient,
 		NoErrorReturnFirstHTTPReq: true,
 		RefreshInterval:           authCfg.RefreshInterval,
-		RefreshErrorHandler: func(ctx context.Context, err error) {
+		RefreshErrorHandler: func(_ context.Context, err error) {
 			logger.Error("Ошибка обновления JWKS",
 				slog.String("error", err.Error()),
 				slog.String("url", authCfg.JWKSURL),
@@ -118,9 +118,9 @@ func NewJWTAuth(authCfg JWTAuthConfig, logger *slog.Logger) (*JWTAuth, error) {
 	}
 
 	return &JWTAuth{
-		jwks:     k,
+		jwks:      k,
 		jwtLeeway: authCfg.JWTLeeway,
-		logger:   logger.With(slog.String("component", "jwt_auth")),
+		logger:    logger.With(slog.String("component", "jwt_auth")),
 	}, nil
 }
 

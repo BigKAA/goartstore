@@ -28,7 +28,7 @@ func HandleSetLanguage(w http.ResponseWriter, r *http.Request) {
 		Value:    lang,
 		Path:     "/",
 		MaxAge:   365 * 24 * 60 * 60, // 1 год
-		HttpOnly: false,               // JS может читать для UI-логики
+		HttpOnly: false,              // JS может читать для UI-логики
 		SameSite: http.SameSiteLaxMode,
 		Expires:  time.Now().Add(365 * 24 * time.Hour),
 	})

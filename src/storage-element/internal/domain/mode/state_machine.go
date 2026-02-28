@@ -62,7 +62,7 @@ var validTransitions = map[StorageMode]map[StorageMode]bool{
 	ModeEdit: {}, // Изолированный режим — переходы запрещены
 	ModeRW:   {ModeRO: true},
 	ModeRO:   {ModeAR: true, ModeRW: true}, // ro → rw — откат с confirm
-	ModeAR:   {},                            // Конечный режим — переходы запрещены
+	ModeAR:   {},                           // Конечный режим — переходы запрещены
 }
 
 // allowedOperations — матрица допустимых операций для каждого режима.

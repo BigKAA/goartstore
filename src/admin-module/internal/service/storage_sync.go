@@ -239,7 +239,8 @@ func (s *StorageSyncService) SyncOne(ctx context.Context, seID string) (*model.S
 			return nil, ctx.Err()
 		}
 
-		fileResp, err := s.seClient.ListFiles(ctx, se.URL, s.pageSize, offset)
+		var fileResp *seclient.FileListResponse
+		fileResp, err = s.seClient.ListFiles(ctx, se.URL, s.pageSize, offset)
 		if err != nil {
 			return nil, fmt.Errorf("запрос ListFiles SE %s (offset=%d): %w", se.URL, offset, err)
 		}
@@ -253,7 +254,8 @@ func (s *StorageSyncService) SyncOne(ctx context.Context, seID string) (*model.S
 		// Конвертируем SEFileMetadata → FileRecord
 		records := make([]*model.FileRecord, 0, len(fileResp.Files))
 		for _, f := range fileResp.Files {
-			record, err := seFileToRecord(f, seID)
+			var record *model.FileRecord
+			record, err = seFileToRecord(f, seID)
 			if err != nil {
 				s.logger.Warn("Ошибка конвертации файла SE → FileRecord",
 					slog.String("file_id", f.FileID),
@@ -266,7 +268,8 @@ func (s *StorageSyncService) SyncOne(ctx context.Context, seID string) (*model.S
 		}
 
 		// Batch upsert
-		added, updated, err := s.fileRepo.BatchUpsert(ctx, records)
+		var added, updated int
+		added, updated, err = s.fileRepo.BatchUpsert(ctx, records)
 		if err != nil {
 			return nil, fmt.Errorf("batch upsert файлов SE %s (offset=%d): %w", seID, offset, err)
 		}
