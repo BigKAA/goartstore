@@ -13,7 +13,7 @@ registry: harbor.kryukov.lan/library
 amImage: admin-module
 amTag: v0.3.0-1
 qmImage: query-module
-qmTag: v0.1.0-1
+qmTag: v0.1.0-2
 imagePullPolicy: Always
 
 # -----------------------------------------------------------------------------
@@ -63,7 +63,7 @@ adminModule:
   saSyncInterval: "5m"
   # topologymetrics
   dephealthCheckInterval: "15s"
-  dephealthGroup: "admin-module"
+  dephealthGroup: "core-modules"
   dephealthIsEntry: false
   # Admin UI
   uiEnabled: "true"
@@ -97,7 +97,7 @@ queryModule:
   roleReadonlyGroups: "artstore-viewers"
   # topologymetrics
   dephealthCheckInterval: "15s"
-  dephealthGroup: "query-module"
+  dephealthGroup: "core-modules"
   # Graceful shutdown
   shutdownTimeout: "5s"
   resources:

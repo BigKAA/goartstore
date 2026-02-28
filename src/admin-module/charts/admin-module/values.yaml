@@ -69,7 +69,7 @@ tls:
 # --- Dependency health (topologymetrics) ---
 dephealth:
   checkInterval: "15s"
-  group: "admin-module"
+  group: "core-modules"
   isEntry: false
 
 # --- Admin UI ---

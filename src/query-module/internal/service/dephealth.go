@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/BigKAA/topologymetrics/sdk-go/dephealth"
+	_ "github.com/BigKAA/topologymetrics/sdk-go/dephealth/checks/httpcheck" // регистрация HTTP checker factory
 	"github.com/BigKAA/topologymetrics/sdk-go/dephealth/checks/pgcheck"
 	"github.com/prometheus/client_golang/prometheus"
 )

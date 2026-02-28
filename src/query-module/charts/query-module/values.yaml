@@ -69,7 +69,7 @@ tls:
 # --- Dependency health (topologymetrics) ---
 dephealth:
   checkInterval: "15s"
-  group: "query-module"
+  group: "core-modules"
   isEntry: false
 
 # --- Таймауты HTTP-клиентов ---
