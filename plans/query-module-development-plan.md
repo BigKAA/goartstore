@@ -17,17 +17,17 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 2
-- **Активный подпункт**: 2.1
+- **Активная фаза**: Phase 3
+- **Активный подпункт**: 3.1
 - **Последнее обновление**: 2026-02-28
-- **Примечание**: Phase 1 завершена — каркас проекта, кодогенерация, stubs, health
+- **Примечание**: Phase 2 завершена — БД, конфиг, JWT middleware, logging/metrics
 
 ---
 
 ## Оглавление
 
 - [x] [Phase 1: Каркас проекта и кодогенерация](#phase-1-каркас-проекта-и-кодогенерация)
-- [ ] [Phase 2: Инфраструктурный слой (БД, конфиг, middleware)](#phase-2-инфраструктурный-слой-бд-конфиг-middleware)
+- [x] [Phase 2: Инфраструктурный слой (БД, конфиг, middleware)](#phase-2-инфраструктурный-слой-бд-конфиг-middleware)
 - [ ] [Phase 3: Бизнес-логика (поиск, метаданные, кэш)](#phase-3-бизнес-логика-поиск-метаданные-кэш)
 - [ ] [Phase 4: Proxy Download и ленивая очистка](#phase-4-proxy-download-и-ленивая-очистка)
 - [ ] [Phase 5: Сборка, деплой и интеграционные тесты](#phase-5-сборка-деплой-и-интеграционные-тесты)
@@ -103,7 +103,7 @@
 ## Phase 2: Инфраструктурный слой (БД, конфиг, middleware)
 
 **Dependencies**: Phase 1
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -113,7 +113,7 @@ logging/metrics middleware, полная конфигурация из env-vars.
 
 ### Подпункты
 
-- [ ] **2.1 Полная конфигурация (config.go)**
+- [x] **2.1 Полная конфигурация (config.go)**
   - **Dependencies**: None
   - **Description**: Все env-переменные из спецификации (`QM_DB_*`, `QM_JWKS_URL`,
     `QM_CLIENT_ID`, `QM_CLIENT_SECRET`, `QM_ADMIN_URL`, `QM_ADMIN_TIMEOUT`,
@@ -130,7 +130,7 @@ logging/metrics middleware, полная конфигурация из env-vars.
   - **Links**:
     - Паттерн: `src/admin-module/internal/config/config.go`
 
-- [ ] **2.2 Подключение к PostgreSQL и миграции**
+- [x] **2.2 Подключение к PostgreSQL и миграции**
   - **Dependencies**: 2.1
   - **Description**: `database.go` — `Connect()` (pgxpool с `QM_DB_MAX_CONNS`),
     `Migrate()` (golang-migrate + embed), `ReadinessChecker`.
@@ -144,7 +144,7 @@ logging/metrics middleware, полная конфигурация из env-vars.
   - **Links**:
     - Паттерн: `src/admin-module/internal/database/database.go`
 
-- [ ] **2.3 JWT auth middleware**
+- [x] **2.3 JWT auth middleware**
   - **Dependencies**: 2.1
   - **Description**: Адаптация auth middleware из AM. JWKS storage (`jwkset`),
     keyfunc, `AuthClaims`, `RequireRoleOrScope`. QM не использует role overrides —
@@ -155,7 +155,7 @@ logging/metrics middleware, полная конфигурация из env-vars.
   - **Links**:
     - Паттерн: `src/admin-module/internal/api/middleware/auth.go`
 
-- [ ] **2.4 Logging и Metrics middleware**
+- [x] **2.4 Logging и Metrics middleware**
   - **Dependencies**: None
   - **Description**: `RequestLogger` middleware (по паттерну AM, динамический log level).
     `MetricsMiddleware` — `qm_http_requests_total`, `qm_http_request_duration_seconds`
@@ -168,7 +168,7 @@ logging/metrics middleware, полная конфигурация из env-vars.
     - Паттерн: `src/admin-module/internal/api/middleware/logging.go`
     - Паттерн: `src/admin-module/internal/api/middleware/metrics.go`
 
-- [ ] **2.5 Обновление main.go и server.go**
+- [x] **2.5 Обновление main.go и server.go**
   - **Dependencies**: 2.1, 2.2, 2.3, 2.4
   - **Description**: Интеграция всех компонентов Phase 2 в main.go:
     config → logger → migrate → connect → JWT middleware.
@@ -181,16 +181,16 @@ logging/metrics middleware, полная конфигурация из env-vars.
 
 ### Критерии завершения Phase 2
 
-- [ ] Все подпункты завершены (2.1–2.5)
-- [ ] QM подключается к PostgreSQL, миграции (индексы) применяются
-- [ ] `/health/ready` проверяет PostgreSQL
-- [ ] JWT-защищённые endpoints отклоняют запросы без токена (401)
-- [ ] `/health/live`, `/health/ready`, `/metrics` доступны без JWT
-- [ ] Логи в JSON формате с корректными уровнями
-- [ ] `go test ./...` проходит
-- [ ] `go vet ./...` без ошибок
-- [ ] `make lint` проходит без ошибок
-- [ ] Unit-тесты для config.Load(), middleware (минимальный набор)
+- [x] Все подпункты завершены (2.1–2.5)
+- [x] QM подключается к PostgreSQL, миграции (индексы) применяются
+- [x] `/health/ready` проверяет PostgreSQL
+- [x] JWT-защищённые endpoints отклоняют запросы без токена (401)
+- [x] `/health/live`, `/health/ready`, `/metrics` доступны без JWT
+- [x] Логи в JSON формате с корректными уровнями
+- [x] `go test ./...` проходит
+- [x] `go vet ./...` без ошибок
+- [x] `make lint` проходит без ошибок
+- [ ] Unit-тесты для config.Load(), middleware (минимальный набор) — перенесены в Phase 3
 
 ---
 
