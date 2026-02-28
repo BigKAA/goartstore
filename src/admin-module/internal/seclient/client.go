@@ -57,10 +57,11 @@ type SEFileMetadata struct {
 
 // FileListResponse — ответ SE на GET /api/v1/files с пагинацией.
 type FileListResponse struct {
-	Files  []SEFileMetadata `json:"files"`
-	Total  int              `json:"total"`
-	Limit  int              `json:"limit"`
-	Offset int              `json:"offset"`
+	Files   []SEFileMetadata `json:"items"`
+	Total   int              `json:"total"`
+	Limit   int              `json:"limit"`
+	Offset  int              `json:"offset"`
+	HasMore bool             `json:"has_more"`
 }
 
 // Client — HTTP-клиент для Storage Elements.
