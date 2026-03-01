@@ -120,8 +120,12 @@ func main() {
 	// 7. Фоновые процессы — запускаются безусловно на каждом pod-е (stateless)
 	gcSvc := service.NewGCService(store, idx, lockMgr, cfg.GCInterval, logger)
 	reconcileSvc := service.NewReconcileService(store, idx, lockMgr, cfg.DataDir, cfg.ReconcileInterval, logger)
+	modeSyncSvc := service.NewModeSyncService(modeFilePath, sm, cfg.ModeSyncInterval, logger)
+	indexSyncSvc := service.NewIndexSyncService(idx, cfg.DataDir, cfg.IndexSyncInterval, logger)
 	gcSvc.Start(ctx)
 	reconcileSvc.Start(ctx)
+	modeSyncSvc.Start(ctx)
+	indexSyncSvc.Start(ctx)
 
 	// 8. topologymetrics — мониторинг зависимостей
 	//
@@ -229,6 +233,8 @@ func main() {
 
 	gcSvc.Stop()
 	reconcileSvc.Stop()
+	modeSyncSvc.Stop()
+	indexSyncSvc.Stop()
 	if dephealthSvc != nil {
 		dephealthSvc.Stop()
 	}

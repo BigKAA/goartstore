@@ -1,6 +1,6 @@
 # =============================================================================
 # artstore-se — Helm values для Storage Elements тестовой среды
-# Компоненты: 2 replicated (edit) + 4 standalone (rw/ro/ar) SE
+# Stateless архитектура: все экземпляры равноправны, без leader/follower
 # =============================================================================
 
 # Namespace для тестовой среды (должен совпадать с artstore-infra)
@@ -11,7 +11,7 @@ namespace: artstore-test
 # -----------------------------------------------------------------------------
 registry: harbor.kryukov.lan/library
 seImage: storage-element
-seTag: v0.2.0-1
+seTag: v0.3.0-1
 imagePullPolicy: Always
 
 # -----------------------------------------------------------------------------
@@ -50,6 +50,11 @@ seCommon:
   reconcileInterval: "6h"
   maxFileSize: "10485760"  # 10MB
   maxCapacity: "209715200"  # 200MB (совпадает с dataSize для тестовой среды)
+  # Stateless координация
+  uploadLockTTL: "120s"
+  modeSyncInterval: "10s"
+  indexSyncInterval: "15s"  # Уменьшен для тестов (быстрее обнаруживать файлы)
+  # Dependency health
   dephealthCheckInterval: "15s"
   dephealthGroup: "storage-element"
   dephealthDepName: "admin-jwks"
@@ -66,61 +71,55 @@ seCommon:
 storageClass: nfs-client
 
 # -----------------------------------------------------------------------------
-# Replicated instances (Deployment + ClusterIP Service + shared PVC RWX)
-# Каждый экземпляр — 2 пода с общим хранилищем /data (RWX NFS) и WAL emptyDir
-# Leader election через flock() на shared /data/.leader.lock
+# SE instances — все Deployment + ClusterIP Service + PVC
+# Edit SE с replicas > 1 для тестирования параллельной записи
+# Остальные SE с replicas: 1
+# При replicas > 1 PVC создаётся с RWX для shared storage
 # -----------------------------------------------------------------------------
-replicatedInstances:
+instances:
+  # Edit SE — 2 реплики, shared PVC (RWX), тестирование параллельной записи
   - name: se-edit-1
     storageId: se-edit-1
     mode: edit
-    replicas: 1
+    replicas: 2
     dataSize: 200Mi
-    walSize: 200Mi
-    indexRefreshInterval: "10s"
 
   - name: se-edit-2
     storageId: se-edit-2
     mode: edit
     replicas: 1
     dataSize: 200Mi
-    walSize: 200Mi
-    indexRefreshInterval: "10s"
 
-# -----------------------------------------------------------------------------
-# Standalone instances (Deployment + ClusterIP Service + PVC RWO)
-# Каждый экземпляр — 1 под с отдельным data и WAL
-# -----------------------------------------------------------------------------
-standaloneInstances:
+  # RW SE
   - name: se-rw-1
     storageId: se-rw-1
     mode: rw
+    replicas: 1
     dataSize: 200Mi
-    walSize: 200Mi
 
   - name: se-rw-2
     storageId: se-rw-2
     mode: rw
+    replicas: 1
     dataSize: 200Mi
-    walSize: 200Mi
 
-  # Стартует сразу в режиме ro с предзагруженными данными (initContainer)
+  # RO SE — предзагруженные данные (initContainer)
   - name: se-ro
     storageId: se-ro
     mode: ro
+    replicas: 1
     dataSize: 200Mi
-    walSize: 200Mi
     initData:
       type: ro-files
       fileCount: 20
       fileSizeKB: 9216  # ~9MB на файл, суммарно ~180MB
 
-  # Стартует сразу в режиме ar с предзагруженными метаданными (initContainer)
+  # AR SE — предзагруженные метаданные (initContainer)
   - name: se-ar
     storageId: se-ar
     mode: ar
+    replicas: 1
     dataSize: 200Mi
-    walSize: 200Mi
     initData:
       type: ar-metadata
       fileCount: 200

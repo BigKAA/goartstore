@@ -129,6 +129,46 @@ get_user_token() {
     echo "$body" | jq -r '.access_token'
 }
 
+# get_user_token_with_scopes — получить JWT с явно запрошенными scopes
+# Аргументы: $1=token_endpoint, $2=client_id, $3=client_secret, $4=username, $5=password, $6=scopes (через пробел)
+# Возвращает: access_token через stdout
+get_user_token_with_scopes() {
+    local endpoint="$1"
+    local client_id="$2"
+    local client_secret="$3"
+    local username="$4"
+    local password="$5"
+    local scopes="$6"
+
+    local tmpout
+    tmpout=$(mktemp)
+    local http_code
+    http_code=$(curl $CURL_OPTS -w "%{http_code}" -o "$tmpout" \
+        -X POST \
+        -d "grant_type=password" \
+        -d "client_id=${client_id}" \
+        -d "client_secret=${client_secret}" \
+        -d "username=${username}" \
+        -d "password=${password}" \
+        -d "scope=${scopes}" \
+        "${endpoint}") || true
+
+    local body
+    body=$(cat "$tmpout")
+    rm -f "$tmpout"
+
+    if [[ "$http_code" != "200" ]]; then
+        log_fail "get_user_token_with_scopes: HTTP ${http_code} от ${endpoint} (user=${username})"
+        if echo "$body" | jq . >/dev/null 2>&1; then
+            log_fail "  Ответ: $(echo "$body" | jq -c '.')"
+        fi
+        echo ""
+        return 1
+    fi
+
+    echo "$body" | jq -r '.access_token'
+}
+
 # wait_ready — дождаться готовности сервиса (GET /health/ready → 200)
 # Аргументы: $1=url, $2=timeout(секунды)
 wait_ready() {

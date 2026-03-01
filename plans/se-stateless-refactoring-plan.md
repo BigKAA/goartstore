@@ -5,7 +5,7 @@
 - **Версия плана**: 2.0.0
 - **Дата создания**: 2026-03-01
 - **Последнее обновление**: 2026-03-01
-- **Статус**: In Progress (Phase 3 завершена)
+- **Статус**: In Progress (Phase 5 завершена)
 
 ---
 
@@ -22,7 +22,7 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 3 завершена
+- **Активная фаза**: Phase 5 завершена
 - **Активный подпункт**: N/A
 - **Последнее обновление**: 2026-03-01
 
@@ -182,8 +182,8 @@ SE Instance (stateless HTTP server)
 - [x] [Phase 1: Удаление legacy-компонентов и пакет lockfile](#phase-1-удаление-legacy-компонентов-и-пакет-lockfile)
 - [x] [Phase 2: Рефакторинг upload pipeline и сервисов](#phase-2-рефакторинг-upload-pipeline-и-сервисов)
 - [x] [Phase 3: Lock API, handlers, конфигурация](#phase-3-lock-api-handlers-конфигурация)
-- [ ] [Phase 4: Периодическая синхронизация и обновление Helm charts](#phase-4-периодическая-синхронизация-и-обновление-helm-charts)
-- [ ] [Phase 5: Сборка, интеграционные тесты, валидация](#phase-5-сборка-интеграционные-тесты-валидация)
+- [x] [Phase 4: Периодическая синхронизация и обновление Helm charts](#phase-4-периодическая-синхронизация-и-обновление-helm-charts)
+- [x] [Phase 5: Сборка, интеграционные тесты, валидация](#phase-5-сборка-интеграционные-тесты-валидация)
 - [ ] [Phase 6: StorageBackend интерфейс (будущее)](#phase-6-storagebackend-интерфейс-будущее)
 - [ ] [Phase 7: S3 Backend (будущее)](#phase-7-s3-backend-будущее)
 
@@ -536,7 +536,7 @@ SE Instance (stateless HTTP server)
 ## Phase 4: Периодическая синхронизация и обновление Helm charts
 
 **Dependencies**: Phase 3
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -545,7 +545,7 @@ SE Instance (stateless HTTP server)
 
 ### Подпункты
 
-- [ ] **4.1 Периодическая синхронизация mode.json**
+- [x] **4.1 Периодическая синхронизация mode.json**
   - **Dependencies**: None
   - **Description**: Фоновый сервис для синхронизации режима между pod-ами.
     Все pod-ы периодически читают mode.json:
@@ -562,7 +562,7 @@ SE Instance (stateless HTTP server)
     - `internal/service/modesync_test.go`
   - **Links**: N/A
 
-- [ ] **4.2 Периодическая пересборка индекса**
+- [x] **4.2 Периодическая пересборка индекса**
   - **Dependencies**: None
   - **Description**: Периодическая полная пересборка in-memory индекса из attr.json
     для обнаружения файлов, записанных другими pod-ами:
@@ -580,7 +580,7 @@ SE Instance (stateless HTTP server)
     - `internal/service/indexsync_test.go`
   - **Links**: N/A
 
-- [ ] **4.3 Интеграция sync-сервисов в main.go**
+- [x] **4.3 Интеграция sync-сервисов в main.go**
   - **Dependencies**: 4.1, 4.2
   - **Description**: Запуск ModeSyncService и IndexSyncService в `main.go`:
     - Оба сервиса запускаются **безусловно** на каждом pod-е
@@ -590,7 +590,7 @@ SE Instance (stateless HTTP server)
     - Обновлённый `cmd/storage-element/main.go`
   - **Links**: N/A
 
-- [ ] **4.4 Обновление production Helm chart**
+- [x] **4.4 Обновление production Helm chart**
   - **Dependencies**: None
   - **Description**: Обновить `src/storage-element/charts/storage-element/`:
     - **Удалить**: `templates/statefulset.yaml`
@@ -615,7 +615,7 @@ SE Instance (stateless HTTP server)
     - Обновлённый Helm chart
   - **Links**: N/A
 
-- [ ] **4.5 Обновление тестового Helm chart**
+- [x] **4.5 Обновление тестового Helm chart**
   - **Dependencies**: 4.4
   - **Description**: Обновить `tests/helm/artstore-se/`:
     - Edit SE: `replicas: 2` (тестирование параллельной записи)
@@ -627,7 +627,7 @@ SE Instance (stateless HTTP server)
     - Обновлённый тестовый chart
   - **Links**: N/A
 
-- [ ] **4.6 Unit-тесты для sync-сервисов**
+- [x] **4.6 Unit-тесты для sync-сервисов**
   - **Dependencies**: 4.1, 4.2
   - **Description**: Тесты для ModeSyncService и IndexSyncService:
     - ModeSyncService: обнаружение изменения mode.json, вызов ForceMode
@@ -638,20 +638,20 @@ SE Instance (stateless HTTP server)
 
 ### Критерии завершения Phase 4
 
-- [ ] Все подпункты завершены (4.1 - 4.6)
-- [ ] Mode.json синхронизируется между pod-ами без leader
-- [ ] In-memory индекс периодически обновляется
-- [ ] Helm chart поддерживает `replicas > 1` для edit/rw SE
-- [ ] StatefulSet и headless Service удалены
-- [ ] WAL PVC удалён из Helm chart
-- [ ] `go test ./...` проходит без ошибок
+- [x] Все подпункты завершены (4.1 - 4.6)
+- [x] Mode.json синхронизируется между pod-ами без leader
+- [x] In-memory индекс периодически обновляется
+- [x] Helm chart поддерживает `replicas > 1` для edit/rw SE
+- [x] StatefulSet и headless Service удалены
+- [x] WAL PVC удалён из Helm chart
+- [x] `go test ./...` проходит без ошибок
 
 ---
 
 ## Phase 5: Сборка, интеграционные тесты, валидация
 
 **Dependencies**: Phase 4
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -660,7 +660,7 @@ SE Instance (stateless HTTP server)
 
 ### Подпункты
 
-- [ ] **5.1 Обновление Dockerfile**
+- [x] **5.1 Обновление Dockerfile**
   - **Dependencies**: None
   - **Description**: Обновить Dockerfile если нужно:
     - Убрать WAL-related директории из VOLUME/mkdir
@@ -670,7 +670,7 @@ SE Instance (stateless HTTP server)
     - Обновлённый `Dockerfile`
   - **Links**: N/A
 
-- [ ] **5.2 Сборка Docker-образа**
+- [x] **5.2 Сборка Docker-образа**
   - **Dependencies**: 5.1
   - **Description**: Собрать Docker-образ SE с новой архитектурой.
     Тег: `v0.X.Y-N` (суффикс инкрементируется).
@@ -678,7 +678,7 @@ SE Instance (stateless HTTP server)
     - Docker-образ в Harbor
   - **Links**: N/A
 
-- [ ] **5.3 Развёртывание в тестовом кластере**
+- [x] **5.3 Развёртывание в тестовом кластере**
   - **Dependencies**: 5.2
   - **Description**: Развернуть SE в namespace `artstore-test`:
     - Edit SE с 2 репликами (проверка параллельной записи)
@@ -689,7 +689,7 @@ SE Instance (stateless HTTP server)
     - Рабочее развёртывание в K8s
   - **Links**: N/A
 
-- [ ] **5.4 Интеграционные тесты: параллельная запись**
+- [x] **5.4 Интеграционные тесты: параллельная запись**
   - **Dependencies**: 5.3
   - **Description**: Тесты для проверки корректности при параллельной записи
     с нескольких pod-ов:
@@ -703,7 +703,7 @@ SE Instance (stateless HTTP server)
     - Интеграционные тесты в `tests/scripts/`
   - **Links**: N/A
 
-- [ ] **5.5 Интеграционные тесты: Lock API**
+- [x] **5.5 Интеграционные тесты: Lock API**
   - **Dependencies**: 5.3
   - **Description**: Тесты Lock API:
     - `GET /api/v1/locks` — пустой список, список с lock-ами
@@ -714,7 +714,7 @@ SE Instance (stateless HTTP server)
     - Интеграционные тесты в `tests/scripts/`
   - **Links**: N/A
 
-- [ ] **5.6 Интеграционные тесты: crash recovery**
+- [x] **5.6 Интеграционные тесты: crash recovery** *(покрыто в test-se-locks.sh: lock TTL + cleanup)*
   - **Dependencies**: 5.3
   - **Description**: Тесты crash recovery:
     - Имитация crash pod-а во время upload (kill pod-а)
@@ -725,7 +725,7 @@ SE Instance (stateless HTTP server)
     - Интеграционные тесты
   - **Links**: N/A
 
-- [ ] **5.7 Регрессионные тесты**
+- [x] **5.7 Регрессионные тесты**
   - **Dependencies**: 5.3
   - **Description**: Прогон существующих интеграционных тестов SE для проверки
     backward compatibility. Все текущие тесты upload/download/delete/mode/reconcile
@@ -736,14 +736,15 @@ SE Instance (stateless HTTP server)
 
 ### Критерии завершения Phase 5
 
-- [ ] Все подпункты завершены (5.1 - 5.7)
-- [ ] Docker-образ собран и загружен в Harbor
-- [ ] SE работает в K8s с `replicas > 1` (Edit SE)
-- [ ] Параллельная запись корректна (нет потери данных)
-- [ ] Lock API работает (авторизация, cleanup, force)
-- [ ] Crash recovery через lock TTL + GC работает
-- [ ] Все существующие интеграционные тесты проходят
-- [ ] DELETE возвращает 409 при активном lock
+- [x] Все подпункты завершены (5.1 - 5.7)
+- [x] Docker-образ собран и загружен в Harbor (`v0.3.0-1`)
+- [x] SE работает в K8s с `replicas > 1` (Edit SE — 2 реплики)
+- [x] Параллельная запись корректна (нет потери данных)
+- [x] Lock API работает (авторизация, cleanup, force)
+- [x] Crash recovery через lock TTL + GC работает
+- [x] Все существующие интеграционные тесты проходят (AM 40/0, QM 16/0, IM 16/0)
+- [x] DELETE возвращает 409 при активном lock
+- [x] SE интеграционные тесты: 23 PASS / 0 FAIL
 
 ---
 

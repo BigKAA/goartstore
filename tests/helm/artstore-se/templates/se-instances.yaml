@@ -1,11 +1,9 @@
-# Replicated SE instances — Deployment + ClusterIP Service + shared PVC RWX.
-# Итерация по .Values.replicatedInstances: se-edit-1, se-edit-2.
-# Каждый экземпляр — 2 пода, общее хранилище /data (RWX NFS), WAL emptyDir per pod.
-# Leader election через flock() на shared /data/.leader.lock.
-# JWKS URL указывает на Keycloak через infraReleaseName.
-{{- range $instance := .Values.replicatedInstances }}
+# SE instances — все используют единый Deployment + ClusterIP Service + PVC.
+# Stateless: все pod-ы равноправны, координация через per-file lock.
+# При replicas > 1 PVC создаётся с RWX для shared storage.
+{{- range $instance := .Values.instances }}
 ---
-# Shared PVC для данных (RWX — NFS, общий для всех реплик)
+# PVC для данных (файлы + attr.json + .locks/)
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -16,13 +14,17 @@ metadata:
     {{- include "artstore-se.se.selectorLabels" (dict "name" $instance.name "Release" $.Release) | nindent 4 }}
 spec:
   accessModes:
+    {{- if gt (int ($instance.replicas | default 1)) 1 }}
     - ReadWriteMany
+    {{- else }}
+    - ReadWriteOnce
+    {{- end }}
   storageClassName: {{ $.Values.storageClass }}
   resources:
     requests:
       storage: {{ $instance.dataSize }}
 ---
-# ClusterIP Service (обычный, не headless)
+# ClusterIP Service
 apiVersion: v1
 kind: Service
 metadata:
@@ -49,9 +51,14 @@ metadata:
     {{- include "artstore-se.labels" $ | nindent 4 }}
     {{- include "artstore-se.se.selectorLabels" (dict "name" $instance.name "Release" $.Release) | nindent 4 }}
 spec:
-  replicas: {{ $instance.replicas }}
+  replicas: {{ $instance.replicas | default 1 }}
+  {{- if eq (int ($instance.replicas | default 1)) 1 }}
+  strategy:
+    type: Recreate
+  {{- else }}
   strategy:
     type: RollingUpdate
+  {{- end }}
   selector:
     matchLabels:
       {{- include "artstore-se.se.selectorLabels" (dict "name" $instance.name "Release" $.Release) | nindent 6 }}
@@ -65,6 +72,34 @@ spec:
         prometheus.io/path: "/metrics"
         prometheus.io/scheme: "https"
     spec:
+      {{- if $instance.initData }}
+      # InitContainer для предзагрузки данных на data-volume перед стартом SE
+      initContainers:
+        - name: init-data
+          image: alpine:3.19
+          command: ["/bin/sh", "/scripts/init-{{ $instance.initData.type }}.sh"]
+          env:
+            - name: DATA_DIR
+              value: /data
+            {{- if eq $instance.initData.type "ro-files" }}
+            - name: FILE_COUNT
+              value: {{ $instance.initData.fileCount | quote }}
+            - name: FILE_SIZE_KB
+              value: {{ $instance.initData.fileSizeKB | quote }}
+            {{- end }}
+            {{- if eq $instance.initData.type "ar-metadata" }}
+            - name: FILE_COUNT
+              value: {{ $instance.initData.fileCount | quote }}
+            - name: METADATA_SIZE
+              value: {{ $instance.initData.metadataSize | quote }}
+            {{- end }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: init-scripts
+              mountPath: /scripts
+              readOnly: true
+      {{- end }}
       containers:
         - name: storage-element
           image: {{ include "artstore-se.seImage" $ }}
@@ -79,14 +114,8 @@ spec:
               value: {{ $instance.storageId | quote }}
             - name: SE_DATA_DIR
               value: /data
-            - name: SE_WAL_DIR
-              value: /wal
             - name: SE_MODE
               value: {{ $instance.mode | quote }}
-            - name: SE_REPLICA_MODE
-              value: replicated
-            - name: SE_INDEX_REFRESH_INTERVAL
-              value: {{ $instance.indexRefreshInterval | quote }}
             - name: SE_JWKS_URL
               value: {{ include "artstore-se.jwksUrl" $ | quote }}
             - name: SE_CA_CERT_PATH
@@ -110,6 +139,14 @@ spec:
               value: {{ $.Values.seCommon.gcInterval | quote }}
             - name: SE_RECONCILE_INTERVAL
               value: {{ $.Values.seCommon.reconcileInterval | quote }}
+            # Stateless координация
+            - name: SE_UPLOAD_LOCK_TTL
+              value: {{ $.Values.seCommon.uploadLockTTL | quote }}
+            - name: SE_MODE_SYNC_INTERVAL
+              value: {{ $.Values.seCommon.modeSyncInterval | quote }}
+            - name: SE_INDEX_SYNC_INTERVAL
+              value: {{ $.Values.seCommon.indexSyncInterval | quote }}
+            # Dependency health
             - name: DEPHEALTH_NAME
               value: {{ $instance.name | quote }}
             - name: SE_DEPHEALTH_CHECK_INTERVAL
@@ -124,13 +161,9 @@ spec:
             {{- end }}
             - name: SE_SHUTDOWN_TIMEOUT
               value: "5s"
-            - name: SE_ELECTION_RETRY_INTERVAL
-              value: "3s"
           volumeMounts:
             - name: data
               mountPath: /data
-            - name: wal
-              mountPath: /wal
             - name: tls-certs
               mountPath: /certs
               readOnly: true
@@ -151,15 +184,18 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 15
       volumes:
-        # Shared data PVC (RWX) — общий для всех реплик
         - name: data
           persistentVolumeClaim:
             claimName: {{ $instance.name }}-data
-        # WAL — эфемерный per pod (emptyDir), не требует персистентности
-        - name: wal
-          emptyDir: {}
         # TLS сертификаты из cert-manager (secret из artstore-infra)
         - name: tls-certs
           secret:
             secretName: {{ $.Values.tls.secretName }}
+        {{- if $instance.initData }}
+        # Init-скрипты из ConfigMap (для initContainer)
+        - name: init-scripts
+          configMap:
+            name: se-init-scripts
+            defaultMode: 0755
+        {{- end }}
 {{- end }}

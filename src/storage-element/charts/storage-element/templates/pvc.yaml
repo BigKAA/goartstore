@@ -1,5 +1,6 @@
-{{- if eq .Values.replicaMode "standalone" }}
-# PVC для данных (standalone режим, RWO)
+# PVC для данных Storage Element
+# При replicas > 1 используется RWX (shared storage),
+# при replicas = 1 — RWO (по умолчанию)
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -8,24 +9,12 @@ metadata:
     {{- include "se.labels" . | nindent 4 }}
 spec:
   accessModes:
+    {{- if gt (int (.Values.replicas | default 1)) 1 }}
+    - ReadWriteMany
+    {{- else }}
     - ReadWriteOnce
+    {{- end }}
   storageClassName: {{ .Values.storageClass }}
   resources:
     requests:
       storage: {{ .Values.dataSize }}
----
-# PVC для WAL (standalone режим, RWO)
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: {{ include "se.walPvcName" . }}
-  labels:
-    {{- include "se.labels" . | nindent 4 }}
-spec:
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: {{ .Values.storageClass }}
-  resources:
-    requests:
-      storage: {{ .Values.walSize }}
-{{- end }}

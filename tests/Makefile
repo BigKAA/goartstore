@@ -19,7 +19,7 @@ DOCKER_REGISTRY ?= harbor.kryukov.lan/library
 AM_TAG          ?= v0.3.0-2
 QM_TAG          ?= v0.1.0-1
 IM_TAG          ?= v0.1.0-1
-SE_TAG          ?= v0.2.0-1
+SE_TAG          ?= v0.3.0-1
 KC_TAG          ?= v26.1-1
 NAMESPACE       ?= artstore-test
 AM_PORT         ?= 8000
@@ -106,7 +106,7 @@ export KC_IM_SA_CLIENT_SECRET     := ingester-test-secret
         test-env-status test-env-logs \
         port-forward-start port-forward-stop port-forward-status \
         port-forward-infra port-forward-se port-forward-apps \
-        test-am test-am-ui test-qm test-im test-all clean
+        test-am test-am-ui test-qm test-im test-se test-all clean
 
 # -----------------------------------------------------------------------------
 # Справка
@@ -152,6 +152,7 @@ help:
 	@echo "  test-am-ui           Запустить интеграционные тесты Admin UI"
 	@echo "  test-qm              Запустить интеграционные тесты Query Module"
 	@echo "  test-im              Запустить интеграционные тесты Ingester Module"
+	@echo "  test-se              Запустить интеграционные тесты Storage Element"
 	@echo "  test-all             Запустить все интеграционные тесты"
 	@echo ""
 	@echo "Очистка:"
@@ -526,8 +527,13 @@ test-im:
 	@echo ">>> Запуск интеграционных тестов Ingester Module..."
 	@$(SCRIPTS_DIR)/test-im-all.sh
 
+## test-se: Запустить интеграционные тесты Storage Element
+test-se:
+	@echo ">>> Запуск интеграционных тестов Storage Element..."
+	@$(SCRIPTS_DIR)/test-se-all.sh
+
 ## test-all: Запустить все интеграционные тесты
-test-all: test-am test-qm test-im
+test-all: test-am test-qm test-im test-se
 	@echo ""
 	@echo ">>> Все интеграционные тесты завершены"
 
