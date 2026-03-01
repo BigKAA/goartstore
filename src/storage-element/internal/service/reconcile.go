@@ -21,6 +21,7 @@ package service
 
 import (
 	"context"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -200,44 +201,68 @@ func (rs *ReconcileService) RunOnce() *generated.ReconcileResponse {
 }
 
 // reconcile выполняет сверку данных на диске.
+// Рекурсивно обходит иерархическую структуру YYYY/MM/DD/ через filepath.WalkDir.
+// Пропускает .locks/, mode.json, скрытые файлы, temp файлы и symlink-каталоги.
 //
-//nolint:gocognit // TODO: упростить reconcile
+//nolint:gocognit // reconcile — комплексная сверка с несколькими фазами
 func (rs *ReconcileService) reconcile() []generated.ReconcileIssue {
 	var issues []generated.ReconcileIssue
 
-	// Собираем все файлы на диске (не attr.json)
-	dataFiles := make(map[string]bool)
-	// Собираем все attr.json на диске
-	attrFiles := make(map[string]bool)
+	// Собираем все файлы на диске: относительные пути (от dataDir)
+	dataFiles := make(map[string]bool) // data-файлы (не attr.json)
+	attrFiles := make(map[string]bool) // attr.json файлы
 
-	entries, err := os.ReadDir(rs.dataDir)
-	if err != nil {
-		rs.logger.Error("Ошибка чтения директории данных",
-			slog.String("error", err.Error()),
-		)
-		return issues
-	}
-
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
+	err := filepath.WalkDir(rs.dataDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
 		}
-		name := entry.Name()
 
-		// Пропускаем служебные файлы
+		// Пропускаем скрытые каталоги (.locks/ и пр.)
+		if d.IsDir() {
+			name := d.Name()
+			if strings.HasPrefix(name, ".") && path != rs.dataDir {
+				return filepath.SkipDir
+			}
+			// Не следуем за symlink-каталогами
+			if d.Type()&fs.ModeSymlink != 0 {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// Вычисляем относительный путь от dataDir
+		relPath, relErr := filepath.Rel(rs.dataDir, path)
+		if relErr != nil {
+			return nil
+		}
+
+		name := d.Name()
+
+		// Пропускаем mode.json в корне
+		if name == "mode.json" {
+			return nil
+		}
+		// Пропускаем скрытые файлы
 		if strings.HasPrefix(name, ".") {
-			continue
+			return nil
 		}
 		// Пропускаем temp файлы
 		if strings.HasSuffix(name, ".tmp") {
-			continue
+			return nil
 		}
 
 		if attr.IsAttrFile(name) {
-			attrFiles[name] = true
+			attrFiles[relPath] = true
 		} else {
-			dataFiles[name] = true
+			dataFiles[relPath] = true
 		}
+		return nil
+	})
+	if err != nil {
+		rs.logger.Error("Ошибка рекурсивного обхода директории данных",
+			slog.String("error", err.Error()),
+		)
+		return issues
 	}
 
 	// Определяем порог «свежести» файла: если файл создан в пределах lock TTL,
@@ -311,6 +336,7 @@ func (rs *ReconcileService) reconcile() []generated.ReconcileIssue {
 	}
 
 	// 3. Проверяем целостность файлов: size и checksum
+	// dataFile — относительный путь от dataDir (напр. 2026/03/01/photo.jpg)
 	for attrFile := range attrFiles {
 		dataFile := strings.TrimSuffix(attrFile, attr.AttrSuffix)
 		if !dataFiles[dataFile] {
@@ -331,7 +357,7 @@ func (rs *ReconcileService) reconcile() []generated.ReconcileIssue {
 
 		parsedUUID, _ := uuid.Parse(meta.FileID)
 
-		// Проверяем размер
+		// Проверяем размер (FileSize принимает относительный путь от dataDir)
 		actualSize, sizeErr := rs.store.FileSize(dataFile)
 		if sizeErr != nil {
 			rs.logger.Warn("Ошибка получения размера файла",
@@ -352,7 +378,7 @@ func (rs *ReconcileService) reconcile() []generated.ReconcileIssue {
 			continue // Если размер не совпадает, checksum точно не совпадёт
 		}
 
-		// Проверяем checksum
+		// Проверяем checksum (ComputeChecksum принимает относительный путь от dataDir)
 		actualChecksum, csErr := rs.store.ComputeChecksum(dataFile)
 		if csErr != nil {
 			rs.logger.Warn("Ошибка вычисления checksum",

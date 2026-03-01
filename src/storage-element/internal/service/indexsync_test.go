@@ -32,16 +32,22 @@ func setupIndexSyncTestEnv(t *testing.T) (string, *index.Index) {
 
 // createTestAttrFile создаёт файл данных и attr.json на диске (без добавления в индекс).
 // Используется для имитации файла, записанного другим pod-ом.
+// StoragePath может содержать иерархический путь YYYY/MM/DD/filename.
 func createTestAttrFile(t *testing.T, dir string, meta *model.FileMetadata) {
 	t.Helper()
 
-	// Создаём файл данных
+	// Создаём промежуточные каталоги если нужно
 	filePath := filepath.Join(dir, meta.StoragePath)
+	if err := os.MkdirAll(filepath.Dir(filePath), 0o750); err != nil {
+		t.Fatalf("Ошибка создания каталога для тестового файла: %v", err)
+	}
+
+	// Создаём файл данных
 	if err := os.WriteFile(filePath, []byte("test data from another pod"), 0o640); err != nil {
 		t.Fatalf("Ошибка создания тестового файла: %v", err)
 	}
 
-	// Создаём attr.json
+	// Создаём attr.json (attr.Write содержит MkdirAll)
 	attrPath := attr.AttrFilePath(filePath)
 	if err := attr.Write(attrPath, meta); err != nil {
 		t.Fatalf("Ошибка создания attr.json: %v", err)
@@ -70,7 +76,7 @@ func TestIndexSyncService_SyncOnce_DetectsNewFiles(t *testing.T) {
 	meta1 := &model.FileMetadata{
 		FileID:           "remote-1",
 		OriginalFilename: "remote1.txt",
-		StoragePath:      "remote1.txt",
+		StoragePath:      "2026/03/01/remote1.txt",
 		ContentType:      "text/plain",
 		Size:             26,
 		Checksum:         "abc",
@@ -82,7 +88,7 @@ func TestIndexSyncService_SyncOnce_DetectsNewFiles(t *testing.T) {
 	meta2 := &model.FileMetadata{
 		FileID:           "remote-2",
 		OriginalFilename: "remote2.txt",
-		StoragePath:      "remote2.txt",
+		StoragePath:      "2026/03/01/remote2.txt",
 		ContentType:      "text/plain",
 		Size:             26,
 		Checksum:         "def",
@@ -126,7 +132,7 @@ func TestIndexSyncService_SyncOnce_DetectsDeletedFiles(t *testing.T) {
 	meta := &model.FileMetadata{
 		FileID:           "to-remove",
 		OriginalFilename: "toremove.txt",
-		StoragePath:      "toremove.txt",
+		StoragePath:      "2026/02/20/toremove.txt",
 		ContentType:      "text/plain",
 		Size:             26,
 		Checksum:         "abc",
@@ -143,8 +149,8 @@ func TestIndexSyncService_SyncOnce_DetectsDeletedFiles(t *testing.T) {
 	}
 
 	// Удаляем файл и attr.json с диска (имитируем GC другого pod-а)
-	os.Remove(filepath.Join(dir, "toremove.txt"))
-	os.Remove(attr.AttrFilePath(filepath.Join(dir, "toremove.txt")))
+	os.Remove(filepath.Join(dir, "2026/02/20/toremove.txt"))
+	os.Remove(attr.AttrFilePath(filepath.Join(dir, "2026/02/20/toremove.txt")))
 
 	svc := NewIndexSyncService(idx, dir, 30*time.Second, logger)
 	svc.SyncOnce()
@@ -164,7 +170,7 @@ func TestIndexSyncService_SyncOnce_PreservesExistingFiles(t *testing.T) {
 	meta := &model.FileMetadata{
 		FileID:           "existing-1",
 		OriginalFilename: "existing.txt",
-		StoragePath:      "existing.txt",
+		StoragePath:      "2026/02/20/existing.txt",
 		ContentType:      "text/plain",
 		Size:             26,
 		Checksum:         "abc",
@@ -222,7 +228,7 @@ func TestIndexSyncService_DetectsNewFiles_Background(t *testing.T) {
 	meta := &model.FileMetadata{
 		FileID:           "bg-new-1",
 		OriginalFilename: "bgnew.txt",
-		StoragePath:      "bgnew.txt",
+		StoragePath:      "2026/03/01/bgnew.txt",
 		ContentType:      "text/plain",
 		Size:             26,
 		Checksum:         "abc",

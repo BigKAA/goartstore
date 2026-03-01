@@ -65,15 +65,18 @@ func TestSaveFile(t *testing.T) {
 		t.Error("файл не найден на диске")
 	}
 
-	// Проверяем формат имени файла
+	// Проверяем формат пути: YYYY/MM/DD/filename
+	if !strings.Contains(result.StoragePath, "/") {
+		t.Errorf("путь должен содержать date-based иерархию: %s", result.StoragePath)
+	}
 	if !strings.Contains(result.StoragePath, "test-photo") {
-		t.Errorf("имя файла должно содержать оригинальное имя: %s", result.StoragePath)
+		t.Errorf("путь должен содержать оригинальное имя: %s", result.StoragePath)
 	}
 	if !strings.Contains(result.StoragePath, "admin") {
-		t.Errorf("имя файла должно содержать имя пользователя: %s", result.StoragePath)
+		t.Errorf("путь должен содержать имя пользователя: %s", result.StoragePath)
 	}
 	if !strings.HasSuffix(result.StoragePath, ".jpg") {
-		t.Errorf("имя файла должно сохранять расширение: %s", result.StoragePath)
+		t.Errorf("путь должен сохранять расширение: %s", result.StoragePath)
 	}
 
 	// Проверяем содержимое
@@ -288,19 +291,44 @@ func TestComputeChecksum(t *testing.T) {
 	}
 }
 
-// TestGenerateStorageName проверяет генерацию имени файла.
-func TestGenerateStorageName(t *testing.T) {
-	name := generateStorageName("My Photo.jpg", "admin")
+// TestGenerateStoragePath проверяет генерацию пути файла с date-based иерархией.
+func TestGenerateStoragePath(t *testing.T) {
+	path := generateStoragePath("My Photo.jpg", "admin")
 
-	if !strings.HasSuffix(name, ".jpg") {
-		t.Errorf("должно сохраняться расширение .jpg: %s", name)
+	// Путь должен содержать разделитель каталогов (date prefix)
+	if !strings.Contains(path, "/") {
+		t.Errorf("путь должен содержать дату YYYY/MM/DD: %s", path)
 	}
-	if !strings.Contains(name, "admin") {
-		t.Errorf("должно содержать имя пользователя: %s", name)
+
+	// Проверяем формат date-prefix: YYYY/MM/DD/filename
+	parts := strings.SplitN(path, "/", 4) // год/месяц/день/имя
+	if len(parts) != 4 {
+		t.Fatalf("ожидался формат YYYY/MM/DD/filename, получено %d частей: %s", len(parts), path)
 	}
-	// Имя файла не должно содержать пробелы
-	if strings.Contains(name, " ") {
-		t.Errorf("не должно содержать пробелов: %s", name)
+
+	// Год — 4 цифры
+	if len(parts[0]) != 4 {
+		t.Errorf("год должен быть 4 цифры: %s", parts[0])
+	}
+	// Месяц — 2 цифры
+	if len(parts[1]) != 2 {
+		t.Errorf("месяц должен быть 2 цифры: %s", parts[1])
+	}
+	// День — 2 цифры
+	if len(parts[2]) != 2 {
+		t.Errorf("день должен быть 2 цифры: %s", parts[2])
+	}
+
+	// Имя файла (последняя часть) — стандартные проверки
+	filename := parts[3]
+	if !strings.HasSuffix(filename, ".jpg") {
+		t.Errorf("должно сохраняться расширение .jpg: %s", filename)
+	}
+	if !strings.Contains(filename, "admin") {
+		t.Errorf("должно содержать имя пользователя: %s", filename)
+	}
+	if strings.Contains(filename, " ") {
+		t.Errorf("имя файла не должно содержать пробелов: %s", filename)
 	}
 }
 
@@ -326,16 +354,23 @@ func TestSanitize(t *testing.T) {
 	}
 }
 
-// TestFullPath проверяет формирование полного пути.
+// TestFullPath проверяет формирование полного пути (плоский и иерархический).
 func TestFullPath(t *testing.T) {
 	fs, err := New(t.TempDir())
 	if err != nil {
 		t.Fatalf("ошибка создания FileStore: %v", err)
 	}
 
+	// Плоский путь (обратная совместимость)
 	fullPath := fs.FullPath("test.txt")
 	expected := filepath.Join(fs.DataDir(), "test.txt")
+	if fullPath != expected {
+		t.Errorf("ожидалось %s, получено %s", expected, fullPath)
+	}
 
+	// Иерархический путь YYYY/MM/DD/filename
+	fullPath = fs.FullPath("2026/03/01/photo_admin_20260301_abc12345.jpg")
+	expected = filepath.Join(fs.DataDir(), "2026/03/01/photo_admin_20260301_abc12345.jpg")
 	if fullPath != expected {
 		t.Errorf("ожидалось %s, получено %s", expected, fullPath)
 	}

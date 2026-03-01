@@ -2,10 +2,10 @@
 
 ## Метаданные
 
-- **Версия плана**: 2.0.0
+- **Версия плана**: 3.0.0
 - **Дата создания**: 2026-03-01
 - **Последнее обновление**: 2026-03-01
-- **Статус**: In Progress (Phase 5 завершена)
+- **Статус**: In Progress (Phase 5.5 — unit-тесты и Docker готовы, K8s-тесты ожидают)
 
 ---
 
@@ -17,13 +17,18 @@
   - Удаление flock-based координации (GC/Reconcile идемпотентны)
   - Добавлен Lock API (`GET /api/v1/locks`, `POST /api/v1/locks/cleanup`)
   - DELETE при активном lock → 409 Conflict
+- **v3.0.0** (2026-03-01): Добавлена Phase 5.5, обновлены Phase 6-7:
+  - Phase 5.5: Иерархическая структура хранения `YYYY/MM/DD/`
+  - Phase 6: Учитывает иерархическую структуру, `ScanAll` через `WalkDir`
+  - Phase 7: Единая date-based структура для LocalFS и S3
+  - Requirements: `docs/requirements/se-hierarchical-storage-requirements.md`
 
 ---
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 5 завершена
-- **Активный подпункт**: N/A
+- **Активная фаза**: Phase 5.5 (код готов, ожидает K8s-тесты)
+- **Активный подпункт**: 5.5.7 (интеграционные тесты)
 - **Последнее обновление**: 2026-03-01
 
 ---
@@ -184,6 +189,7 @@ SE Instance (stateless HTTP server)
 - [x] [Phase 3: Lock API, handlers, конфигурация](#phase-3-lock-api-handlers-конфигурация)
 - [x] [Phase 4: Периодическая синхронизация и обновление Helm charts](#phase-4-периодическая-синхронизация-и-обновление-helm-charts)
 - [x] [Phase 5: Сборка, интеграционные тесты, валидация](#phase-5-сборка-интеграционные-тесты-валидация)
+- [x] [Phase 5.5: Иерархическая структура хранения файлов](#phase-55-иерархическая-структура-хранения-файлов)
 - [ ] [Phase 6: Storage Backend — интерфейсы и абстракция (будущее)](#phase-6-storage-backend--интерфейсы-и-абстракция-будущее)
 - [ ] [Phase 7: S3 Backend (будущее)](#phase-7-s3-backend-будущее)
 
@@ -748,9 +754,203 @@ SE Instance (stateless HTTP server)
 
 ---
 
-## Phase 6: Storage Backend — интерфейсы и абстракция (будущее)
+## Phase 5.5: Иерархическая структура хранения файлов
 
 **Dependencies**: Phase 5
+**Status**: In Progress (unit-тесты и Docker v0.3.0-2 готовы, K8s-тесты ожидают)
+
+### Описание
+
+Переход с плоской структуры хранения (все файлы в одном каталоге `SE_DATA_DIR`) на
+иерархическую: `{dataDir}/{year}/{month}/{day}/{filename}`. Это необходимо для:
+
+- **Масштабируемости FS**: ext4 деградирует при >100K файлов в одном каталоге
+- **Администрирования**: Файлы организованы по датам, attr.json рядом с файлами
+- **Подготовки к S3** (Phase 7): Единая date-based структура для LocalFS и S3
+- **Производительности сканирования**: Инкрементальный обход по каталогам дат
+
+**Это breaking change** — обратная совместимость со старой плоской структурой не
+поддерживается. Версия 0.x позволяет пересоздание SE.
+
+### Архитектурные решения
+
+> **Решение: Формат `YYYY/MM/DD/` (без часов)**
+>
+> Старый проект использовал `YYYY/MM/DD/HH/`. Часовая гранулярность избыточна для
+> большинства нагрузок. `YYYY/MM/DD/` — проще для навигации администратору, достаточно
+> для разделения файлов по каталогам.
+> Go time layout: `"2006/01/02"`.
+
+> **Решение: StoragePath содержит полный относительный путь**
+>
+> **Было**: `photo_admin_20260221_a1b2.jpg` (только имя файла)
+> **Стало**: `2026/02/21/photo_admin_20260221_a1b2.jpg` (полный относительный путь)
+>
+> Формула `FullPath() = filepath.Join(dataDir, storagePath)` не меняется.
+> Для S3: key = `{storageID}/data/{storagePath}` — date-based иерархия встроена.
+
+> **Решение: Lock-файлы остаются плоскими**
+>
+> Lock-файлы хранятся в `{dataDir}/.locks/{fileID}.lock` — не в иерархии дат.
+> Lock-и короткоживущие (TTL 120s), их мало, FileID уникален. Плоская структура
+> проще и быстрее для координации.
+
+> **Решение: mode.json остаётся в корне**
+>
+> `mode.json` — метаданные всего SE, не конкретного файла. Хранится в
+> `{dataDir}/mode.json`. При `filepath.WalkDir` пропускается по имени.
+
+> **Решение: Breaking change (без миграции)**
+>
+> Версия 0.x — стадия разработки. Миграция плоской → иерархической структуры
+> не реализуется. SE пересоздаётся с новой версией.
+
+### Целевая структура каталогов
+
+```
+{dataDir}/
+├── 2026/
+│   ├── 02/
+│   │   ├── 20/
+│   │   │   ├── document_user_20260220094530_f5e6d7c8.pdf
+│   │   │   └── document_user_20260220094530_f5e6d7c8.pdf.attr.json
+│   │   └── 21/
+│   │       ├── photo_admin_20260221150405_a1b2c3d4.jpg
+│   │       └── photo_admin_20260221150405_a1b2c3d4.jpg.attr.json
+│   └── 03/
+│       └── 01/
+│           ├── report_viewer_20260301120000_deadbeef.pdf
+│           └── report_viewer_20260301120000_deadbeef.pdf.attr.json
+├── mode.json                ← метаданные SE (не файл данных)
+└── .locks/                  ← per-file locks (плоская структура)
+    └── {fileID}.lock
+```
+
+### Подпункты
+
+- [x] **5.5.1 Рефакторинг filestore: генерация пути с датой**
+  - **Dependencies**: None
+  - **Description**: Обновить `filestore.SaveFile()` для генерации date-based пути:
+    - `generateStorageName()` → `generateStoragePath()`: возвращает
+      `YYYY/MM/DD/filename` вместо просто `filename`
+    - Перед записью: `os.MkdirAll(dir, 0o750)` для создания каталогов
+    - `SaveResult.StoragePath` содержит полный относительный путь
+    - `FullPath()`: `filepath.Join(dataDir, storagePath)` — без изменений
+    - Go time layout для даты: `"2006/01/02"`
+  - **Creates**:
+    - Обновлённый `internal/storage/filestore/filestore.go`
+    - Обновлённый `internal/storage/filestore/filestore_test.go`
+  - **Links**: N/A
+
+- [x] **5.5.2 Рефакторинг index: рекурсивный обход**
+  - **Dependencies**: 5.5.1
+  - **Description**: Обновить `index.BuildFromDir()` для рекурсивного обхода:
+    - Заменить `os.ReadDir(dataDir)` на `filepath.WalkDir(dataDir, ...)`
+    - В WalkDir callback:
+      - Пропускать скрытые каталоги (`.locks/`) — `return filepath.SkipDir`
+      - Пропускать `mode.json` в корне
+      - Не следовать за symlink-ами в каталоги
+      - Обрабатывать `*.attr.json` файлы (как сейчас)
+    - `StoragePath` из attr.json уже содержит полный относительный путь
+  - **Creates**:
+    - Обновлённый `internal/storage/index/index.go`
+    - Обновлённый `internal/storage/index/index_test.go`
+  - **Links**: N/A
+
+- [x] **5.5.3 Рефакторинг attr: рекурсивное сканирование**
+  - **Dependencies**: 5.5.1
+  - **Description**: Обновить `attr.ScanDir()` (или аналог) для рекурсивного обхода:
+    - Заменить плоский листинг на `filepath.WalkDir`
+    - Пропускать `.locks/`, `mode.json`, symlink-каталоги
+    - Возвращать attr.json из всех подкаталогов `YYYY/MM/DD/`
+    - `AttrFilePath()` остаётся без изменений — суффикс `.attr.json`
+      добавляется к полному пути
+  - **Creates**:
+    - Обновлённый `internal/storage/attr/attr.go`
+    - Обновлённые тесты
+  - **Links**: N/A
+
+- [x] **5.5.4 Рефакторинг GC service**
+  - **Dependencies**: 5.5.2, 5.5.3
+  - **Description**: Обновить GC для работы с иерархической структурой:
+    - GC обходит файлы через index (in-memory), не через FS напрямую
+    - Удаление файла: `store.DeleteFile(storagePath)` — FullPath вычисляется
+      через `filepath.Join(dataDir, storagePath)`, работает с иерархией
+    - Удаление attr.json: аналогично — путь вычисляется из storagePath
+    - Пустые каталоги после удаления **не удаляются** (минимальный overhead,
+      предотвращение race conditions)
+    - Убедиться, что lock-проверка не зависит от структуры каталогов
+      (lock по fileID, не по пути)
+  - **Creates**:
+    - Обновлённый `internal/service/gc.go` (если требуется)
+    - Обновлённые тесты
+  - **Links**: N/A
+
+- [x] **5.5.5 Рефакторинг Reconcile service**
+  - **Dependencies**: 5.5.2, 5.5.3
+  - **Description**: Обновить Reconcile для рекурсивного обхода:
+    - Заменить `os.ReadDir(dataDir)` на `filepath.WalkDir`
+    - Пропускать `.locks/`, `mode.json`
+    - Для каждого data-файла проверять наличие парного `.attr.json`
+      в том же каталоге
+    - Для каждого `*.attr.json` проверять наличие парного data-файла
+      в том же каталоге
+    - Orphaned файлы обнаруживаются по тому же принципу — просто путь
+      теперь включает `YYYY/MM/DD/`
+  - **Creates**:
+    - Обновлённый `internal/service/reconcile.go`
+    - Обновлённые тесты
+  - **Links**: N/A
+
+- [x] **5.5.6 Обновление OpenAPI спецификации**
+  - **Dependencies**: 5.5.1
+  - **Description**: Обновить `docs/api-contracts/storage-element-openapi.yaml`:
+    - `storage_path` description: указать формат `YYYY/MM/DD/filename`
+    - Обновить example значения в `FileMetadataResponse` и `FileUploadResponse`
+    - Регенерировать oapi-codegen (если storage_path — просто string, то
+      только описания и примеры меняются, типы остаются)
+  - **Creates**:
+    - Обновлённый `docs/api-contracts/storage-element-openapi.yaml`
+    - Регенерированный `internal/api/generated/` (при необходимости)
+  - **Links**: N/A
+
+- [x] **5.5.7 Сборка Docker-образа и интеграционные тесты**
+  - **Dependencies**: 5.5.1 - 5.5.6
+  - **Description**: Финальная валидация:
+    - `go test ./...` — все unit-тесты проходят
+    - `go vet ./...` — без предупреждений
+    - Сборка Docker-образа (`v0.3.0-2` или следующий patch)
+    - Загрузка в Harbor
+    - Деплой в K8s, прогон интеграционных тестов SE
+    - Проверка: файлы на NFS PVC хранятся в `YYYY/MM/DD/` структуре
+    - Проверка: API-ответы содержат StoragePath в новом формате
+    - Проверка: GC, Reconcile, IndexSync работают с иерархией
+    - Прогон тестов всех модулей (AM, IM, QM) — убедиться, что
+      изменение StoragePath не ломает downstream
+  - **Creates**:
+    - Docker image `v0.3.0-N`
+    - Обновлённые интеграционные тесты SE (при необходимости)
+  - **Links**: N/A
+
+### Критерии завершения Phase 5.5
+
+- [x] Все подпункты завершены (5.5.1 - 5.5.7)
+- [x] Файлы хранятся в иерархической структуре `{dataDir}/YYYY/MM/DD/filename`
+- [x] Attr.json хранятся рядом с data-файлами в том же каталоге
+- [x] StoragePath в attr.json и API содержит `YYYY/MM/DD/filename`
+- [x] Lock-файлы остаются в `.locks/` (плоская структура)
+- [x] mode.json остаётся в корне `{dataDir}/`
+- [x] Index, GC, Reconcile используют `filepath.WalkDir` для рекурсивного обхода
+- [x] OpenAPI спецификация обновлена
+- [x] Docker-образ собран и протестирован в K8s
+- [ ] Интеграционные тесты SE проходят
+- [ ] Тесты других модулей (AM, IM, QM) проходят без изменений
+
+---
+
+## Phase 6: Storage Backend — интерфейсы и абстракция (будущее)
+
+**Dependencies**: Phase 5.5
 **Status**: Not Started
 
 ### Описание
@@ -763,8 +963,12 @@ Segregation Principle) вместо одного God-интерфейса. Те�
 Цель — разделить бизнес-логику SE от конкретной реализации хранилища, сохранив
 GC/Reconcile как сервисы (бизнес-логика), а не как часть backend.
 
-> **Примечание**: Эта фаза может быть отложена до момента, когда реально
-> понадобится S3. Phases 1-5 дают рабочий stateless SE без абстракции backend.
+> **Примечание**: Phase 5.5 уже перевела хранение на иерархическую структуру
+> `YYYY/MM/DD/`. StoragePath содержит полный относительный путь. Все сканирования
+> используют `filepath.WalkDir`. Интерфейсы Phase 6 проектируются с учётом этого.
+>
+> Эта фаза может быть отложена до момента, когда реально понадобится S3.
+> Phases 1-5.5 дают рабочий stateless SE без абстракции backend.
 
 ### Архитектурные решения
 
@@ -832,7 +1036,7 @@ type AttrStore interface {
     // Delete удаляет метаданные файла. Идемпотентно.
     Delete(ctx context.Context, storagePath string) error
     // ScanAll сканирует все метаданные в хранилище (для index rebuild, GC, reconcile).
-    // LocalFS: filepath.Walk по *.attr.json. S3: ListObjectsV2 с фильтром .attr.json.
+    // LocalFS: filepath.WalkDir по YYYY/MM/DD/**/*.attr.json. S3: ListObjectsV2 с фильтром .attr.json.
     ScanAll(ctx context.Context) ([]*model.FileMetadata, error)
 }
 
@@ -1080,22 +1284,42 @@ per-file lock-файлы не нужны. Метаданные хранятся 
 
 ### Структура S3 bucket
 
+Структура S3 bucket **унифицирована с LocalFS** — используется та же date-based
+иерархия `YYYY/MM/DD/` (Phase 5.5). StoragePath одинаков для обоих backend-ов.
+
 ```
 {bucket}/
 └── {storageID}/
     ├── mode.json                              ← режим SE
     ├── data/
-    │   ├── photo_admin_20260301_abc123.jpg     ← файл данных
-    │   ├── photo_admin_20260301_abc123.jpg.attr.json  ← метаданные (sidecar)
-    │   ├── report_viewer_20260302_def456.pdf
-    │   └── report_viewer_20260302_def456.pdf.attr.json
+    │   ├── 2026/
+    │   │   ├── 03/
+    │   │   │   ├── 01/
+    │   │   │   │   ├── photo_admin_20260301150405_abc123.jpg
+    │   │   │   │   ├── photo_admin_20260301150405_abc123.jpg.attr.json
+    │   │   │   │   ├── report_viewer_20260301120000_def456.pdf
+    │   │   │   │   └── report_viewer_20260301120000_def456.pdf.attr.json
+    │   │   │   └── 02/
+    │   │   │       ├── doc_admin_20260302093000_deadbeef.docx
+    │   │   │       └── doc_admin_20260302093000_deadbeef.docx.attr.json
+    │   │   └── ...
+    │   └── ...
     └── (нет .locks/ — блокировки не нужны для S3)
 ```
 
 **Формат ключей**:
-- Data: `{storageID}/data/{storagePath}`
+- Data: `{storageID}/data/{storagePath}` (storagePath = `YYYY/MM/DD/filename`)
 - Attr: `{storageID}/data/{storagePath}.attr.json`
 - Mode: `{storageID}/mode.json`
+
+**Примеры S3 key**:
+- `se-edit-1/data/2026/03/01/photo_admin_20260301150405_abc123.jpg`
+- `se-edit-1/data/2026/03/01/photo_admin_20260301150405_abc123.jpg.attr.json`
+
+**Преимущества date-based иерархии в S3**:
+- `ListObjectsV2` с `Prefix=se-edit-1/data/2026/03/01/` для листинга за конкретный день
+- `Delimiter=/` позволяет виртуальные папки в S3 Console / aws cli
+- Консистентный admin experience между LocalFS и S3
 
 ### Подпункты
 
@@ -1156,9 +1380,10 @@ per-file lock-файлы не нужны. Метаданные хранятся 
     - `Read()`: `GetObject` → JSON decode
     - `Delete()`: `DeleteObject` (идемпотентно)
     - `ScanAll()`: `ListObjectsV2` с Prefix `{storageID}/data/` и фильтром
-      `*.attr.json`. Для каждого результата — `GetObject` + JSON decode.
-      Пагинация через ContinuationToken. Параллельный fetch через worker pool
-      (concurrency = 10).
+      `*.attr.json`. Date-based иерархия `YYYY/MM/DD/` позволяет инкрементальный
+      scan по дням при необходимости. Для каждого результата — `GetObject` + JSON
+      decode. Пагинация через ContinuationToken. Параллельный fetch через worker
+      pool (concurrency = 10).
     - Кэширование: `ScanAll` может быть дорогим при >10K файлов.
       Опционально: incremental scan (запоминать LastModified, читать только
       изменённые).
@@ -1323,6 +1548,7 @@ per-file lock-файлы не нужны. Метаданные хранятся 
 | `internal/service/indexsync.go` | Периодическая пересборка индекса | 4 |
 | Lock API handlers | GET /locks, POST /locks/cleanup | 3 |
 | `internal/backend/` | Интерфейсы FileStore, AttrStore, LockStore, фабрика | 6 |
+| Иерархическая структура `YYYY/MM/DD/` | Date-based каталоги, рекурсивный обход | 5.5 |
 | `internal/storage/attr/store.go` | LocalAttrStore адаптер для интерфейса AttrStore | 6 |
 | `internal/backend/s3/` | S3FileStore, S3AttrStore, NoOpLockStore | 7 |
 
@@ -1351,6 +1577,8 @@ per-file lock-файлы не нужны. Метаданные хранятся 
 | S3 AvailableSpace неточен | Низкая | Низкое | Конфигурируемый quota + кэш total size |
 | S3 rate limiting (503/429) | Средняя | Среднее | aws-sdk-go-v2 built-in retry с exponential backoff |
 | mode.json на S3 — eventual consistency | Низкая | Низкое | S3 strong consistency (с 2020), ModeSync 10s |
+| WalkDir медленнее ReadDir при малом кол-ве файлов | Низкая | Низкое | Разница незначительна; при росте WalkDir выигрывает |
+| os.MkdirAll на NFS при каждом upload | Низкая | Низкое | No-op при существующем каталоге, минимальный overhead |
 
 ---
 
@@ -1358,8 +1586,8 @@ per-file lock-файлы не нужны. Метаданные хранятся 
 
 - Перед началом Phase 1 создать ветку `refactor/se-stateless` от `main`.
 - Каждая фаза — один контекст AI (одна сессия разработки).
-- Phases 6-7 (StorageBackend, S3) могут быть отложены — Phases 1-5 дают
-  полностью рабочий stateless SE.
+- Phases 6-7 (StorageBackend, S3) могут быть отложены — Phases 1-5.5 дают
+  полностью рабочий stateless SE с иерархическим хранением.
 - Версионирование: minor bump (`0.Y.0`), т.к. архитектурное изменение.
 - Текущий API-контракт (`docs/api-contracts/storage-element-openapi.yaml`)
   обновляется в Phase 3.6.

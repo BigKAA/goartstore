@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -37,16 +38,23 @@ func setupGCTestEnv(t *testing.T) (string, *filestore.FileStore, *index.Index, *
 }
 
 // createTestFile создаёт тестовый файл и attr.json, добавляет в индекс.
+// StoragePath может содержать иерархический путь YYYY/MM/DD/filename —
+// промежуточные каталоги создаются автоматически.
 func createTestFile(t *testing.T, dir string, meta *model.FileMetadata) {
 	t.Helper()
 
-	// Создаём файл данных
+	// Создаём промежуточные каталоги (YYYY/MM/DD/) если нужно
 	filePath := filepath.Join(dir, meta.StoragePath)
+	if err := os.MkdirAll(filepath.Dir(filePath), 0o750); err != nil {
+		t.Fatalf("Ошибка создания каталога для тестового файла: %v", err)
+	}
+
+	// Создаём файл данных
 	if err := os.WriteFile(filePath, []byte("test data"), 0o640); err != nil {
 		t.Fatalf("Ошибка создания тестового файла: %v", err)
 	}
 
-	// Создаём attr.json
+	// Создаём attr.json (attr.Write уже содержит MkdirAll)
 	attrPath := attr.AttrFilePath(filePath)
 	if err := attr.Write(attrPath, meta); err != nil {
 		t.Fatalf("Ошибка создания attr.json: %v", err)
@@ -81,7 +89,7 @@ func TestGCRunOnce_MarkExpired(t *testing.T) {
 	meta := &model.FileMetadata{
 		FileID:           "expired-1",
 		OriginalFilename: "expired.txt",
-		StoragePath:      "expired.txt",
+		StoragePath:      "2026/01/15/expired.txt",
 		ContentType:      "text/plain",
 		Size:             9,
 		Checksum:         "abc",
@@ -100,7 +108,7 @@ func TestGCRunOnce_MarkExpired(t *testing.T) {
 	permanentMeta := &model.FileMetadata{
 		FileID:           "permanent-1",
 		OriginalFilename: "permanent.txt",
-		StoragePath:      "permanent.txt",
+		StoragePath:      "2026/02/20/permanent.txt",
 		ContentType:      "text/plain",
 		Size:             9,
 		Checksum:         "def",
@@ -147,7 +155,7 @@ func TestGCRunOnce_DeleteFiles(t *testing.T) {
 	meta := &model.FileMetadata{
 		FileID:           "deleted-1",
 		OriginalFilename: "deleted.txt",
-		StoragePath:      "deleted.txt",
+		StoragePath:      "2026/02/10/deleted.txt",
 		ContentType:      "text/plain",
 		Size:             9,
 		Checksum:         "abc",
@@ -173,12 +181,12 @@ func TestGCRunOnce_DeleteFiles(t *testing.T) {
 	}
 
 	// Проверяем, что файл удалён с диска
-	if store.FileExists("deleted.txt") {
+	if store.FileExists("2026/02/10/deleted.txt") {
 		t.Errorf("Файл deleted.txt не удалён с диска")
 	}
 
 	// Проверяем, что attr.json удалён
-	attrPath := attr.AttrFilePath(filepath.Join(dir, "deleted.txt"))
+	attrPath := attr.AttrFilePath(filepath.Join(dir, "2026/02/10/deleted.txt"))
 	if _, err := os.Stat(attrPath); !os.IsNotExist(err) {
 		t.Errorf("attr.json не удалён: %s", attrPath)
 	}
@@ -192,7 +200,7 @@ func TestGCRunOnce_DeleteSkipsLockedFile(t *testing.T) {
 	meta := &model.FileMetadata{
 		FileID:           "locked-del-1",
 		OriginalFilename: "locked_del.txt",
-		StoragePath:      "locked_del.txt",
+		StoragePath:      "2026/02/10/locked_del.txt",
 		ContentType:      "text/plain",
 		Size:             9,
 		Checksum:         "abc",
@@ -227,7 +235,7 @@ func TestGCRunOnce_DeleteSkipsLockedFile(t *testing.T) {
 	}
 
 	// Файл остался на диске
-	if !store.FileExists("locked_del.txt") {
+	if !store.FileExists("2026/02/10/locked_del.txt") {
 		t.Error("Файл locked_del.txt удалён с диска, но lock был активен")
 	}
 
@@ -252,7 +260,7 @@ func TestGCRunOnce_ActiveNotExpired_Untouched(t *testing.T) {
 	meta := &model.FileMetadata{
 		FileID:           "active-1",
 		OriginalFilename: "active.txt",
-		StoragePath:      "active.txt",
+		StoragePath:      "2026/03/01/active.txt",
 		ContentType:      "text/plain",
 		Size:             9,
 		Checksum:         "abc",
@@ -294,7 +302,7 @@ func TestGCRunOnce_CombinedExpiredAndDeleted(t *testing.T) {
 	expiredMeta := &model.FileMetadata{
 		FileID:           "exp-1",
 		OriginalFilename: "exp.txt",
-		StoragePath:      "exp.txt",
+		StoragePath:      "2026/01/15/exp.txt",
 		ContentType:      "text/plain",
 		Size:             9,
 		Checksum:         "abc",
@@ -312,7 +320,7 @@ func TestGCRunOnce_CombinedExpiredAndDeleted(t *testing.T) {
 	deletedMeta := &model.FileMetadata{
 		FileID:           "del-1",
 		OriginalFilename: "del.txt",
-		StoragePath:      "del.txt",
+		StoragePath:      "2026/02/10/del.txt",
 		ContentType:      "text/plain",
 		Size:             9,
 		Checksum:         "def",
@@ -328,7 +336,7 @@ func TestGCRunOnce_CombinedExpiredAndDeleted(t *testing.T) {
 	activeMeta := &model.FileMetadata{
 		FileID:           "act-1",
 		OriginalFilename: "active.txt",
-		StoragePath:      "active.txt",
+		StoragePath:      "2026/03/01/active.txt",
 		ContentType:      "text/plain",
 		Size:             9,
 		Checksum:         "ghi",
@@ -385,7 +393,7 @@ func TestGCRunOnce_DeleteMissingFile_NoError(t *testing.T) {
 	meta := &model.FileMetadata{
 		FileID:           "ghost-1",
 		OriginalFilename: "ghost.txt",
-		StoragePath:      "nonexistent.txt",
+		StoragePath:      "2026/01/01/nonexistent.txt",
 		ContentType:      "text/plain",
 		Size:             100,
 		Checksum:         "abc",
@@ -412,10 +420,10 @@ func TestGCRunOnce_ConcurrentSafety(t *testing.T) {
 	dir, store, idx, lockMgr := setupGCTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
-	// Создаём несколько deleted файлов
+	// Создаём несколько deleted файлов в иерархической структуре
 	for i := 0; i < 5; i++ {
 		id := "del-" + string(rune('a'+i))
-		sp := "delfile_" + string(rune('a'+i)) + ".txt"
+		sp := fmt.Sprintf("2026/02/%02d/delfile_%s.txt", 10+i, string(rune('a'+i)))
 		meta := &model.FileMetadata{
 			FileID:           id,
 			OriginalFilename: sp,

@@ -45,16 +45,21 @@ func New(dataDir string) (*FileStore, error) {
 }
 
 // SaveFile записывает данные из reader на диск с подсчётом SHA-256 на лету.
-// Формат имени файла: {name}_{user}_{timestamp}_{uuid}.{ext}
+// Формат пути: YYYY/MM/DD/{name}_{user}_{timestamp}_{uuid}.{ext}
 // Возвращает путь, размер и checksum записанного файла.
 //
-// Паттерн: temp файл → запись + SHA-256 → fsync → atomic rename.
+// Паттерн: MkdirAll → temp файл → запись + SHA-256 → fsync → atomic rename.
 // При ошибке temp файл удаляется.
 func (fs *FileStore) SaveFile(reader io.Reader, originalFilename, uploadedBy string) (*SaveResult, error) {
-	// Генерируем имя файла для хранения
-	storageName := generateStorageName(originalFilename, uploadedBy)
-	fullPath := filepath.Join(fs.dataDir, storageName)
+	// Генерируем относительный путь с date-based иерархией
+	storagePath := generateStoragePath(originalFilename, uploadedBy)
+	fullPath := filepath.Join(fs.dataDir, storagePath)
 	tmpPath := fullPath + ".tmp"
+
+	// Создаём промежуточные каталоги (YYYY/MM/DD/) если не существуют
+	if err := os.MkdirAll(filepath.Dir(fullPath), 0o750); err != nil {
+		return nil, fmt.Errorf("ошибка создания каталога для файла: %w", err)
+	}
 
 	// Создаём temp файл
 	f, err := os.Create(tmpPath)
@@ -92,7 +97,7 @@ func (fs *FileStore) SaveFile(reader io.Reader, originalFilename, uploadedBy str
 	}
 
 	return &SaveResult{
-		StoragePath: storageName,
+		StoragePath: storagePath,
 		FullPath:    fullPath,
 		Size:        size,
 		Checksum:    hex.EncodeToString(hasher.Sum(nil)),
@@ -175,10 +180,15 @@ func (fs *FileStore) DataDir() string {
 	return fs.dataDir
 }
 
-// generateStorageName генерирует имя файла для хранения на диске.
-// Формат: {name}_{user}_{timestamp}_{uuid}.{ext}
-// Пример: photo_admin_20260221150405_a1b2c3d4.jpg
-func generateStorageName(originalFilename, uploadedBy string) string {
+// generateStoragePath генерирует относительный путь файла для хранения на диске.
+// Формат: YYYY/MM/DD/{name}_{user}_{timestamp}_{uuid}.{ext}
+// Пример: 2026/02/21/photo_admin_20260221150405_a1b2c3d4.jpg
+//
+// Иерархическая структура YYYY/MM/DD/ необходима для:
+//   - Масштабируемости FS (ext4 деградирует при >100K файлов в одном каталоге)
+//   - Администрирования (файлы организованы по датам)
+//   - Подготовки к S3 (единая date-based структура для LocalFS и S3)
+func generateStoragePath(originalFilename, uploadedBy string) string {
 	ext := filepath.Ext(originalFilename)
 	name := strings.TrimSuffix(originalFilename, ext)
 
@@ -194,13 +204,21 @@ func generateStorageName(originalFilename, uploadedBy string) string {
 		user = user[:20]
 	}
 
-	ts := time.Now().UTC().Format("20060102150405")
+	now := time.Now().UTC()
+	ts := now.Format("20060102150405")
 	uid := uuid.New().String()[:8] // Короткий UUID для уникальности
 
+	// Дата-каталог: YYYY/MM/DD
+	datePrefix := now.Format("2006/01/02")
+
+	var filename string
 	if ext != "" {
-		return fmt.Sprintf("%s_%s_%s_%s%s", name, user, ts, uid, ext)
+		filename = fmt.Sprintf("%s_%s_%s_%s%s", name, user, ts, uid, ext)
+	} else {
+		filename = fmt.Sprintf("%s_%s_%s_%s", name, user, ts, uid)
 	}
-	return fmt.Sprintf("%s_%s_%s_%s", name, user, ts, uid)
+
+	return filepath.Join(datePrefix, filename)
 }
 
 // sanitize убирает небезопасные символы из строки для использования в имени файла.

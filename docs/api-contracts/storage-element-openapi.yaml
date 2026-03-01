@@ -107,8 +107,8 @@ paths:
         3. Создаётся `*.attr.json` с метаданными
         4. WAL entry коммитится
 
-        Имя файла на диске формируется по шаблону:
-        `{original_name}_{username}_{timestamp}_{uuid}.{ext}`
+        Файл на диске хранится в иерархической структуре YYYY/MM/DD/:
+        `{year}/{month}/{day}/{original_name}_{username}_{timestamp}_{uuid}.{ext}`
       operationId: uploadFile
       security:
         - bearerAuth: [files:write]
@@ -1199,8 +1199,8 @@ components:
           example: 550e8400-e29b-41d4-a716-446655440000
         path:
           type: string
-          description: Путь к файлу на диске (относительный)
-          example: data/photo_user1_20260221_abc123.jpg
+          description: Путь к файлу на диске (относительный, формат YYYY/MM/DD/filename)
+          example: 2026/02/21/photo_user1_20260221150405_abc12345.jpg
         type:
           type: string
           enum:

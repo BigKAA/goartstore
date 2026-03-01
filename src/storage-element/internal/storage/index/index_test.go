@@ -342,16 +342,19 @@ func TestCountByStatus(t *testing.T) {
 	}
 }
 
-// TestBuildFromDir проверяет построение индекса из attr.json файлов.
+// TestBuildFromDir проверяет построение индекса из attr.json в иерархической структуре YYYY/MM/DD/.
 func TestBuildFromDir(t *testing.T) {
 	dir := t.TempDir()
 
-	// Создаём attr.json файлы
-	for i, name := range []string{"file1.txt", "file2.jpg", "file3.pdf"} {
+	// Создаём attr.json файлы в иерархической структуре
+	dateDirs := []string{"2026/02/20", "2026/02/21", "2026/03/01"}
+	names := []string{"file1.txt", "file2.jpg", "file3.pdf"}
+	for i, name := range names {
+		storagePath := filepath.Join(dateDirs[i], name)
 		meta := &model.FileMetadata{
 			FileID:           fmt.Sprintf("id-%d", i),
 			OriginalFilename: name,
-			StoragePath:      name,
+			StoragePath:      storagePath,
 			ContentType:      "application/octet-stream",
 			Size:             int64(i * 100),
 			Checksum:         "abc",
@@ -360,7 +363,7 @@ func TestBuildFromDir(t *testing.T) {
 			Status:           model.StatusActive,
 			RetentionPolicy:  model.RetentionPermanent,
 		}
-		path := filepath.Join(dir, name+attr.AttrSuffix)
+		path := filepath.Join(dir, storagePath+attr.AttrSuffix)
 		if err := attr.Write(path, meta); err != nil {
 			t.Fatalf("ошибка создания attr.json: %v", err)
 		}
@@ -404,7 +407,7 @@ func TestBuildFromDir_EmptyDir(t *testing.T) {
 	}
 }
 
-// TestRebuildFromDir проверяет пересборку индекса.
+// TestRebuildFromDir проверяет пересборку индекса из иерархической структуры.
 func TestRebuildFromDir(t *testing.T) {
 	dir := t.TempDir()
 	idx := New(testLogger())
@@ -412,16 +415,17 @@ func TestRebuildFromDir(t *testing.T) {
 	// Добавляем файл вручную
 	idx.Add(createTestMetadata("old-file", model.StatusActive, time.Now()))
 
-	// Создаём attr.json на диске
+	// Создаём attr.json на диске в иерархической структуре
+	storagePath := "2026/03/01/new.txt"
 	meta := &model.FileMetadata{
 		FileID:          "new-file",
-		StoragePath:     "new.txt",
+		StoragePath:     storagePath,
 		ContentType:     "text/plain",
 		UploadedAt:      time.Now().UTC(),
 		Status:          model.StatusActive,
 		RetentionPolicy: model.RetentionPermanent,
 	}
-	attr.Write(filepath.Join(dir, "new.txt"+attr.AttrSuffix), meta)
+	attr.Write(filepath.Join(dir, storagePath+attr.AttrSuffix), meta)
 
 	// Пересборка
 	if err := idx.RebuildFromDir(dir); err != nil {
@@ -666,32 +670,35 @@ func TestTotalActiveSize_AddOverwrite(t *testing.T) {
 	}
 }
 
-// TestTotalActiveSize_BuildFromDir проверяет пересчёт счётчика при BuildFromDir.
+// TestTotalActiveSize_BuildFromDir проверяет пересчёт счётчика при BuildFromDir
+// с иерархической структурой YYYY/MM/DD/.
 func TestTotalActiveSize_BuildFromDir(t *testing.T) {
 	dir := t.TempDir()
 
 	// Создаём файлы: 2 active (100 + 200), 1 deleted (300)
 	files := []struct {
-		name   string
-		id     string
-		size   int64
-		status model.FileStatus
+		dateDir string
+		name    string
+		id      string
+		size    int64
+		status  model.FileStatus
 	}{
-		{"active1.txt", "id-1", 100, model.StatusActive},
-		{"active2.txt", "id-2", 200, model.StatusActive},
-		{"deleted1.txt", "id-3", 300, model.StatusDeleted},
+		{"2026/02/20", "active1.txt", "id-1", 100, model.StatusActive},
+		{"2026/02/21", "active2.txt", "id-2", 200, model.StatusActive},
+		{"2026/03/01", "deleted1.txt", "id-3", 300, model.StatusDeleted},
 	}
 	for _, f := range files {
+		storagePath := filepath.Join(f.dateDir, f.name)
 		meta := &model.FileMetadata{
 			FileID:          f.id,
-			StoragePath:     f.name,
+			StoragePath:     storagePath,
 			ContentType:     "text/plain",
 			Size:            f.size,
 			UploadedAt:      time.Now().UTC(),
 			Status:          f.status,
 			RetentionPolicy: model.RetentionPermanent,
 		}
-		path := filepath.Join(dir, f.name+attr.AttrSuffix)
+		path := filepath.Join(dir, storagePath+attr.AttrSuffix)
 		if err := attr.Write(path, meta); err != nil {
 			t.Fatalf("ошибка создания attr.json: %v", err)
 		}

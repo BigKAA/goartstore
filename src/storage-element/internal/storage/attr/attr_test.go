@@ -235,6 +235,7 @@ func TestAttrFilePath(t *testing.T) {
 		{"/data/photo.jpg", "/data/photo.jpg.attr.json"},
 		{"/data/doc.pdf", "/data/doc.pdf.attr.json"},
 		{"file.txt", "file.txt.attr.json"},
+		{"/data/2026/03/01/photo_admin_20260301_abc12345.jpg", "/data/2026/03/01/photo_admin_20260301_abc12345.jpg.attr.json"},
 	}
 
 	for _, tt := range tests {
@@ -253,6 +254,7 @@ func TestDataFilePathFromAttr(t *testing.T) {
 	}{
 		{"/data/photo.jpg.attr.json", "/data/photo.jpg"},
 		{"/data/doc.pdf.attr.json", "/data/doc.pdf"},
+		{"/data/2026/03/01/photo.jpg.attr.json", "/data/2026/03/01/photo.jpg"},
 	}
 
 	for _, tt := range tests {
@@ -273,25 +275,38 @@ func TestIsAttrFile(t *testing.T) {
 	}
 }
 
-// TestScanDir проверяет сканирование директории на attr.json файлы.
+// TestScanDir проверяет рекурсивное сканирование иерархической структуры YYYY/MM/DD/.
 func TestScanDir(t *testing.T) {
 	dir := t.TempDir()
 
-	// Создаём 3 attr.json файла
-	for i, name := range []string{"file1.jpg", "file2.pdf", "file3.txt"} {
+	// Создаём attr.json файлы в иерархической структуре YYYY/MM/DD/
+	dateDirs := []string{"2026/02/20", "2026/02/21", "2026/03/01"}
+	names := []string{"file1.jpg", "file2.pdf", "file3.txt"}
+	for i, name := range names {
 		meta := testMetadata()
 		meta.FileID = "scan-" + name
 		meta.OriginalFilename = name
+		meta.StoragePath = filepath.Join(dateDirs[i], name)
 		ttl := 30 + i
 		meta.TTLDays = &ttl
-		path := filepath.Join(dir, name+AttrSuffix)
+		// attr.json рядом с data-файлом в каталоге даты
+		path := filepath.Join(dir, dateDirs[i], name+AttrSuffix)
 		if err := Write(path, meta); err != nil {
 			t.Fatalf("ошибка записи %s: %v", name, err)
 		}
 	}
 
-	// Создаём обычный файл (не attr.json)
-	os.WriteFile(filepath.Join(dir, "not-attr.txt"), []byte("data"), 0o640)
+	// Создаём обычный файл (не attr.json) — должен быть пропущен
+	dateDir := filepath.Join(dir, "2026/02/20")
+	os.WriteFile(filepath.Join(dateDir, "not-attr.txt"), []byte("data"), 0o640)
+
+	// Создаём mode.json в корне — должен быть пропущен
+	os.WriteFile(filepath.Join(dir, "mode.json"), []byte(`{"mode":"edit"}`), 0o640)
+
+	// Создаём .locks/ каталог — должен быть пропущен
+	locksDir := filepath.Join(dir, ".locks")
+	os.MkdirAll(locksDir, 0o750)
+	os.WriteFile(filepath.Join(locksDir, "test.lock.attr.json"), []byte("fake"), 0o640)
 
 	// Сканирование
 	results, err := ScanDir(dir)
@@ -319,12 +334,14 @@ func TestScanDir_EmptyDir(t *testing.T) {
 // TestScanDir_SkipInvalidJSON проверяет, что невалидные attr.json пропускаются.
 func TestScanDir_SkipInvalidJSON(t *testing.T) {
 	dir := t.TempDir()
+	dateDir := filepath.Join(dir, "2026/03/01")
 
-	// Один валидный
-	Write(filepath.Join(dir, "good.jpg"+AttrSuffix), testMetadata())
+	// Один валидный — в подкаталоге даты
+	Write(filepath.Join(dateDir, "good.jpg"+AttrSuffix), testMetadata())
 
-	// Один невалидный
-	os.WriteFile(filepath.Join(dir, "bad.jpg"+AttrSuffix), []byte("broken"), 0o640)
+	// Один невалидный — в том же подкаталоге
+	os.MkdirAll(dateDir, 0o750)
+	os.WriteFile(filepath.Join(dateDir, "bad.jpg"+AttrSuffix), []byte("broken"), 0o640)
 
 	results, err := ScanDir(dir)
 	if err != nil {

@@ -41,11 +41,12 @@ func TestReconcileRunOnce_NoIssues(t *testing.T) {
 	dir, store, idx, lockMgr := setupReconcileTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
-	// Создаём корректную пару файл + attr.json
+	// Создаём корректную пару файл + attr.json в иерархической структуре
+	storagePath := "2026/03/01/good.txt"
 	meta := &model.FileMetadata{
 		FileID:           "good-1",
 		OriginalFilename: "good.txt",
-		StoragePath:      "good.txt",
+		StoragePath:      storagePath,
 		ContentType:      "text/plain",
 		Size:             9,
 		Checksum:         "", // Будет вычислен ниже
@@ -55,15 +56,18 @@ func TestReconcileRunOnce_NoIssues(t *testing.T) {
 		RetentionPolicy:  model.RetentionPermanent,
 	}
 
-	// Записываем файл данных
-	filePath := filepath.Join(dir, "good.txt")
+	// Создаём каталог и записываем файл данных
+	filePath := filepath.Join(dir, storagePath)
+	if err := os.MkdirAll(filepath.Dir(filePath), 0o750); err != nil {
+		t.Fatalf("Ошибка создания каталога: %v", err)
+	}
 	content := []byte("test data")
 	if err := os.WriteFile(filePath, content, 0o640); err != nil {
 		t.Fatalf("Ошибка записи файла: %v", err)
 	}
 
 	// Вычисляем checksum
-	checksum, err := store.ComputeChecksum("good.txt")
+	checksum, err := store.ComputeChecksum(storagePath)
 	if err != nil {
 		t.Fatalf("Ошибка вычисления checksum: %v", err)
 	}
@@ -101,8 +105,12 @@ func TestReconcileRunOnce_OrphanedFile(t *testing.T) {
 	dir, store, idx, lockMgr := setupReconcileTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
-	// Файл на диске без attr.json
-	filePath := filepath.Join(dir, "orphaned.txt")
+	// Файл на диске без attr.json в иерархической структуре
+	orphanedRelPath := "2026/02/20/orphaned.txt"
+	filePath := filepath.Join(dir, orphanedRelPath)
+	if err := os.MkdirAll(filepath.Dir(filePath), 0o750); err != nil {
+		t.Fatalf("Ошибка создания каталога: %v", err)
+	}
 	if err := os.WriteFile(filePath, []byte("data"), 0o640); err != nil {
 		t.Fatalf("Ошибка создания файла: %v", err)
 	}
@@ -126,13 +134,13 @@ func TestReconcileRunOnce_OrphanedFile(t *testing.T) {
 
 	found := false
 	for _, issue := range result.Issues {
-		if issue.Type == generated.OrphanedFile && issue.Path != nil && *issue.Path == "orphaned.txt" {
+		if issue.Type == generated.OrphanedFile && issue.Path != nil && *issue.Path == orphanedRelPath {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Error("Не обнаружен orphaned_file для orphaned.txt")
+		t.Errorf("Не обнаружен orphaned_file для %s", orphanedRelPath)
 	}
 	if result.Summary.OrphanedFiles != 1 {
 		t.Errorf("OrphanedFiles: хотели 1, получили %d", result.Summary.OrphanedFiles)
@@ -144,7 +152,11 @@ func TestReconcileRunOnce_OrphanedFileSkippedWhenFresh(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Файл на диске без attr.json — свежий (mtime в пределах lockTTL)
-	filePath := filepath.Join(dir, "fresh_orphan.txt")
+	freshRelPath := "2026/03/01/fresh_orphan.txt"
+	filePath := filepath.Join(dir, freshRelPath)
+	if err := os.MkdirAll(filepath.Dir(filePath), 0o750); err != nil {
+		t.Fatalf("Ошибка создания каталога: %v", err)
+	}
 	if err := os.WriteFile(filePath, []byte("data"), 0o640); err != nil {
 		t.Fatalf("Ошибка создания файла: %v", err)
 	}
@@ -163,7 +175,7 @@ func TestReconcileRunOnce_OrphanedFileSkippedWhenFresh(t *testing.T) {
 
 	// Свежий orphaned файл НЕ должен быть обнаружен (возможный in-flight upload)
 	for _, issue := range result.Issues {
-		if issue.Type == generated.OrphanedFile && issue.Path != nil && *issue.Path == "fresh_orphan.txt" {
+		if issue.Type == generated.OrphanedFile && issue.Path != nil && *issue.Path == freshRelPath {
 			t.Error("Свежий orphaned файл не должен был быть обнаружен (in-flight upload)")
 		}
 	}
@@ -173,11 +185,12 @@ func TestReconcileRunOnce_MissingFile(t *testing.T) {
 	dir, store, idx, lockMgr := setupReconcileTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
-	// attr.json без файла данных
+	// attr.json без файла данных в иерархической структуре
+	missingRelPath := "2026/02/21/missing.txt"
 	meta := &model.FileMetadata{
 		FileID:           "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
 		OriginalFilename: "missing.txt",
-		StoragePath:      "missing.txt",
+		StoragePath:      missingRelPath,
 		ContentType:      "text/plain",
 		Size:             100,
 		Checksum:         "abc123",
@@ -187,7 +200,7 @@ func TestReconcileRunOnce_MissingFile(t *testing.T) {
 		RetentionPolicy:  model.RetentionPermanent,
 	}
 
-	attrPath := filepath.Join(dir, "missing.txt"+attr.AttrSuffix)
+	attrPath := filepath.Join(dir, missingRelPath+attr.AttrSuffix)
 	if err := attr.Write(attrPath, meta); err != nil {
 		t.Fatalf("Ошибка записи attr.json: %v", err)
 	}
@@ -211,7 +224,7 @@ func TestReconcileRunOnce_MissingFile(t *testing.T) {
 
 	found := false
 	for _, issue := range result.Issues {
-		if issue.Type == generated.MissingFile && issue.Path != nil && *issue.Path == "missing.txt" {
+		if issue.Type == generated.MissingFile && issue.Path != nil && *issue.Path == missingRelPath {
 			found = true
 			// Проверяем, что file_id заполнен
 			if issue.FileId == nil {
@@ -221,7 +234,7 @@ func TestReconcileRunOnce_MissingFile(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Error("Не обнаружен missing_file для missing.txt")
+		t.Errorf("Не обнаружен missing_file для %s", missingRelPath)
 	}
 	if result.Summary.MissingFiles != 1 {
 		t.Errorf("MissingFiles: хотели 1, получили %d", result.Summary.MissingFiles)
@@ -233,7 +246,11 @@ func TestReconcileRunOnce_SizeMismatch(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Файл с неправильным размером в attr.json
-	filePath := filepath.Join(dir, "size_mismatch.txt")
+	sizeRelPath := "2026/02/20/size_mismatch.txt"
+	filePath := filepath.Join(dir, sizeRelPath)
+	if err := os.MkdirAll(filepath.Dir(filePath), 0o750); err != nil {
+		t.Fatalf("Ошибка создания каталога: %v", err)
+	}
 	if err := os.WriteFile(filePath, []byte("actual data"), 0o640); err != nil {
 		t.Fatalf("Ошибка создания файла: %v", err)
 	}
@@ -241,7 +258,7 @@ func TestReconcileRunOnce_SizeMismatch(t *testing.T) {
 	meta := &model.FileMetadata{
 		FileID:           "size-1",
 		OriginalFilename: "size_mismatch.txt",
-		StoragePath:      "size_mismatch.txt",
+		StoragePath:      sizeRelPath,
 		ContentType:      "text/plain",
 		Size:             999, // Неправильный размер
 		Checksum:         "abc",
@@ -287,7 +304,11 @@ func TestReconcileRunOnce_ChecksumMismatch(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Файл с неправильным checksum в attr.json
-	filePath := filepath.Join(dir, "cs_mismatch.txt")
+	csRelPath := "2026/02/20/cs_mismatch.txt"
+	filePath := filepath.Join(dir, csRelPath)
+	if err := os.MkdirAll(filepath.Dir(filePath), 0o750); err != nil {
+		t.Fatalf("Ошибка создания каталога: %v", err)
+	}
 	content := []byte("actual data")
 	if err := os.WriteFile(filePath, content, 0o640); err != nil {
 		t.Fatalf("Ошибка создания файла: %v", err)
@@ -296,7 +317,7 @@ func TestReconcileRunOnce_ChecksumMismatch(t *testing.T) {
 	meta := &model.FileMetadata{
 		FileID:           "cs-1",
 		OriginalFilename: "cs_mismatch.txt",
-		StoragePath:      "cs_mismatch.txt",
+		StoragePath:      csRelPath,
 		ContentType:      "text/plain",
 		Size:             int64(len(content)), // Правильный размер
 		Checksum:         "deadbeef",          // Неправильный checksum
