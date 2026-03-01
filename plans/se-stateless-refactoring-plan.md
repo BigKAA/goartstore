@@ -5,7 +5,7 @@
 - **Версия плана**: 2.0.0
 - **Дата создания**: 2026-03-01
 - **Последнее обновление**: 2026-03-01
-- **Статус**: In Progress (Phase 2 завершена)
+- **Статус**: In Progress (Phase 3 завершена)
 
 ---
 
@@ -22,7 +22,7 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 2 завершена
+- **Активная фаза**: Phase 3 завершена
 - **Активный подпункт**: N/A
 - **Последнее обновление**: 2026-03-01
 
@@ -181,7 +181,7 @@ SE Instance (stateless HTTP server)
 
 - [x] [Phase 1: Удаление legacy-компонентов и пакет lockfile](#phase-1-удаление-legacy-компонентов-и-пакет-lockfile)
 - [x] [Phase 2: Рефакторинг upload pipeline и сервисов](#phase-2-рефакторинг-upload-pipeline-и-сервисов)
-- [ ] [Phase 3: Lock API, handlers, конфигурация](#phase-3-lock-api-handlers-конфигурация)
+- [x] [Phase 3: Lock API, handlers, конфигурация](#phase-3-lock-api-handlers-конфигурация)
 - [ ] [Phase 4: Периодическая синхронизация и обновление Helm charts](#phase-4-периодическая-синхронизация-и-обновление-helm-charts)
 - [ ] [Phase 5: Сборка, интеграционные тесты, валидация](#phase-5-сборка-интеграционные-тесты-валидация)
 - [ ] [Phase 6: StorageBackend интерфейс (будущее)](#phase-6-storagebackend-интерфейс-будущее)
@@ -375,7 +375,7 @@ SE Instance (stateless HTTP server)
 ## Phase 3: Lock API, handlers, конфигурация
 
 **Dependencies**: Phase 2
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -384,7 +384,7 @@ SE Instance (stateless HTTP server)
 
 ### Подпункты
 
-- [ ] **3.1 Lock API handlers**
+- [x] **3.1 Lock API handlers**
   - **Dependencies**: None
   - **Description**: Добавить два новых endpoint-а:
     - `GET /api/v1/locks` — просмотр текущих lock-ов (диагностика):
@@ -495,7 +495,7 @@ SE Instance (stateless HTTP server)
     - Обновлённый `internal/config/config.go`
   - **Links**: N/A
 
-- [ ] **3.6 Обновление OpenAPI-спецификации**
+- [x] **3.6 Обновление OpenAPI-спецификации**
   - **Dependencies**: 3.1, 3.2
   - **Description**: Обновить `docs/api-contracts/storage-element-openapi.yaml`:
     - **Добавить** endpoint `GET /api/v1/locks`
@@ -509,7 +509,7 @@ SE Instance (stateless HTTP server)
     - Обновлённый `docs/api-contracts/storage-element-openapi.yaml`
   - **Links**: N/A
 
-- [ ] **3.7 Unit-тесты**
+- [x] **3.7 Unit-тесты**
   - **Dependencies**: 3.1 - 3.6
   - **Description**: Обновить и добавить тесты:
     - Тесты Lock API handlers (GET /locks, POST /locks/cleanup, force=true)
@@ -523,13 +523,13 @@ SE Instance (stateless HTTP server)
 
 ### Критерии завершения Phase 3
 
-- [ ] Все подпункты завершены (3.1 - 3.7)
-- [ ] Lock API работает (GET /locks, POST /locks/cleanup)
-- [ ] Нет упоминаний leader/follower, proxy, WAL в рабочем коде
-- [ ] `SE_REPLICA_MODE`, `SE_WAL_DIR` удалены из конфигурации
-- [ ] OpenAPI-спецификация обновлена
-- [ ] `go test ./...` проходит без ошибок
-- [ ] `go vet ./...` без предупреждений
+- [x] Все подпункты завершены (3.1 - 3.7)
+- [x] Lock API работает (GET /locks, POST /locks/cleanup)
+- [x] Нет упоминаний leader/follower, proxy, WAL в рабочем коде
+- [x] `SE_REPLICA_MODE`, `SE_WAL_DIR` удалены из конфигурации
+- [x] OpenAPI-спецификация обновлена
+- [x] `go test ./...` проходит без ошибок
+- [x] `go vet ./...` без предупреждений
 
 ---
 

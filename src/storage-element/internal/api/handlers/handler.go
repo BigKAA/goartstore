@@ -16,6 +16,7 @@ type APIHandler struct {
 	system      *SystemHandler
 	modeHandler *ModeHandler
 	maintenance *MaintenanceHandler
+	locks       *LocksHandler
 	health      *HealthHandler
 	metrics     *server.MetricsHandler
 }
@@ -26,6 +27,7 @@ func NewAPIHandler(
 	system *SystemHandler,
 	modeHandler *ModeHandler,
 	maintenance *MaintenanceHandler,
+	locks *LocksHandler,
 	health *HealthHandler,
 	metrics *server.MetricsHandler,
 ) *APIHandler {
@@ -34,6 +36,7 @@ func NewAPIHandler(
 		system:      system,
 		modeHandler: modeHandler,
 		maintenance: maintenance,
+		locks:       locks,
 		health:      health,
 		metrics:     metrics,
 	}
@@ -81,6 +84,18 @@ func (h *APIHandler) TransitionMode(w http.ResponseWriter, r *http.Request) {
 
 func (h *APIHandler) Reconcile(w http.ResponseWriter, r *http.Request) {
 	h.maintenance.Reconcile(w, r)
+}
+
+// --- Locks ---
+
+// ListLocks делегирует GET /api/v1/locks.
+func (h *APIHandler) ListLocks(w http.ResponseWriter, r *http.Request) {
+	h.locks.ListLocks(w, r)
+}
+
+// CleanupLocks делегирует POST /api/v1/locks/cleanup.
+func (h *APIHandler) CleanupLocks(w http.ResponseWriter, r *http.Request) {
+	h.locks.CleanupLocks(w, r)
 }
 
 // --- Health ---

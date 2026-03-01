@@ -178,6 +178,7 @@ func main() {
 	systemHandler := handlers.NewSystemHandler(cfg, sm, idx)
 	modeHandler := handlers.NewModeHandler(sm, logger, modePersister)
 	maintenanceHandler := handlers.NewMaintenanceHandler(reconcileSvc)
+	locksHandler := handlers.NewLocksHandler(lockMgr)
 	healthHandler := handlers.NewHealthHandlerFull(cfg.DataDir, idx)
 	metricsHandler := server.NewMetricsHandler()
 
@@ -187,6 +188,7 @@ func main() {
 		systemHandler,
 		modeHandler,
 		maintenanceHandler,
+		locksHandler,
 		healthHandler,
 		metricsHandler,
 	)
@@ -215,7 +217,7 @@ func main() {
 	}
 
 	// 12. Создание и запуск HTTP-сервера
-	srv := server.New(cfg, logger, apiHandler, jwtAuth)
+	srv := server.New(cfg, logger, apiHandler, apiHandler, jwtAuth)
 
 	if err := srv.Run(); err != nil {
 		logger.Error("Ошибка сервера", slog.String("error", err.Error()))
