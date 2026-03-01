@@ -17,16 +17,16 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 0 (0.1–0.3b Done, 0.4 Pending)
-- **Активный подпункт**: 0.4
+- **Активная фаза**: Phase 2
+- **Активный подпункт**: —
 - **Последнее обновление**: 2026-03-01
-- **Примечание**: Phase 0.1–0.3b завершены — миграция, OpenAPI, бэкенд, UI. Phase 1 завершена.
+- **Примечание**: Phase 0 Done (priority в SE), Phase 1 Done (каркас IM)
 
 ---
 
 ## Оглавление
 
-- [ ] [Phase 0: Подготовка Admin Module (priority в SE)](#phase-0-подготовка-admin-module-priority-в-se) *(0.1–0.3b Done)*
+- [x] [Phase 0: Подготовка Admin Module (priority в SE)](#phase-0-подготовка-admin-module-priority-в-se)
 - [x] [Phase 1: Каркас проекта и кодогенерация](#phase-1-каркас-проекта-и-кодогенерация)
 - [ ] [Phase 2: Инфраструктурный слой (конфиг, middleware, health)](#phase-2-инфраструктурный-слой-конфиг-middleware-health)
 - [ ] [Phase 3: Бизнес-логика (upload pipeline, SE selection, file registration)](#phase-3-бизнес-логика-upload-pipeline-se-selection-file-registration)
@@ -55,7 +55,7 @@
 ## Phase 0: Подготовка Admin Module (priority в SE)
 
 **Dependencies**: None
-**Status**: In Progress (0.1–0.3b Done)
+**Status**: Done
 
 ### Описание
 
@@ -142,7 +142,7 @@
     - `src/admin-module/internal/ui/i18n/locales/ru.json` (обновление)
     - `src/admin-module/internal/ui/i18n/locales/en.json` (обновление)
 
-- [ ] **0.4 Сборка и деплой обновлённого Admin Module**
+- [x] **0.4 Сборка и деплой обновлённого Admin Module**
   - **Dependencies**: 0.3b
   - **Description**: Сборка нового Docker-образа AM.
     Текущий тег: `v0.3.0-1` → новый: `v0.3.0-2`.
@@ -159,17 +159,17 @@
 
 ### Критерии завершения Phase 0
 
-- [ ] Все подпункты завершены (0.1–0.4, включая 0.3b)
-- [ ] Миграция `004` применяется без ошибок
-- [ ] `GET /api/v1/storage-elements` возвращает поле `priority` для каждого SE
-- [ ] `GET /api/v1/storage-elements` сортирует результаты по `priority ASC, name ASC`
-- [ ] `POST /api/v1/storage-elements` принимает и сохраняет `priority`
-- [ ] `PUT /api/v1/storage-elements/{id}` принимает и сохраняет `priority`
-- [ ] Admin UI отображает priority в таблице SE, деталях и формах
-- [ ] `make i18n-check` проходит (паритет ключей ru.json / en.json)
-- [ ] `make ui-build` (templ-generate + css-build) проходит без ошибок
-- [ ] Существующие интеграционные тесты AM проходят (`make test-am`)
-- [ ] `go vet ./...` и `make lint` проходят для AM
+- [x] Все подпункты завершены (0.1–0.4, включая 0.3b)
+- [x] Миграция `004` применяется без ошибок
+- [x] `GET /api/v1/storage-elements` возвращает поле `priority` для каждого SE
+- [x] `GET /api/v1/storage-elements` сортирует результаты по `priority ASC, name ASC`
+- [x] `POST /api/v1/storage-elements` принимает и сохраняет `priority`
+- [x] `PUT /api/v1/storage-elements/{id}` принимает и сохраняет `priority`
+- [x] Admin UI отображает priority в таблице SE, деталях и формах
+- [x] `make i18n-check` проходит (паритет ключей ru.json / en.json)
+- [x] `make ui-build` (templ-generate + css-build) проходит без ошибок
+- [x] Существующие интеграционные тесты AM проходят (`make test-am`)
+- [x] `go vet ./...` и `make lint` проходят для AM
 
 ---
 
