@@ -1,0 +1,61 @@
+{{- if and .Values.httproute .Values.httproute.enabled }}
+# Gateway API HTTPRoute для внешнего доступа к Ingester Module
+# Маршрутизация /upload/* через artstore.kryukov.lan с strip prefix /upload
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "im.fullname" . }}
+  labels:
+    {{- include "im.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ .Values.httproute.gatewayName }}
+      {{- if .Values.httproute.gatewayNamespace }}
+      namespace: {{ .Values.httproute.gatewayNamespace }}
+      {{- end }}
+  hostnames:
+    - {{ .Values.httproute.hostname | quote }}
+  rules:
+    # /upload/api/v1/* → IM /api/v1/* (strip /upload prefix)
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /upload/api/v1
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /api/v1
+      backendRefs:
+        - name: {{ include "im.fullname" . }}
+          port: {{ .Values.port }}
+    # /upload/health/* → IM /health/* (strip /upload prefix)
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /upload/health
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /health
+      backendRefs:
+        - name: {{ include "im.fullname" . }}
+          port: {{ .Values.port }}
+    # /upload/metrics → IM /metrics (strip /upload prefix)
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /upload/metrics
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /metrics
+      backendRefs:
+        - name: {{ include "im.fullname" . }}
+          port: {{ .Values.port }}
+{{- end }}

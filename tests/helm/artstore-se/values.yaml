@@ -74,7 +74,7 @@ replicatedInstances:
   - name: se-edit-1
     storageId: se-edit-1
     mode: edit
-    replicas: 2
+    replicas: 1
     dataSize: 200Mi
     walSize: 200Mi
     indexRefreshInterval: "10s"
@@ -82,7 +82,7 @@ replicatedInstances:
   - name: se-edit-2
     storageId: se-edit-2
     mode: edit
-    replicas: 2
+    replicas: 1
     dataSize: 200Mi
     walSize: 200Mi
     indexRefreshInterval: "10s"

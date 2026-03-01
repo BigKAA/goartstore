@@ -52,6 +52,7 @@ func main() {
 	// 4. Admin Module HTTP-клиент
 	adminClient, err := adminclient.New(
 		cfg.AdminURL,
+		cfg.TokenURL,
 		cfg.CACertPath,
 		cfg.AdminTimeout,
 		cfg.ClientID,

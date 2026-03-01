@@ -17,10 +17,10 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 4
+- **Активная фаза**: Phase 5
 - **Активный подпункт**: —
 - **Последнее обновление**: 2026-03-01
-- **Примечание**: Phase 0-3 Done. Phase 3: бизнес-логика (adminclient, seclient, selector, upload pipeline, handler, dephealth, main.go интеграция)
+- **Примечание**: Phase 0-4 Done. Phase 4: Dockerfile, Helm chart, test infra, Docker v0.1.0-2, 16 интеграционных тестов (3 health + 3 auth + 10 upload). Keycloak: добавлен client_id protocolMapper для artstore-ingester и artstore-query. SE edit replicas=1 (workaround, задача на рефакторинг: plans/se-stateless-refactoring-plan.md)
 
 ---
 
@@ -30,7 +30,7 @@
 - [x] [Phase 1: Каркас проекта и кодогенерация](#phase-1-каркас-проекта-и-кодогенерация)
 - [x] [Phase 2: Инфраструктурный слой (конфиг, middleware, health)](#phase-2-инфраструктурный-слой-конфиг-middleware-health)
 - [x] [Phase 3: Бизнес-логика (upload pipeline, SE selection, file registration)](#phase-3-бизнес-логика-upload-pipeline-se-selection-file-registration)
-- [ ] [Phase 4: Сборка, деплой и интеграционные тесты](#phase-4-сборка-деплой-и-интеграционные-тесты)
+- [x] [Phase 4: Сборка, деплой и интеграционные тесты](#phase-4-сборка-деплой-и-интеграционные-тесты)
 - [ ] [Phase 5: Sequence-диаграммы и документация](#phase-5-sequence-диаграммы-и-документация)
 
 ---
@@ -769,18 +769,19 @@ retry при 507, topologymetrics.
 ## Phase 4: Сборка, деплой и интеграционные тесты
 
 **Dependencies**: Phase 3
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
-Docker-образ, Helm chart, деплой в тестовый кластер (2 реплики),
+Docker-образ, Helm chart, деплой в тестовый кластер,
 Keycloak client, Gateway API routing, интеграционные тесты.
 Результат: IM работает в Kubernetes, доступен через
-`artstore.kryukov.lan/upload/*`, все тесты проходят.
+`artstore.kryukov.lan/upload/*`, все 16 тестов проходят.
+Docker-образ: `harbor.kryukov.lan/library/ingester-module:v0.1.0-2`.
 
 ### Подпункты
 
-- [ ] **4.1 Dockerfile**
+- [x] **4.1 Dockerfile**
   - **Dependencies**: None
   - **Description**: Multi-stage Dockerfile (по паттерну QM):
     Stage 1 (builder): `golang:1.25-alpine` — `ARG VERSION=dev`,
@@ -795,7 +796,7 @@ Keycloak client, Gateway API routing, интеграционные тесты.
   - **Links**:
     - Паттерн: `src/query-module/Dockerfile`
 
-- [ ] **4.2 Helm chart (charts/ingester-module/)**
+- [x] **4.2 Helm chart (charts/ingester-module/)**
   - **Dependencies**: None
   - **Description**: Helm chart для production-деплоя:
     `Chart.yaml` (v0.1.0), `values.yaml`, `templates/` (deployment, service, httproute).
@@ -830,7 +831,7 @@ Keycloak client, Gateway API routing, интеграционные тесты.
     (получить SA токен через `POST /auth/realms/artstore/protocol/openid-connect/token`).
   - **Creates**: Нет (уже существует)
 
-- [ ] **4.4 Тестовая инфраструктура (artstore-apps)**
+- [x] **4.4 Тестовая инфраструктура (artstore-apps)**
   - **Dependencies**: 4.1
   - **Description**: Добавление IM в `tests/helm/artstore-apps/`:
     **templates/ingester-module.yaml** — Deployment (1 replica, как QM в тесте) + Service:
@@ -900,7 +901,7 @@ Keycloak client, Gateway API routing, интеграционные тесты.
     - `tests/helm/artstore-apps/templates/_helpers.tpl` (обновление)
     - `tests/Makefile` (обновление)
 
-- [ ] **4.5 Сборка Docker-образа и деплой**
+- [x] **4.5 Сборка Docker-образа и деплой**
   - **Dependencies**: 4.4
   - **Description**: Сборка Docker-образа `ingester-module:v0.1.0-1`,
     push в Harbor (`harbor.kryukov.lan/library/ingester-module:v0.1.0-1`).
@@ -921,7 +922,7 @@ Keycloak client, Gateway API routing, интеграционные тесты.
   - **Creates**:
     - Docker image `harbor.kryukov.lan/library/ingester-module:v0.1.0-1`
 
-- [ ] **4.6 Интеграционные тесты**
+- [x] **4.6 Интеграционные тесты**
   - **Dependencies**: 4.5
   - **Description**: Bash + curl тесты в `tests/scripts/` (по паттерну QM, используя `lib.sh`):
     - `test-im-health.sh` (3 теста):
@@ -965,17 +966,23 @@ Keycloak client, Gateway API routing, интеграционные тесты.
 
 ### Критерии завершения Phase 4
 
-- [ ] Все подпункты завершены (4.1–4.6, 4.3 уже выполнен)
-- [ ] Docker-образ собран и загружен в Harbor
-- [ ] 1 под IM работает в тестовом кластере Kubernetes (health checks passing)
-- [ ] Gateway API маршрутизирует `artstore.kryukov.lan/upload/*` → IM
-- [ ] SA токен `artstore-ingester` успешно получается через client_credentials
-- [ ] Все интеграционные тесты проходят: `make test-im` — все тесты green
-- [ ] Upload через Gateway работает (end-to-end: клиент → Gateway → IM → SE → AM register)
-- [ ] Temp-файлы записываются в emptyDir volume `/tmp/uploads`
-- [ ] `go vet ./...` и `make lint` проходят
-- [ ] `helm lint` проходит для production chart (`charts/ingester-module/`)
-- [ ] `make lint-helm` проходит для тестового chart (`tests/helm/artstore-apps/`)
+- [x] Все подпункты завершены (4.1–4.6, 4.3 уже выполнен)
+- [x] Docker-образ собран и загружен в Harbor (`ingester-module:v0.1.0-2`)
+- [x] 1 под IM работает в тестовом кластере Kubernetes (health checks passing)
+- [x] Gateway API маршрутизирует `artstore.kryukov.lan/upload/*` → IM
+- [x] SA токен `artstore-ingester` успешно получается через client_credentials
+- [x] Все интеграционные тесты проходят: `make test-im` — 16 PASS / 0 FAIL
+- [x] Upload через Gateway работает (end-to-end: клиент → Gateway → IM → SE → AM register)
+- [x] Temp-файлы записываются в emptyDir volume `/tmp/uploads`
+- [x] `go vet ./...` и `make lint` проходят
+- [x] `helm lint` проходит для production chart (`charts/ingester-module/`)
+- [x] `make lint-helm` проходит для тестового chart (`tests/helm/artstore-apps/`)
+
+### Замечания Phase 4
+
+- **IM_TOKEN_URL**: Добавлена env-переменная для прямого обращения к Keycloak token endpoint (вместо proxy через AM). Изменения: config.go, adminclient/client.go, main.go, Helm templates.
+- **Keycloak protocolMapper**: Добавлен `client_id` mapper (oidc-usersessionmodel-note-mapper) для клиентов `artstore-ingester` и `artstore-query` — необходим для распознавания SA в AM.
+- **SE replicas=1**: Edit SE (se-edit-1, se-edit-2) работают с replicas=1 как workaround проблемы leader hostname resolution в Deployment. Задача на рефакторинг: `plans/se-stateless-refactoring-plan.md`.
 
 ---
 

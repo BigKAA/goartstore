@@ -1,0 +1,50 @@
+# Deployment Ingester Module — stateless HTTP-сервис
+# TLS termination на API Gateway, внутри кластера — HTTP
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "im.fullname" . }}
+  labels:
+    {{- include "im.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicas }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      {{- include "im.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "im.selectorLabels" . | nindent 8 }}
+      annotations:
+        # Перезапуск pod при изменении ConfigMap или Secret
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- if .Values.metrics.enabled }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ .Values.port | quote }}
+        prometheus.io/path: {{ .Values.metrics.path | quote }}
+        {{- end }}
+    spec:
+      containers:
+        - name: ingester-module
+          image: {{ include "im.image" . }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.port }}
+              protocol: TCP
+          envFrom:
+            {{- include "im.configEnvFrom" . | nindent 12 }}
+            {{- include "im.secretEnvFrom" . | nindent 12 }}
+          volumeMounts:
+            {{- include "im.volumeMounts" . | nindent 12 }}
+          {{- include "im.probes" . | nindent 10 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        {{- include "im.volumes" . | nindent 8 }}

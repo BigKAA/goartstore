@@ -1,0 +1,168 @@
+# Ingester Module — Deployment + Service.
+# Init container: wait-for-am (Admin Module ready).
+# IM stateless — без PostgreSQL, зависит от AM для регистрации файлов и SA-токенов.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingester-module
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "artstore-apps.labels" . | nindent 4 }}
+    {{- include "artstore-apps.im.selectorLabels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "artstore-apps.im.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "artstore-apps.im.selectorLabels" . | nindent 8 }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ .Values.ingesterModule.port | quote }}
+        prometheus.io/path: "/metrics"
+    spec:
+      initContainers:
+        # Ожидание готовности Admin Module (health/ready endpoint)
+        # Без wait-for-pg — IM stateless, не использует PostgreSQL
+        - name: wait-for-am
+          image: alpine:3.19
+          command:
+            - /bin/sh
+            - -c
+            - |
+              apk add --no-cache curl > /dev/null 2>&1
+              echo "Ожидание Admin Module..."
+              AM_URL="http://admin-module.{{ .Values.namespace }}.svc.cluster.local:{{ .Values.adminModule.port }}"
+              TIMEOUT=300
+              ELAPSED=0
+              until curl -sf "${AM_URL}/health/ready" > /dev/null 2>&1; do
+                if [ $ELAPSED -ge $TIMEOUT ]; then
+                  echo "ОШИБКА: Admin Module не стал доступен за ${TIMEOUT} секунд"
+                  exit 1
+                fi
+                echo "  Admin Module не готов (${ELAPSED}s), повтор через 5 секунд..."
+                sleep 5
+                ELAPSED=$((ELAPSED + 5))
+              done
+              echo "Admin Module готов!"
+      containers:
+        - name: ingester-module
+          image: {{ include "artstore-apps.imImage" . }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.ingesterModule.port }}
+              name: http
+          env:
+            # --- Сервер ---
+            - name: IM_PORT
+              value: {{ .Values.ingesterModule.port | quote }}
+            - name: IM_LOG_LEVEL
+              value: {{ .Values.ingesterModule.logLevel | quote }}
+            - name: IM_LOG_FORMAT
+              value: {{ .Values.ingesterModule.logFormat | quote }}
+            # --- JWT/JWKS ---
+            - name: IM_JWKS_URL
+              value: "{{ include "artstore-apps.keycloakHttpUrl" . }}/realms/{{ .Values.ingesterModule.keycloakRealm }}/protocol/openid-connect/certs"
+            {{- if .Values.httproute.enabled }}
+            - name: IM_JWT_ISSUER
+              value: "https://{{ .Values.httproute.hostname }}/realms/{{ .Values.ingesterModule.keycloakRealm }}"
+            {{- end }}
+            # --- Маппинг групп → ролей ---
+            - name: IM_ROLE_ADMIN_GROUPS
+              value: {{ .Values.ingesterModule.roleAdminGroups | quote }}
+            - name: IM_ROLE_READONLY_GROUPS
+              value: {{ .Values.ingesterModule.roleReadonlyGroups | quote }}
+            # --- Admin Module ---
+            - name: IM_ADMIN_URL
+              value: "http://admin-module.{{ .Values.namespace }}.svc.cluster.local:{{ .Values.adminModule.port }}"
+            # --- OAuth2 (Client Credentials) ---
+            - name: IM_TOKEN_URL
+              value: "{{ include "artstore-apps.keycloakHttpUrl" . }}/realms/{{ .Values.ingesterModule.keycloakRealm }}/protocol/openid-connect/token"
+            - name: IM_CLIENT_ID
+              value: {{ .Values.ingesterModule.clientId | quote }}
+            - name: IM_CLIENT_SECRET
+              value: {{ .Values.ingesterModule.clientSecret | quote }}
+            # --- SE Upload ---
+            - name: IM_SE_UPLOAD_TIMEOUT
+              value: {{ .Values.ingesterModule.seUploadTimeout | quote }}
+            # --- Upload ---
+            - name: IM_MAX_FILE_SIZE
+              value: {{ .Values.ingesterModule.maxFileSize | quote }}
+            - name: IM_MAX_RETRIES
+              value: {{ .Values.ingesterModule.maxRetries | quote }}
+            - name: IM_DEFAULT_TTL_DAYS
+              value: {{ .Values.ingesterModule.defaultTtlDays | quote }}
+            # --- HTTP server timeout (upload) ---
+            - name: IM_HTTP_WRITE_TIMEOUT
+              value: "600s"
+            # --- TLS ---
+            - name: IM_CA_CERT_PATH
+              value: /certs/ca.crt
+            - name: IM_SE_CA_CERT_PATH
+              value: /certs/ca.crt
+            # --- topologymetrics ---
+            - name: DEPHEALTH_NAME
+              value: "ingester-module"
+            - name: IM_DEPHEALTH_CHECK_INTERVAL
+              value: {{ .Values.ingesterModule.dephealthCheckInterval | quote }}
+            - name: IM_DEPHEALTH_GROUP
+              value: {{ .Values.ingesterModule.dephealthGroup | quote }}
+            - name: DEPHEALTH_ISENTRY
+              value: "false"
+            # --- Graceful shutdown ---
+            - name: IM_SHUTDOWN_TIMEOUT
+              value: {{ .Values.ingesterModule.shutdownTimeout | quote }}
+          volumeMounts:
+            - name: tls-certs
+              mountPath: /certs
+              readOnly: true
+            - name: temp-upload
+              mountPath: /tmp/uploads
+          resources:
+            {{- toYaml .Values.ingesterModule.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: {{ .Values.ingesterModule.port }}
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: {{ .Values.ingesterModule.port }}
+              scheme: HTTP
+            initialDelaySeconds: 20
+            periodSeconds: 15
+      volumes:
+        # TLS сертификаты из cert-manager (secret из artstore-infra)
+        - name: tls-certs
+          secret:
+            secretName: {{ .Values.tls.secretName }}
+        # Temp-файлы для upload pipeline (emptyDir)
+        - name: temp-upload
+          emptyDir:
+            sizeLimit: "2Gi"
+---
+# Service Ingester Module
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingester-module
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "artstore-apps.labels" . | nindent 4 }}
+    {{- include "artstore-apps.im.selectorLabels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "artstore-apps.im.selectorLabels" . | nindent 4 }}
+  ports:
+    - port: {{ .Values.ingesterModule.port }}
+      targetPort: {{ .Values.ingesterModule.port }}
+      name: http

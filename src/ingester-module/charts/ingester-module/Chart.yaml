@@ -1,0 +1,16 @@
+apiVersion: v2
+name: ingester-module
+description: >-
+  Helm chart для Ingester Module — модуль загрузки файлов Artstore.
+  Streaming upload, валидация, Sequential Fill SE selection,
+  регистрация файлов в Admin Module. Stateless Deployment + ClusterIP Service + HTTPRoute.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - artstore
+  - ingester-module
+  - upload
+  - storage
+maintainers:
+  - name: Artur Kryukov

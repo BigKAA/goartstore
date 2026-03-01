@@ -51,3 +51,18 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/name: query-module
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
+
+{{/*
+Полный URL Docker-образа Ingester Module
+*/}}
+{{- define "artstore-apps.imImage" -}}
+{{ .Values.registry }}/{{ .Values.imImage }}:{{ .Values.imTag }}
+{{- end }}
+
+{{/*
+Метки selector для Ingester Module
+*/}}
+{{- define "artstore-apps.im.selectorLabels" -}}
+app.kubernetes.io/name: ingester-module
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}

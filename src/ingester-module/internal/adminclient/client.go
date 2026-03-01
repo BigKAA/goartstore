@@ -96,6 +96,7 @@ type seListResponse struct {
 type Client struct {
 	httpClient   *http.Client
 	adminURL     string
+	tokenURL     string // URL Keycloak token endpoint для client_credentials grant
 	clientID     string
 	clientSecret string //nolint:gosec // G101: поле структуры, не содержит секрет напрямую
 	logger       *slog.Logger
@@ -107,10 +108,12 @@ type Client struct {
 
 // New создаёт Admin Module клиент.
 // adminURL — базовый URL Admin Module (например, http://admin-module:8000).
+// tokenURL — URL Keycloak token endpoint для client_credentials grant.
 // caCertPath — путь к CA-сертификату для TLS (пустая строка — стандартный пул).
 // timeout — таймаут HTTP-запросов (из конфигурации IM_ADMIN_TIMEOUT).
 func New(
 	adminURL string,
+	tokenURL string,
 	caCertPath string,
 	timeout time.Duration,
 	clientID string,
@@ -135,6 +138,7 @@ func New(
 	return &Client{
 		httpClient:   httpClient,
 		adminURL:     strings.TrimRight(adminURL, "/"),
+		tokenURL:     strings.TrimRight(tokenURL, "/"),
 		clientID:     clientID,
 		clientSecret: clientSecret,
 		logger:       logger.With(slog.String("component", "admin_client")),
@@ -294,8 +298,8 @@ func (c *Client) CheckHealth(ctx context.Context) error {
 // requestToken запрашивает новый SA-токен через client_credentials grant.
 // Вызывается под write lock.
 func (c *Client) requestToken(ctx context.Context) (string, error) {
-	// Token endpoint — через AM proxy /auth/token
-	tokenURL := c.adminURL + "/auth/token"
+	// Token endpoint — напрямую Keycloak (client_credentials grant)
+	tokenURL := c.tokenURL
 
 	data := url.Values{
 		"grant_type":    {"client_credentials"},

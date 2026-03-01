@@ -59,6 +59,9 @@ type Config struct {
 
 	// --- Keycloak OAuth2 (Client Credentials для SA) ---
 
+	// URL Keycloak token endpoint для client_credentials grant
+	// (например, http://keycloak:8080/realms/artstore/protocol/openid-connect/token)
+	TokenURL string
 	// Client ID для client_credentials grant
 	ClientID string
 	// Client Secret для client_credentials grant
@@ -205,6 +208,13 @@ func Load() (*Config, error) {
 	}
 
 	// --- Keycloak OAuth2 ---
+
+	// IM_TOKEN_URL — URL Keycloak token endpoint (обязательный)
+	cfg.TokenURL, err = getEnvRequired("IM_TOKEN_URL")
+	if err != nil {
+		return nil, err
+	}
+	cfg.TokenURL = strings.TrimRight(cfg.TokenURL, "/")
 
 	// IM_CLIENT_ID — Client ID для client_credentials grant (обязательный)
 	cfg.ClientID, err = getEnvRequired("IM_CLIENT_ID")

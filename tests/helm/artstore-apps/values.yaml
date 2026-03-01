@@ -1,6 +1,6 @@
 # =============================================================================
 # artstore-apps — Helm values для приложений тестовой среды
-# Компоненты: Admin Module, Query Module
+# Компоненты: Admin Module, Query Module, Ingester Module
 # =============================================================================
 
 # Namespace для тестовой среды (должен совпадать с artstore-infra)
@@ -14,6 +14,8 @@ amImage: admin-module
 amTag: v0.3.0-2
 qmImage: query-module
 qmTag: v0.1.0-2
+imImage: ingester-module
+imTag: v0.1.0-1
 imagePullPolicy: Always
 
 # -----------------------------------------------------------------------------
@@ -109,9 +111,43 @@ queryModule:
       cpu: "500m"
 
 # -----------------------------------------------------------------------------
+# Ingester Module
+# -----------------------------------------------------------------------------
+ingesterModule:
+  port: 8020
+  logLevel: debug
+  logFormat: json
+  # Keycloak
+  keycloakRealm: artstore
+  clientId: artstore-ingester
+  clientSecret: ingester-test-secret
+  # Маппинг групп → ролей
+  roleAdminGroups: "artstore-admins"
+  roleReadonlyGroups: "artstore-viewers"
+  # SE Upload
+  seUploadTimeout: "10m"
+  # Upload
+  maxFileSize: "1073741824"
+  maxRetries: "3"
+  defaultTtlDays: "30"
+  # topologymetrics
+  dephealthCheckInterval: "15s"
+  dephealthGroup: "core-modules"
+  # Graceful shutdown
+  shutdownTimeout: "5s"
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "500m"
+
+# -----------------------------------------------------------------------------
 # HTTPRoute (Gateway API) — внешний доступ через Envoy Gateway
 # AM: /api/v1/*, /health/*, /admin/*, /static/*, /metrics
 # QM: /query/* → strip /query prefix
+# IM: /upload/* → strip /upload prefix
 # -----------------------------------------------------------------------------
 httproute:
   enabled: true

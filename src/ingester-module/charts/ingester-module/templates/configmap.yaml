@@ -1,0 +1,79 @@
+# ConfigMap с не-секретными переменными окружения Ingester Module
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "im.fullname" . }}-config
+  labels:
+    {{- include "im.labels" . | nindent 4 }}
+data:
+  # --- Сервер ---
+  IM_PORT: {{ .Values.port | quote }}
+  IM_LOG_LEVEL: {{ .Values.logLevel | quote }}
+  IM_LOG_FORMAT: {{ .Values.logFormat | quote }}
+  # --- JWT/JWKS ---
+  IM_JWKS_URL: {{ .Values.jwt.jwksUrl | quote }}
+  {{- if .Values.jwt.issuer }}
+  IM_JWT_ISSUER: {{ .Values.jwt.issuer | quote }}
+  {{- end }}
+  {{- if .Values.jwt.jwksRefreshInterval }}
+  IM_JWKS_REFRESH_INTERVAL: {{ .Values.jwt.jwksRefreshInterval | quote }}
+  {{- end }}
+  {{- if .Values.jwt.leeway }}
+  IM_JWT_LEEWAY: {{ .Values.jwt.leeway | quote }}
+  {{- end }}
+  # --- Маппинг групп → ролей ---
+  IM_ROLE_ADMIN_GROUPS: {{ .Values.rbac.adminGroups | quote }}
+  IM_ROLE_READONLY_GROUPS: {{ .Values.rbac.readonlyGroups | quote }}
+  # --- Admin Module ---
+  IM_ADMIN_URL: {{ .Values.adminModule.url | quote }}
+  {{- if .Values.adminModule.timeout }}
+  IM_ADMIN_TIMEOUT: {{ .Values.adminModule.timeout | quote }}
+  {{- end }}
+  # --- OAuth2 Token URL ---
+  IM_TOKEN_URL: {{ .Values.oauth.tokenUrl | quote }}
+  # --- SE Upload ---
+  {{- if .Values.seUpload }}
+  {{- if .Values.seUpload.timeout }}
+  IM_SE_UPLOAD_TIMEOUT: {{ .Values.seUpload.timeout | quote }}
+  {{- end }}
+  {{- if .Values.seUpload.caCertPath }}
+  IM_SE_CA_CERT_PATH: {{ .Values.seUpload.caCertPath | quote }}
+  {{- end }}
+  {{- end }}
+  # --- Upload ---
+  IM_MAX_FILE_SIZE: {{ .Values.upload.maxFileSize | quote }}
+  IM_DEFAULT_TTL_DAYS: {{ .Values.upload.defaultTtlDays | quote }}
+  IM_MAX_RETRIES: {{ .Values.upload.maxRetries | quote }}
+  # --- TLS ---
+  {{- if .Values.tls.caSecret }}
+  IM_CA_CERT_PATH: "/certs/ca.crt"
+  IM_SE_CA_CERT_PATH: "/certs/ca.crt"
+  {{- end }}
+  # --- Dependency health (topologymetrics) ---
+  DEPHEALTH_NAME: {{ include "im.fullname" . | quote }}
+  IM_DEPHEALTH_CHECK_INTERVAL: {{ .Values.dephealth.checkInterval | quote }}
+  IM_DEPHEALTH_GROUP: {{ .Values.dephealth.group | quote }}
+  {{- if .Values.dephealth.isEntry }}
+  DEPHEALTH_ISENTRY: "true"
+  {{- end }}
+  # --- Таймауты HTTP-клиентов ---
+  {{- with .Values.timeouts }}
+  {{- if .httpClient }}
+  IM_HTTP_CLIENT_TIMEOUT: {{ .httpClient | quote }}
+  {{- end }}
+  {{- if .jwksClient }}
+  IM_JWKS_CLIENT_TIMEOUT: {{ .jwksClient | quote }}
+  {{- end }}
+  # --- Таймауты HTTP-сервера ---
+  {{- if .httpRead }}
+  IM_HTTP_READ_TIMEOUT: {{ .httpRead | quote }}
+  {{- end }}
+  {{- if .httpWrite }}
+  IM_HTTP_WRITE_TIMEOUT: {{ .httpWrite | quote }}
+  {{- end }}
+  {{- if .httpIdle }}
+  IM_HTTP_IDLE_TIMEOUT: {{ .httpIdle | quote }}
+  {{- end }}
+  {{- end }}
+  # --- Graceful shutdown ---
+  IM_SHUTDOWN_TIMEOUT: {{ .Values.shutdownTimeout | quote }}
