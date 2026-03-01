@@ -133,7 +133,7 @@ func TestStorageElementCRUD(t *testing.T) {
 	}
 
 	// List
-	list, err := repo.List(ctx, nil, nil, 10, 0)
+	list, err := repo.List(ctx, nil, nil, "", 10, 0)
 	if err != nil {
 		t.Fatalf("List() ошибка: %v", err)
 	}

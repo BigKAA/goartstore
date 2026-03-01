@@ -670,6 +670,16 @@ paths:
           schema:
             type: string
             enum: [online, offline, degraded, maintenance]
+        - name: sort_by
+          in: query
+          description: |
+            Поле сортировки. По умолчанию `created_at` (DESC).
+            `priority` — сортировка по приоритету ASC, затем по name ASC
+            (используется Ingester Module для Sequential Fill).
+          schema:
+            type: string
+            enum: [created_at, priority]
+            default: created_at
       responses:
         "200":
           description: Список SE
@@ -1631,6 +1641,7 @@ components:
         - status
         - capacity_bytes
         - used_bytes
+        - priority
         - created_at
         - updated_at
       properties:
@@ -1669,6 +1680,14 @@ components:
           type: integer
           format: int64
           example: 53687091200
+        priority:
+          type: integer
+          description: |
+            Приоритет заполнения SE. Меньшее значение = более высокий приоритет.
+            Используется Ingester Module для Sequential Fill Algorithm.
+          default: 0
+          minimum: 0
+          example: 0
         last_sync_at:
           type: string
           format: date-time
@@ -1701,6 +1720,13 @@ components:
           type: string
           format: uri
           example: https://se-moscow-01.kryukov.lan:8010
+        priority:
+          type: integer
+          description: |
+            Приоритет заполнения SE (0 — наивысший). По умолчанию 0.
+          default: 0
+          minimum: 0
+          example: 0
 
     StorageElementUpdate:
       type: object
@@ -1712,6 +1738,10 @@ components:
         url:
           type: string
           format: uri
+        priority:
+          type: integer
+          description: Приоритет заполнения SE (0 — наивысший)
+          minimum: 0
       minProperties: 1
 
     DiscoverRequest:

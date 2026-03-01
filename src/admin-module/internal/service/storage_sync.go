@@ -130,7 +130,7 @@ func (s *StorageSyncService) Stop() {
 func (s *StorageSyncService) SyncAll(ctx context.Context) ([]*model.SyncResult, error) {
 	// Получаем все SE со статусом online (без лимита)
 	onlineStatus := "online"
-	ses, err := s.seRepo.List(ctx, nil, &onlineStatus, 1000, 0)
+	ses, err := s.seRepo.List(ctx, nil, &onlineStatus, "", 1000, 0)
 	if err != nil {
 		return nil, fmt.Errorf("получение списка SE для sync: %w", err)
 	}

@@ -161,7 +161,7 @@ func (h *MonitoringHandler) collectDepStatus(_ context.Context, data *pages.Moni
 
 // collectSEStatus собирает статусы всех SE.
 func (h *MonitoringHandler) collectSEStatus(ctx context.Context, data *pages.MonitoringData) {
-	ses, _, err := h.storageElemsSvc.List(ctx, nil, nil, 1000, 0)
+	ses, _, err := h.storageElemsSvc.List(ctx, nil, nil, "", 1000, 0)
 	if err != nil {
 		h.logger.Error("Ошибка получения SE для мониторинга",
 			slog.String("error", err.Error()),

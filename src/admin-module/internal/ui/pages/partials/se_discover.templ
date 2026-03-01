@@ -62,22 +62,37 @@ templ SEDiscoverResult(preview SEDiscoverPreview) {
 		</div>
 
 		<!-- Форма регистрации -->
-		<div class="border-t border-border-subtle pt-4">
-			<label class="block text-sm font-medium text-text-secondary mb-1">{ i18n.T(ctx, "table.name") }</label>
-			<input
-				type="text"
-				name="name"
-				id="register-name"
-				placeholder="e.g.: se-main-01"
-				class="w-full bg-bg-elevated text-text-primary text-sm rounded-button border border-border-default px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary placeholder:text-text-muted mb-3"
-			/>
+		<div class="border-t border-border-subtle pt-4 space-y-3">
+			<div>
+				<label class="block text-sm font-medium text-text-secondary mb-1">{ i18n.T(ctx, "table.name") }</label>
+				<input
+					type="text"
+					name="name"
+					id="register-name"
+					placeholder="e.g.: se-main-01"
+					class="w-full bg-bg-elevated text-text-primary text-sm rounded-button border border-border-default px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary placeholder:text-text-muted"
+				/>
+			</div>
+			<div>
+				<label class="block text-sm font-medium text-text-secondary mb-1">{ i18n.T(ctx, "se_edit.priority_label") }</label>
+				<input
+					type="number"
+					name="priority"
+					id="register-priority"
+					value="0"
+					min="0"
+					placeholder={ i18n.T(ctx, "se_edit.priority_placeholder") }
+					class="w-full bg-bg-elevated text-text-primary text-sm rounded-button border border-border-default px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary"
+				/>
+				<p class="text-xs text-text-muted mt-1">{ i18n.T(ctx, "se_detail.priority_help") }</p>
+			</div>
 			<input type="hidden" name="url" value={ preview.URL }/>
 			<button
 				class="w-full inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-accent-primary text-bg-base rounded-button hover:bg-accent-light transition-colors gap-1.5"
 				hx-post="/admin/partials/se-register"
 				hx-target="#discover-result"
 				hx-swap="innerHTML"
-				hx-include="#register-name, [name='url']"
+				hx-include="#register-name, #register-priority, [name='url']"
 			>
 				<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
 					<path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"></path>

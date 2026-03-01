@@ -93,7 +93,13 @@ func (h *APIHandler) CreateStorageElement(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	se, err := h.storageElems.Create(r.Context(), req.Name, req.Url)
+	// Priority: если не указан, по умолчанию 0
+	priority := 0
+	if req.Priority != nil {
+		priority = *req.Priority
+	}
+
+	se, err := h.storageElems.Create(r.Context(), req.Name, req.Url, priority)
 	if err != nil {
 		if errors.Is(err, service.ErrConflict) {
 			apierrors.Conflict(w, err.Error())
@@ -150,7 +156,13 @@ func (h *APIHandler) ListStorageElements(w http.ResponseWriter, r *http.Request,
 		status = &s
 	}
 
-	ses, total, err := h.storageElems.List(r.Context(), mode, status, limit, offset)
+	// Параметр сортировки: по умолчанию created_at DESC
+	sortBy := ""
+	if params.SortBy != nil {
+		sortBy = string(*params.SortBy)
+	}
+
+	ses, total, err := h.storageElems.List(r.Context(), mode, status, sortBy, limit, offset)
 	if err != nil {
 		h.logger.Error("Ошибка получения списка SE", "error", err)
 		apierrors.InternalError(w, "Ошибка получения списка Storage Elements")
@@ -231,7 +243,7 @@ func (h *APIHandler) UpdateStorageElement(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	se, err := h.storageElems.Update(r.Context(), id.String(), req.Name, req.Url)
+	se, err := h.storageElems.Update(r.Context(), id.String(), req.Name, req.Url, req.Priority)
 	if err != nil {
 		if errors.Is(err, service.ErrNotFound) {
 			apierrors.NotFound(w, "Storage Element не найден")
@@ -349,6 +361,7 @@ func mapStorageElement(se *model.StorageElement) generated.StorageElement {
 		Status:        generated.StorageElementStatus(se.Status),
 		CapacityBytes: se.CapacityBytes,
 		UsedBytes:     se.UsedBytes,
+		Priority:      se.Priority,
 		CreatedAt:     se.CreatedAt,
 		UpdatedAt:     se.UpdatedAt,
 	}

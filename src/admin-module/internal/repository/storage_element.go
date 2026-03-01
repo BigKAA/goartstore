@@ -18,7 +18,8 @@ type StorageElementRepository interface {
 	// GetByID возвращает SE по UUID.
 	GetByID(ctx context.Context, id string) (*model.StorageElement, error)
 	// List возвращает список SE с фильтрацией по mode и status.
-	List(ctx context.Context, mode, status *string, limit, offset int) ([]*model.StorageElement, error)
+	// sortBy: "priority" — сортировка по priority ASC, name ASC; иначе — created_at DESC.
+	List(ctx context.Context, mode, status *string, sortBy string, limit, offset int) ([]*model.StorageElement, error)
 	// Update обновляет SE.
 	Update(ctx context.Context, se *model.StorageElement) error
 	// Delete удаляет SE из реестра.
@@ -40,13 +41,14 @@ func NewStorageElementRepository(db DBTX) StorageElementRepository {
 func (r *storageElementRepo) Create(ctx context.Context, se *model.StorageElement) error {
 	query := `
 		INSERT INTO storage_elements (id, name, url, storage_id, mode, status,
-			capacity_bytes, used_bytes, available_bytes, last_sync_at, last_file_sync_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+			capacity_bytes, used_bytes, available_bytes, priority,
+			last_sync_at, last_file_sync_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		RETURNING created_at, updated_at`
 
 	err := r.db.QueryRow(ctx, query,
 		se.ID, se.Name, se.URL, se.StorageID, se.Mode, se.Status,
-		se.CapacityBytes, se.UsedBytes, se.AvailableBytes,
+		se.CapacityBytes, se.UsedBytes, se.AvailableBytes, se.Priority,
 		se.LastSyncAt, se.LastFileSyncAt,
 	).Scan(&se.CreatedAt, &se.UpdatedAt)
 	if err != nil {
@@ -61,7 +63,7 @@ func (r *storageElementRepo) Create(ctx context.Context, se *model.StorageElemen
 func (r *storageElementRepo) GetByID(ctx context.Context, id string) (*model.StorageElement, error) {
 	query := `
 		SELECT id, name, url, storage_id, mode, status,
-			capacity_bytes, used_bytes, available_bytes,
+			capacity_bytes, used_bytes, available_bytes, priority,
 			last_sync_at, last_file_sync_at, created_at, updated_at
 		FROM storage_elements
 		WHERE id = $1`
@@ -69,7 +71,7 @@ func (r *storageElementRepo) GetByID(ctx context.Context, id string) (*model.Sto
 	se := &model.StorageElement{}
 	err := r.db.QueryRow(ctx, query, id).Scan(
 		&se.ID, &se.Name, &se.URL, &se.StorageID, &se.Mode, &se.Status,
-		&se.CapacityBytes, &se.UsedBytes, &se.AvailableBytes,
+		&se.CapacityBytes, &se.UsedBytes, &se.AvailableBytes, &se.Priority,
 		&se.LastSyncAt, &se.LastFileSyncAt, &se.CreatedAt, &se.UpdatedAt,
 	)
 	if err != nil {
@@ -81,7 +83,7 @@ func (r *storageElementRepo) GetByID(ctx context.Context, id string) (*model.Sto
 	return se, nil
 }
 
-func (r *storageElementRepo) List(ctx context.Context, mode, status *string, limit, offset int) ([]*model.StorageElement, error) {
+func (r *storageElementRepo) List(ctx context.Context, mode, status *string, sortBy string, limit, offset int) ([]*model.StorageElement, error) {
 	// Динамическое построение WHERE
 	var conditions []string
 	var args []any
@@ -103,14 +105,20 @@ func (r *storageElementRepo) List(ctx context.Context, mode, status *string, lim
 		where = "WHERE " + strings.Join(conditions, " AND ")
 	}
 
+	// Сортировка: по приоритету (для Ingester) или по дате создания (по умолчанию)
+	orderBy := "ORDER BY created_at DESC"
+	if sortBy == "priority" {
+		orderBy = "ORDER BY priority ASC, name ASC"
+	}
+
 	query := fmt.Sprintf(`
 		SELECT id, name, url, storage_id, mode, status,
-			capacity_bytes, used_bytes, available_bytes,
+			capacity_bytes, used_bytes, available_bytes, priority,
 			last_sync_at, last_file_sync_at, created_at, updated_at
 		FROM storage_elements
 		%s
-		ORDER BY created_at DESC
-		LIMIT $%d OFFSET $%d`, where, argNum, argNum+1)
+		%s
+		LIMIT $%d OFFSET $%d`, where, orderBy, argNum, argNum+1)
 
 	args = append(args, limit, offset)
 
@@ -125,7 +133,7 @@ func (r *storageElementRepo) List(ctx context.Context, mode, status *string, lim
 		se := &model.StorageElement{}
 		if err := rows.Scan(
 			&se.ID, &se.Name, &se.URL, &se.StorageID, &se.Mode, &se.Status,
-			&se.CapacityBytes, &se.UsedBytes, &se.AvailableBytes,
+			&se.CapacityBytes, &se.UsedBytes, &se.AvailableBytes, &se.Priority,
 			&se.LastSyncAt, &se.LastFileSyncAt, &se.CreatedAt, &se.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("ошибка сканирования SE: %w", err)
@@ -139,14 +147,14 @@ func (r *storageElementRepo) Update(ctx context.Context, se *model.StorageElemen
 	query := `
 		UPDATE storage_elements
 		SET name = $2, url = $3, storage_id = $4, mode = $5, status = $6,
-			capacity_bytes = $7, used_bytes = $8, available_bytes = $9,
-			last_sync_at = $10, last_file_sync_at = $11
+			capacity_bytes = $7, used_bytes = $8, available_bytes = $9, priority = $10,
+			last_sync_at = $11, last_file_sync_at = $12
 		WHERE id = $1
 		RETURNING updated_at`
 
 	err := r.db.QueryRow(ctx, query,
 		se.ID, se.Name, se.URL, se.StorageID, se.Mode, se.Status,
-		se.CapacityBytes, se.UsedBytes, se.AvailableBytes,
+		se.CapacityBytes, se.UsedBytes, se.AvailableBytes, se.Priority,
 		se.LastSyncAt, se.LastFileSyncAt,
 	).Scan(&se.UpdatedAt)
 	if err != nil {

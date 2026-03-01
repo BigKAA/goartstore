@@ -158,7 +158,7 @@ func (h *EventsHandler) sendDepStatus(_ context.Context, w http.ResponseWriter, 
 
 // sendSEStatus отправляет SSE-событие со статусами Storage Elements.
 func (h *EventsHandler) sendSEStatus(ctx context.Context, w http.ResponseWriter, rc *http.ResponseController) {
-	ses, _, err := h.storageElemsSvc.List(ctx, nil, nil, 1000, 0)
+	ses, _, err := h.storageElemsSvc.List(ctx, nil, nil, "", 1000, 0)
 	if err != nil {
 		h.logger.Error("Ошибка получения SE для SSE", slog.String("error", err.Error()))
 		return

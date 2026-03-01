@@ -448,7 +448,7 @@ func (h *FilesHandler) buildFilters(status, retention, seID, showDeleted, role s
 
 // getSENames получает список SE с именами для фильтра.
 func (h *FilesHandler) getSENames(ctx context.Context) []pages.SEOption {
-	ses, _, err := h.storageElemsSvc.List(ctx, nil, nil, 1000, 0)
+	ses, _, err := h.storageElemsSvc.List(ctx, nil, nil, "", 1000, 0)
 	if err != nil {
 		h.logger.Warn("Ошибка получения списка SE для фильтра",
 			slog.String("error", err.Error()),

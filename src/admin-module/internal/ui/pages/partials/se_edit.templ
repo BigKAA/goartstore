@@ -2,6 +2,7 @@ package partials
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/bigkaa/goartstore/admin-module/internal/domain/model"
 	"github.com/bigkaa/goartstore/admin-module/internal/ui/components"
@@ -9,7 +10,7 @@ import (
 )
 
 // SEEditForm — partial: форма редактирования SE (inline в se-action-result).
-templ SEEditForm(id, name, url string) {
+templ SEEditForm(id, name, url string, priority int) {
 	<div class="card mb-4">
 		<div class="flex items-center justify-between mb-4">
 			<h3 class="text-lg font-semibold text-text-primary">{ i18n.T(ctx, "se_edit.title") }</h3>
@@ -43,6 +44,19 @@ templ SEEditForm(id, name, url string) {
 					class="w-full bg-bg-elevated text-text-primary text-sm rounded-button border border-border-default px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary"
 				/>
 			</div>
+			<div>
+				<label class="block text-sm font-medium text-text-secondary mb-1">{ i18n.T(ctx, "se_edit.priority_label") }</label>
+				<input
+					type="number"
+					name="priority"
+					id={ "edit-priority-" + id }
+					value={ strconv.Itoa(priority) }
+					min="0"
+					placeholder={ i18n.T(ctx, "se_edit.priority_placeholder") }
+					class="w-full bg-bg-elevated text-text-primary text-sm rounded-button border border-border-default px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary"
+				/>
+				<p class="text-xs text-text-muted mt-1">{ i18n.T(ctx, "se_detail.priority_help") }</p>
+			</div>
 			<div class="flex items-center justify-end gap-3 pt-2">
 				<button
 					class="px-4 py-2 text-sm font-medium text-text-secondary bg-bg-elevated rounded-button hover:bg-bg-hover transition-colors"
@@ -55,7 +69,7 @@ templ SEEditForm(id, name, url string) {
 					hx-put={ fmt.Sprintf("/admin/partials/se-edit/%s", id) }
 					hx-target="#se-action-result"
 					hx-swap="innerHTML"
-					hx-include={ fmt.Sprintf("#edit-name-%s, #edit-url-%s", id, id) }
+					hx-include={ fmt.Sprintf("#edit-name-%s, #edit-url-%s, #edit-priority-%s", id, id, id) }
 				>
 					{ i18n.T(ctx, "btn.save") }
 				</button>

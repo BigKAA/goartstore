@@ -88,7 +88,7 @@ func (h *StorageElementsHandler) HandleList(w http.ResponseWriter, r *http.Reque
 
 	// Получаем список SE
 	offset := (page - 1) * sePageSize
-	ses, total, err := h.storageElemsSvc.List(ctx, modePtr, statusPtr, sePageSize, offset)
+	ses, total, err := h.storageElemsSvc.List(ctx, modePtr, statusPtr, "", sePageSize, offset)
 	if err != nil {
 		h.logger.Error("Ошибка получения списка SE",
 			slog.String("error", err.Error()),
@@ -106,6 +106,7 @@ func (h *StorageElementsHandler) HandleList(w http.ResponseWriter, r *http.Reque
 			Status:        se.Status,
 			CapacityBytes: se.CapacityBytes,
 			UsedBytes:     se.UsedBytes,
+			Priority:      se.Priority,
 			LastSyncAt:    se.LastSyncAt,
 		}
 
@@ -211,7 +212,7 @@ func (h *StorageElementsHandler) HandleTablePartial(w http.ResponseWriter, r *ht
 	}
 
 	offset := (page - 1) * sePageSize
-	ses, total, err := h.storageElemsSvc.List(ctx, modePtr, statusPtr, sePageSize, offset)
+	ses, total, err := h.storageElemsSvc.List(ctx, modePtr, statusPtr, "", sePageSize, offset)
 	if err != nil {
 		h.logger.Error("Ошибка получения списка SE (partial)",
 			slog.String("error", err.Error()),
@@ -228,6 +229,7 @@ func (h *StorageElementsHandler) HandleTablePartial(w http.ResponseWriter, r *ht
 			Status:        se.Status,
 			CapacityBytes: se.CapacityBytes,
 			UsedBytes:     se.UsedBytes,
+			Priority:      se.Priority,
 			LastSyncAt:    se.LastSyncAt,
 		}
 
@@ -339,7 +341,15 @@ func (h *StorageElementsHandler) HandleRegister(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	_, err := h.storageElemsSvc.Create(ctx, name, url)
+	// Парсинг priority из формы (default 0).
+	priority := 0
+	if ps := r.FormValue("priority"); ps != "" {
+		if p, pErr := strconv.Atoi(ps); pErr == nil && p >= 0 {
+			priority = p
+		}
+	}
+
+	_, err := h.storageElemsSvc.Create(ctx, name, url, priority)
 	if err != nil {
 		h.logger.Warn("Ошибка регистрации SE",
 			slog.String("name", name),
@@ -375,16 +385,24 @@ func (h *StorageElementsHandler) HandleEdit(w http.ResponseWriter, r *http.Reque
 
 	name := r.FormValue("name")
 	url := r.FormValue("url")
+	priorityStr := r.FormValue("priority")
 
 	var namePtr, urlPtr *string
+	var priorityPtr *int
 	if name != "" {
 		namePtr = &name
 	}
 	if url != "" {
 		urlPtr = &url
 	}
+	if priorityStr != "" {
+		p, pErr := strconv.Atoi(priorityStr)
+		if pErr == nil {
+			priorityPtr = &p
+		}
+	}
 
-	_, err := h.storageElemsSvc.Update(ctx, id, namePtr, urlPtr)
+	_, err := h.storageElemsSvc.Update(ctx, id, namePtr, urlPtr, priorityPtr)
 	if err != nil {
 		h.logger.Warn("Ошибка обновления SE",
 			slog.String("se_id", id),
@@ -481,7 +499,7 @@ func (h *StorageElementsHandler) HandleSyncAll(w http.ResponseWriter, r *http.Re
 	ctx := r.Context()
 
 	// Получаем все SE
-	ses, _, err := h.storageElemsSvc.List(ctx, nil, nil, 1000, 0)
+	ses, _, err := h.storageElemsSvc.List(ctx, nil, nil, "", 1000, 0)
 	if err != nil {
 		h.renderAlert(w, r, "Ошибка получения списка SE: "+err.Error())
 		return
@@ -571,6 +589,7 @@ func (h *StorageElementsHandler) HandleDetail(w http.ResponseWriter, r *http.Req
 		CapacityBytes:  se.CapacityBytes,
 		UsedBytes:      se.UsedBytes,
 		AvailableBytes: se.AvailableBytes,
+		Priority:       se.Priority,
 		LastSyncAt:     se.LastSyncAt,
 		LastFileSyncAt: se.LastFileSyncAt,
 		CreatedAt:      se.CreatedAt,
@@ -664,7 +683,7 @@ func (h *StorageElementsHandler) HandleEditForm(w http.ResponseWriter, r *http.R
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := partials.SEEditForm(se.ID, se.Name, se.URL).Render(ctx, w); err != nil {
+	if err := partials.SEEditForm(se.ID, se.Name, se.URL, se.Priority).Render(ctx, w); err != nil {
 		h.logger.Error("Ошибка рендеринга edit form",
 			slog.String("error", err.Error()),
 		)

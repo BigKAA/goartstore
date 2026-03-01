@@ -19,6 +19,7 @@ type SEListItem struct {
 	Status        string // online, offline, degraded, maintenance
 	CapacityBytes int64
 	UsedBytes     int64
+	Priority      int // Приоритет заполнения (0 — наивысший)
 	FileCount     int
 	LastSyncAt    *time.Time
 }
@@ -232,6 +233,7 @@ templ seTableContent(data SEListData) {
 						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "se.table.mode") }</th>
 						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "se.table.status") }</th>
 						<th class="px-4 py-3 font-medium min-w-[160px]">{ i18n.T(ctx, "se.table.capacity") }</th>
+						<th class="px-4 py-3 font-medium text-center">{ i18n.T(ctx, "se.table.priority") }</th>
 						<th class="px-4 py-3 font-medium text-right">{ i18n.T(ctx, "se.table.files") }</th>
 						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "se.table.last_sync") }</th>
 						if data.Role == "admin" {
@@ -277,6 +279,9 @@ templ seTableContent(data SEListData) {
 									Total:   se.CapacityBytes,
 									Compact: true,
 								})
+							</td>
+							<td class="px-4 py-3 text-center">
+								<span class="text-text-secondary">{ strconv.Itoa(se.Priority) }</span>
 							</td>
 							<td class="px-4 py-3 text-right">
 								<span class="text-text-secondary">{ strconv.Itoa(se.FileCount) }</span>
@@ -400,9 +405,9 @@ func seSortURL(key, currentKey, currentDir string) string {
 // seColCount возвращает количество колонок (для colspan).
 func seColCount(role string) string {
 	if role == "admin" {
-		return "8"
+		return "9"
 	}
-	return "7"
+	return "8"
 }
 
 // SafeID заменяет дефисы в UUID на подчёркивания (для Alpine.js переменных).

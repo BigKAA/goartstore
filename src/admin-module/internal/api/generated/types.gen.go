@@ -243,6 +243,12 @@ const (
 	ListStorageElementsParamsStatusOnline      ListStorageElementsParamsStatus = "online"
 )
 
+// Defines values for ListStorageElementsParamsSortBy.
+const (
+	CreatedAt ListStorageElementsParamsSortBy = "created_at"
+	Priority  ListStorageElementsParamsSortBy = "priority"
+)
+
 // AdminUser Пользователь (данные из Keycloak + локальные дополнения)
 type AdminUser struct {
 	// CreatedAt Дата создания в Keycloak
@@ -656,10 +662,14 @@ type StorageElement struct {
 	LastFileSyncAt *time.Time `json:"last_file_sync_at"`
 
 	// LastSyncAt Время последней синхронизации info
-	LastSyncAt *time.Time           `json:"last_sync_at"`
-	Mode       StorageElementMode   `json:"mode"`
-	Name       string               `json:"name"`
-	Status     StorageElementStatus `json:"status"`
+	LastSyncAt *time.Time         `json:"last_sync_at"`
+	Mode       StorageElementMode `json:"mode"`
+	Name       string             `json:"name"`
+
+	// Priority Приоритет заполнения SE. Меньшее значение = более высокий приоритет.
+	// Используется Ingester Module для Sequential Fill Algorithm.
+	Priority int                  `json:"priority"`
+	Status   StorageElementStatus `json:"status"`
 
 	// StorageId Идентификатор SE (из SE /api/v1/info)
 	StorageId string    `json:"storage_id"`
@@ -677,7 +687,10 @@ type StorageElementStatus string
 // StorageElementCreate defines model for StorageElementCreate.
 type StorageElementCreate struct {
 	Name string `json:"name"`
-	Url  string `json:"url"`
+
+	// Priority Приоритет заполнения SE (0 — наивысший). По умолчанию 0.
+	Priority *int   `json:"priority,omitempty"`
+	Url      string `json:"url"`
 }
 
 // StorageElementListResponse defines model for StorageElementListResponse.
@@ -692,7 +705,10 @@ type StorageElementListResponse struct {
 // StorageElementUpdate defines model for StorageElementUpdate.
 type StorageElementUpdate struct {
 	Name *string `json:"name,omitempty"`
-	Url  *string `json:"url,omitempty"`
+
+	// Priority Приоритет заполнения SE (0 — наивысший)
+	Priority *int    `json:"priority,omitempty"`
+	Url      *string `json:"url,omitempty"`
 }
 
 // SyncResponse Результат синхронизации SE
@@ -804,6 +820,11 @@ type ListStorageElementsParams struct {
 
 	// Status Фильтр по статусу
 	Status *ListStorageElementsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// SortBy Поле сортировки. По умолчанию `created_at` (DESC).
+	// `priority` — сортировка по приоритету ASC, затем по name ASC
+	// (используется Ingester Module для Sequential Fill).
+	SortBy *ListStorageElementsParamsSortBy `form:"sort_by,omitempty" json:"sort_by,omitempty"`
 }
 
 // ListStorageElementsParamsMode defines parameters for ListStorageElements.
@@ -811,6 +832,9 @@ type ListStorageElementsParamsMode string
 
 // ListStorageElementsParamsStatus defines parameters for ListStorageElements.
 type ListStorageElementsParamsStatus string
+
+// ListStorageElementsParamsSortBy defines parameters for ListStorageElements.
+type ListStorageElementsParamsSortBy string
 
 // UpdateAdminUserJSONRequestBody defines body for UpdateAdminUser for application/json ContentType.
 type UpdateAdminUserJSONRequestBody = AdminUserUpdate

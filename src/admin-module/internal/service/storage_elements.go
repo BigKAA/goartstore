@@ -91,7 +91,8 @@ func (s *StorageElementService) Discover(ctx context.Context, url string) (*Disc
 }
 
 // Create регистрирует новый SE: discover + сохранение в БД + полная синхронизация файлов.
-func (s *StorageElementService) Create(ctx context.Context, name, url string) (*model.StorageElement, error) {
+// priority — приоритет заполнения SE (0 — наивысший).
+func (s *StorageElementService) Create(ctx context.Context, name, url string, priority int) (*model.StorageElement, error) {
 	// Предпросмотр SE
 	info, err := s.seClient.Info(ctx, url)
 	if err != nil {
@@ -108,6 +109,7 @@ func (s *StorageElementService) Create(ctx context.Context, name, url string) (*
 		StorageID:  info.StorageID,
 		Mode:       info.Mode,
 		Status:     info.Status,
+		Priority:   priority,
 		LastSyncAt: &now,
 	}
 
@@ -166,9 +168,10 @@ func (s *StorageElementService) Create(ctx context.Context, name, url string) (*
 	return se, nil
 }
 
-// List возвращает список SE с фильтрацией и пагинацией.
-func (s *StorageElementService) List(ctx context.Context, mode, status *string, limit, offset int) ([]*model.StorageElement, int, error) {
-	ses, err := s.seRepo.List(ctx, mode, status, limit, offset)
+// List возвращает список SE с фильтрацией, сортировкой и пагинацией.
+// sortBy: "priority" — сортировка по priority ASC, name ASC; иначе — created_at DESC.
+func (s *StorageElementService) List(ctx context.Context, mode, status *string, sortBy string, limit, offset int) ([]*model.StorageElement, int, error) {
+	ses, err := s.seRepo.List(ctx, mode, status, sortBy, limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("получение списка SE: %w", err)
 	}
@@ -193,8 +196,8 @@ func (s *StorageElementService) Get(ctx context.Context, id string) (*model.Stor
 	return se, nil
 }
 
-// Update обновляет SE (name, url). Mode/status/capacity обновляются через sync.
-func (s *StorageElementService) Update(ctx context.Context, id string, name, url *string) (*model.StorageElement, error) {
+// Update обновляет SE (name, url, priority). Mode/status/capacity обновляются через sync.
+func (s *StorageElementService) Update(ctx context.Context, id string, name, url *string, priority *int) (*model.StorageElement, error) {
 	// Получаем текущий SE
 	se, err := s.seRepo.GetByID(ctx, id)
 	if err != nil {
@@ -214,6 +217,9 @@ func (s *StorageElementService) Update(ctx context.Context, id string, name, url
 	}
 	if url != nil {
 		se.URL = *url
+	}
+	if priority != nil {
+		se.Priority = *priority
 	}
 
 	// Обновляем в БД

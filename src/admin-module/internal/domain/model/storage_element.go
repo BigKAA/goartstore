@@ -23,6 +23,9 @@ type StorageElement struct {
 	UsedBytes int64
 	// AvailableBytes — доступное пространство (может быть nil)
 	AvailableBytes *int64
+	// Priority — приоритет заполнения SE (0 — наивысший).
+	// Используется Ingester Module для Sequential Fill Algorithm.
+	Priority int
 	// LastSyncAt — время последней синхронизации info
 	LastSyncAt *time.Time
 	// LastFileSyncAt — время последней синхронизации файлов

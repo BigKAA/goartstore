@@ -17,16 +17,16 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 1 (завершена)
-- **Активный подпункт**: —
+- **Активная фаза**: Phase 0 (0.1–0.3b Done, 0.4 Pending)
+- **Активный подпункт**: 0.4
 - **Последнее обновление**: 2026-03-01
-- **Примечание**: Phase 1 завершена — каркас, кодогенерация, stubs, health
+- **Примечание**: Phase 0.1–0.3b завершены — миграция, OpenAPI, бэкенд, UI. Phase 1 завершена.
 
 ---
 
 ## Оглавление
 
-- [ ] [Phase 0: Подготовка Admin Module (priority в SE)](#phase-0-подготовка-admin-module-priority-в-se)
+- [ ] [Phase 0: Подготовка Admin Module (priority в SE)](#phase-0-подготовка-admin-module-priority-в-se) *(0.1–0.3b Done)*
 - [x] [Phase 1: Каркас проекта и кодогенерация](#phase-1-каркас-проекта-и-кодогенерация)
 - [ ] [Phase 2: Инфраструктурный слой (конфиг, middleware, health)](#phase-2-инфраструктурный-слой-конфиг-middleware-health)
 - [ ] [Phase 3: Бизнес-логика (upload pipeline, SE selection, file registration)](#phase-3-бизнес-логика-upload-pipeline-se-selection-file-registration)
@@ -55,7 +55,7 @@
 ## Phase 0: Подготовка Admin Module (priority в SE)
 
 **Dependencies**: None
-**Status**: Pending
+**Status**: In Progress (0.1–0.3b Done)
 
 ### Описание
 
@@ -66,7 +66,7 @@
 
 ### Подпункты
 
-- [ ] **0.1 Миграция БД: добавление колонки priority**
+- [x] **0.1 Миграция БД: добавление колонки priority**
   - **Dependencies**: None
   - **Description**: Новая SQL-миграция `004` в Admin Module (последняя существующая — `003`):
     `ALTER TABLE storage_elements ADD COLUMN priority INTEGER NOT NULL DEFAULT 0`.
@@ -77,7 +77,7 @@
     - `src/admin-module/internal/database/migrations/004_add_se_priority.up.sql`
     - `src/admin-module/internal/database/migrations/004_add_se_priority.down.sql`
 
-- [ ] **0.2 Обновление OpenAPI контракта Admin Module**
+- [x] **0.2 Обновление OpenAPI контракта Admin Module**
   - **Dependencies**: 0.1
   - **Description**: Добавить поле `priority` (integer, default 0) в схемы:
     - `StorageElement` (response) — новое поле `priority` (integer)
@@ -93,7 +93,7 @@
     - `src/admin-module/internal/api/generated/types.gen.go` (перегенерация)
     - `src/admin-module/internal/api/generated/server.gen.go` (перегенерация)
 
-- [ ] **0.3 Обновление бэкенда Admin Module (model → repo → service → handler)**
+- [x] **0.3 Обновление бэкенда Admin Module (model → repo → service → handler)**
   - **Dependencies**: 0.2
   - **Description**:
     **Domain model** — `storage_element.go`: добавить `Priority int`.
@@ -116,7 +116,7 @@
     - `src/admin-module/internal/service/storage_elements.go` (обновление)
     - `src/admin-module/internal/api/handlers/storage_elements.go` (обновление)
 
-- [ ] **0.3b Обновление Admin UI (Templ templates + i18n)**
+- [x] **0.3b Обновление Admin UI (Templ templates + i18n)**
   - **Dependencies**: 0.3
   - **Description**:
     **Templ шаблоны** (5 файлов):

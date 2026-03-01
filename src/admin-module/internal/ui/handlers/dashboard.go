@@ -98,7 +98,7 @@ func (h *DashboardHandler) collectDashboardData(ctx context.Context, username, r
 // collectSEMetrics собирает метрики Storage Elements: список SE, счётчики по статусам.
 func (h *DashboardHandler) collectSEMetrics(ctx context.Context, data *pages.DashboardData) {
 	// Получаем все SE (без фильтрации, лимит 1000 — достаточно для Dashboard)
-	ses, total, err := h.storageElemsSvc.List(ctx, nil, nil, 1000, 0)
+	ses, total, err := h.storageElemsSvc.List(ctx, nil, nil, "", 1000, 0)
 	if err != nil {
 		h.logger.Error("Ошибка получения SE для Dashboard",
 			slog.String("error", err.Error()),

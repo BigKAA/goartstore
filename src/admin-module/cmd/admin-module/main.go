@@ -435,7 +435,7 @@ func loadSEEndpoints(
 	logger *slog.Logger,
 ) {
 	// Загружаем все SE (limit 10000 — достаточно для любого реального развёртывания)
-	seList, err := seRepo.List(ctx, nil, nil, 10000, 0)
+	seList, err := seRepo.List(ctx, nil, nil, "", 10000, 0)
 	if err != nil {
 		logger.Warn("Не удалось загрузить SE для dephealth",
 			slog.String("error", err.Error()),
