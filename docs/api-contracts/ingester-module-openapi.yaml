@@ -281,11 +281,12 @@ paths:
       summary: Prometheus metrics
       description: |
         Метрики в формате Prometheus. Включают:
-        - Счётчики загрузок (успешные, неуспешные, по retention_policy)
-        - Гистограммы латентности upload (общее время, время SE, время регистрации)
-        - Гистограммы размеров файлов
-        - Счётчики ошибок по типу (SE unavailable, storage full, и т.д.)
-        - Gauge текущих активных загрузок
+        - im_uploads_total — счётчик загрузок (по retention_policy, status)
+        - im_upload_duration_seconds — гистограмма длительности upload
+        - im_upload_size_bytes — гистограмма размеров файлов
+        - im_se_upload_duration_seconds — время передачи в SE
+        - im_active_uploads — gauge текущих активных загрузок
+        - im_retry_total — счётчик retry (по причине)
         - Метрики зависимостей topologymetrics (app_dependency_health,
           app_dependency_latency_seconds, app_dependency_status,
           app_dependency_status_detail)
@@ -299,11 +300,14 @@ paths:
               schema:
                 type: string
                 example: |
-                  # HELP ingester_uploads_total Общее количество загрузок
-                  # TYPE ingester_uploads_total counter
-                  ingester_uploads_total{retention_policy="temporary",status="success"} 1523
-                  ingester_uploads_total{retention_policy="permanent",status="success"} 847
-                  ingester_uploads_total{status="error"} 12
+                  # HELP im_uploads_total Общее количество загрузок
+                  # TYPE im_uploads_total counter
+                  im_uploads_total{retention_policy="temporary",status="success"} 1523
+                  im_uploads_total{retention_policy="permanent",status="success"} 847
+                  im_uploads_total{status="error"} 12
+                  # HELP im_upload_duration_seconds Длительность загрузки файла
+                  # TYPE im_upload_duration_seconds histogram
+                  im_upload_duration_seconds_bucket{retention_policy="temporary",le="1"} 102
 
 # ---------------------------------------------------------------------------
 # Компоненты (Components)
@@ -432,6 +436,11 @@ components:
           enum: [active]
           description: Статус файла (всегда `active` при загрузке)
           example: active
+        storage_element_id:
+          type: string
+          format: uuid
+          description: Идентификатор Storage Element, в который загружен файл
+          example: 660e8400-e29b-41d4-a716-446655440001
         retention_policy:
           type: string
           enum: [temporary, permanent]
