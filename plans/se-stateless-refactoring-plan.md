@@ -184,7 +184,7 @@ SE Instance (stateless HTTP server)
 - [x] [Phase 3: Lock API, handlers, конфигурация](#phase-3-lock-api-handlers-конфигурация)
 - [x] [Phase 4: Периодическая синхронизация и обновление Helm charts](#phase-4-периодическая-синхронизация-и-обновление-helm-charts)
 - [x] [Phase 5: Сборка, интеграционные тесты, валидация](#phase-5-сборка-интеграционные-тесты-валидация)
-- [ ] [Phase 6: StorageBackend интерфейс (будущее)](#phase-6-storagebackend-интерфейс-будущее)
+- [ ] [Phase 6: Storage Backend — интерфейсы и абстракция (будущее)](#phase-6-storage-backend--интерфейсы-и-абстракция-будущее)
 - [ ] [Phase 7: S3 Backend (будущее)](#phase-7-s3-backend-будущее)
 
 ---
@@ -748,81 +748,281 @@ SE Instance (stateless HTTP server)
 
 ---
 
-## Phase 6: StorageBackend интерфейс (будущее)
+## Phase 6: Storage Backend — интерфейсы и абстракция (будущее)
 
 **Dependencies**: Phase 5
 **Status**: Not Started
 
 ### Описание
 
-Выделение абстракции `StorageBackend` — интерфейса, через который SE работает
-с хранилищем. Текущая реализация (`filestore`, `attr`, `index`, `lockfile`)
-оборачивается в `LocalFSBackend`. В будущем добавляется `S3Backend` (Phase 7).
+Выделение абстракций хранения в виде **трёх фокусных интерфейсов** (Interface
+Segregation Principle) вместо одного God-интерфейса. Текущие конкретные типы
+(`filestore.FileStore`, пакет `attr`, `lockfile.LockManager`) адаптируются
+к интерфейсам. В будущем для каждого интерфейса создаётся S3-реализация (Phase 7).
 
-Цель — разделить бизнес-логику SE от конкретной реализации хранилища.
+Цель — разделить бизнес-логику SE от конкретной реализации хранилища, сохранив
+GC/Reconcile как сервисы (бизнес-логика), а не как часть backend.
 
 > **Примечание**: Эта фаза может быть отложена до момента, когда реально
 > понадобится S3. Phases 1-5 дают рабочий stateless SE без абстракции backend.
 
-### Предлагаемый интерфейс
+### Архитектурные решения
+
+> **Решение: 3 интерфейса вместо 1 God-интерфейса**
+>
+> Исходный вариант с единым `StorageBackend` (13 методов) смешивал CRUD,
+> бизнес-логику (GC, Reconcile) и координацию (locks). Проблемы:
+> - S3Backend вынужден реализовывать no-op заглушки для lock-методов
+> - GC/Reconcile — сервисная логика (TTL-политики, статусы), не свойство хранилища
+> - Нарушение Interface Segregation Principle
+>
+> Новый подход: `FileStore`, `AttrStore`, `LockStore` — каждый с одной
+> ответственностью. Сервисы (GC, Reconcile, Upload, Download) принимают
+> только те интерфейсы, которые им нужны.
+
+> **Решение: Index и StateMachine вне backend**
+>
+> `Index` — in-memory кэш метаданных, одинаковый для любого backend.
+> `StateMachine` — бизнес-логика FSM режимов. Оба не зависят от типа хранилища
+> и не входят в абстракцию backend.
+
+> **Решение: context.Context во все storage-методы**
+>
+> Текущие методы `filestore`, `attr`, `lockfile` не принимают `context.Context`.
+> S3 требует контекст для таймаутов, отмены, трассировки. Добавление ctx —
+> обязательная часть рефакторинга. Для LocalFS ctx игнорируется.
+
+### Предлагаемые интерфейсы
 
 ```go
-type StorageBackend interface {
-    Store(ctx context.Context, params StoreParams) (*StoreResult, error)
-    Get(ctx context.Context, fileID string) (io.ReadCloser, *FileInfo, error)
-    Delete(ctx context.Context, fileID string) error
-    Stat(ctx context.Context, fileID string) (*FileInfo, error)
-    List(ctx context.Context, opts ListOptions) ([]FileInfo, error)
-    Available(ctx context.Context) (int64, error)
-    RunGC(ctx context.Context) (*GCResult, error)
-    RunReconcile(ctx context.Context) (*ReconcileResult, error)
-    AcquireLock(ctx context.Context, fileID string) error
-    ReleaseLock(ctx context.Context, fileID string) error
-    IsLocked(ctx context.Context, fileID string) (bool, error)
-    ListLocks(ctx context.Context) ([]LockInfo, error)
-    CleanupLocks(ctx context.Context, force bool) (*CleanupResult, error)
+// internal/backend/interfaces.go
+
+// FileStore — абстракция физического хранения файлов.
+// LocalFS: filestore.FileStore (temp → fsync → rename).
+// S3: PutObject (streaming), GetObject, DeleteObject.
+type FileStore interface {
+    // SaveFile сохраняет файл из reader. Возвращает путь, размер, checksum.
+    SaveFile(ctx context.Context, reader io.Reader, filename, uploadedBy string) (*SaveResult, error)
+    // ReadFile открывает файл для чтения (streaming).
+    ReadFile(ctx context.Context, storagePath string) (io.ReadCloser, error)
+    // DeleteFile физически удаляет файл. Идемпотентно (не ошибка если нет).
+    DeleteFile(ctx context.Context, storagePath string) error
+    // FileExists проверяет существование файла.
+    FileExists(ctx context.Context, storagePath string) (bool, error)
+    // FileSize возвращает размер файла в байтах.
+    FileSize(ctx context.Context, storagePath string) (int64, error)
+    // ComputeChecksum вычисляет SHA-256 checksum файла.
+    ComputeChecksum(ctx context.Context, storagePath string) (string, error)
+    // AvailableSpace возвращает доступное место в байтах.
+    // LocalFS: syscall.Statfs. S3: конфигурируемый quota.
+    AvailableSpace(ctx context.Context) (int64, error)
+    // FullPath возвращает полный путь к файлу (для HTTP ServeContent).
+    // S3: возвращает S3 key (используется для логирования).
+    FullPath(storagePath string) string
+}
+
+// AttrStore — абстракция хранения метаданных файлов.
+// LocalFS: *.attr.json рядом с файлом (atomic temp → rename).
+// S3: sidecar-объекты {key}.attr.json в том же bucket.
+type AttrStore interface {
+    // Write атомарно записывает метаданные для файла.
+    Write(ctx context.Context, storagePath string, meta *model.FileMetadata) error
+    // Read читает метаданные файла.
+    Read(ctx context.Context, storagePath string) (*model.FileMetadata, error)
+    // Delete удаляет метаданные файла. Идемпотентно.
+    Delete(ctx context.Context, storagePath string) error
+    // ScanAll сканирует все метаданные в хранилище (для index rebuild, GC, reconcile).
+    // LocalFS: filepath.Walk по *.attr.json. S3: ListObjectsV2 с фильтром .attr.json.
+    ScanAll(ctx context.Context) ([]*model.FileMetadata, error)
+}
+
+// LockStore — абстракция координации записи.
+// LocalFS: per-file lock-файлы в {dataDir}/.locks/ с TTL.
+// S3: NoOpLockStore (PutObject атомарен, блокировки не нужны).
+type LockStore interface {
+    // Acquire захватывает lock на файл (по fileID).
+    Acquire(ctx context.Context, fileID string) error
+    // Release освобождает lock на файл.
+    Release(ctx context.Context, fileID string) error
+    // IsLocked проверяет наличие активного lock-а (TTL не истёк).
+    IsLocked(ctx context.Context, fileID string) (bool, *LockInfo, error)
+    // List возвращает все текущие lock-и (активные + expired).
+    List(ctx context.Context) ([]LockInfo, error)
+    // Cleanup удаляет expired lock-и. При force=true — все lock-и.
+    Cleanup(ctx context.Context, force bool) (*CleanupResult, error)
+    // TTL возвращает настроенное время жизни lock-а.
+    TTL() time.Duration
+}
+
+// Backend — convenience-обёртка, содержащая все три реализации.
+// Создаётся фабрикой на основе SE_STORAGE_BACKEND.
+type Backend struct {
+    Files FileStore
+    Attrs AttrStore
+    Locks LockStore
 }
 ```
 
+### Зависимости сервисов от интерфейсов
+
+| Сервис | FileStore | AttrStore | LockStore | Index | StateMachine |
+|--------|:---------:|:---------:|:---------:|:-----:|:------------:|
+| UploadService | ✓ | ✓ | ✓ | ✓ | ✓ |
+| DownloadService | ✓ | — | — | ✓ | ✓ |
+| GCService | ✓ | ✓ | ✓ | ✓ | — |
+| ReconcileService | ✓ | ✓ | ✓ | ✓ | — |
+| IndexSyncService | — | ✓ | — | ✓ | — |
+| ModeSyncService | — | — | — | — | ✓ |
+
 ### Подпункты
 
-- [ ] **6.1 Определение интерфейса `StorageBackend`**
+- [ ] **6.1 Определение интерфейсов и типов**
   - **Dependencies**: None
-  - **Description**: Создать пакет `internal/backend/` с интерфейсом и типами.
+  - **Description**: Создать пакет `internal/backend/` с тремя интерфейсами,
+    convenience-структурой `Backend`, и общими типами:
+    - `FileStore`, `AttrStore`, `LockStore` — интерфейсы (см. выше)
+    - `Backend` struct — holder для фабрики
+    - `SaveResult` — результат SaveFile (storagePath, size, checksum, fileID)
+    - `LockInfo` — информация о lock-е (переиспользовать из lockfile)
+    - `CleanupResult` — результат Cleanup (переиспользовать из lockfile)
+    - Типы определяются в `internal/backend/`, конкретные реализации ссылаются
+      на них. Если типы уже есть в lockfile — использовать type alias или
+      переместить в backend.
   - **Creates**:
-    - `internal/backend/backend.go`
+    - `internal/backend/interfaces.go` — интерфейсы + Backend struct
+    - `internal/backend/types.go` — SaveResult, LockInfo, CleanupResult
   - **Links**: N/A
 
-- [ ] **6.2 Реализация `LocalFSBackend`**
+- [ ] **6.2 Добавление context.Context в существующие методы**
   - **Dependencies**: 6.1
-  - **Description**: Обернуть `filestore`, `attr`, `index`, `lockfile`
-    в реализацию `LocalFSBackend`.
+  - **Description**: Расширить сигнатуры методов конкретных типов для совместимости
+    с интерфейсами:
+    - `filestore.FileStore`: добавить `ctx context.Context` первым параметром
+      в `SaveFile`, `ReadFile`, `DeleteFile`, `FileExists`, `FileSize`,
+      `ComputeChecksum`, `AvailableSpace`. Для LocalFS ctx игнорируется,
+      но сигнатура соответствует интерфейсу.
+    - `lockfile.LockManager`: добавить `ctx context.Context` в `Acquire`,
+      `Release`, `IsLocked`, `List`, `Cleanup`.
+    - Обновить **все вызывающие сайты** (сервисы, handlers, main.go) —
+      передавать `context.Background()` или request context.
+    - Пакет `attr`: функции остаются package-level, адаптер создаётся в 6.3.
   - **Creates**:
-    - `internal/backend/localfs/localfs.go`
-    - `internal/backend/localfs/localfs_test.go`
+    - Обновлённые `internal/storage/filestore/filestore.go`
+    - Обновлённые `internal/lockfile/lockfile.go`
+    - Обновлённые вызывающие сайты во всех сервисах и handlers
   - **Links**: N/A
 
-- [ ] **6.3 Рефакторинг сервисного слоя**
-  - **Dependencies**: 6.2
-  - **Description**: Обновить сервисы для работы через `StorageBackend`.
+- [ ] **6.3 Создание LocalAttrStore адаптера**
+  - **Dependencies**: 6.1
+  - **Description**: Пакет `attr` использует package-level функции
+    (`attr.Write()`, `attr.Read()`, и т.д.), а не struct. Для реализации
+    интерфейса `AttrStore` создать struct-адаптер:
+    ```go
+    // internal/storage/attr/store.go
+    type Store struct {
+        dataDir string
+    }
+    func NewStore(dataDir string) *Store
+    func (s *Store) Write(ctx context.Context, storagePath string, meta *model.FileMetadata) error
+    func (s *Store) Read(ctx context.Context, storagePath string) (*model.FileMetadata, error)
+    func (s *Store) Delete(ctx context.Context, storagePath string) error
+    func (s *Store) ScanAll(ctx context.Context) ([]*model.FileMetadata, error)
+    ```
+    Методы делегируют к существующим package-level функциям (`attr.Write()` и др.),
+    добавляя dataDir-контекст для `ScanAll`. Существующие package-level функции
+    сохраняются для backward compatibility.
   - **Creates**:
-    - Обновлённые сервисы
+    - `internal/storage/attr/store.go` — LocalAttrStore адаптер
+    - `internal/storage/attr/store_test.go` — тесты адаптера
   - **Links**: N/A
 
-- [ ] **6.4 Фабрика backend-ов и тесты**
+- [ ] **6.4 Рефакторинг сервисов: замена конкретных типов на интерфейсы**
   - **Dependencies**: 6.2, 6.3
-  - **Description**: Фабрика по `SE_STORAGE_BACKEND` + unit-тесты.
+  - **Description**: Обновить конструкторы и поля сервисов для приёма интерфейсов
+    вместо конкретных типов. Поэтапно:
+    - **UploadService**: `store *filestore.FileStore` → `store backend.FileStore`,
+      добавить `attrStore backend.AttrStore`, `lockStore backend.LockStore`.
+      Убрать прямые вызовы `attr.Write()` → `attrStore.Write()`.
+    - **DownloadService**: `store *filestore.FileStore` → `store backend.FileStore`.
+    - **GCService**: аналогично — `store`, `attrStore`, `lockStore` через
+      интерфейсы. Убрать прямые вызовы `attr.*()`.
+    - **ReconcileService**: аналогично. `ScanAll()` заменяет ручной
+      `filepath.Walk` + `attr.IsAttrFile()`.
+    - **IndexSyncService**: `attrStore backend.AttrStore` для `ScanAll()`
+      вместо `idx.RebuildFromDir(dataDir)`.
+    - Обновить unit-тесты: заменить конкретные зависимости на mock-реализации
+      интерфейсов (позволяет тестировать без реальной FS).
   - **Creates**:
-    - `internal/backend/factory.go`
-    - Тесты
+    - Обновлённые `internal/service/upload.go`, `download.go`, `gc.go`,
+      `reconcile.go`, `indexsync.go`
+    - Обновлённые тесты сервисов
+  - **Links**: N/A
+
+- [ ] **6.5 Рефакторинг handlers: замена конкретных типов на интерфейсы**
+  - **Dependencies**: 6.4
+  - **Description**: Обновить handlers, которые напрямую используют storage-типы:
+    - **FilesHandler**: `store *filestore.FileStore` → `store backend.FileStore`,
+      `lockManager *lockfile.LockManager` → `lockStore backend.LockStore`.
+    - **LocksHandler**: `lockManager *lockfile.LockManager` →
+      `lockStore backend.LockStore`.
+    - **HealthHandler**: обновить проверку readiness — вместо прямого доступа
+      к dataDir использовать `backend.FileStore.AvailableSpace()` (если >0 → ready).
+  - **Creates**:
+    - Обновлённые `internal/api/handlers/files.go`, `locks.go`, `health.go`
+  - **Links**: N/A
+
+- [ ] **6.6 Фабрика backend и обновление main.go**
+  - **Dependencies**: 6.4, 6.5
+  - **Description**: Создать фабрику и обновить точку входа:
+    - Фабрика `backend.New(cfg *config.Config) (*Backend, error)`:
+      - Читает `SE_STORAGE_BACKEND` (default: `localfs`)
+      - `localfs`: создаёт `filestore.New()`, `attr.NewStore()`,
+        `lockfile.NewLockManager()` → `Backend{Files, Attrs, Locks}`
+      - `s3`: placeholder (Phase 7)
+      - Неизвестное значение → ошибка
+    - Добавить `SE_STORAGE_BACKEND` в `config.Config` (default: `localfs`,
+      допустимые значения: `localfs`)
+    - Обновить `main.go`: заменить ручное создание filestore/lockManager
+      на `backend.New(cfg)`, передать `bk.Files`, `bk.Attrs`, `bk.Locks`
+      в сервисы и handlers.
+  - **Creates**:
+    - `internal/backend/factory.go` — фабрика
+    - Обновлённый `internal/config/config.go`
+    - Обновлённый `cmd/storage-element/main.go`
+  - **Links**: N/A
+
+- [ ] **6.7 Unit-тесты и валидация**
+  - **Dependencies**: 6.1 - 6.6
+  - **Description**: Финальная валидация:
+    - Unit-тесты для фабрики (localfs, unknown backend → error)
+    - Проверка что `filestore.FileStore` удовлетворяет `backend.FileStore`
+      (compile-time: `var _ backend.FileStore = (*filestore.FileStore)(nil)`)
+    - Проверка что `attr.Store` удовлетворяет `backend.AttrStore`
+    - Проверка что `lockfile.LockManager` удовлетворяет `backend.LockStore`
+    - `go test ./...` проходит без ошибок
+    - `go vet ./...` без предупреждений
+    - Проверка что существующие интеграционные тесты проходят без изменений
+      (backward compatibility)
+  - **Creates**:
+    - `internal/backend/factory_test.go`
+    - Compile-time checks в `internal/backend/checks.go`
+    - Обновлённые тесты сервисов и handlers
   - **Links**: N/A
 
 ### Критерии завершения Phase 6
 
-- [ ] Все подпункты завершены (6.1 - 6.4)
-- [ ] `StorageBackend` интерфейс определён и реализован для LocalFS
-- [ ] Сервисный слой работает через `StorageBackend`
+- [ ] Все подпункты завершены (6.1 - 6.7)
+- [ ] Три интерфейса (`FileStore`, `AttrStore`, `LockStore`) определены
+      в `internal/backend/`
+- [ ] Все существующие конкретные типы удовлетворяют интерфейсам
+      (compile-time checks)
+- [ ] Все сервисы и handlers принимают интерфейсы вместо конкретных типов
+- [ ] Фабрика `backend.New()` создаёт LocalFS backend по умолчанию
+- [ ] GC и Reconcile остаются сервисами, не частью backend
+- [ ] Index и StateMachine не входят в абстракцию backend
 - [ ] `go test ./...` проходит без ошибок
+- [ ] `go vet ./...` без предупреждений
+- [ ] Существующие интеграционные тесты SE проходят без изменений
 
 ---
 
@@ -833,43 +1033,262 @@ type StorageBackend interface {
 
 ### Описание
 
-Реализация S3-совместимого backend-а. S3 обеспечивает атомарность на уровне
-`PutObject`, поэтому lock-файлы и WAL не нужны. Метаданные хранятся в object
-tags или sidecar-объектах.
+Реализация S3-совместимого backend-а: `S3FileStore`, `S3AttrStore`,
+`NoOpLockStore`. S3 обеспечивает атомарность на уровне `PutObject`, поэтому
+per-file lock-файлы не нужны. Метаданные хранятся в sidecar-объектах
+(`{key}.attr.json`) — не в object tags (лимит 10 тегов / 2KB).
 
-Эта фаза является перспективной и будет детализирована при необходимости.
+> **Примечание**: Эта фаза будет детализирована непосредственно перед
+> реализацией. Подпункты ниже — предварительный план на основе анализа
+> архитектуры Phase 6.
+
+### Архитектурные решения
+
+> **Решение: Sidecar-объекты для метаданных (не object tags)**
+>
+> S3 object tags ограничены 10 тегами и 2KB на объект. `FileMetadata` содержит
+> ~15 полей включая списки (tags, description). Sidecar-объекты `{key}.attr.json`
+> не имеют ограничений, атомарно перезаписываются через `PutObject`, и позволяют
+> переиспользовать формат LocalFS attr.json без изменений.
+
+> **Решение: NoOpLockStore для S3**
+>
+> S3 `PutObject` атомарен. Нет риска частичной записи, как на LocalFS.
+> `NoOpLockStore` возвращает пустые результаты для всех методов:
+> - `Acquire()` → nil (no-op)
+> - `Release()` → nil (no-op)
+> - `IsLocked()` → false, nil, nil
+> - `List()` → empty slice
+> - `Cleanup()` → empty result
+> - `TTL()` → 0
+>
+> Это означает что `DELETE /api/v1/files/{fileId}` никогда не вернёт 409
+> при S3 backend (upload атомарен, конфликтов нет).
+
+> **Решение: AvailableSpace() для S3 — конфигурируемый quota**
+>
+> У S3 нет понятия "свободное место". Используем `SE_S3_MAX_CAPACITY` —
+> конфигурируемый лимит. `AvailableSpace()` = `SE_S3_MAX_CAPACITY` -
+> `суммарный размер объектов` (кэшируется, обновляется периодически).
+
+> **Решение: mode.json при S3 backend**
+>
+> При S3 backend mode.json хранится как S3 объект `{prefix}/mode.json`.
+> ModeSyncService читает его через `GetObject`, ModeHandler записывает
+> через `PutObject`. Интерфейс modefile адаптируется для абстракции
+> (или mode.json выносится в отдельный `ModeStore` интерфейс).
+
+### Структура S3 bucket
+
+```
+{bucket}/
+└── {storageID}/
+    ├── mode.json                              ← режим SE
+    ├── data/
+    │   ├── photo_admin_20260301_abc123.jpg     ← файл данных
+    │   ├── photo_admin_20260301_abc123.jpg.attr.json  ← метаданные (sidecar)
+    │   ├── report_viewer_20260302_def456.pdf
+    │   └── report_viewer_20260302_def456.pdf.attr.json
+    └── (нет .locks/ — блокировки не нужны для S3)
+```
+
+**Формат ключей**:
+- Data: `{storageID}/data/{storagePath}`
+- Attr: `{storageID}/data/{storagePath}.attr.json`
+- Mode: `{storageID}/mode.json`
 
 ### Подпункты
 
-- [ ] **7.1 Проектирование S3Backend**
+- [ ] **7.1 Дизайн-документ S3 Backend**
   - **Dependencies**: None
-  - **Description**: Дизайн: структура bucket-а, хранение метаданных,
-    conditional writes, GC через lifecycle rules.
+  - **Description**: Создать техдизайн-документ с детальным описанием:
+    - Структура bucket-а и формат ключей (описано выше)
+    - Стратегия метаданных: sidecar-объекты `.attr.json`
+    - Обработка ошибок S3: retries (exponential backoff), rate limiting (429),
+      network errors, partial failures
+    - Multi-part upload: порог размера файла для перехода на multipart
+      (default: 100MB), размер части (default: 16MB)
+    - GC при S3: использование S3 Lifecycle Rules для автоматического удаления
+      expired объектов vs программный GC через `ListObjectsV2`
+    - Reconcile при S3: `ListObjectsV2` для обнаружения orphaned объектов
+      (data без attr.json, attr.json без data)
+    - Index rebuild при S3: `ListObjectsV2` с фильтром `*.attr.json` →
+      `GetObject` для каждого → parse → rebuild index.
+      При >100K файлов: пагинация с MaxKeys=1000, параллельный `GetObject`
+    - Стоимость: `ListObjectsV2` ($0.005/1000 запросов), `GetObject`
+      ($0.0004/1000 запросов). Index rebuild каждые 30s при 10K файлов ≈
+      $1.3/месяц
+    - Conditional writes: `If-None-Match: *` для предотвращения перезаписи
+      (опционально — fileID уникален, коллизий нет)
+    - Сравнение S3 strong consistency (с декабря 2020) vs eventual consistency
   - **Creates**:
-    - Дизайн-документ
+    - `docs/design/se-s3-backend-design.md`
   - **Links**: N/A
 
-- [ ] **7.2 Реализация и тестирование S3Backend**
+- [ ] **7.2 Реализация S3FileStore**
   - **Dependencies**: 7.1
-  - **Description**: Реализация `StorageBackend` для S3 + тесты с MinIO.
+  - **Description**: Реализовать `backend.FileStore` для S3:
+    - Использовать AWS SDK for Go v2 (`github.com/aws/aws-sdk-go-v2`)
+    - `SaveFile()`: streaming `PutObject` (для файлов > порога — multipart
+      upload через `s3manager.Uploader`)
+    - `ReadFile()`: `GetObject` → `io.ReadCloser` (body)
+    - `DeleteFile()`: `DeleteObject` (идемпотентно — S3 не ошибается на 404)
+    - `FileExists()`: `HeadObject` (NoSuchKey → false)
+    - `FileSize()`: `HeadObject` → ContentLength
+    - `ComputeChecksum()`: `HeadObject` → `ChecksumSHA256` (если включён)
+      или `GetObject` + вычисление
+    - `AvailableSpace()`: `SE_S3_MAX_CAPACITY` - кэшированный total size
+      (обновляется по таймеру или при каждом upload/delete)
+    - `FullPath()`: возвращает S3 key (для логирования)
+    - Retry-стратегия: exponential backoff (aws-sdk-go-v2 built-in retry)
+    - Context: все операции используют переданный ctx для таймаутов и отмены
   - **Creates**:
-    - `internal/backend/s3/s3.go`
-    - `internal/backend/s3/s3_test.go`
+    - `internal/backend/s3/filestore.go`
+    - `internal/backend/s3/filestore_test.go` (тесты с MinIO через
+      testcontainers-go)
   - **Links**: N/A
 
-- [ ] **7.3 Конфигурация S3**
+- [ ] **7.3 Реализация S3AttrStore**
+  - **Dependencies**: 7.1
+  - **Description**: Реализовать `backend.AttrStore` для S3:
+    - `Write()`: `PutObject` с ключом `{storagePath}.attr.json`,
+      Content-Type: `application/json`. JSON-формат идентичен LocalFS attr.json.
+    - `Read()`: `GetObject` → JSON decode
+    - `Delete()`: `DeleteObject` (идемпотентно)
+    - `ScanAll()`: `ListObjectsV2` с Prefix `{storageID}/data/` и фильтром
+      `*.attr.json`. Для каждого результата — `GetObject` + JSON decode.
+      Пагинация через ContinuationToken. Параллельный fetch через worker pool
+      (concurrency = 10).
+    - Кэширование: `ScanAll` может быть дорогим при >10K файлов.
+      Опционально: incremental scan (запоминать LastModified, читать только
+      изменённые).
+  - **Creates**:
+    - `internal/backend/s3/attrstore.go`
+    - `internal/backend/s3/attrstore_test.go`
+  - **Links**: N/A
+
+- [ ] **7.4 Реализация NoOpLockStore**
+  - **Dependencies**: 7.1
+  - **Description**: Реализовать `backend.LockStore` как no-op:
+    - Все методы возвращают пустые/нулевые значения без ошибок
+    - `TTL()` → 0 (lock-и не используются при S3)
+    - Минимальный код (~30 строк)
+    - Следствие: `DELETE` никогда не возвращает 409 при S3 backend,
+      `GET /api/v1/locks` всегда возвращает пустой список
+  - **Creates**:
+    - `internal/backend/s3/lockstore.go`
+    - `internal/backend/s3/lockstore_test.go`
+  - **Links**: N/A
+
+- [ ] **7.5 Адаптация modefile для S3**
   - **Dependencies**: 7.2
-  - **Description**: Env-переменные: `SE_S3_ENDPOINT`, `SE_S3_BUCKET`,
-    `SE_S3_REGION`, `SE_S3_ACCESS_KEY`, `SE_S3_SECRET_KEY`, `SE_S3_USE_PATH_STYLE`.
+  - **Description**: Решить проблему mode.json при S3 backend:
+    - **Вариант A** (рекомендуется): `ModeStore` интерфейс в `internal/backend/`:
+      ```go
+      type ModeStore interface {
+          LoadMode(ctx context.Context) (string, string, error) // mode, updatedBy, err
+          SaveMode(ctx context.Context, mode, updatedBy string) error
+      }
+      ```
+      LocalFS: делегирует к `modefile.LoadMode()`/`SaveMode()`.
+      S3: `GetObject`/`PutObject` на `{storageID}/mode.json`.
+    - **Вариант B**: хранить mode.json в ConfigMap (K8s-зависимость)
+    - Обновить `ModeSyncService` и `ModeHandler` для работы через интерфейс
+  - **Creates**:
+    - `internal/backend/modestore.go` — интерфейс ModeStore
+    - `internal/backend/s3/modestore.go` — S3 реализация
+    - Обновлённые `internal/service/modesync.go`, `internal/api/handlers/mode.go`
+  - **Links**: N/A
+
+- [ ] **7.6 Конфигурация S3**
+  - **Dependencies**: 7.2
+  - **Description**: Добавить env-переменные для S3 backend:
+    - `SE_STORAGE_BACKEND` — `localfs` (default) или `s3`
+    - `SE_S3_ENDPOINT` — S3 endpoint URL (обязателен при `s3`)
+    - `SE_S3_BUCKET` — имя bucket-а (обязателен при `s3`)
+    - `SE_S3_REGION` — AWS region (default: `us-east-1`)
+    - `SE_S3_ACCESS_KEY` — AWS access key
+    - `SE_S3_SECRET_KEY` — AWS secret key
+    - `SE_S3_USE_PATH_STYLE` — path-style URL (default: `true` — для MinIO)
+    - `SE_S3_MAX_CAPACITY` — quota в байтах (обязателен при `s3`,
+      замена `SE_MAX_CAPACITY` для S3)
+    - `SE_S3_MULTIPART_THRESHOLD` — порог для multipart upload
+      (default: `104857600` = 100MB)
+    - `SE_S3_MULTIPART_PART_SIZE` — размер части multipart
+      (default: `16777216` = 16MB)
+    - Валидация: при `SE_STORAGE_BACKEND=s3` обязательны `SE_S3_ENDPOINT`,
+      `SE_S3_BUCKET`, `SE_S3_MAX_CAPACITY`
   - **Creates**:
     - Обновлённый `internal/config/config.go`
   - **Links**: N/A
 
+- [ ] **7.7 Обновление фабрики backend**
+  - **Dependencies**: 7.2, 7.3, 7.4, 7.5, 7.6
+  - **Description**: Обновить `backend.New()`:
+    - При `SE_STORAGE_BACKEND=s3`:
+      - Создать S3 client (`aws-sdk-go-v2/config`, `s3.NewFromConfig()`)
+      - Проверить доступность bucket (HeadBucket)
+      - Создать `S3FileStore`, `S3AttrStore`, `NoOpLockStore`
+      - Вернуть `Backend{Files, Attrs, Locks}`
+    - Обновить main.go: передать `ModeStore` в ModeSyncService/ModeHandler
+  - **Creates**:
+    - Обновлённый `internal/backend/factory.go`
+    - Обновлённый `cmd/storage-element/main.go`
+  - **Links**: N/A
+
+- [ ] **7.8 Интеграционные тесты с MinIO**
+  - **Dependencies**: 7.7
+  - **Description**: Комплексное тестирование S3 backend:
+    - **Unit-тесты**: MinIO через `testcontainers-go` — auto-start контейнера,
+      создание bucket, прогон тестов каждого Store
+    - **Интеграционные тесты в K8s**:
+      - Развернуть MinIO в `artstore-test` через Helm chart
+        (`minio/minio` chart)
+      - Создать SE с `SE_STORAGE_BACKEND=s3` и указанием на MinIO
+      - Прогон всех существующих SE интеграционных тестов
+        (upload/download/delete/mode/reconcile/locks)
+    - **Тест-кейсы**:
+      - Upload файла через S3, download, проверка checksum
+      - Delete через S3
+      - GC для S3 (mark expired, delete)
+      - Reconcile для S3 (orphaned objects)
+      - Index rebuild из S3 (ListObjectsV2 + parse)
+      - Locks API: GET /locks → пустой, cleanup → empty result
+      - mode.json на S3: transition → sync
+      - Multi-replica: upload через pod-1, download через pod-2
+    - **Производительность**: замер ScanAll на 1K/10K/100K объектов
+  - **Creates**:
+    - Тесты в `internal/backend/s3/*_test.go` (testcontainers-go)
+    - Тесты в `tests/scripts/test-se-s3.sh` (K8s интеграция)
+    - MinIO Helm values в `tests/helm/artstore-se/`
+  - **Links**: N/A
+
+- [ ] **7.9 Обновление Helm chart для S3**
+  - **Dependencies**: 7.6
+  - **Description**: Обновить `charts/storage-element/`:
+    - Добавить в `values.yaml`: `storageBackend`, `s3.*` секция
+    - Условная конфигурация: при `storageBackend=s3` — не создавать PVC,
+      добавить S3 env-переменные
+    - При `storageBackend=localfs` — поведение без изменений
+    - S3 credentials через `Secret` (не через values напрямую)
+    - Добавить `SE_S3_*` env-переменные в deployment.yaml
+  - **Creates**:
+    - Обновлённый Helm chart `charts/storage-element/`
+  - **Links**: N/A
+
 ### Критерии завершения Phase 7
 
-- [ ] S3Backend реализован и протестирован (MinIO)
-- [ ] SE работает с S3 backend
-- [ ] API backward compatible
+- [ ] Все подпункты завершены (7.1 - 7.9)
+- [ ] `S3FileStore`, `S3AttrStore`, `NoOpLockStore` реализованы
+- [ ] SE работает с S3 backend (MinIO) в K8s
+- [ ] Все существующие интеграционные тесты SE проходят с S3 backend
+- [ ] `ModeStore` интерфейс реализован для S3
+- [ ] Index rebuild работает через S3 `ListObjectsV2`
+- [ ] GC и Reconcile работают с S3 backend
+- [ ] Multi-replica тест проходит (upload pod-1 → download pod-2)
+- [ ] API полностью backward compatible
+- [ ] Helm chart поддерживает `storageBackend: s3` с conditional PVC/env
+- [ ] `go test ./...` проходит без ошибок
 
 ---
 
@@ -896,13 +1315,16 @@ tags или sidecar-объектах.
 
 ### Новые компоненты
 
-| Компонент | Назначение |
-|-----------|-----------|
-| `internal/lockfile/` | Per-file lock с TTL |
-| `internal/modefile/` | Чтение/запись mode.json |
-| `internal/service/modesync.go` | Периодическая синхронизация mode.json |
-| `internal/service/indexsync.go` | Периодическая пересборка индекса |
-| Lock API handlers | GET /locks, POST /locks/cleanup |
+| Компонент | Назначение | Phase |
+|-----------|-----------|-------|
+| `internal/lockfile/` | Per-file lock с TTL | 1 |
+| `internal/modefile/` | Чтение/запись mode.json | 1 |
+| `internal/service/modesync.go` | Периодическая синхронизация mode.json | 4 |
+| `internal/service/indexsync.go` | Периодическая пересборка индекса | 4 |
+| Lock API handlers | GET /locks, POST /locks/cleanup | 3 |
+| `internal/backend/` | Интерфейсы FileStore, AttrStore, LockStore, фабрика | 6 |
+| `internal/storage/attr/store.go` | LocalAttrStore адаптер для интерфейса AttrStore | 6 |
+| `internal/backend/s3/` | S3FileStore, S3AttrStore, NoOpLockStore | 7 |
 
 ### Производительность
 
@@ -925,6 +1347,10 @@ tags или sidecar-объектах.
 | NFS недоступен — lock-файлы зависнут | Низкая | Среднее | TTL-based expiry, ручная очистка через API |
 | Orphaned файлы после crash | Средняя | Низкое | GC + Reconcile обнаружат и удалят после TTL |
 | Два GC одновременно удаляют один файл | Средняя | Нет | os.Remove() идемпотентен |
+| S3 ScanAll дорогой при >100K файлов | Средняя | Среднее | Пагинация, параллельный fetch, incremental scan |
+| S3 AvailableSpace неточен | Низкая | Низкое | Конфигурируемый quota + кэш total size |
+| S3 rate limiting (503/429) | Средняя | Среднее | aws-sdk-go-v2 built-in retry с exponential backoff |
+| mode.json на S3 — eventual consistency | Низкая | Низкое | S3 strong consistency (с 2020), ModeSync 10s |
 
 ---
 
