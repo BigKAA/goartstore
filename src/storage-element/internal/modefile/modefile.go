@@ -1,12 +1,13 @@
-// mode_file.go — чтение/запись mode.json на общей файловой системе (NFS).
+// Пакет modefile — чтение/запись mode.json на общей файловой системе (NFS).
 //
-// В replicated mode leader записывает mode.json при каждой смене режима.
-// Follower читает mode.json при обновлении индекса для синхронизации режима.
+// В stateless архитектуре все экземпляры SE равноправны.
+// Любой pod может менять режим через API — последний записавший побеждает.
+// Остальные pod-ы подхватывают изменение через периодическое чтение mode.json.
 //
 // Формат файла:
 //
-//	{"mode": "rw", "updated_at": "2026-01-01T00:00:00Z", "updated_by": "se-0:8010"}
-package replica
+//	{"mode": "rw", "updated_at": "2026-03-01T12:00:00Z", "updated_by": "se-moscow-01:8010"}
+package modefile
 
 import (
 	"encoding/json"
@@ -29,7 +30,7 @@ type ModeFileData struct {
 	Mode string `json:"mode"`
 	// UpdatedAt — время последнего обновления.
 	UpdatedAt time.Time `json:"updated_at"`
-	// UpdatedBy — идентификатор экземпляра, обновившего режим.
+	// UpdatedBy — идентификатор экземпляра, обновившего режим (hostname:port).
 	UpdatedBy string `json:"updated_by"`
 }
 
@@ -43,7 +44,7 @@ func ModeFilePath(dataDir string) string {
 // Параметры:
 //   - path: полный путь к mode.json
 //   - m: текущий режим работы
-//   - updatedBy: идентификатор экземпляра (hostname:port)
+//   - updatedBy: идентификатор экземпляра (hostname:port или storageID:port)
 func SaveMode(path string, m mode.StorageMode, updatedBy string) error {
 	data := ModeFileData{
 		Mode:      string(m),

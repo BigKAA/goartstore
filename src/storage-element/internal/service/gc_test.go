@@ -8,13 +8,15 @@ import (
 	"time"
 
 	"github.com/bigkaa/goartstore/storage-element/internal/domain/model"
+	"github.com/bigkaa/goartstore/storage-element/internal/lockfile"
 	"github.com/bigkaa/goartstore/storage-element/internal/storage/attr"
 	"github.com/bigkaa/goartstore/storage-element/internal/storage/filestore"
 	"github.com/bigkaa/goartstore/storage-element/internal/storage/index"
 )
 
 // setupGCTestEnv создаёт тестовое окружение для GC тестов.
-func setupGCTestEnv(t *testing.T) (string, *filestore.FileStore, *index.Index) {
+// Возвращает: dir, store, idx, lockMgr.
+func setupGCTestEnv(t *testing.T) (string, *filestore.FileStore, *index.Index, *lockfile.LockManager) {
 	t.Helper()
 
 	dir := t.TempDir()
@@ -26,7 +28,12 @@ func setupGCTestEnv(t *testing.T) (string, *filestore.FileStore, *index.Index) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 	idx := index.New(logger)
 
-	return dir, store, idx
+	lockMgr := lockfile.NewLockManager(dir, 120*time.Second, "test-host")
+	if err := lockMgr.EnsureDir(); err != nil {
+		t.Fatalf("Ошибка создания директории lock-файлов: %v", err)
+	}
+
+	return dir, store, idx, lockMgr
 }
 
 // createTestFile создаёт тестовый файл и attr.json, добавляет в индекс.
@@ -47,10 +54,10 @@ func createTestFile(t *testing.T, dir string, meta *model.FileMetadata) {
 }
 
 func TestGCRunOnce_NoFilesToProcess(t *testing.T) {
-	_, store, idx := setupGCTestEnv(t)
+	_, store, idx, lockMgr := setupGCTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
-	gc := NewGCService(store, idx, time.Hour, logger)
+	gc := NewGCService(store, idx, lockMgr, time.Hour, logger)
 	result := gc.RunOnce()
 
 	if result.ExpiredCount != 0 {
@@ -65,7 +72,7 @@ func TestGCRunOnce_NoFilesToProcess(t *testing.T) {
 }
 
 func TestGCRunOnce_MarkExpired(t *testing.T) {
-	dir, store, idx := setupGCTestEnv(t)
+	dir, store, idx, lockMgr := setupGCTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Создаём файл с истёкшим TTL
@@ -106,7 +113,7 @@ func TestGCRunOnce_MarkExpired(t *testing.T) {
 	createTestFile(t, dir, permanentMeta)
 	idx.Add(permanentMeta)
 
-	gc := NewGCService(store, idx, time.Hour, logger)
+	gc := NewGCService(store, idx, lockMgr, time.Hour, logger)
 	result := gc.RunOnce()
 
 	if result.ExpiredCount != 1 {
@@ -133,7 +140,7 @@ func TestGCRunOnce_MarkExpired(t *testing.T) {
 }
 
 func TestGCRunOnce_DeleteFiles(t *testing.T) {
-	dir, store, idx := setupGCTestEnv(t)
+	dir, store, idx, lockMgr := setupGCTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Создаём файл со статусом deleted
@@ -153,7 +160,7 @@ func TestGCRunOnce_DeleteFiles(t *testing.T) {
 	createTestFile(t, dir, meta)
 	idx.Add(meta)
 
-	gc := NewGCService(store, idx, time.Hour, logger)
+	gc := NewGCService(store, idx, lockMgr, time.Hour, logger)
 	result := gc.RunOnce()
 
 	if result.DeletedCount != 1 {
@@ -177,8 +184,66 @@ func TestGCRunOnce_DeleteFiles(t *testing.T) {
 	}
 }
 
+func TestGCRunOnce_DeleteSkipsLockedFile(t *testing.T) {
+	dir, store, idx, lockMgr := setupGCTestEnv(t)
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	// Создаём файл со статусом deleted, но с активным lock
+	meta := &model.FileMetadata{
+		FileID:           "locked-del-1",
+		OriginalFilename: "locked_del.txt",
+		StoragePath:      "locked_del.txt",
+		ContentType:      "text/plain",
+		Size:             9,
+		Checksum:         "abc",
+		UploadedBy:       "test",
+		UploadedAt:       time.Now().UTC(),
+		Status:           model.StatusDeleted,
+		RetentionPolicy:  model.RetentionPermanent,
+	}
+
+	createTestFile(t, dir, meta)
+	idx.Add(meta)
+
+	// Захватываем lock для этого файла
+	if err := lockMgr.Acquire("locked-del-1"); err != nil {
+		t.Fatalf("Ошибка захвата lock: %v", err)
+	}
+
+	gc := NewGCService(store, idx, lockMgr, time.Hour, logger)
+	result := gc.RunOnce()
+
+	// Файл НЕ должен быть удалён (lock активен)
+	if result.DeletedCount != 0 {
+		t.Errorf("DeletedCount: хотели 0 (locked), получили %d", result.DeletedCount)
+	}
+	if result.SkippedLocked != 1 {
+		t.Errorf("SkippedLocked: хотели 1, получили %d", result.SkippedLocked)
+	}
+
+	// Файл остался в индексе
+	if m := idx.Get("locked-del-1"); m == nil {
+		t.Error("Файл locked-del-1 удалён из индекса, но lock был активен")
+	}
+
+	// Файл остался на диске
+	if !store.FileExists("locked_del.txt") {
+		t.Error("Файл locked_del.txt удалён с диска, но lock был активен")
+	}
+
+	// Освобождаем lock и повторяем GC
+	if err := lockMgr.Release("locked-del-1"); err != nil {
+		t.Fatalf("Ошибка освобождения lock: %v", err)
+	}
+
+	result2 := gc.RunOnce()
+	if result2.DeletedCount != 1 {
+		t.Errorf("DeletedCount после release: хотели 1, получили %d", result2.DeletedCount)
+	}
+}
+
 func TestGCRunOnce_ActiveNotExpired_Untouched(t *testing.T) {
-	dir, store, idx := setupGCTestEnv(t)
+	dir, store, idx, lockMgr := setupGCTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Файл temporary, но TTL ещё не истёк
@@ -202,7 +267,7 @@ func TestGCRunOnce_ActiveNotExpired_Untouched(t *testing.T) {
 	createTestFile(t, dir, meta)
 	idx.Add(meta)
 
-	gc := NewGCService(store, idx, time.Hour, logger)
+	gc := NewGCService(store, idx, lockMgr, time.Hour, logger)
 	result := gc.RunOnce()
 
 	if result.ExpiredCount != 0 {
@@ -220,7 +285,7 @@ func TestGCRunOnce_ActiveNotExpired_Untouched(t *testing.T) {
 }
 
 func TestGCRunOnce_CombinedExpiredAndDeleted(t *testing.T) {
-	dir, store, idx := setupGCTestEnv(t)
+	dir, store, idx, lockMgr := setupGCTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// 1. Expired файл
@@ -275,7 +340,7 @@ func TestGCRunOnce_CombinedExpiredAndDeleted(t *testing.T) {
 	createTestFile(t, dir, activeMeta)
 	idx.Add(activeMeta)
 
-	gc := NewGCService(store, idx, time.Hour, logger)
+	gc := NewGCService(store, idx, lockMgr, time.Hour, logger)
 	result := gc.RunOnce()
 
 	if result.ExpiredCount != 1 {
@@ -313,7 +378,7 @@ func TestGCRunOnce_CombinedExpiredAndDeleted(t *testing.T) {
 }
 
 func TestGCRunOnce_DeleteMissingFile_NoError(t *testing.T) {
-	_, store, idx := setupGCTestEnv(t)
+	_, store, idx, lockMgr := setupGCTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Файл deleted, но физически не существует на диске
@@ -331,7 +396,7 @@ func TestGCRunOnce_DeleteMissingFile_NoError(t *testing.T) {
 	}
 	idx.Add(meta)
 
-	gc := NewGCService(store, idx, time.Hour, logger)
+	gc := NewGCService(store, idx, lockMgr, time.Hour, logger)
 	result := gc.RunOnce()
 
 	// DeleteFile возвращает nil для несуществующих файлов, поэтому удаление успешно
@@ -344,7 +409,7 @@ func TestGCRunOnce_DeleteMissingFile_NoError(t *testing.T) {
 }
 
 func TestGCRunOnce_ConcurrentSafety(t *testing.T) {
-	dir, store, idx := setupGCTestEnv(t)
+	dir, store, idx, lockMgr := setupGCTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Создаём несколько deleted файлов
@@ -367,7 +432,7 @@ func TestGCRunOnce_ConcurrentSafety(t *testing.T) {
 		idx.Add(meta)
 	}
 
-	gc := NewGCService(store, idx, time.Hour, logger)
+	gc := NewGCService(store, idx, lockMgr, time.Hour, logger)
 
 	// Запускаем RunOnce из нескольких горутин — не должно быть паники
 	done := make(chan struct{}, 3)

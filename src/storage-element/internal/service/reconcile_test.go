@@ -9,13 +9,15 @@ import (
 
 	"github.com/bigkaa/goartstore/storage-element/internal/api/generated"
 	"github.com/bigkaa/goartstore/storage-element/internal/domain/model"
+	"github.com/bigkaa/goartstore/storage-element/internal/lockfile"
 	"github.com/bigkaa/goartstore/storage-element/internal/storage/attr"
 	"github.com/bigkaa/goartstore/storage-element/internal/storage/filestore"
 	"github.com/bigkaa/goartstore/storage-element/internal/storage/index"
 )
 
 // setupReconcileTestEnv создаёт тестовое окружение для reconciliation тестов.
-func setupReconcileTestEnv(t *testing.T) (string, *filestore.FileStore, *index.Index) {
+// Возвращает: dir, store, idx, lockMgr.
+func setupReconcileTestEnv(t *testing.T) (string, *filestore.FileStore, *index.Index, *lockfile.LockManager) {
 	t.Helper()
 
 	dir := t.TempDir()
@@ -27,11 +29,16 @@ func setupReconcileTestEnv(t *testing.T) (string, *filestore.FileStore, *index.I
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 	idx := index.New(logger)
 
-	return dir, store, idx
+	lockMgr := lockfile.NewLockManager(dir, 120*time.Second, "test-host")
+	if err := lockMgr.EnsureDir(); err != nil {
+		t.Fatalf("Ошибка создания директории lock-файлов: %v", err)
+	}
+
+	return dir, store, idx, lockMgr
 }
 
 func TestReconcileRunOnce_NoIssues(t *testing.T) {
-	dir, store, idx := setupReconcileTestEnv(t)
+	dir, store, idx, lockMgr := setupReconcileTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Создаём корректную пару файл + attr.json
@@ -73,12 +80,9 @@ func TestReconcileRunOnce_NoIssues(t *testing.T) {
 		t.Fatalf("Ошибка построения индекса: %v", err)
 	}
 
-	rs := NewReconcileService(store, idx, dir, time.Hour, logger)
-	result, skipped := rs.RunOnce()
+	rs := NewReconcileService(store, idx, lockMgr, dir, time.Hour, logger)
+	result := rs.RunOnce()
 
-	if skipped {
-		t.Fatal("Reconciliation пропущена")
-	}
 	if result == nil {
 		t.Fatal("Результат nil")
 	}
@@ -94,7 +98,7 @@ func TestReconcileRunOnce_NoIssues(t *testing.T) {
 }
 
 func TestReconcileRunOnce_OrphanedFile(t *testing.T) {
-	dir, store, idx := setupReconcileTestEnv(t)
+	dir, store, idx, lockMgr := setupReconcileTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Файл на диске без attr.json
@@ -103,12 +107,18 @@ func TestReconcileRunOnce_OrphanedFile(t *testing.T) {
 		t.Fatalf("Ошибка создания файла: %v", err)
 	}
 
+	// Устанавливаем mtime в прошлое (за пределами lockTTL), чтобы orphaned обнаружился
+	oldTime := time.Now().Add(-5 * time.Minute)
+	if err := os.Chtimes(filePath, oldTime, oldTime); err != nil {
+		t.Fatalf("Ошибка установки mtime: %v", err)
+	}
+
 	if err := idx.BuildFromDir(dir); err != nil {
 		t.Fatalf("Ошибка построения индекса: %v", err)
 	}
 
-	rs := NewReconcileService(store, idx, dir, time.Hour, logger)
-	result, _ := rs.RunOnce()
+	rs := NewReconcileService(store, idx, lockMgr, dir, time.Hour, logger)
+	result := rs.RunOnce()
 
 	if result == nil {
 		t.Fatal("Результат nil")
@@ -129,8 +139,38 @@ func TestReconcileRunOnce_OrphanedFile(t *testing.T) {
 	}
 }
 
+func TestReconcileRunOnce_OrphanedFileSkippedWhenFresh(t *testing.T) {
+	dir, store, idx, lockMgr := setupReconcileTestEnv(t)
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	// Файл на диске без attr.json — свежий (mtime в пределах lockTTL)
+	filePath := filepath.Join(dir, "fresh_orphan.txt")
+	if err := os.WriteFile(filePath, []byte("data"), 0o640); err != nil {
+		t.Fatalf("Ошибка создания файла: %v", err)
+	}
+	// mtime = now (по умолчанию), lockTTL = 120s — файл свежий
+
+	if err := idx.BuildFromDir(dir); err != nil {
+		t.Fatalf("Ошибка построения индекса: %v", err)
+	}
+
+	rs := NewReconcileService(store, idx, lockMgr, dir, time.Hour, logger)
+	result := rs.RunOnce()
+
+	if result == nil {
+		t.Fatal("Результат nil")
+	}
+
+	// Свежий orphaned файл НЕ должен быть обнаружен (возможный in-flight upload)
+	for _, issue := range result.Issues {
+		if issue.Type == generated.OrphanedFile && issue.Path != nil && *issue.Path == "fresh_orphan.txt" {
+			t.Error("Свежий orphaned файл не должен был быть обнаружен (in-flight upload)")
+		}
+	}
+}
+
 func TestReconcileRunOnce_MissingFile(t *testing.T) {
-	dir, store, idx := setupReconcileTestEnv(t)
+	dir, store, idx, lockMgr := setupReconcileTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// attr.json без файла данных
@@ -152,12 +192,18 @@ func TestReconcileRunOnce_MissingFile(t *testing.T) {
 		t.Fatalf("Ошибка записи attr.json: %v", err)
 	}
 
+	// Устанавливаем mtime attr.json в прошлое
+	oldTime := time.Now().Add(-5 * time.Minute)
+	if err := os.Chtimes(attrPath, oldTime, oldTime); err != nil {
+		t.Fatalf("Ошибка установки mtime: %v", err)
+	}
+
 	if err := idx.BuildFromDir(dir); err != nil {
 		t.Fatalf("Ошибка построения индекса: %v", err)
 	}
 
-	rs := NewReconcileService(store, idx, dir, time.Hour, logger)
-	result, _ := rs.RunOnce()
+	rs := NewReconcileService(store, idx, lockMgr, dir, time.Hour, logger)
+	result := rs.RunOnce()
 
 	if result == nil {
 		t.Fatal("Результат nil")
@@ -183,7 +229,7 @@ func TestReconcileRunOnce_MissingFile(t *testing.T) {
 }
 
 func TestReconcileRunOnce_SizeMismatch(t *testing.T) {
-	dir, store, idx := setupReconcileTestEnv(t)
+	dir, store, idx, lockMgr := setupReconcileTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Файл с неправильным размером в attr.json
@@ -214,8 +260,8 @@ func TestReconcileRunOnce_SizeMismatch(t *testing.T) {
 		t.Fatalf("Ошибка построения индекса: %v", err)
 	}
 
-	rs := NewReconcileService(store, idx, dir, time.Hour, logger)
-	result, _ := rs.RunOnce()
+	rs := NewReconcileService(store, idx, lockMgr, dir, time.Hour, logger)
+	result := rs.RunOnce()
 
 	if result == nil {
 		t.Fatal("Результат nil")
@@ -237,7 +283,7 @@ func TestReconcileRunOnce_SizeMismatch(t *testing.T) {
 }
 
 func TestReconcileRunOnce_ChecksumMismatch(t *testing.T) {
-	dir, store, idx := setupReconcileTestEnv(t)
+	dir, store, idx, lockMgr := setupReconcileTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Файл с неправильным checksum в attr.json
@@ -269,8 +315,8 @@ func TestReconcileRunOnce_ChecksumMismatch(t *testing.T) {
 		t.Fatalf("Ошибка построения индекса: %v", err)
 	}
 
-	rs := NewReconcileService(store, idx, dir, time.Hour, logger)
-	result, _ := rs.RunOnce()
+	rs := NewReconcileService(store, idx, lockMgr, dir, time.Hour, logger)
+	result := rs.RunOnce()
 
 	if result == nil {
 		t.Fatal("Результат nil")
@@ -292,7 +338,7 @@ func TestReconcileRunOnce_ChecksumMismatch(t *testing.T) {
 }
 
 func TestReconcileRunOnce_SkipsHiddenAndTmpFiles(t *testing.T) {
-	dir, store, idx := setupReconcileTestEnv(t)
+	dir, store, idx, lockMgr := setupReconcileTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Скрытые и temp файлы — не должны обнаруживаться как orphaned
@@ -307,8 +353,8 @@ func TestReconcileRunOnce_SkipsHiddenAndTmpFiles(t *testing.T) {
 		t.Fatalf("Ошибка построения индекса: %v", err)
 	}
 
-	rs := NewReconcileService(store, idx, dir, time.Hour, logger)
-	result, _ := rs.RunOnce()
+	rs := NewReconcileService(store, idx, lockMgr, dir, time.Hour, logger)
+	result := rs.RunOnce()
 
 	if result == nil {
 		t.Fatal("Результат nil")
@@ -321,52 +367,42 @@ func TestReconcileRunOnce_SkipsHiddenAndTmpFiles(t *testing.T) {
 	}
 }
 
-func TestReconcileRunOnce_ConcurrentProtection(t *testing.T) {
-	dir, store, idx := setupReconcileTestEnv(t)
+func TestReconcileRunOnce_ConcurrentSafety(t *testing.T) {
+	dir, store, idx, lockMgr := setupReconcileTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	if err := idx.BuildFromDir(dir); err != nil {
 		t.Fatalf("Ошибка построения индекса: %v", err)
 	}
 
-	rs := NewReconcileService(store, idx, dir, time.Hour, logger)
+	rs := NewReconcileService(store, idx, lockMgr, dir, time.Hour, logger)
 
-	// Запускаем из нескольких горутин
-	results := make(chan bool, 5)
+	// Запускаем из нескольких горутин — не должно быть паники
+	done := make(chan struct{}, 5)
 	for i := 0; i < 5; i++ {
 		go func() {
-			_, skipped := rs.RunOnce()
-			results <- skipped
+			rs.RunOnce()
+			done <- struct{}{}
 		}()
 	}
 
-	skippedCount := 0
 	for i := 0; i < 5; i++ {
-		if <-results {
-			skippedCount++
-		}
+		<-done
 	}
-
-	// Хотя бы одна должна пройти, остальные могут быть пропущены
-	if skippedCount == 5 {
-		t.Error("Все 5 запусков были пропущены — ни один не выполнился")
-	}
+	// Все горутины завершились без паники — тест пройден
 }
 
 func TestReconcileRunOnce_EmptyDirectory(t *testing.T) {
-	dir, store, idx := setupReconcileTestEnv(t)
+	dir, store, idx, lockMgr := setupReconcileTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	if err := idx.BuildFromDir(dir); err != nil {
 		t.Fatalf("Ошибка построения индекса: %v", err)
 	}
 
-	rs := NewReconcileService(store, idx, dir, time.Hour, logger)
-	result, skipped := rs.RunOnce()
+	rs := NewReconcileService(store, idx, lockMgr, dir, time.Hour, logger)
+	result := rs.RunOnce()
 
-	if skipped {
-		t.Fatal("Reconciliation пропущена")
-	}
 	if result == nil {
 		t.Fatal("Результат nil")
 	}
@@ -376,7 +412,7 @@ func TestReconcileRunOnce_EmptyDirectory(t *testing.T) {
 }
 
 func TestReconcileRunOnce_RebuildIndex(t *testing.T) {
-	dir, store, idx := setupReconcileTestEnv(t)
+	dir, store, idx, lockMgr := setupReconcileTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Добавляем файл напрямую в индекс (без диска)
@@ -397,7 +433,7 @@ func TestReconcileRunOnce_RebuildIndex(t *testing.T) {
 		t.Fatalf("Индекс должен содержать 1 файл, содержит %d", idx.Count())
 	}
 
-	rs := NewReconcileService(store, idx, dir, time.Hour, logger)
+	rs := NewReconcileService(store, idx, lockMgr, dir, time.Hour, logger)
 	rs.RunOnce()
 
 	// После reconciliation индекс пересобран — phantom файла нет на диске

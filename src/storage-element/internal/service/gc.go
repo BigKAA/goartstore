@@ -4,19 +4,23 @@
 //  1. Помечает active файлы с истёкшим TTL как expired (обновляет attr.json + индекс)
 //  2. Физически удаляет файлы со статусом deleted (файл + attr.json + запись в индексе)
 //
+// GC идемпотентен: каждый pod запускает свой GC без singleton-координации.
+// Перед удалением проверяется lock-файл (per-file lock с TTL),
+// чтобы не удалить файл во время upload-а.
+//
 // Запускается как горутина с периодическим тикером (SE_GC_INTERVAL).
 package service
 
 import (
 	"context"
 	"log/slog"
-	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/bigkaa/goartstore/storage-element/internal/domain/model"
+	"github.com/bigkaa/goartstore/storage-element/internal/lockfile"
 	"github.com/bigkaa/goartstore/storage-element/internal/storage/attr"
 	"github.com/bigkaa/goartstore/storage-element/internal/storage/filestore"
 	"github.com/bigkaa/goartstore/storage-element/internal/storage/index"
@@ -56,6 +60,8 @@ type GCResult struct {
 	ExpiredCount int
 	// DeletedCount — количество физически удалённых файлов
 	DeletedCount int
+	// SkippedLocked — количество пропущенных файлов (активный lock)
+	SkippedLocked int
 	// Errors — количество ошибок при обработке файлов
 	Errors int
 	// Duration — длительность выполнения
@@ -63,29 +69,33 @@ type GCResult struct {
 }
 
 // GCService — сервис фоновой очистки файлов.
+//
+// Idempotent: каждый pod запускает свой GC без mutex-координации.
+// os.Remove() идемпотентен: два GC могут удалять один и тот же файл одновременно.
 type GCService struct {
-	store    *filestore.FileStore
-	idx      *index.Index
-	interval time.Duration
-	logger   *slog.Logger
+	store       *filestore.FileStore
+	idx         *index.Index
+	lockManager *lockfile.LockManager
+	interval    time.Duration
+	logger      *slog.Logger
 
-	mu      sync.Mutex // защита от параллельного запуска RunOnce
-	running bool       // флаг работы фонового процесса
-	cancel  context.CancelFunc
+	cancel context.CancelFunc
 }
 
 // NewGCService создаёт сервис GC.
 func NewGCService(
 	store *filestore.FileStore,
 	idx *index.Index,
+	lockManager *lockfile.LockManager,
 	interval time.Duration,
 	logger *slog.Logger,
 ) *GCService {
 	return &GCService{
-		store:    store,
-		idx:      idx,
-		interval: interval,
-		logger:   logger.With(slog.String("component", "gc")),
+		store:       store,
+		idx:         idx,
+		lockManager: lockManager,
+		interval:    interval,
+		logger:      logger.With(slog.String("component", "gc")),
 	}
 }
 
@@ -94,7 +104,6 @@ func NewGCService(
 func (gc *GCService) Start(ctx context.Context) {
 	gcCtx, cancel := context.WithCancel(ctx)
 	gc.cancel = cancel
-	gc.running = true
 
 	go gc.run(gcCtx)
 
@@ -108,7 +117,6 @@ func (gc *GCService) Stop() {
 	if gc.cancel != nil {
 		gc.cancel()
 	}
-	gc.running = false
 	gc.logger.Info("GC остановлен")
 }
 
@@ -131,15 +139,15 @@ func (gc *GCService) run(ctx context.Context) {
 }
 
 // RunOnce выполняет один цикл GC.
-// Потокобезопасен: использует mutex для защиты от параллельного запуска.
+//
+// Идемпотентен: несколько pod-ов могут запускать GC одновременно.
+// os.Remove() на уже удалённый файл не вызывает ошибку.
+// Перед удалением проверяется lock-файл — locked файлы пропускаются.
 //
 // Порядок обработки:
 //  1. Сканирование индекса: пометка expired (active + TTL истёк)
 //  2. Физическое удаление deleted файлов (файл + attr.json + индекс)
 func (gc *GCService) RunOnce() *GCResult {
-	gc.mu.Lock()
-	defer gc.mu.Unlock()
-
 	start := time.Now()
 	result := &GCResult{}
 
@@ -151,9 +159,10 @@ func (gc *GCService) RunOnce() *GCResult {
 	expired := gc.markExpired(now)
 	result.ExpiredCount = expired
 
-	// Фаза 2: удаление deleted файлов
-	deleted, errors := gc.deleteFiles()
+	// Фаза 2: удаление deleted файлов (lock-aware)
+	deleted, skipped, errors := gc.deleteFiles()
 	result.DeletedCount = deleted
+	result.SkippedLocked = skipped
 	result.Errors = errors
 
 	result.Duration = time.Since(start)
@@ -167,6 +176,7 @@ func (gc *GCService) RunOnce() *GCResult {
 	gc.logger.Info("GC завершён",
 		slog.Int("expired", result.ExpiredCount),
 		slog.Int("deleted", result.DeletedCount),
+		slog.Int("skipped_locked", result.SkippedLocked),
 		slog.Int("errors", result.Errors),
 		slog.Duration("duration", result.Duration),
 	)
@@ -219,12 +229,32 @@ func (gc *GCService) markExpired(now time.Time) int {
 }
 
 // deleteFiles физически удаляет файлы со статусом deleted.
+// Перед удалением проверяет lock-файл: если файл locked (TTL не истёк) — пропускает.
 // Удаляет: файл данных, attr.json, запись в индексе.
-func (gc *GCService) deleteFiles() (deleted, errors int) {
+func (gc *GCService) deleteFiles() (deleted, skipped, errors int) {
 	// Получаем все deleted файлы из индекса
 	files, _ := gc.idx.List(0, 0, model.StatusDeleted)
 
 	for _, meta := range files {
+		// Проверяем lock перед удалением: если файл ещё загружается — пропускаем
+		locked, lockInfo, lockErr := gc.lockManager.IsLocked(meta.FileID)
+		if lockErr != nil {
+			gc.logger.Warn("GC: ошибка проверки lock, пропуск файла",
+				slog.String("file_id", meta.FileID),
+				slog.String("error", lockErr.Error()),
+			)
+			errors++
+			continue
+		}
+		if locked {
+			gc.logger.Debug("GC: файл locked, пропуск",
+				slog.String("file_id", meta.FileID),
+				slog.String("holder", lockInfo.Holder),
+			)
+			skipped++
+			continue
+		}
+
 		// Удаляем файл данных
 		if err := gc.store.DeleteFile(meta.StoragePath); err != nil {
 			gc.logger.Error("GC: ошибка удаления файла",
@@ -256,5 +286,5 @@ func (gc *GCService) deleteFiles() (deleted, errors int) {
 		deleted++
 	}
 
-	return deleted, errors
+	return deleted, skipped, errors
 }

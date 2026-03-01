@@ -1,4 +1,7 @@
 // health.go — обработчики health endpoints для Kubernetes probes.
+//
+// Stateless архитектура: проверяется FS и готовность индекса.
+// WAL и leader connection checks удалены.
 package handlers
 
 import (
@@ -24,12 +27,8 @@ type HealthHandler struct {
 	version string
 	// dataDir — путь к директории данных (для проверки FS)
 	dataDir string
-	// walDir — путь к директории WAL (для проверки WAL)
-	walDir string
 	// idx — ссылка на индекс для проверки готовности
 	idx IndexReadinessChecker
-	// roleProvider — провайдер роли для проверки leader connection (follower only)
-	roleProvider RoleProvider
 }
 
 // NewHealthHandler создаёт обработчик health endpoints.
@@ -41,14 +40,11 @@ func NewHealthHandler() *HealthHandler {
 }
 
 // NewHealthHandlerFull создаёт обработчик health endpoints с реальными проверками.
-// roleProvider — провайдер роли (nil для standalone).
-func NewHealthHandlerFull(dataDir, walDir string, idx IndexReadinessChecker, roleProvider RoleProvider) *HealthHandler {
+func NewHealthHandlerFull(dataDir string, idx IndexReadinessChecker) *HealthHandler {
 	return &HealthHandler{
-		version:      config.Version,
-		dataDir:      dataDir,
-		walDir:       walDir,
-		idx:          idx,
-		roleProvider: roleProvider,
+		version: config.Version,
+		dataDir: dataDir,
+		idx:     idx,
 	}
 }
 
@@ -68,7 +64,7 @@ func (h *HealthHandler) HealthLive(w http.ResponseWriter, _ *http.Request) {
 }
 
 // HealthReady обрабатывает GET /health/ready.
-// Проверяет: файловая система, WAL директория, готовность индекса.
+// Проверяет: файловая система, готовность индекса.
 func (h *HealthHandler) HealthReady(w http.ResponseWriter, _ *http.Request) {
 	overallStatus := "ok"
 	httpStatus := http.StatusOK
@@ -78,14 +74,6 @@ func (h *HealthHandler) HealthReady(w http.ResponseWriter, _ *http.Request) {
 	if fsCheck["status"] != "ok" {
 		overallStatus = statusFail
 		httpStatus = http.StatusServiceUnavailable
-	}
-
-	// Проверка WAL
-	walCheck := h.checkWAL()
-	if walCheck["status"] != "ok" {
-		if overallStatus != statusFail {
-			overallStatus = "degraded"
-		}
 	}
 
 	// Проверка индекса
@@ -100,18 +88,6 @@ func (h *HealthHandler) HealthReady(w http.ResponseWriter, _ *http.Request) {
 
 	checks := map[string]any{
 		"filesystem": fsCheck,
-		"wal":        walCheck,
-	}
-
-	// Проверка leader connection (только для follower в replicated mode)
-	if h.roleProvider != nil && !h.roleProvider.IsLeader() {
-		leaderCheck := h.checkLeaderConnection()
-		checks["leader_connection"] = leaderCheck
-		if leaderCheck["status"] != "ok" {
-			if overallStatus != statusFail {
-				overallStatus = "degraded"
-			}
-		}
 	}
 
 	resp := map[string]any{
@@ -141,52 +117,6 @@ func (h *HealthHandler) checkFilesystem() map[string]any {
 		return map[string]any{
 			"status":  statusFail,
 			"message": "Директория данных недоступна для записи: " + err.Error(),
-		}
-	}
-	_ = os.Remove(testFile)
-
-	return map[string]any{
-		"status": "ok",
-	}
-}
-
-// checkLeaderConnection проверяет, известен ли адрес leader (для follower).
-func (h *HealthHandler) checkLeaderConnection() map[string]any {
-	if h.roleProvider == nil {
-		return map[string]any{
-			"status":  "ok",
-			"message": "Проверка не применима",
-		}
-	}
-
-	addr := h.roleProvider.LeaderAddr()
-	if addr == "" {
-		return map[string]any{
-			"status":  statusFail,
-			"message": "Адрес leader неизвестен",
-		}
-	}
-
-	return map[string]any{
-		"status":      "ok",
-		"leader_addr": addr,
-	}
-}
-
-// checkWAL проверяет доступность директории WAL на запись.
-func (h *HealthHandler) checkWAL() map[string]any {
-	if h.walDir == "" {
-		return map[string]any{
-			"status":  "ok",
-			"message": "Проверка не настроена",
-		}
-	}
-
-	testFile := filepath.Join(h.walDir, ".health_check")
-	if err := os.WriteFile(testFile, []byte("ok"), 0o600); err != nil {
-		return map[string]any{
-			"status":  statusFail,
-			"message": "Директория WAL недоступна для записи: " + err.Error(),
 		}
 	}
 	_ = os.Remove(testFile)

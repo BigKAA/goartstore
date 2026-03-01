@@ -14,6 +14,7 @@ import (
 	"github.com/bigkaa/goartstore/storage-element/internal/api/middleware"
 	"github.com/bigkaa/goartstore/storage-element/internal/domain/mode"
 	"github.com/bigkaa/goartstore/storage-element/internal/domain/model"
+	"github.com/bigkaa/goartstore/storage-element/internal/lockfile"
 	"github.com/bigkaa/goartstore/storage-element/internal/service"
 	"github.com/bigkaa/goartstore/storage-element/internal/storage/attr"
 	"github.com/bigkaa/goartstore/storage-element/internal/storage/filestore"
@@ -27,6 +28,7 @@ type FilesHandler struct {
 	store       *filestore.FileStore
 	idx         *index.Index
 	sm          *mode.StateMachine
+	lockManager *lockfile.LockManager
 }
 
 // NewFilesHandler создаёт обработчик файловых endpoints.
@@ -36,6 +38,7 @@ func NewFilesHandler(
 	store *filestore.FileStore,
 	idx *index.Index,
 	sm *mode.StateMachine,
+	lockManager *lockfile.LockManager,
 ) *FilesHandler {
 	return &FilesHandler{
 		uploadSvc:   uploadSvc,
@@ -43,6 +46,7 @@ func NewFilesHandler(
 		store:       store,
 		idx:         idx,
 		sm:          sm,
+		lockManager: lockManager,
 	}
 }
 
@@ -250,6 +254,9 @@ func (h *FilesHandler) UpdateFileMetadata(w http.ResponseWriter, r *http.Request
 // DeleteFile обрабатывает DELETE /api/v1/files/{file_id}.
 // Soft delete: помечает файл как deleted (физическое удаление — GC).
 // Доступно только в режиме edit.
+//
+// Если файл в данный момент загружается (lock активен) — возвращает 409 Conflict
+// с кодом FILE_UPLOAD_IN_PROGRESS. Клиент должен повторить DELETE после завершения upload-а.
 func (h *FilesHandler) DeleteFile(w http.ResponseWriter, _ *http.Request, fileId generated.FileId) { //nolint:revive // имя fileId задано сгенерированным интерфейсом
 	// Проверяем допустимость delete
 	if !h.sm.CanPerform(mode.OpDelete) {
@@ -267,6 +274,16 @@ func (h *FilesHandler) DeleteFile(w http.ResponseWriter, _ *http.Request, fileId
 	// Проверяем статус
 	if meta.Status == model.StatusDeleted {
 		errors.ModeNotAllowed(w, fmt.Sprintf("Файл %s уже помечен на удаление", fileId.String()))
+		return
+	}
+
+	// Проверяем lock: если файл загружается — 409 Conflict
+	if locked, lockInfo, _ := h.lockManager.IsLocked(meta.FileID); locked {
+		errors.WriteError(w, http.StatusConflict,
+			errors.CodeFileUploadInProgress,
+			fmt.Sprintf("Невозможно удалить файл %s: upload в процессе (holder: %s, expires_at: %s)",
+				fileId.String(), lockInfo.Holder, lockInfo.ExpiresAt().Format("2006-01-02T15:04:05Z")),
+		)
 		return
 	}
 

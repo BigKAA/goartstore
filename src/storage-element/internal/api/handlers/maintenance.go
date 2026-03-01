@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"time"
 
-	apierrors "github.com/bigkaa/goartstore/storage-element/internal/api/errors"
 	"github.com/bigkaa/goartstore/storage-element/internal/api/generated"
 )
 
@@ -15,10 +14,8 @@ import (
 // Позволяет тестировать handler без полного ReconcileService.
 type ReconcileRunner interface {
 	// RunOnce выполняет один цикл reconciliation.
-	// Возвращает результат и флаг "уже выполняется".
-	RunOnce() (*generated.ReconcileResponse, bool)
-	// IsInProgress возвращает true, если reconciliation выполняется.
-	IsInProgress() bool
+	// Idempotent: несколько pod-ов могут запускать одновременно.
+	RunOnce() *generated.ReconcileResponse
 }
 
 // MaintenanceHandler — обработчик endpoints обслуживания.
@@ -38,7 +35,6 @@ func NewMaintenanceHandler(reconciler ...ReconcileRunner) *MaintenanceHandler {
 
 // Reconcile обрабатывает POST /api/v1/maintenance/reconcile.
 // Запускает синхронный цикл reconciliation и возвращает результат.
-// Если reconciliation уже выполняется — 409 RECONCILE_IN_PROGRESS.
 func (h *MaintenanceHandler) Reconcile(w http.ResponseWriter, _ *http.Request) {
 	// Если reconciler не настроен — возвращаем заглушку
 	if h.reconciler == nil {
@@ -63,11 +59,7 @@ func (h *MaintenanceHandler) Reconcile(w http.ResponseWriter, _ *http.Request) {
 	}
 
 	// Запускаем reconciliation
-	result, inProgress := h.reconciler.RunOnce()
-	if inProgress {
-		apierrors.ReconcileInProgress(w, "Reconciliation уже выполняется")
-		return
-	}
+	result := h.reconciler.RunOnce()
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

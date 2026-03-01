@@ -42,17 +42,17 @@ func setEnvVars(t *testing.T, vars map[string]string) func() {
 func clearAllSEEnvVars(t *testing.T) func() {
 	t.Helper()
 	keys := []string{
-		"SE_PORT", "SE_STORAGE_ID", "SE_DATA_DIR", "SE_WAL_DIR",
+		"SE_PORT", "SE_STORAGE_ID", "SE_DATA_DIR",
 		"SE_MODE", "SE_MAX_FILE_SIZE", "SE_MAX_CAPACITY",
 		"SE_GC_INTERVAL", "SE_RECONCILE_INTERVAL",
 		"SE_JWKS_URL", "SE_TLS_CERT", "SE_TLS_KEY", "SE_LOG_LEVEL",
-		"SE_LOG_FORMAT", "SE_REPLICA_MODE", "SE_INDEX_REFRESH_INTERVAL",
+		"SE_LOG_FORMAT", "SE_INDEX_SYNC_INTERVAL",
 		"SE_DEPHEALTH_CHECK_INTERVAL",
-		// Новые параметры Phase 3
 		"SE_TLS_SKIP_VERIFY", "SE_CA_CERT_PATH",
 		"SE_HTTP_CLIENT_TIMEOUT", "SE_JWKS_CLIENT_TIMEOUT",
 		"SE_HTTP_READ_TIMEOUT", "SE_HTTP_WRITE_TIMEOUT", "SE_HTTP_IDLE_TIMEOUT",
 		"SE_JWKS_REFRESH_INTERVAL", "SE_JWT_LEEWAY",
+		"SE_UPLOAD_LOCK_TTL", "SE_MODE_SYNC_INTERVAL",
 	}
 	originals := make(map[string]string)
 	origSet := make(map[string]bool)
@@ -79,7 +79,6 @@ func requiredEnvVars() map[string]string {
 	return map[string]string{
 		"SE_STORAGE_ID":   "se-test-01",
 		"SE_DATA_DIR":     "/tmp/data",
-		"SE_WAL_DIR":      "/tmp/wal",
 		"SE_JWKS_URL":     "https://admin.example.com/.well-known/jwks.json",
 		"SE_TLS_CERT":     "/tmp/tls.crt",
 		"SE_TLS_KEY":      "/tmp/tls.key",
@@ -124,11 +123,14 @@ func TestLoad_DefaultValues(t *testing.T) {
 	if cfg.LogFormat != "json" {
 		t.Errorf("LogFormat: ожидалось 'json', получено %q", cfg.LogFormat)
 	}
-	if cfg.ReplicaMode != "standalone" {
-		t.Errorf("ReplicaMode: ожидалось 'standalone', получено %q", cfg.ReplicaMode)
+	if cfg.IndexSyncInterval != 30*time.Second {
+		t.Errorf("IndexSyncInterval: ожидалось 30s, получено %v", cfg.IndexSyncInterval)
 	}
-	if cfg.IndexRefreshInterval != 30*time.Second {
-		t.Errorf("IndexRefreshInterval: ожидалось 30s, получено %v", cfg.IndexRefreshInterval)
+	if cfg.UploadLockTTL != 120*time.Second {
+		t.Errorf("UploadLockTTL: ожидалось 120s, получено %v", cfg.UploadLockTTL)
+	}
+	if cfg.ModeSyncInterval != 10*time.Second {
+		t.Errorf("ModeSyncInterval: ожидалось 10s, получено %v", cfg.ModeSyncInterval)
 	}
 	if cfg.DephealthCheckInterval != 15*time.Second {
 		t.Errorf("DephealthCheckInterval: ожидалось 15s, получено %v", cfg.DephealthCheckInterval)
@@ -178,9 +180,10 @@ func TestLoad_AllCustomValues(t *testing.T) {
 	vars["SE_RECONCILE_INTERVAL"] = "12h"
 	vars["SE_LOG_LEVEL"] = "debug"
 	vars["SE_LOG_FORMAT"] = "text"
-	vars["SE_REPLICA_MODE"] = "replicated"
-	vars["SE_INDEX_REFRESH_INTERVAL"] = "10s"
+	vars["SE_INDEX_SYNC_INTERVAL"] = "10s"
 	vars["SE_DEPHEALTH_CHECK_INTERVAL"] = "5s"
+	vars["SE_UPLOAD_LOCK_TTL"] = "60s"
+	vars["SE_MODE_SYNC_INTERVAL"] = "5s"
 	// Новые параметры Phase 3
 	vars["SE_TLS_SKIP_VERIFY"] = "true"
 	vars["SE_CA_CERT_PATH"] = "/tmp/ca.crt"
@@ -227,11 +230,14 @@ func TestLoad_AllCustomValues(t *testing.T) {
 	if cfg.LogFormat != "text" {
 		t.Errorf("LogFormat: ожидалось 'text', получено %q", cfg.LogFormat)
 	}
-	if cfg.ReplicaMode != "replicated" {
-		t.Errorf("ReplicaMode: ожидалось 'replicated', получено %q", cfg.ReplicaMode)
+	if cfg.IndexSyncInterval != 10*time.Second {
+		t.Errorf("IndexSyncInterval: ожидалось 10s, получено %v", cfg.IndexSyncInterval)
 	}
-	if cfg.IndexRefreshInterval != 10*time.Second {
-		t.Errorf("IndexRefreshInterval: ожидалось 10s, получено %v", cfg.IndexRefreshInterval)
+	if cfg.UploadLockTTL != 60*time.Second {
+		t.Errorf("UploadLockTTL: ожидалось 60s, получено %v", cfg.UploadLockTTL)
+	}
+	if cfg.ModeSyncInterval != 5*time.Second {
+		t.Errorf("ModeSyncInterval: ожидалось 5s, получено %v", cfg.ModeSyncInterval)
 	}
 	if cfg.DephealthCheckInterval != 5*time.Second {
 		t.Errorf("DephealthCheckInterval: ожидалось 5s, получено %v", cfg.DephealthCheckInterval)
@@ -270,7 +276,7 @@ func TestLoad_AllCustomValues(t *testing.T) {
 
 func TestLoad_MissingRequiredVars(t *testing.T) {
 	requiredKeys := []string{
-		"SE_STORAGE_ID", "SE_DATA_DIR", "SE_WAL_DIR",
+		"SE_STORAGE_ID", "SE_DATA_DIR",
 		"SE_JWKS_URL", "SE_TLS_CERT", "SE_TLS_KEY",
 		"SE_MAX_CAPACITY",
 	}
@@ -396,10 +402,11 @@ func TestLoad_InvalidMaxCapacity(t *testing.T) {
 func TestLoad_InvalidDuration(t *testing.T) {
 	durationVars := []string{
 		"SE_GC_INTERVAL", "SE_RECONCILE_INTERVAL",
-		"SE_INDEX_REFRESH_INTERVAL", "SE_DEPHEALTH_CHECK_INTERVAL",
+		"SE_INDEX_SYNC_INTERVAL", "SE_DEPHEALTH_CHECK_INTERVAL",
 		"SE_HTTP_CLIENT_TIMEOUT", "SE_HTTP_READ_TIMEOUT",
 		"SE_HTTP_WRITE_TIMEOUT", "SE_HTTP_IDLE_TIMEOUT",
 		"SE_JWKS_REFRESH_INTERVAL", "SE_JWT_LEEWAY",
+		"SE_UPLOAD_LOCK_TTL", "SE_MODE_SYNC_INTERVAL",
 	}
 
 	for _, varName := range durationVars {
@@ -447,21 +454,6 @@ func TestLoad_InvalidLogFormat(t *testing.T) {
 	_, err := Load()
 	if err == nil {
 		t.Error("ожидалась ошибка для невалидного SE_LOG_FORMAT")
-	}
-}
-
-func TestLoad_InvalidReplicaMode(t *testing.T) {
-	cleanup := clearAllSEEnvVars(t)
-	defer cleanup()
-
-	vars := requiredEnvVars()
-	vars["SE_REPLICA_MODE"] = "clustered"
-	cleanupVars := setEnvVars(t, vars)
-	defer cleanupVars()
-
-	_, err := Load()
-	if err == nil {
-		t.Error("ожидалась ошибка для невалидного SE_REPLICA_MODE")
 	}
 }
 

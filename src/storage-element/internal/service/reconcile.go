@@ -12,6 +12,10 @@
 //   - checksum_mismatch: не совпадает checksum
 //   - size_mismatch: не совпадает размер
 //
+// Idempotent: каждый pod запускает свой reconcile без singleton-координации.
+// При обнаружении orphaned_file/orphaned_attr проверяется lock-файл —
+// если файл загружается (lock активен), проблема пропускается.
+//
 // Запускается как горутина с периодическим тикером (SE_RECONCILE_INTERVAL).
 package service
 
@@ -21,7 +25,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -29,6 +32,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/bigkaa/goartstore/storage-element/internal/api/generated"
+	"github.com/bigkaa/goartstore/storage-element/internal/lockfile"
 	"github.com/bigkaa/goartstore/storage-element/internal/storage/attr"
 	"github.com/bigkaa/goartstore/storage-element/internal/storage/filestore"
 	"github.com/bigkaa/goartstore/storage-element/internal/storage/index"
@@ -57,32 +61,35 @@ var (
 )
 
 // ReconcileService — сервис фоновой сверки хранилища.
+//
+// Idempotent: каждый pod запускает reconcile без mutex-координации.
 type ReconcileService struct {
-	store    *filestore.FileStore
-	idx      *index.Index
-	dataDir  string
-	interval time.Duration
-	logger   *slog.Logger
+	store       *filestore.FileStore
+	idx         *index.Index
+	lockManager *lockfile.LockManager
+	dataDir     string
+	interval    time.Duration
+	logger      *slog.Logger
 
-	mu        sync.Mutex // защита от параллельного запуска
-	inProcess bool       // reconciliation в процессе выполнения
-	cancel    context.CancelFunc
+	cancel context.CancelFunc
 }
 
 // NewReconcileService создаёт сервис reconciliation.
 func NewReconcileService(
 	store *filestore.FileStore,
 	idx *index.Index,
+	lockManager *lockfile.LockManager,
 	dataDir string,
 	interval time.Duration,
 	logger *slog.Logger,
 ) *ReconcileService {
 	return &ReconcileService{
-		store:    store,
-		idx:      idx,
-		dataDir:  dataDir,
-		interval: interval,
-		logger:   logger.With(slog.String("component", "reconcile")),
+		store:       store,
+		idx:         idx,
+		lockManager: lockManager,
+		dataDir:     dataDir,
+		interval:    interval,
+		logger:      logger.With(slog.String("component", "reconcile")),
 	}
 }
 
@@ -106,13 +113,6 @@ func (rs *ReconcileService) Stop() {
 	rs.logger.Info("Reconciliation остановлена")
 }
 
-// IsInProgress возвращает true, если reconciliation выполняется.
-func (rs *ReconcileService) IsInProgress() bool {
-	rs.mu.Lock()
-	defer rs.mu.Unlock()
-	return rs.inProcess
-}
-
 // run — основной цикл фоновой горутины.
 func (rs *ReconcileService) run(ctx context.Context) {
 	ticker := time.NewTicker(rs.interval)
@@ -129,27 +129,13 @@ func (rs *ReconcileService) run(ctx context.Context) {
 }
 
 // RunOnce выполняет один цикл reconciliation.
-// Потокобезопасен: если reconciliation уже выполняется, возвращает nil, true.
+//
+// Idempotent: несколько pod-ов могут запускать reconcile одновременно.
+// Lock-aware: orphaned файлы с активным lock пропускаются (upload в процессе).
 //
 // Возвращает:
 //   - *generated.ReconcileResponse — результат сверки
-//   - bool — true если reconciliation уже выполнялась (skipped)
-func (rs *ReconcileService) RunOnce() (*generated.ReconcileResponse, bool) {
-	rs.mu.Lock()
-	if rs.inProcess {
-		rs.mu.Unlock()
-		rs.logger.Warn("Reconciliation уже выполняется, пропуск")
-		return nil, true
-	}
-	rs.inProcess = true
-	rs.mu.Unlock()
-
-	defer func() {
-		rs.mu.Lock()
-		rs.inProcess = false
-		rs.mu.Unlock()
-	}()
-
+func (rs *ReconcileService) RunOnce() *generated.ReconcileResponse {
 	startedAt := time.Now().UTC()
 	rs.logger.Info("Reconciliation начата")
 
@@ -210,7 +196,7 @@ func (rs *ReconcileService) RunOnce() (*generated.ReconcileResponse, bool) {
 		FilesChecked: filesChecked,
 		Issues:       issues,
 		Summary:      summary,
-	}, false
+	}
 }
 
 // reconcile выполняет сверку данных на диске.
@@ -254,10 +240,29 @@ func (rs *ReconcileService) reconcile() []generated.ReconcileIssue {
 		}
 	}
 
+	// Определяем порог «свежести» файла: если файл создан в пределах lock TTL,
+	// он может быть in-flight upload-ом (данные записаны, attr.json ещё нет).
+	lockTTL := rs.lockManager.TTL()
+	now := time.Now()
+
 	// 1. Проверяем: файл данных без attr.json (orphaned_file)
+	// Lock-aware: если файл свежий (mtime в пределах lockTTL) — пропускаем,
+	// т.к. upload мог записать данные, но ещё не записал attr.json.
 	for dataFile := range dataFiles {
 		expectedAttr := dataFile + attr.AttrSuffix
 		if !attrFiles[expectedAttr] {
+			// Проверяем mtime файла — если свежий, upload может быть в процессе
+			filePath := filepath.Join(rs.dataDir, dataFile)
+			if info, statErr := os.Stat(filePath); statErr == nil {
+				if now.Sub(info.ModTime()) < lockTTL {
+					rs.logger.Debug("Reconcile: orphaned файл свежий, пропуск (возможный in-flight upload)",
+						slog.String("file", dataFile),
+						slog.Duration("age", now.Sub(info.ModTime())),
+					)
+					continue
+				}
+			}
+
 			path := dataFile
 			issues = append(issues, generated.ReconcileIssue{
 				Type:        generated.OrphanedFile,
@@ -268,11 +273,24 @@ func (rs *ReconcileService) reconcile() []generated.ReconcileIssue {
 	}
 
 	// 2. Проверяем: attr.json без файла данных (orphaned_attr / missing_file)
+	// Lock-aware: если attr.json свежий (mtime в пределах lockTTL) — пропускаем,
+	// т.к. upload мог записать attr.json, но данные ещё не завершены.
 	for attrFile := range attrFiles {
 		dataFile := strings.TrimSuffix(attrFile, attr.AttrSuffix)
 		if !dataFiles[dataFile] {
-			// Читаем attr.json для получения file_id
+			// Проверяем mtime attr.json — если свежий, возможен in-flight upload
 			attrPath := filepath.Join(rs.dataDir, attrFile)
+			if info, statErr := os.Stat(attrPath); statErr == nil {
+				if now.Sub(info.ModTime()) < lockTTL {
+					rs.logger.Debug("Reconcile: orphaned attr свежий, пропуск (возможный in-flight upload)",
+						slog.String("attr_file", attrFile),
+						slog.Duration("age", now.Sub(info.ModTime())),
+					)
+					continue
+				}
+			}
+
+			// Читаем attr.json для получения file_id
 			meta, readErr := attr.Read(attrPath)
 			path := dataFile
 

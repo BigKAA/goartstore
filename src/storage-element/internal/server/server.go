@@ -1,4 +1,6 @@
 // Пакет server — HTTP-сервер Storage Element с TLS и graceful shutdown.
+//
+// Stateless архитектура: proxy middleware удалён (нет leader/follower).
 package server
 
 import (
@@ -20,18 +22,12 @@ import (
 	"github.com/bigkaa/goartstore/storage-element/internal/config"
 )
 
-// ProxyMiddleware — интерфейс для middleware проксирования запросов (replicated mode).
-type ProxyMiddleware interface {
-	Middleware(next http.Handler) http.Handler
-}
-
 // Server — HTTP-сервер Storage Element.
 type Server struct {
 	httpServer *http.Server
 	logger     *slog.Logger
 	cfg        *config.Config
 	jwtAuth    JWTAuthProvider
-	proxy      ProxyMiddleware
 }
 
 // JWTAuthProvider — интерфейс для JWT middleware.
@@ -42,19 +38,12 @@ type JWTAuthProvider interface {
 // New создаёт новый HTTP-сервер с настроенными routes и middleware.
 // handler — реализация generated.ServerInterface с реальными handlers.
 // jwtAuth — JWT middleware (nil для режима без аутентификации).
-// proxy — middleware проксирования (nil для standalone mode).
-func New(cfg *config.Config, logger *slog.Logger, handler generated.ServerInterface, jwtAuth JWTAuthProvider, proxy ProxyMiddleware) *Server {
+func New(cfg *config.Config, logger *slog.Logger, handler generated.ServerInterface, jwtAuth JWTAuthProvider) *Server {
 	router := chi.NewRouter()
 
 	// Глобальные middleware
 	router.Use(middleware.MetricsMiddleware())
 	router.Use(middleware.RequestLogger(logger))
-
-	// Proxy middleware (replicated mode: follower → leader для write-запросов).
-	// Ставится после logging/metrics, перед маршрутами.
-	if proxy != nil {
-		router.Use(proxy.Middleware)
-	}
 
 	// Определяем маршруты с JWT-аутентификацией.
 	// Публичные endpoints (без auth): health, metrics, info.
@@ -75,7 +64,6 @@ func New(cfg *config.Config, logger *slog.Logger, handler generated.ServerInterf
 				rr.Use(middleware.RequireScope("files:read"))
 				// ListFiles и GetFileMetadata через wrapper
 				rr.Get("/api/v1/files", func(w http.ResponseWriter, r *http.Request) {
-					// Парсим параметры вручную для ListFiles
 					siw := &generated.ServerInterfaceWrapper{Handler: handler, ErrorHandlerFunc: defaultErrorHandler}
 					siw.ListFiles(w, r)
 				})
@@ -135,7 +123,6 @@ func New(cfg *config.Config, logger *slog.Logger, handler generated.ServerInterf
 		logger:     logger,
 		cfg:        cfg,
 		jwtAuth:    jwtAuth,
-		proxy:      proxy,
 	}
 }
 
@@ -162,7 +149,7 @@ func (m *MetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // Run запускает сервер и ожидает сигнала завершения (SIGINT, SIGTERM).
-// При получении сигнала выполняется graceful shutdown с таймаутом 30 секунд.
+// При получении сигнала выполняется graceful shutdown с настраиваемым таймаутом.
 func (s *Server) Run() error {
 	// Канал для ошибок сервера
 	errCh := make(chan error, 1)
@@ -201,9 +188,6 @@ func (s *Server) Run() error {
 	}
 
 	// Graceful shutdown с таймаутом из конфига (SE_SHUTDOWN_TIMEOUT, по умолчанию 5s).
-	// Важно: таймаут должен быть меньше K8s terminationGracePeriodSeconds,
-	// чтобы после остановки HTTP-сервера оставалось время для election.Stop()
-	// (освобождение NFS flock) до SIGKILL.
 	ctx, cancel := context.WithTimeout(context.Background(), s.cfg.ShutdownTimeout)
 	defer cancel()
 
