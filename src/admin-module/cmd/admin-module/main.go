@@ -450,10 +450,10 @@ func loadSEEndpoints(
 
 	var registered int
 	for _, se := range seList {
-		if regErr := dephealthSvc.RegisterSEEndpoint(se.Name, se.URL); regErr != nil {
+		if regErr := dephealthSvc.RegisterSEEndpoint(se.StorageID, se.URL); regErr != nil {
 			logger.Warn("Не удалось зарегистрировать SE в dephealth при старте",
 				slog.String("se_id", se.ID),
-				slog.String("name", se.Name),
+				slog.String("storage_id", se.StorageID),
 				slog.String("url", se.URL),
 				slog.String("error", regErr.Error()),
 			)

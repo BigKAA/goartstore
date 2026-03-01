@@ -136,11 +136,12 @@ func (s *StorageElementService) Create(ctx context.Context, name, url string, pr
 	)
 
 	// Регистрация SE endpoint в dephealth (non-blocking, ошибки → Warn)
+	// Используем StorageID как стабильный идентификатор для dependency label
 	if s.dephealthSvc != nil {
-		if dhErr := s.dephealthSvc.RegisterSEEndpoint(name, url); dhErr != nil {
+		if dhErr := s.dephealthSvc.RegisterSEEndpoint(info.StorageID, url); dhErr != nil {
 			s.logger.Warn("Не удалось зарегистрировать SE в dephealth",
 				slog.String("se_id", seID),
-				slog.String("name", name),
+				slog.String("storage_id", info.StorageID),
 				slog.String("error", dhErr.Error()),
 			)
 		}
@@ -207,8 +208,7 @@ func (s *StorageElementService) Update(ctx context.Context, id string, name, url
 		return nil, fmt.Errorf("получение SE для обновления: %w", err)
 	}
 
-	// Сохраняем старые значения для dephealth update
-	oldName := se.Name
+	// Сохраняем старый URL для dephealth update (storageID стабилен)
 	oldURL := se.URL
 
 	// Применяем обновления
@@ -234,11 +234,13 @@ func (s *StorageElementService) Update(ctx context.Context, id string, name, url
 		slog.String("se_id", id),
 	)
 
-	// Обновление SE endpoint в dephealth (non-blocking, ошибки → Warn)
-	if s.dephealthSvc != nil && (oldName != se.Name || oldURL != se.URL) {
-		if dhErr := s.dephealthSvc.UpdateSEEndpoint(oldName, oldURL, se.Name, se.URL); dhErr != nil {
+	// Обновление SE endpoint в dephealth при смене URL (non-blocking, ошибки → Warn)
+	// StorageID стабилен — переименование SE не влияет на dependency label в метриках
+	if s.dephealthSvc != nil && oldURL != se.URL {
+		if dhErr := s.dephealthSvc.UpdateSEEndpoint(se.StorageID, oldURL, se.URL); dhErr != nil {
 			s.logger.Warn("Не удалось обновить SE в dephealth",
 				slog.String("se_id", id),
+				slog.String("storage_id", se.StorageID),
 				slog.String("error", dhErr.Error()),
 			)
 		}
@@ -249,11 +251,11 @@ func (s *StorageElementService) Update(ctx context.Context, id string, name, url
 
 // Delete удаляет SE из реестра. Физические файлы не удаляются.
 func (s *StorageElementService) Delete(ctx context.Context, id string) error {
-	// Получаем SE для dephealth (name, URL) перед удалением
-	var seName, seURL string
+	// Получаем SE для dephealth (storageID, URL) перед удалением
+	var seStorageID, seURL string
 	if s.dephealthSvc != nil {
 		if se, getErr := s.seRepo.GetByID(ctx, id); getErr == nil {
-			seName = se.Name
+			seStorageID = se.StorageID
 			seURL = se.URL
 		}
 	}
@@ -270,11 +272,11 @@ func (s *StorageElementService) Delete(ctx context.Context, id string) error {
 	)
 
 	// Удаление SE endpoint из dephealth (non-blocking, ошибки → Warn)
-	if s.dephealthSvc != nil && seName != "" && seURL != "" {
-		if dhErr := s.dephealthSvc.UnregisterSEEndpoint(seName, seURL); dhErr != nil {
+	if s.dephealthSvc != nil && seStorageID != "" && seURL != "" {
+		if dhErr := s.dephealthSvc.UnregisterSEEndpoint(seStorageID, seURL); dhErr != nil {
 			s.logger.Warn("Не удалось удалить SE из dephealth",
 				slog.String("se_id", id),
-				slog.String("name", seName),
+				slog.String("storage_id", seStorageID),
 				slog.String("error", dhErr.Error()),
 			)
 		}

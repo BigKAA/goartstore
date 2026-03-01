@@ -109,7 +109,7 @@ templ SEDetail(data SEDetailData) {
 					<button
 						class="inline-flex items-center px-4 py-2 text-sm font-medium text-text-primary bg-bg-elevated rounded-button border border-border-default hover:bg-bg-hover transition-colors gap-1.5"
 						hx-post={ fmt.Sprintf("/admin/partials/se-sync/%s", data.ID) }
-						hx-target="#se-detail-action-result"
+						hx-target="#se-action-result"
 						hx-swap="innerHTML"
 					>
 						<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -121,7 +121,7 @@ templ SEDetail(data SEDetailData) {
 					<button
 						class="inline-flex items-center px-4 py-2 text-sm font-medium text-text-primary bg-bg-elevated rounded-button border border-border-default hover:bg-bg-hover transition-colors gap-1.5"
 						hx-get={ fmt.Sprintf("/admin/partials/se-edit-form/%s", data.ID) }
-						hx-target="#se-detail-action-result"
+						hx-target="#se-action-result"
 						hx-swap="innerHTML"
 					>
 						<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -140,7 +140,7 @@ templ SEDetail(data SEDetailData) {
 		</div>
 
 		<!-- Область для результатов действий -->
-		<div id="se-detail-action-result" class="mb-4"></div>
+		<div id="se-action-result" class="mb-4"></div>
 
 		<!-- Основная информация -->
 		<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">

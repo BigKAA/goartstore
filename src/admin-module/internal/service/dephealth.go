@@ -263,8 +263,9 @@ func parseSEURL(seURL string) (host, port string, tlsEnabled bool, err error) {
 // RegisterSEEndpoint регистрирует SE как динамический endpoint в dephealth.
 // Создаёт HTTP checker для /health/ready и вызывает AddEndpoint.
 // Вызов идемпотентен — повторная регистрация не вызывает ошибку.
-func (ds *DephealthService) RegisterSEEndpoint(name, seURL string) error {
-	depName := NormalizeSEDepName(name)
+// storageID используется как стабильный идентификатор для dependency label в метриках.
+func (ds *DephealthService) RegisterSEEndpoint(storageID, seURL string) error {
+	depName := NormalizeSEDepName(storageID)
 
 	host, port, tlsEnabled, err := parseSEURL(seURL)
 	if err != nil {
@@ -299,8 +300,9 @@ func (ds *DephealthService) RegisterSEEndpoint(name, seURL string) error {
 
 // UnregisterSEEndpoint удаляет SE endpoint из dephealth.
 // Вызов идемпотентен — удаление несуществующего endpoint не вызывает ошибку.
-func (ds *DephealthService) UnregisterSEEndpoint(name, seURL string) error {
-	depName := NormalizeSEDepName(name)
+// storageID используется как стабильный идентификатор для dependency label в метриках.
+func (ds *DephealthService) UnregisterSEEndpoint(storageID, seURL string) error {
+	depName := NormalizeSEDepName(storageID)
 
 	host, port, _, err := parseSEURL(seURL)
 	if err != nil {
@@ -320,14 +322,13 @@ func (ds *DephealthService) UnregisterSEEndpoint(name, seURL string) error {
 	return nil
 }
 
-// UpdateSEEndpoint обновляет SE endpoint в dephealth при изменении name или URL.
-//
-// Если изменилось имя — выполняется Remove(old) + Add(new), т.к. SDK не поддерживает
-// переименование depName. Если изменился только URL — используется атомарный UpdateEndpoint.
+// UpdateSEEndpoint обновляет SE endpoint в dephealth при изменении URL.
+// storageID используется как стабильный идентификатор — он не меняется при
+// переименовании SE, поэтому depName всегда остаётся прежним.
+// Если изменился URL — используется атомарный UpdateEndpoint.
 // Если ничего не изменилось — noop.
-func (ds *DephealthService) UpdateSEEndpoint(oldName, oldURL, newName, newURL string) error {
-	oldDepName := NormalizeSEDepName(oldName)
-	newDepName := NormalizeSEDepName(newName)
+func (ds *DephealthService) UpdateSEEndpoint(storageID, oldURL, newURL string) error {
+	depName := NormalizeSEDepName(storageID)
 
 	oldHost, oldPort, _, oldErr := parseSEURL(oldURL)
 	if oldErr != nil {
@@ -340,38 +341,11 @@ func (ds *DephealthService) UpdateSEEndpoint(oldName, oldURL, newName, newURL st
 	}
 
 	// Ничего не изменилось
-	if oldDepName == newDepName && oldHost == newHost && oldPort == newPort {
+	if oldHost == newHost && oldPort == newPort {
 		return nil
 	}
 
-	// Изменилось имя — Remove + Add (SDK не поддерживает переименование depName)
-	if oldDepName != newDepName {
-		// Удаляем старый (идемпотентно)
-		if err := ds.dh.RemoveEndpoint(oldDepName, oldHost, oldPort); err != nil {
-			return fmt.Errorf("RemoveEndpoint(%s): %w", oldDepName, err)
-		}
-
-		// Регистрируем новый
-		checker := httpcheck.New(
-			httpcheck.WithHealthPath(seHealthPath),
-			httpcheck.WithTLSEnabled(newTLS),
-			httpcheck.WithTLSSkipVerify(ds.tlsSkipVerify),
-		)
-		ep := dephealth.Endpoint{Host: newHost, Port: newPort}
-		if err := ds.dh.AddEndpoint(newDepName, dephealth.TypeHTTP, false, ep, checker); err != nil {
-			return fmt.Errorf("AddEndpoint(%s): %w", newDepName, err)
-		}
-
-		ds.logger.Info("SE endpoint переименован в dephealth",
-			slog.String("old_dep_name", oldDepName),
-			slog.String("new_dep_name", newDepName),
-			slog.String("host", newHost),
-			slog.String("port", newPort),
-		)
-		return nil
-	}
-
-	// Изменился только URL — атомарный UpdateEndpoint
+	// Изменился URL — атомарный UpdateEndpoint
 	checker := httpcheck.New(
 		httpcheck.WithHealthPath(seHealthPath),
 		httpcheck.WithTLSEnabled(newTLS),
@@ -379,16 +353,16 @@ func (ds *DephealthService) UpdateSEEndpoint(oldName, oldURL, newName, newURL st
 	)
 	newEp := dephealth.Endpoint{Host: newHost, Port: newPort}
 
-	if err := ds.dh.UpdateEndpoint(newDepName, oldHost, oldPort, newEp, checker); err != nil {
+	if err := ds.dh.UpdateEndpoint(depName, oldHost, oldPort, newEp, checker); err != nil {
 		// Если endpoint не найден (e.g. dephealth не успел зарегистрировать) —
 		// пробуем Add как fallback
-		if err := ds.dh.AddEndpoint(newDepName, dephealth.TypeHTTP, false, newEp, checker); err != nil {
-			return fmt.Errorf("UpdateEndpoint fallback AddEndpoint(%s): %w", newDepName, err)
+		if err := ds.dh.AddEndpoint(depName, dephealth.TypeHTTP, false, newEp, checker); err != nil {
+			return fmt.Errorf("UpdateEndpoint fallback AddEndpoint(%s): %w", depName, err)
 		}
 	}
 
 	ds.logger.Info("SE endpoint обновлён в dephealth",
-		slog.String("dep_name", newDepName),
+		slog.String("dep_name", depName),
 		slog.String("old_host", oldHost),
 		slog.String("old_port", oldPort),
 		slog.String("new_host", newHost),
