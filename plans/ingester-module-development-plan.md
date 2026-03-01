@@ -17,10 +17,10 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 2
+- **Активная фаза**: Phase 3
 - **Активный подпункт**: —
 - **Последнее обновление**: 2026-03-01
-- **Примечание**: Phase 0 Done (priority в SE), Phase 1 Done (каркас IM)
+- **Примечание**: Phase 0 Done (priority в SE), Phase 1 Done (каркас IM), Phase 2 Done (инфраструктура)
 
 ---
 
@@ -28,7 +28,7 @@
 
 - [x] [Phase 0: Подготовка Admin Module (priority в SE)](#phase-0-подготовка-admin-module-priority-в-se)
 - [x] [Phase 1: Каркас проекта и кодогенерация](#phase-1-каркас-проекта-и-кодогенерация)
-- [ ] [Phase 2: Инфраструктурный слой (конфиг, middleware, health)](#phase-2-инфраструктурный-слой-конфиг-middleware-health)
+- [x] [Phase 2: Инфраструктурный слой (конфиг, middleware, health)](#phase-2-инфраструктурный-слой-конфиг-middleware-health)
 - [ ] [Phase 3: Бизнес-логика (upload pipeline, SE selection, file registration)](#phase-3-бизнес-логика-upload-pipeline-se-selection-file-registration)
 - [ ] [Phase 4: Сборка, деплой и интеграционные тесты](#phase-4-сборка-деплой-и-интеграционные-тесты)
 - [ ] [Phase 5: Sequence-диаграммы и документация](#phase-5-sequence-диаграммы-и-документация)
@@ -307,7 +307,7 @@
 ## Phase 2: Инфраструктурный слой (конфиг, middleware, health)
 
 **Dependencies**: Phase 1
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -318,7 +318,7 @@ readiness check (Admin Module). Ingester Module **не использует со
 
 ### Подпункты
 
-- [ ] **2.1 Полная конфигурация (config.go)**
+- [x] **2.1 Полная конфигурация (config.go)**
   - **Dependencies**: None
   - **Description**: Расширение config.go из Phase 1.5. Добавить переменные
     (все с префиксом `IM_`, кроме `DEPHEALTH_NAME` и `DEPHEALTH_ISENTRY` — без префикса,
@@ -352,7 +352,7 @@ readiness check (Admin Module). Ingester Module **не использует со
   - **Links**:
     - Паттерн: `src/query-module/internal/config/config.go`
 
-- [ ] **2.2 JWT auth middleware**
+- [x] **2.2 JWT auth middleware**
   - **Dependencies**: 2.1
   - **Description**: Копирование и адаптация `auth.go` из QM (~530 строк).
     QM middleware уже является упрощённой версией (без RoleOverrideProvider из AM).
@@ -377,7 +377,7 @@ readiness check (Admin Module). Ingester Module **не использует со
   - **Links**:
     - Паттерн: `src/query-module/internal/api/middleware/auth.go`
 
-- [ ] **2.3 Logging и Metrics middleware**
+- [x] **2.3 Logging и Metrics middleware**
   - **Dependencies**: None
   - **Description**:
     **logging.go** (~70 строк, копия из QM):
@@ -401,7 +401,7 @@ readiness check (Admin Module). Ingester Module **не использует со
     - Паттерн: `src/query-module/internal/api/middleware/logging.go`
     - Паттерн: `src/query-module/internal/api/middleware/metrics.go`
 
-- [ ] **2.4 Обновление main.go и server.go**
+- [x] **2.4 Обновление main.go и server.go**
   - **Dependencies**: 2.1, 2.2, 2.3
   - **Description**: Интеграция Phase 2 в main.go. Порядок инициализации:
     1. `config.Load()` — полная конфигурация
@@ -425,19 +425,19 @@ readiness check (Admin Module). Ingester Module **не использует со
 
 ### Критерии завершения Phase 2
 
-- [ ] Все подпункты завершены (2.1–2.4)
-- [ ] Запрос без JWT → 401 (`UNAUTHORIZED`)
-- [ ] Запрос с невалидным/просроченным JWT → 401
-- [ ] Запрос с JWT без role admin и без scope files:write → 403 (`FORBIDDEN`)
-- [ ] Запрос с JWT admin → проходит (stub 501 от upload)
-- [ ] `/health/live`, `/health/ready`, `/metrics` доступны без JWT
-- [ ] Логи в JSON формате (`IM_LOG_FORMAT=json`), уровни корректны (INFO/WARN/ERROR)
-- [ ] `/metrics` содержит `im_http_requests_total` и `im_http_request_duration_seconds`
-- [ ] Обязательные переменные: приложение не стартует без `IM_JWKS_URL`, `IM_ADMIN_URL`,
+- [x] Все подпункты завершены (2.1–2.4)
+- [x] Запрос без JWT → 401 (`UNAUTHORIZED`)
+- [x] Запрос с невалидным/просроченным JWT → 401
+- [x] Запрос с JWT без role admin и без scope files:write → 403 (`FORBIDDEN`)
+- [x] Запрос с JWT admin → проходит (stub 501 от upload)
+- [x] `/health/live`, `/health/ready`, `/metrics` доступны без JWT
+- [x] Логи в JSON формате (`IM_LOG_FORMAT=json`), уровни корректны (INFO/WARN/ERROR)
+- [x] `/metrics` содержит `im_http_requests_total` и `im_http_request_duration_seconds`
+- [x] Обязательные переменные: приложение не стартует без `IM_JWKS_URL`, `IM_ADMIN_URL`,
   `IM_CLIENT_ID`, `IM_CLIENT_SECRET`
-- [ ] `go test ./...` проходит
-- [ ] `go vet ./...` без ошибок
-- [ ] `make lint` проходит без ошибок
+- [x] `go test ./...` проходит
+- [x] `go vet ./...` без ошибок
+- [x] `make lint` проходит без ошибок
 
 ---
 

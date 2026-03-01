@@ -7,7 +7,8 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/bigkaa/goartstore/ingester-module/internal/api/errors"
+	apierrors "github.com/bigkaa/goartstore/ingester-module/internal/api/errors"
+	"github.com/bigkaa/goartstore/ingester-module/internal/api/middleware"
 )
 
 // APIHandler — основной обработчик API Ingester Module.
@@ -19,7 +20,7 @@ type APIHandler struct {
 }
 
 // NewAPIHandler создаёт основной обработчик API.
-// uploadService = nil в Phase 1, будет установлен в Phase 3.
+// uploadService = nil в Phase 2, будет установлен в Phase 3.
 func NewAPIHandler(
 	health *HealthHandler,
 	logger *slog.Logger,
@@ -52,19 +53,44 @@ func (h *APIHandler) GetMetrics(w http.ResponseWriter, r *http.Request) {
 // UploadFile — загрузка файла (POST /api/v1/files/upload).
 // Stub: возвращает 501 Not Implemented. Полная реализация в Phase 3.
 func (h *APIHandler) UploadFile(w http.ResponseWriter, _ *http.Request) {
-	errors.WriteError(w, http.StatusNotImplemented, "NOT_IMPLEMENTED",
+	apierrors.WriteError(w, http.StatusNotImplemented, "NOT_IMPLEMENTED",
 		"Upload endpoint ещё не реализован (Phase 3)")
 }
 
 // --- Авторизация ---
 
 // checkAuth проверяет наличие роли admin или scope files:write.
-// Stub: всегда возвращает true. Полная реализация в Phase 3.5.
+// Возвращает true, если авторизация пройдена.
+// Upload авторизация: role admin ИЛИ scope files:write.
 //
 //nolint:unused // используется в Phase 3.5
-func (h *APIHandler) checkAuth(_ http.ResponseWriter, _ *http.Request) bool {
-	// Stub — полная реализация через ClaimsFromContext в Phase 3.5
-	return true
+func (h *APIHandler) checkAuth(w http.ResponseWriter, r *http.Request) bool {
+	claims := middleware.ClaimsFromContext(r.Context())
+	if claims == nil {
+		apierrors.Unauthorized(w, "Отсутствуют claims в контексте")
+		return false
+	}
+
+	// User: role admin. SA: scope files:write.
+	switch claims.SubjectType {
+	case middleware.SubjectTypeUser:
+		if claims.HasAnyRole(middleware.RoleAdmin) {
+			return true
+		}
+		apierrors.Forbidden(w, "Недостаточно прав: требуется роль admin")
+		return false
+
+	case middleware.SubjectTypeSA:
+		if claims.HasAnyScope("files:write") {
+			return true
+		}
+		apierrors.Forbidden(w, "Недостаточно прав: требуется scope files:write")
+		return false
+
+	default:
+		apierrors.Forbidden(w, "Неизвестный тип субъекта")
+		return false
+	}
 }
 
 // --- Вспомогательные функции ---
