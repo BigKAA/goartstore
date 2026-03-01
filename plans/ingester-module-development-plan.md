@@ -17,10 +17,10 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 3
+- **Активная фаза**: Phase 4
 - **Активный подпункт**: —
 - **Последнее обновление**: 2026-03-01
-- **Примечание**: Phase 0 Done (priority в SE), Phase 1 Done (каркас IM), Phase 2 Done (инфраструктура)
+- **Примечание**: Phase 0-3 Done. Phase 3: бизнес-логика (adminclient, seclient, selector, upload pipeline, handler, dephealth, main.go интеграция)
 
 ---
 
@@ -29,7 +29,7 @@
 - [x] [Phase 0: Подготовка Admin Module (priority в SE)](#phase-0-подготовка-admin-module-priority-в-se)
 - [x] [Phase 1: Каркас проекта и кодогенерация](#phase-1-каркас-проекта-и-кодогенерация)
 - [x] [Phase 2: Инфраструктурный слой (конфиг, middleware, health)](#phase-2-инфраструктурный-слой-конфиг-middleware-health)
-- [ ] [Phase 3: Бизнес-логика (upload pipeline, SE selection, file registration)](#phase-3-бизнес-логика-upload-pipeline-se-selection-file-registration)
+- [x] [Phase 3: Бизнес-логика (upload pipeline, SE selection, file registration)](#phase-3-бизнес-логика-upload-pipeline-se-selection-file-registration)
 - [ ] [Phase 4: Сборка, деплой и интеграционные тесты](#phase-4-сборка-деплой-и-интеграционные-тесты)
 - [ ] [Phase 5: Sequence-диаграммы и документация](#phase-5-sequence-диаграммы-и-документация)
 
@@ -444,7 +444,7 @@ readiness check (Admin Module). Ingester Module **не использует со
 ## Phase 3: Бизнес-логика (upload pipeline, SE selection, file registration)
 
 **Dependencies**: Phase 0, Phase 2
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -455,7 +455,7 @@ retry при 507, topologymetrics.
 
 ### Подпункты
 
-- [ ] **3.1 Admin Module HTTP-клиент**
+- [x] **3.1 Admin Module HTTP-клиент**
   - **Dependencies**: None
   - **Description**: `adminclient/client.go` — HTTP-клиент к Admin Module.
     Адаптация QM adminclient (~200 строк) с расширением для IM.
@@ -507,7 +507,7 @@ retry при 507, topologymetrics.
     - Паттерн: `src/query-module/internal/adminclient/client.go`
     - AM API: `docs/api-contracts/admin-module-openapi.yaml`
 
-- [ ] **3.2 SE HTTP-клиент (upload)**
+- [x] **3.2 SE HTTP-клиент (upload)**
   - **Dependencies**: None
   - **Description**: `seclient/client.go` — HTTP-клиент для загрузки файлов в SE.
     Адаптация QM seclient (Download → Upload, ~150 строк).
@@ -552,7 +552,7 @@ retry при 507, topologymetrics.
     - Паттерн: `src/query-module/internal/seclient/client.go`
     - SE API: `docs/api-contracts/storage-element-openapi.yaml`
 
-- [ ] **3.3 Storage Element Selector (Sequential Fill)**
+- [x] **3.3 Storage Element Selector (Sequential Fill)**
   - **Dependencies**: 3.1
   - **Description**: `service/selector.go` — алгоритм выбора SE:
     - `SelectSE(ctx, fileSize int64, retentionPolicy string,
@@ -573,7 +573,7 @@ retry при 507, topologymetrics.
   - **Creates**:
     - `src/ingester-module/internal/service/selector.go`
 
-- [ ] **3.4 Upload Service (pipeline + retry)**
+- [x] **3.4 Upload Service (pipeline + retry)**
   - **Dependencies**: 3.2, 3.3
   - **Description**: `service/upload.go` — координатор upload pipeline (~300 строк).
     ```
@@ -641,7 +641,7 @@ retry при 507, topologymetrics.
   - **Creates**:
     - `src/ingester-module/internal/service/upload.go`
 
-- [ ] **3.5 Upload HTTP-обработчик**
+- [x] **3.5 Upload HTTP-обработчик**
   - **Dependencies**: 3.4
   - **Description**: `handlers/upload.go` — реализация `UploadFile`:
     1. Авторизация: `checkAuth(w, r)` — role `admin` ИЛИ scope `files:write`
@@ -670,7 +670,7 @@ retry при 507, topologymetrics.
     - `src/ingester-module/internal/api/handlers/upload.go`
     - `src/ingester-module/internal/api/handlers/handler.go` (обновление)
 
-- [ ] **3.6 Topologymetrics**
+- [x] **3.6 Topologymetrics**
   - **Dependencies**: None
   - **Description**: `service/dephealth.go` — настройка topologymetrics.
     Упрощённая версия QM dephealth: только 1 зависимость (без PostgreSQL).
@@ -697,7 +697,7 @@ retry при 507, topologymetrics.
   - **Links**:
     - Паттерн: `src/query-module/internal/service/dephealth.go`
 
-- [ ] **3.7 Интеграция в main.go и обновление readiness check**
+- [x] **3.7 Интеграция в main.go и обновление readiness check**
   - **Dependencies**: 3.1, 3.4, 3.5, 3.6
   - **Description**: Финальная версия main.go. Порядок инициализации
     (шаги 1-6 уже существуют из Phase 2.4, добавляются 7-13):
@@ -745,24 +745,24 @@ retry при 507, topologymetrics.
 
 ### Критерии завершения Phase 3
 
-- [ ] Все подпункты завершены (3.1–3.7)
-- [ ] `POST /api/v1/files/upload` загружает файл в SE и возвращает 201
-- [ ] `uploaded_by` в ответе = `sub` из JWT конечного пользователя
-- [ ] `storage_element_id` в ответе = ID записи SE в реестре AM
-- [ ] Sequential Fill выбирает SE по priority (lowest value first)
-- [ ] Retry при 507 работает (исключает SE, Seek(0,0) temp-file, пробует следующий)
-- [ ] 413 от SE корректно пробрасывается клиенту
-- [ ] Файл регистрируется в Admin Module file registry (`POST /api/v1/files`)
-- [ ] Temp-файл удаляется после upload (или при ошибке) — defer cleanup
-- [ ] `/health/ready` проверяет Admin Module + JWKS endpoint
-- [ ] Topologymetrics: `app_dependency_health{dependency="admin-module"}` отображается
-- [ ] `/metrics` содержит `im_uploads_total`, `im_active_uploads`,
+- [x] Все подпункты завершены (3.1–3.7)
+- [x] `POST /api/v1/files/upload` загружает файл в SE и возвращает 201
+- [x] `uploaded_by` в ответе = `sub` из JWT конечного пользователя
+- [x] `storage_element_id` в ответе = ID записи SE в реестре AM
+- [x] Sequential Fill выбирает SE по priority (lowest value first)
+- [x] Retry при 507 работает (исключает SE, Seek(0,0) temp-file, пробует следующий)
+- [x] 413 от SE корректно пробрасывается клиенту
+- [x] Файл регистрируется в Admin Module file registry (`POST /api/v1/files`)
+- [x] Temp-файл удаляется после upload (или при ошибке) — defer cleanup
+- [x] `/health/ready` проверяет Admin Module + JWKS endpoint
+- [x] Topologymetrics: `app_dependency_health{dependency="admin-module"}` отображается
+- [x] `/metrics` содержит `im_uploads_total`, `im_active_uploads`,
   `im_upload_duration_seconds`, `im_retry_total`
-- [ ] Error mapping: 413 FILE_TOO_LARGE, 502 NO_STORAGE_AVAILABLE/SE_UPLOAD_FAILED/
+- [x] Error mapping: 413 FILE_TOO_LARGE, 502 NO_STORAGE_AVAILABLE/SE_UPLOAD_FAILED/
   ADMIN_UNAVAILABLE, 507 STORAGE_FULL
-- [ ] `go test ./...` проходит
-- [ ] `go vet ./...` без ошибок
-- [ ] `make lint` проходит без ошибок
+- [x] `go test ./...` проходит
+- [x] `go vet ./...` без ошибок
+- [x] `make lint` проходит без ошибок
 
 ---
 

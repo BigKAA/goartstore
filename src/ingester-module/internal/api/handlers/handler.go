@@ -9,25 +9,28 @@ import (
 
 	apierrors "github.com/bigkaa/goartstore/ingester-module/internal/api/errors"
 	"github.com/bigkaa/goartstore/ingester-module/internal/api/middleware"
+	"github.com/bigkaa/goartstore/ingester-module/internal/service"
 )
 
 // APIHandler — основной обработчик API Ingester Module.
 // Реализует generated.ServerInterface, делегируя запросы в сервисный слой.
 type APIHandler struct {
-	health *HealthHandler
-	logger *slog.Logger
-	// uploadService будет добавлен в Phase 3
+	health        *HealthHandler
+	uploadService *service.UploadService
+	logger        *slog.Logger
 }
 
 // NewAPIHandler создаёт основной обработчик API.
-// uploadService = nil в Phase 2, будет установлен в Phase 3.
+// uploadService может быть nil (тогда upload возвращает 501).
 func NewAPIHandler(
 	health *HealthHandler,
+	uploadService *service.UploadService,
 	logger *slog.Logger,
 ) *APIHandler {
 	return &APIHandler{
-		health: health,
-		logger: logger.With(slog.String("component", "api_handler")),
+		health:        health,
+		uploadService: uploadService,
+		logger:        logger.With(slog.String("component", "api_handler")),
 	}
 }
 
@@ -51,10 +54,13 @@ func (h *APIHandler) GetMetrics(w http.ResponseWriter, r *http.Request) {
 // --- Бизнес-обработчики ---
 
 // UploadFile — загрузка файла (POST /api/v1/files/upload).
-// Stub: возвращает 501 Not Implemented. Полная реализация в Phase 3.
-func (h *APIHandler) UploadFile(w http.ResponseWriter, _ *http.Request) {
-	apierrors.WriteError(w, http.StatusNotImplemented, "NOT_IMPLEMENTED",
-		"Upload endpoint ещё не реализован (Phase 3)")
+func (h *APIHandler) UploadFile(w http.ResponseWriter, r *http.Request) {
+	if h.uploadService == nil {
+		apierrors.WriteError(w, http.StatusNotImplemented, "NOT_IMPLEMENTED",
+			"Upload endpoint ещё не реализован")
+		return
+	}
+	h.handleUploadFile(w, r)
 }
 
 // --- Авторизация ---
@@ -62,8 +68,6 @@ func (h *APIHandler) UploadFile(w http.ResponseWriter, _ *http.Request) {
 // checkAuth проверяет наличие роли admin или scope files:write.
 // Возвращает true, если авторизация пройдена.
 // Upload авторизация: role admin ИЛИ scope files:write.
-//
-//nolint:unused // используется в Phase 3.5
 func (h *APIHandler) checkAuth(w http.ResponseWriter, r *http.Request) bool {
 	claims := middleware.ClaimsFromContext(r.Context())
 	if claims == nil {
@@ -96,8 +100,6 @@ func (h *APIHandler) checkAuth(w http.ResponseWriter, r *http.Request) bool {
 // --- Вспомогательные функции ---
 
 // writeJSON записывает JSON-ответ с указанным статусом.
-//
-//nolint:unused // используется в Phase 3.5
 func writeJSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
