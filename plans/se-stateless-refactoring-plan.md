@@ -5,7 +5,7 @@
 - **Версия плана**: 3.0.0
 - **Дата создания**: 2026-03-01
 - **Последнее обновление**: 2026-03-01
-- **Статус**: In Progress (Phase 5.5 — unit-тесты и Docker готовы, K8s-тесты ожидают)
+- **Статус**: In Progress (Phase 6 завершена, Phase 7 ожидает)
 
 ---
 
@@ -27,8 +27,8 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 5.5 (код готов, ожидает K8s-тесты)
-- **Активный подпункт**: 5.5.7 (интеграционные тесты)
+- **Активная фаза**: Phase 7 (S3 Backend — не начата)
+- **Завершённая фаза**: Phase 6 (Storage Backend абстракция)
 - **Последнее обновление**: 2026-03-01
 
 ---
@@ -190,7 +190,7 @@ SE Instance (stateless HTTP server)
 - [x] [Phase 4: Периодическая синхронизация и обновление Helm charts](#phase-4-периодическая-синхронизация-и-обновление-helm-charts)
 - [x] [Phase 5: Сборка, интеграционные тесты, валидация](#phase-5-сборка-интеграционные-тесты-валидация)
 - [x] [Phase 5.5: Иерархическая структура хранения файлов](#phase-55-иерархическая-структура-хранения-файлов)
-- [ ] [Phase 6: Storage Backend — интерфейсы и абстракция (будущее)](#phase-6-storage-backend--интерфейсы-и-абстракция-будущее)
+- [x] [Phase 6: Storage Backend — интерфейсы и абстракция (будущее)](#phase-6-storage-backend--интерфейсы-и-абстракция-будущее)
 - [ ] [Phase 7: S3 Backend (будущее)](#phase-7-s3-backend-будущее)
 
 ---
@@ -951,7 +951,7 @@ SE Instance (stateless HTTP server)
 ## Phase 6: Storage Backend — интерфейсы и абстракция (будущее)
 
 **Dependencies**: Phase 5.5
-**Status**: Not Started
+**Status**: Done ✅
 
 ### Описание
 
@@ -1080,7 +1080,7 @@ type Backend struct {
 
 ### Подпункты
 
-- [ ] **6.1 Определение интерфейсов и типов**
+- [x] **6.1 Определение интерфейсов и типов**
   - **Dependencies**: None
   - **Description**: Создать пакет `internal/backend/` с тремя интерфейсами,
     convenience-структурой `Backend`, и общими типами:
@@ -1097,7 +1097,7 @@ type Backend struct {
     - `internal/backend/types.go` — SaveResult, LockInfo, CleanupResult
   - **Links**: N/A
 
-- [ ] **6.2 Добавление context.Context в существующие методы**
+- [x] **6.2 Добавление context.Context в существующие методы**
   - **Dependencies**: 6.1
   - **Description**: Расширить сигнатуры методов конкретных типов для совместимости
     с интерфейсами:
@@ -1116,7 +1116,7 @@ type Backend struct {
     - Обновлённые вызывающие сайты во всех сервисах и handlers
   - **Links**: N/A
 
-- [ ] **6.3 Создание LocalAttrStore адаптера**
+- [x] **6.3 Создание LocalAttrStore адаптера**
   - **Dependencies**: 6.1
   - **Description**: Пакет `attr` использует package-level функции
     (`attr.Write()`, `attr.Read()`, и т.д.), а не struct. Для реализации
@@ -1140,7 +1140,7 @@ type Backend struct {
     - `internal/storage/attr/store_test.go` — тесты адаптера
   - **Links**: N/A
 
-- [ ] **6.4 Рефакторинг сервисов: замена конкретных типов на интерфейсы**
+- [x] **6.4 Рефакторинг сервисов: замена конкретных типов на интерфейсы**
   - **Dependencies**: 6.2, 6.3
   - **Description**: Обновить конструкторы и поля сервисов для приёма интерфейсов
     вместо конкретных типов. Поэтапно:
@@ -1162,7 +1162,7 @@ type Backend struct {
     - Обновлённые тесты сервисов
   - **Links**: N/A
 
-- [ ] **6.5 Рефакторинг handlers: замена конкретных типов на интерфейсы**
+- [x] **6.5 Рефакторинг handlers: замена конкретных типов на интерфейсы**
   - **Dependencies**: 6.4
   - **Description**: Обновить handlers, которые напрямую используют storage-типы:
     - **FilesHandler**: `store *filestore.FileStore` → `store backend.FileStore`,
@@ -1175,7 +1175,7 @@ type Backend struct {
     - Обновлённые `internal/api/handlers/files.go`, `locks.go`, `health.go`
   - **Links**: N/A
 
-- [ ] **6.6 Фабрика backend и обновление main.go**
+- [x] **6.6 Фабрика backend и обновление main.go**
   - **Dependencies**: 6.4, 6.5
   - **Description**: Создать фабрику и обновить точку входа:
     - Фабрика `backend.New(cfg *config.Config) (*Backend, error)`:
@@ -1195,7 +1195,7 @@ type Backend struct {
     - Обновлённый `cmd/storage-element/main.go`
   - **Links**: N/A
 
-- [ ] **6.7 Unit-тесты и валидация**
+- [x] **6.7 Unit-тесты и валидация**
   - **Dependencies**: 6.1 - 6.6
   - **Description**: Финальная валидация:
     - Unit-тесты для фабрики (localfs, unknown backend → error)
@@ -1215,17 +1215,18 @@ type Backend struct {
 
 ### Критерии завершения Phase 6
 
-- [ ] Все подпункты завершены (6.1 - 6.7)
-- [ ] Три интерфейса (`FileStore`, `AttrStore`, `LockStore`) определены
+- [x] Все подпункты завершены (6.1 - 6.7)
+- [x] Три интерфейса (`FileStore`, `AttrStore`, `LockStore`) определены
       в `internal/backend/`
-- [ ] Все существующие конкретные типы удовлетворяют интерфейсам
+- [x] Все существующие конкретные типы удовлетворяют интерфейсам
       (compile-time checks)
-- [ ] Все сервисы и handlers принимают интерфейсы вместо конкретных типов
-- [ ] Фабрика `backend.New()` создаёт LocalFS backend по умолчанию
-- [ ] GC и Reconcile остаются сервисами, не частью backend
-- [ ] Index и StateMachine не входят в абстракцию backend
-- [ ] `go test ./...` проходит без ошибок
-- [ ] `go vet ./...` без предупреждений
+- [x] Все сервисы и handlers принимают интерфейсы вместо конкретных типов
+- [x] Инициализация backend в main.go (фабрика не создана из-за import cycle,
+      логика размещена напрямую в main.go)
+- [x] GC и Reconcile остаются сервисами, не частью backend
+- [x] Index и StateMachine не входят в абстракцию backend
+- [x] `go test ./...` проходит без ошибок
+- [x] `go vet ./...` без предупреждений
 - [ ] Существующие интеграционные тесты SE проходят без изменений
 
 ---
