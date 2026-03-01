@@ -1,0 +1,164 @@
+<mxfile host="app.diagrams.net" modified="2026-03-01T12:00:00.000Z" agent="Claude Code" version="24.0.0" type="device">
+  <diagram id="seq-im-modules" name="Upload файла — взаимодействие модулей">
+    <mxGraphModel dx="1300" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1300" pageHeight="850" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ===== Заголовок ===== -->
+        <mxCell id="title" value="&lt;b&gt;Загрузка файла — взаимодействие модулей&lt;/b&gt;&lt;br&gt;POST /upload/api/v1/files/upload" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="310" y="15" width="440" height="45" as="geometry" />
+        </mxCell>
+
+        <!-- ===== Участники ===== -->
+        <!-- Client -->
+        <mxCell id="a_client" value="&lt;b&gt;Client&lt;/b&gt;" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="60" y="80" width="100" height="720" as="geometry" />
+        </mxCell>
+
+        <!-- Gateway -->
+        <mxCell id="a_gw" value="&lt;b&gt;API Gateway&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Envoy&lt;/font&gt;" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="230" y="80" width="100" height="720" as="geometry" />
+        </mxCell>
+
+        <!-- Ingester Module -->
+        <mxCell id="a_im" value="&lt;b&gt;Ingester Module&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;:8020&lt;/font&gt;" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="430" y="80" width="130" height="720" as="geometry" />
+        </mxCell>
+
+        <!-- Keycloak -->
+        <mxCell id="a_kc" value="&lt;b&gt;Keycloak&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;IdP&lt;/font&gt;" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="640" y="80" width="100" height="720" as="geometry" />
+        </mxCell>
+
+        <!-- Admin Module -->
+        <mxCell id="a_am" value="&lt;b&gt;Admin Module&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;:8000&lt;/font&gt;" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="830" y="80" width="120" height="720" as="geometry" />
+        </mxCell>
+
+        <!-- Storage Element -->
+        <mxCell id="a_se" value="&lt;b&gt;Storage Element&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;edit / rw&lt;/font&gt;" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="1050" y="80" width="120" height="720" as="geometry" />
+        </mxCell>
+
+        <!-- ===== Фоновые процессы ===== -->
+        <mxCell id="note_jwks" value="&lt;i&gt;Фоновый процесс:&lt;br&gt;IM периодически обновляет&lt;br&gt;JWKS-ключи из Keycloak&lt;/i&gt;" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=14;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;" vertex="1" parent="1">
+          <mxGeometry x="490" y="125" width="190" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="msg_jwks" value="GET /.well-known/jwks.json&lt;br&gt;(кэшируется, ~15 сек)" style="html=1;verticalAlign=bottom;endArrow=block;dashed=1;dashPattern=3 3;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;fontColor=#999999;strokeColor=#999999;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="495" y="205" as="sourcePoint" />
+            <mxPoint x="690" y="205" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="msg_jwks_r" value="JWKS keys (RS256)" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;dashPattern=3 3;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;fontColor=#999999;strokeColor=#999999;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="690" y="230" as="sourcePoint" />
+            <mxPoint x="495" y="230" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ===== Основной поток ===== -->
+
+        <!-- 1. Client -> Gateway -->
+        <mxCell id="m1" value="&lt;b&gt;1&lt;/b&gt; POST /upload/api/v1/files/upload&lt;br&gt;Authorization: Bearer &amp;lt;JWT&amp;gt;&lt;br&gt;multipart/form-data (file + metadata)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="110" y="270" as="sourcePoint" />
+            <mxPoint x="280" y="270" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 2. Gateway -> IM -->
+        <mxCell id="m2" value="&lt;b&gt;2&lt;/b&gt; POST /api/v1/files/upload&lt;br&gt;(route: /upload/* → IM, strip prefix)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="280" y="320" as="sourcePoint" />
+            <mxPoint x="495" y="320" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 3. IM: self — JWT + auth -->
+        <mxCell id="m3" value="&lt;b&gt;3&lt;/b&gt; Валидация JWT (RS256)&lt;br&gt;Авторизация: role = admin&lt;br&gt;или scope = files:write&lt;br&gt;Сохранение файла в temp-file" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="495" y="350" as="sourcePoint" />
+            <mxPoint x="495" y="425" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="540" y="390" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 4. IM -> AM: GET SE list -->
+        <mxCell id="m4" value="&lt;b&gt;4&lt;/b&gt; GET /api/v1/storage-elements&lt;br&gt;?mode={edit|rw}&amp;amp;status=online&lt;br&gt;(SA token, Sequential Fill)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="495" y="450" as="sourcePoint" />
+            <mxPoint x="890" y="450" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- AM -> IM: SE list -->
+        <mxCell id="m5" value="[{id, url, priority, available_bytes}]" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="890" y="495" as="sourcePoint" />
+            <mxPoint x="495" y="495" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Note: SA token -->
+        <mxCell id="note_sa" value="&lt;b&gt;SA Token&lt;/b&gt;: IM получает через&lt;br&gt;client_credentials grant&lt;br&gt;(Keycloak, IM_TOKEN_URL)&lt;br&gt;Кэшируется, обновляется&lt;br&gt;автоматически по TTL" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=14;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;" vertex="1" parent="1">
+          <mxGeometry x="590" y="440" width="200" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- 5. IM -> SE: Upload file -->
+        <mxCell id="m6" value="&lt;b&gt;5&lt;/b&gt; POST /api/v1/files/upload&lt;br&gt;multipart (streaming via io.Pipe)&lt;br&gt;TLS (WAN), SA token" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;fontStyle=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="495" y="540" as="sourcePoint" />
+            <mxPoint x="1110" y="540" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- SE -> IM: Upload result -->
+        <mxCell id="m7" value="201 {file_id, checksum, size}" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1110" y="585" as="sourcePoint" />
+            <mxPoint x="495" y="585" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 6. IM -> AM: RegisterFile -->
+        <mxCell id="m8" value="&lt;b&gt;6&lt;/b&gt; POST /api/v1/files&lt;br&gt;(register: file_id, SE id,&lt;br&gt;uploaded_by, retention_policy)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="495" y="620" as="sourcePoint" />
+            <mxPoint x="890" y="620" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- AM -> IM: File registered -->
+        <mxCell id="m9" value="201 {file_id, status=active, expires_at}" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="890" y="665" as="sourcePoint" />
+            <mxPoint x="495" y="665" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 7. IM -> Gateway -->
+        <mxCell id="m10" value="&lt;b&gt;7&lt;/b&gt; HTTP 201 OK {UploadResponse}" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="495" y="705" as="sourcePoint" />
+            <mxPoint x="280" y="705" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 8. Gateway -> Client -->
+        <mxCell id="m11" value="&lt;b&gt;8&lt;/b&gt; HTTP 201 Created {UploadResponse}" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;fontStyle=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="280" y="740" as="sourcePoint" />
+            <mxPoint x="110" y="740" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

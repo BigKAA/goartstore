@@ -1,8 +1,8 @@
 # Ingester Module — Бриф модуля
 
 **Версия**: 0.1.0
-**Дата**: 2026-02-21
-**Статус**: Draft
+**Дата**: 2026-03-01
+**Статус**: Ready
 **Порты**: 8020-8029
 
 ---
@@ -11,7 +11,7 @@
 
 Ingester Module — точка входа для загрузки файлов в систему Artstore.
 Принимает файлы от клиентов, валидирует, определяет целевой Storage Element,
-выполняет streaming upload и регистрирует файл в реестре Admin Module.
+выполняет upload и регистрирует файл в реестре Admin Module.
 
 Ingester — stateless-модуль. Не хранит данные, не имеет собственной БД.
 Вся информация о SE и файлах — в Admin Module. Горизонтально масштабируется
@@ -27,25 +27,52 @@ Ingester — stateless-модуль. Не хранит данные, не име
 
 Ingester автоматически выбирает подходящий SE на основе retention_policy.
 
-**Streaming Upload** — файл передаётся от клиента в SE потоково (streaming),
-без буферизации целиком в памяти Ingester. Это позволяет обрабатывать файлы
-значительного размера при ограниченном объёме RAM.
+**Sync Upload с Temp-file** — файл сначала сохраняется во временный файл
+на emptyDir volume (2Gi), затем передаётся в SE через `io.Pipe` (streaming).
+Буферизация в temp-file (а не в RAM) позволяет обрабатывать файлы размером
+до 1 GB при ограниченном объёме RAM. Temp-file удаляется после upload
+(или при ошибке) через `defer os.Remove(tempPath)`. Seek(0,0) используется
+при retry после 507.
 
-**Выбор Storage Element** — Ingester запрашивает у Admin Module список
-доступных SE с подходящим режимом и достаточной ёмкостью, затем выбирает
-SE для загрузки. Критерии выбора:
+**Sequential Fill Algorithm** — Ingester запрашивает у Admin Module список
+доступных SE с подходящим режимом, затем выбирает SE по алгоритму
+Sequential Fill:
 
-- `retention_policy=temporary` → SE в режиме `edit`, статус `online`
-- `retention_policy=permanent` → SE в режиме `rw`, статус `online`
-- Достаточно свободного места (`available_bytes >= file size`)
+1. Определить mode: `temporary` → `"edit"`, `permanent` → `"rw"`
+2. Запросить список SE: `GET /api/v1/storage-elements?mode={mode}&status=online`
+3. Отсортировать по `priority ASC`, при равном priority — по `name ASC`
+4. Для каждого SE по порядку:
+   - Пропустить если ID в excludedSEIDs (после retry)
+   - Пропустить если `available_bytes == nil`
+   - Проверить `*available_bytes >= fileSize`
+   - Вернуть первый подходящий
+5. Если нет подходящего → ошибка `NO_STORAGE_AVAILABLE`
 
-При наличии нескольких подходящих SE — выбирается SE с наибольшим
-свободным местом (простая стратегия, без Sequential Fill Algorithm).
+Lower priority value = higher priority. Это обеспечивает предсказуемое
+последовательное заполнение SE, удобное для мониторинга.
+
+**Retry при 507** — если SE возвращает `507 Insufficient Storage`,
+Ingester автоматически:
+
+1. Добавляет SE в excludedSEIDs
+2. Перематывает temp-file: `Seek(0, 0)`
+3. Повторяет выбор SE и upload (до `IM_MAX_RETRIES=3` попыток)
+
+Если все retry исчерпаны → ошибка `STORAGE_FULL` (507).
 
 **Двухэтапная регистрация** — после успешной загрузки файла в SE,
 Ingester регистрирует файл в реестре Admin Module (`POST /api/v1/files`).
 Если регистрация не удалась (Admin Module недоступен), файл на SE останется
 сиротой и будет обнаружен при следующей синхронизации.
+
+### Диаграммы
+
+- [Upload файла — sequence](../design/im-file-upload-sequence.drawio) —
+  полный поток загрузки файла (happy path + 507 retry + error paths)
+- [SE Selection — sequence](../design/im-se-selection-sequence.drawio) —
+  подробная последовательность алгоритма Sequential Fill
+- [Upload — взаимодействие модулей](../design/im-upload-modules.drawio) —
+  высокоуровневая диаграмма модулей и направления вызовов
 
 ---
 
@@ -69,10 +96,10 @@ Ingester Module располагается **внутри кластера Kuber
 │        ┌─────────────┘       └──────────┐            │
 │        ▼                                ▼            │
 │  ┌──────────────┐              ┌──────────────┐      │
-│  │ Admin Module │              │  PostgreSQL  │      │
-│  │ (JWT, SE     │              │  (shared,    │      │
-│  │  list, file  │              │   не прямой  │      │
-│  │  registry)   │              │   доступ)    │      │
+│  │ Admin Module │              │  Keycloak    │      │
+│  │ (SE list,    │              │  (token      │      │
+│  │  file        │              │   endpoint)  │      │
+│  │  registry)   │              │              │      │
 │  └──────────────┘              └──────────────┘      │
 │                                                      │
 └──────────────────────┬───────────────────────────────┘
@@ -87,10 +114,12 @@ Ingester Module располагается **внутри кластера Kuber
 **Следствия:**
 
 - Ingester не обращается к PostgreSQL напрямую — только через Admin Module API
+- SA token получается напрямую от Keycloak (client_credentials grant, `IM_TOKEN_URL`)
 - Входящий трафик: plain HTTP (TLS terminates на Envoy Gateway)
 - Исходящий к SE: TLS (SE remote, потенциально WAN)
 - Ingester должен доверять TLS-сертификатам SE (CA bundle)
 - Горизонтальное масштабирование: несколько реплик за Kubernetes Service
+- Gateway prefix: `/upload` (HTTPRoute strip prefix → `/api/v1/*`)
 
 ---
 
@@ -103,17 +132,17 @@ Ingester Module располагается **внутри кластера Kuber
 | — | Ingester не имеет собственных инфраструктурных зависимостей (stateless) |
 
 Ingester не использует PostgreSQL, Redis или файловую систему для хранения
-данных. Все данные передаются транзитом.
+данных. Все данные передаются транзитом. Temp-файлы размещаются в emptyDir.
 
 ### Межмодульные
 
 | Модуль | Направление | Назначение |
 |--------|-------------|------------|
-| Admin Module | Ingester → Admin | JWT token (`POST /auth/token`), JWKS (`GET /auth/jwks`) |
-| Admin Module | Ingester → Admin | Список SE (`GET /storage-elements?mode=...&status=online`) |
-| Admin Module | Ingester → Admin | Регистрация файла (`POST /files`) |
+| Keycloak | Ingester → Keycloak | SA token (`POST /realms/artstore/.../token`, client_credentials) |
+| Keycloak | Ingester → Keycloak | JWKS keys (`GET /.../certs`, кэшируются ~15 сек) |
+| Admin Module | Ingester → Admin | Список SE (`GET /api/v1/storage-elements?mode=...&status=online`) |
+| Admin Module | Ingester → Admin | Регистрация файла (`POST /api/v1/files`) |
 | Storage Element | Ingester → SE | Загрузка файла (`POST /api/v1/files/upload`) |
-| Admin Module | Admin → Ingester | JWKS endpoint для валидации JWT (если клиент — SA) |
 
 ---
 
@@ -128,13 +157,20 @@ Ingester не использует PostgreSQL, Redis или файловую с�
   │  (file + metadata)       │                       │                       │
   │─────────────────────────▶│                       │                       │
   │                          │                       │                       │
+  │                          │  1. Валидация params   │                       │
+  │                          │  2. Сохранение в       │                       │
+  │                          │     temp-file          │                       │
+  │                          │                       │                       │
   │                          │  GET /storage-elements │                       │
   │                          │  ?mode=edit&status=    │                       │
   │                          │   online               │                       │
   │                          │──────────────────────▶│                       │
-  │                          │  [{id, url, mode,     │                       │
+  │                          │  [{id, url, priority, │                       │
   │                          │    available_bytes}]   │                       │
   │                          │◀──────────────────────│                       │
+  │                          │                       │                       │
+  │                          │  3. Sequential Fill    │                       │
+  │                          │     (sort by priority) │                       │
   │                          │                       │                       │
   │                          │                  POST /api/v1/files/upload     │
   │                          │  (streaming file)     │                       │
@@ -152,6 +188,22 @@ Ingester не использует PostgreSQL, Redis или файловую с�
   │◀─────────────────────────│                       │                       │
 ```
 
+### Retry при 507
+
+```text
+  │                          │  POST /api/v1/files/upload                     │
+  │                          │──────────────────────────────────────────────▶│
+  │                          │  507 Insufficient Storage                     │
+  │                          │◀──────────────────────────────────────────────│
+  │                          │                       │                       │
+  │                          │  Exclude SE, Seek(0,0)│                       │
+  │                          │  SelectSE (retry)     │                       │
+  │                          │──────────────────────▶│  (новый SE)           │
+  │                          │──────────────────────────────────────────────▶│
+  │                          │  201 OK               │                       │
+  │                          │◀──────────────────────────────────────────────│
+```
+
 ### Обработка ошибок
 
 | Этап | Ошибка | Реакция Ingester |
@@ -160,9 +212,9 @@ Ingester не использует PostgreSQL, Redis или файловую с�
 | Валидация | Размер файла превышает лимит | 413 FILE_TOO_LARGE |
 | Выбор SE | Admin Module недоступен | 502 ADMIN_UNAVAILABLE |
 | Выбор SE | Нет подходящих SE (нет edit/rw SE online) | 502 NO_STORAGE_AVAILABLE |
-| Выбор SE | На всех SE недостаточно места | 507 STORAGE_FULL |
-| Upload в SE | SE недоступен или вернул ошибку | 502 SE_UPLOAD_FAILED |
-| Регистрация | Admin Module вернул ошибку | 502 ADMIN_UNAVAILABLE (файл остаётся на SE как сирота) |
+| Upload в SE | SE вернул 507, все retry исчерпаны | 507 STORAGE_FULL |
+| Upload в SE | SE недоступен или вернул другую ошибку | 502 SE_UPLOAD_FAILED |
+| Регистрация | Admin Module вернул ошибку | 502 ADMIN_UNAVAILABLE (файл на SE — сирота) |
 
 При ошибке на этапе upload в SE — клиент может повторить запрос (идемпотентность
 обеспечивается тем, что новый upload создаёт новый file_id).
@@ -207,22 +259,22 @@ Ingester не использует PostgreSQL, Redis или файловую с�
 | `retention_policy` | string | `temporary` или `permanent` |
 | `ttl_days` | int/null | TTL в днях (только для temporary) |
 | `expires_at` | datetime/null | Дата истечения (только для temporary) |
+| `storage_element_id` | UUID | ID записи SE в реестре Admin Module |
 
 ### Health (3 endpoints)
 
 | Метод | Endpoint | Назначение | Аутентификация |
 |-------|----------|------------|----------------|
 | `GET` | `/health/live` | Liveness probe (процесс жив) | без аутентификации |
-| `GET` | `/health/ready` | Readiness probe (Admin Module, SE) | без аутентификации |
+| `GET` | `/health/ready` | Readiness probe (Admin Module, JWKS) | без аутентификации |
 | `GET` | `/metrics` | Prometheus metrics | без аутентификации |
 
 **Readiness checks:**
 
 | Проверка | Описание | Влияние |
 |----------|----------|---------|
-| `admin_module` | Admin Module доступен | `fail` → весь Ingester fail |
-| `edit_storage` | Есть хотя бы 1 online edit SE | `fail` → degraded (нельзя temporary) |
-| `rw_storage` | Есть хотя бы 1 online rw SE | `fail` → degraded (нельзя permanent) |
+| `admin_module` | Admin Module доступен (`/health/ready`) | `fail` → весь Ingester fail |
+| `jwks` | JWKS endpoint Keycloak доступен | `fail` → весь Ingester fail |
 
 Статусы: `ok` (200), `degraded` (200), `fail` (503).
 
@@ -230,7 +282,7 @@ Ingester не использует PostgreSQL, Redis или файловую с�
 
 ## 6. Аутентификация
 
-JWT RS256 токены, выданные Admin Module.
+JWT RS256 токены, выданные Keycloak.
 
 **Публичные endpoints** (без аутентификации):
 
@@ -246,74 +298,146 @@ JWT RS256 токены, выданные Admin Module.
 Валидация JWT:
 
 - Алгоритм: RS256
-- Публичный ключ: получается через JWKS endpoint Admin Module
+- Публичный ключ: получается через JWKS endpoint Keycloak
 - Claims: `sub` (идентификатор субъекта), `scopes` (массив) или `role` (строка)
 
 ### Собственный Service Account
 
-Ingester сам является клиентом Admin Module. Для обращения к API Admin Module
-(список SE, регистрация файлов) Ingester использует собственный Service Account
-с scopes `storage:read` + `files:write`.
+Ingester сам является клиентом Keycloak. Для обращения к API Admin Module
+(список SE, регистрация файлов) и Storage Elements (upload) Ingester
+использует собственный Service Account с scopes `storage:read` + `files:write` +
+`files:read`.
 
-Credentials SA (`client_id`, `client_secret`) передаются через env-переменные.
-Ingester получает JWT token при старте и обновляет его по истечении TTL.
+Keycloak client: `artstore-ingester` (client_credentials grant).
+Credentials SA (`IM_CLIENT_ID`, `IM_CLIENT_SECRET`) передаются через env-переменные.
+SA token получается напрямую от Keycloak (`IM_TOKEN_URL`), кэшируется
+с double-check locking, обновляется за 30 секунд до истечения TTL.
+
+Важно: Keycloak client `artstore-ingester` должен иметь `client_id`
+protocolMapper (oidc-usersessionmodel-note-mapper) для корректного
+распознавания SA в Admin Module.
 
 ---
 
 ## 7. Конфигурация
 
-Все параметры задаются через переменные окружения.
+Все параметры задаются через переменные окружения с префиксом `IM_`.
 
 ### Сервер
 
 | Переменная | Обязательная | По умолчанию | Описание |
 |------------|:------------:|--------------|----------|
-| `IG_PORT` | нет | `8020` | Порт HTTP-сервера (диапазон 8020-8029) |
-| `IG_LOG_LEVEL` | нет | `info` | Уровень логирования (`debug`, `info`, `warn`, `error`) |
-| `IG_LOG_FORMAT` | нет | `json` | Формат логов (`json` — production, `text` — development) |
+| `IM_PORT` | нет | `8020` | Порт HTTP-сервера (диапазон 8020-8029) |
+| `IM_LOG_LEVEL` | нет | `info` | Уровень логирования (`debug`, `info`, `warn`, `error`) |
+| `IM_LOG_FORMAT` | нет | `json` | Формат логов (`json` — production, `text` — development) |
+
+### JWT / JWKS
+
+| Переменная | Обязательная | По умолчанию | Описание |
+|------------|:------------:|--------------|----------|
+| `IM_JWKS_URL` | да | — | URL JWKS endpoint Keycloak для валидации входящих JWT |
+| `IM_JWT_ISSUER` | нет | `""` | Ожидаемый issuer в JWT |
+| `IM_JWKS_REFRESH_INTERVAL` | нет | `15s` | Интервал обновления JWKS ключей |
+| `IM_JWT_LEEWAY` | нет | `5s` | Допуск при проверке exp/nbf |
 
 ### Admin Module
 
 | Переменная | Обязательная | По умолчанию | Описание |
 |------------|:------------:|--------------|----------|
-| `IG_ADMIN_URL` | да | — | Базовый URL Admin Module (например, `http://admin-module:8000`) |
-| `IG_JWKS_URL` | да | — | URL JWKS endpoint Admin Module для валидации входящих JWT |
-| `IG_CLIENT_ID` | да | — | client_id собственного SA для обращения к Admin Module |
-| `IG_CLIENT_SECRET` | да | — | client_secret собственного SA |
+| `IM_ADMIN_URL` | да | — | Базовый URL Admin Module (`http://admin-module:8000`) |
+| `IM_ADMIN_TIMEOUT` | нет | `10s` | Таймаут запросов к Admin Module |
+
+### Keycloak OAuth2 (SA)
+
+| Переменная | Обязательная | По умолчанию | Описание |
+|------------|:------------:|--------------|----------|
+| `IM_CLIENT_ID` | да | — | client_id SA для обращения к AM и SE |
+| `IM_CLIENT_SECRET` | да | — | client_secret SA |
+| `IM_TOKEN_URL` | нет | `""` | URL Keycloak token endpoint (прямой) |
 
 ### Загрузка файлов
 
 | Переменная | Обязательная | По умолчанию | Описание |
 |------------|:------------:|--------------|----------|
-| `IG_MAX_FILE_SIZE` | нет | `1073741824` | Максимальный размер файла в байтах (default 1 GB) |
-| `IG_DEFAULT_TTL_DAYS` | нет | `30` | TTL по умолчанию для temporary файлов (дни) |
+| `IM_MAX_FILE_SIZE` | нет | `1073741824` | Максимальный размер файла в байтах (1 GB) |
+| `IM_DEFAULT_TTL_DAYS` | нет | `30` | TTL по умолчанию для temporary файлов (дни) |
+| `IM_MAX_RETRIES` | нет | `3` | Максимальное количество retry при 507 |
 
-### TLS (исходящие к SE)
-
-| Переменная | Обязательная | По умолчанию | Описание |
-|------------|:------------:|--------------|----------|
-| `IG_SE_CA_CERT_PATH` | нет | — | Путь к CA-сертификату для TLS-соединений с SE |
-
-### Таймауты
+### SE Upload
 
 | Переменная | Обязательная | По умолчанию | Описание |
 |------------|:------------:|--------------|----------|
-| `IG_DEPHEALTH_CHECK_INTERVAL` | нет | `15s` | Интервал проверки зависимостей topologymetrics (Go duration) |
-| `IG_ADMIN_TIMEOUT` | нет | `10s` | Таймаут запросов к Admin Module (Go duration) |
-| `IG_SE_UPLOAD_TIMEOUT` | нет | `5m` | Таймаут загрузки файла в SE (Go duration) |
+| `IM_SE_UPLOAD_TIMEOUT` | нет | `10m` | Таймаут загрузки файла в SE |
+| `IM_SE_CA_CERT_PATH` | нет | `""` | Путь к CA-сертификату для TLS-соединений с SE |
+
+### TLS
+
+| Переменная | Обязательная | По умолчанию | Описание |
+|------------|:------------:|--------------|----------|
+| `IM_CA_CERT_PATH` | нет | `""` | Путь к CA-сертификату для общих TLS-соединений |
+
+### HTTP сервер
+
+| Переменная | Обязательная | По умолчанию | Описание |
+|------------|:------------:|--------------|----------|
+| `IM_HTTP_READ_TIMEOUT` | нет | `30s` | Таймаут чтения запроса |
+| `IM_HTTP_WRITE_TIMEOUT` | нет | `600s` | Таймаут записи ответа (увеличен для upload) |
+| `IM_HTTP_IDLE_TIMEOUT` | нет | `120s` | Таймаут idle соединения |
+| `IM_SHUTDOWN_TIMEOUT` | нет | `10s` | Таймаут graceful shutdown |
+
+### HTTP клиент
+
+| Переменная | Обязательная | По умолчанию | Описание |
+|------------|:------------:|--------------|----------|
+| `IM_HTTP_CLIENT_TIMEOUT` | нет | `30s` | Общий таймаут для HTTP-клиентов |
+
+### Topologymetrics
+
+| Переменная | Обязательная | По умолчанию | Описание |
+|------------|:------------:|--------------|----------|
+| `IM_DEPHEALTH_CHECK_INTERVAL` | нет | `15s` | Интервал проверки зависимостей |
+| `IM_DEPHEALTH_GROUP` | нет | `""` | Группа для topologymetrics |
+| `DEPHEALTH_NAME` | нет | `ingester-module` | Имя сервиса (без IM_ префикса) |
+| `DEPHEALTH_ISENTRY` | нет | `false` | Является ли точкой входа (без IM_ префикса) |
+
+### RBAC
+
+| Переменная | Обязательная | По умолчанию | Описание |
+|------------|:------------:|--------------|----------|
+| `IM_ROLE_ADMIN_GROUPS` | нет | `artstore-admins` | Keycloak группы для роли admin |
+| `IM_ROLE_READONLY_GROUPS` | нет | `artstore-viewers` | Keycloak группы для роли readonly |
 
 ---
 
 ## 8. Метрики Prometheus
 
+### HTTP метрики (middleware)
+
 | Метрика | Тип | Labels | Описание |
 |---------|-----|--------|----------|
-| `ingester_uploads_total` | counter | `retention_policy`, `status` | Общее количество загрузок |
-| `ingester_upload_duration_seconds` | histogram | `retention_policy` | Общее время загрузки (клиент → ответ) |
-| `ingester_se_upload_duration_seconds` | histogram | `storage_element_id` | Время загрузки в SE |
-| `ingester_upload_size_bytes` | histogram | `retention_policy` | Размер загруженных файлов |
-| `ingester_active_uploads` | gauge | — | Количество активных загрузок |
-| `ingester_errors_total` | counter | `error_code` | Счётчик ошибок по типу |
+| `im_http_requests_total` | counter | `method`, `path`, `status` | Общее количество HTTP-запросов |
+| `im_http_request_duration_seconds` | histogram | `method`, `path` | Время обработки HTTP-запросов |
+
+### Бизнес-метрики (upload)
+
+| Метрика | Тип | Labels | Описание |
+|---------|-----|--------|----------|
+| `im_uploads_total` | counter | `retention_policy`, `status` | Общее количество загрузок |
+| `im_upload_duration_seconds` | histogram | `retention_policy` | Общее время загрузки (клиент → ответ) |
+| `im_se_upload_duration_seconds` | histogram | — | Время загрузки в SE |
+| `im_upload_size_bytes` | histogram | `retention_policy` | Размер загруженных файлов |
+| `im_active_uploads` | gauge | — | Количество активных загрузок |
+| `im_retry_total` | counter | `reason` | Количество retry (reason=507\|se_error) |
+| `im_se_selection_total` | counter | `result` | Результат выбора SE (success\|no_storage) |
+
+### Topologymetrics
+
+| Метрика | Тип | Описание |
+|---------|-----|----------|
+| `app_dependency_health` | Gauge | 1 = доступен, 0 = недоступен |
+| `app_dependency_latency_seconds` | Histogram | Время проверки |
+| `app_dependency_status` | Gauge | Категория результата (ok, timeout, error...) |
+| `app_dependency_status_detail` | Gauge | Детальная причина |
 
 ---
 
@@ -323,32 +447,34 @@ Ingester получает JWT token при старте и обновляет е
 
 ```bash
 # Сборка образа
-docker build -t harbor.kryukov.lan/library/ingester-module:v0.1.0 \
-  -f ingester-module/Dockerfile .
+cd src/ingester-module
+make docker-build VERSION=v0.1.0
 
-# Запуск контейнера
-docker run -d \
-  --name ingester-module \
-  -p 8020:8020 \
-  -e IG_ADMIN_URL=http://admin-module:8000 \
-  -e IG_JWKS_URL=http://admin-module:8000/api/v1/auth/jwks \
-  -e IG_CLIENT_ID=sa_ingester_abc123 \
-  -e IG_CLIENT_SECRET=cs_secret_value_here \
-  -e IG_SE_CA_CERT_PATH=/certs/ca.crt \
-  -v /path/to/ca-certs:/certs:ro \
-  harbor.kryukov.lan/library/ingester-module:v0.1.0
+# Или напрямую
+docker build -t harbor.kryukov.lan/library/ingester-module:v0.1.0 \
+  --build-arg VERSION=v0.1.0 \
+  -f Dockerfile .
 ```
 
-### Kubernetes (Helm)
+### Kubernetes (тестовое окружение)
 
 ```bash
-# Установка через Helm chart
-helm install ingester ./ingester-module/chart \
-  --set adminUrl=http://admin-module.artstore.svc:8000 \
-  --set jwksUrl=http://admin-module.artstore.svc:8000/api/v1/auth/jwks \
-  --set clientId=sa_ingester_abc123 \
-  --set clientSecret=cs_secret_value_here \
-  --set seCaCert.secretName=se-ca-cert
+# Из директории tests/
+make docker-build-im IM_TAG=v0.1.0-2
+make docker-push-im IM_TAG=v0.1.0-2
+make apps-up IM_TAG=v0.1.0-2
+```
+
+### Kubernetes (production Helm chart)
+
+```bash
+helm install ingester ./charts/ingester-module \
+  --set image.tag=v0.1.0 \
+  --set config.adminUrl=http://admin-module:8000 \
+  --set config.jwksUrl=https://keycloak.example.com/realms/artstore/.../certs \
+  --set config.tokenUrl=https://keycloak.example.com/realms/artstore/.../token \
+  --set secrets.clientId=artstore-ingester \
+  --set secrets.clientSecret=<secret>
 ```
 
 ---
@@ -363,32 +489,23 @@ Ingester Module интегрируется с SDK
 
 | Зависимость | Тип проверки | Критичность |
 |-------------|-------------|:-----------:|
-| Admin Module | HTTP (GET) | да |
+| Admin Module | HTTP (GET `/health/ready`) | да |
 
-### 10.2. Экспортируемые метрики
+Примечание: SE не отслеживаются через topologymetrics — они определяются
+на лету при каждом upload. PostgreSQL не используется (stateless).
 
-| Метрика | Тип | Описание |
-|---------|-----|----------|
-| `app_dependency_health` | Gauge | 1 = доступен, 0 = недоступен |
-| `app_dependency_latency_seconds` | Histogram | Время проверки |
-| `app_dependency_status` | Gauge | Категория результата (ok, timeout, error...) |
-| `app_dependency_status_detail` | Gauge | Детальная причина |
-
-Метрики доступны на endpoint `/metrics` вместе с остальными
-Prometheus-метриками Ingester Module.
-
-### 10.3. Интеграция в коде
+### 10.2. Интеграция в коде
 
 ```go
 import (
     "github.com/BigKAA/topologymetrics/sdk-go/dephealth"
-    _ "github.com/BigKAA/topologymetrics/sdk-go/dephealth/checks"
+    _ "github.com/BigKAA/topologymetrics/sdk-go/dephealth/checks/httpcheck"
 )
 
-dh, err := dephealth.New("ingester-module", "artstore",
+dh, err := dephealth.New(cfg.DephealthName, cfg.DephealthGroup,
     dephealth.WithCheckInterval(cfg.DephealthCheckInterval),
     dephealth.HTTP("admin-module",
-        dephealth.FromURL(cfg.AdminURL + "/health/live"),
+        dephealth.FromURL(cfg.AdminURL + "/health/ready"),
         dephealth.Critical(true),
     ),
 )
@@ -406,3 +523,15 @@ defer dh.Stop()
 
 По умолчанию используется порт `8020`. При горизонтальном масштабировании
 все реплики работают на одном порту, балансировка через Kubernetes Service.
+
+---
+
+## 12. Keycloak
+
+| Параметр | Значение |
+|----------|----------|
+| Client ID | `artstore-ingester` |
+| Grant type | `client_credentials` |
+| Default scopes | `files:read`, `files:write`, `storage:read` |
+| Service Account | да |
+| Protocol Mapper | `client_id` (oidc-usersessionmodel-note-mapper) |

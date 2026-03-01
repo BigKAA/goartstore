@@ -1,0 +1,265 @@
+<mxfile host="app.diagrams.net" modified="2026-03-01T12:00:00.000Z" agent="Claude Code" version="24.0.0" type="device">
+  <diagram id="seq-im-se-selection" name="SE Selection — Sequential Fill Algorithm">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1400" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ===== Заголовок ===== -->
+        <mxCell id="title" value="&lt;b&gt;Sequence Diagram: Выбор Storage Element (Sequential Fill)&lt;/b&gt;&lt;br&gt;Алгоритм выбора SE при загрузке файла в Ingester Module" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="300" y="20" width="560" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ===== Участники ===== -->
+        <!-- UploadService -->
+        <mxCell id="a_upload" value="&lt;b&gt;UploadService&lt;/b&gt;&lt;br&gt;(pipeline)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};size=40;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="100" y="90" width="120" height="1260" as="geometry" />
+        </mxCell>
+
+        <!-- Selector -->
+        <mxCell id="a_selector" value="&lt;b&gt;SelectorService&lt;/b&gt;&lt;br&gt;service/selector.go" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};size=40;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="360" y="90" width="130" height="1260" as="geometry" />
+        </mxCell>
+
+        <!-- AdminClient -->
+        <mxCell id="a_admin" value="&lt;b&gt;AdminClient&lt;/b&gt;&lt;br&gt;adminclient/" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};size=40;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="620" y="90" width="120" height="1260" as="geometry" />
+        </mxCell>
+
+        <!-- Admin Module -->
+        <mxCell id="a_am" value="&lt;b&gt;Admin Module&lt;/b&gt;&lt;br&gt;:8000" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};size=40;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="870" y="90" width="120" height="1260" as="geometry" />
+        </mxCell>
+
+        <!-- SE Client -->
+        <mxCell id="a_se" value="&lt;b&gt;SEClient&lt;/b&gt;&lt;br&gt;seclient/" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};size=40;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="1120" y="90" width="120" height="1260" as="geometry" />
+        </mxCell>
+
+        <!-- ===== Сценарий: Попытка 1 ===== -->
+
+        <!-- Note: входные параметры -->
+        <mxCell id="note_input" value="&lt;b&gt;Входные параметры:&lt;/b&gt;&lt;br&gt;fileSize = 500 MB&lt;br&gt;retentionPolicy = &quot;temporary&quot;&lt;br&gt;excludedSEIDs = [] (пусто)" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=14;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;" vertex="1" parent="1">
+          <mxGeometry x="30" y="145" width="205" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- 1. UploadService -> Selector: SelectSE (attempt 1) -->
+        <mxCell id="m1" value="&lt;b&gt;Попытка 1:&lt;/b&gt; SelectSE(ctx, 500MB,&lt;br&gt;&quot;temporary&quot;, excludedSEIDs=[])" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;fontStyle=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="160" y="230" as="sourcePoint" />
+            <mxPoint x="425" y="230" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 2. Selector: determine mode -->
+        <mxCell id="m2" value="temporary → mode = &quot;edit&quot;&lt;br&gt;(permanent → mode = &quot;rw&quot;)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="425" y="255" as="sourcePoint" />
+            <mxPoint x="425" y="300" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="465" y="278" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 3. Selector -> AdminClient: GetStorageElements -->
+        <mxCell id="m3" value="GetStorageElements(ctx, &quot;edit&quot;, &quot;online&quot;)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="425" y="320" as="sourcePoint" />
+            <mxPoint x="680" y="320" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 4. AdminClient -> Admin Module: HTTP GET -->
+        <mxCell id="m4" value="GET /api/v1/storage-elements&lt;br&gt;?mode=edit&amp;amp;status=online&lt;br&gt;Authorization: Bearer &amp;lt;SA token&amp;gt;" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="680" y="355" as="sourcePoint" />
+            <mxPoint x="930" y="355" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 5. Admin Module -> AdminClient: SE list -->
+        <mxCell id="m5" value="200 [{name: &quot;se-edit-1&quot;, priority: 0,&lt;br&gt;available_bytes: 200MB},&lt;br&gt;{name: &quot;se-edit-2&quot;, priority: 1,&lt;br&gt;available_bytes: 800MB}]" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="930" y="425" as="sourcePoint" />
+            <mxPoint x="680" y="425" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 6. AdminClient -> Selector: []SEInfo -->
+        <mxCell id="m6" value="[]SEInfo (2 элемента)" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="680" y="460" as="sourcePoint" />
+            <mxPoint x="425" y="460" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 7. Selector: sort -->
+        <mxCell id="m7" value="sort.Slice: Priority ASC, Name ASC&lt;br&gt;Результат:&lt;br&gt;[0] se-edit-1 (p=0, 200MB)&lt;br&gt;[1] se-edit-2 (p=1, 800MB)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="425" y="485" as="sourcePoint" />
+            <mxPoint x="425" y="565" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="465" y="525" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Note: Selection logic -->
+        <mxCell id="note_logic" value="&lt;b&gt;Sequential Fill — логика перебора:&lt;/b&gt;&lt;br&gt;Для каждого SE по порядку priority:&lt;br&gt;1. Пропустить если ID ∈ excludedSEIDs&lt;br&gt;2. Пропустить если available_bytes == nil&lt;br&gt;3. Проверить: *available_bytes ≥ fileSize&lt;br&gt;4. Вернуть первый подходящий" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=14;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;align=left;" vertex="1" parent="1">
+          <mxGeometry x="510" y="485" width="260" height="85" as="geometry" />
+        </mxCell>
+
+        <!-- 8. Selector: check se-edit-1 -->
+        <mxCell id="m8" value="[0] se-edit-1: 200MB &lt; 500MB → ✗ пропуск&lt;br&gt;(недостаточно места)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;fontColor=#cc0000;strokeColor=#cc0000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="425" y="585" as="sourcePoint" />
+            <mxPoint x="425" y="625" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="465" y="605" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 9. Selector: check se-edit-2 -->
+        <mxCell id="m9" value="[1] se-edit-2: 800MB ≥ 500MB → ✓ выбран!" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;fontColor=#009900;strokeColor=#009900;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="425" y="640" as="sourcePoint" />
+            <mxPoint x="425" y="680" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="465" y="660" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 10. Selector -> UploadService: se-edit-2 -->
+        <mxCell id="m10" value="*SEInfo{id: &quot;se-edit-2&quot;, url: &quot;https://...&quot;}&lt;br&gt;im_se_selection_total{result=success}++" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;fontColor=#009900;strokeColor=#009900;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="425" y="710" as="sourcePoint" />
+            <mxPoint x="160" y="710" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 11. UploadService -> SEClient: Upload to se-edit-2 -->
+        <mxCell id="m11" value="Upload(ctx, seURL, tempFile,&lt;br&gt;filename, contentType, ...)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;fontStyle=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="160" y="750" as="sourcePoint" />
+            <mxPoint x="1180" y="750" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ===== ALT: Upload Response ===== -->
+        <mxCell id="alt1" value="" style="shape=mxgraph.sequence.combined_fragment;whiteSpace=wrap;html=1;labelBackgroundColor=none;fillColor=none;strokeColor=#0050ef;dashed=1;dashPattern=5 5;" vertex="1" parent="1">
+          <mxGeometry x="80" y="785" width="1190" height="540" as="geometry" />
+        </mxCell>
+        <mxCell id="alt1_lbl" value="&lt;b&gt;alt&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=top;fontSize=11;fillColor=#0050ef;fontColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="80" y="785" width="30" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Alt: 201 Success -->
+        <mxCell id="alt1_ok" value="[201 Created] — upload в se-edit-2 успешен" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#009900;" vertex="1" parent="1">
+          <mxGeometry x="120" y="805" width="350" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="m12" value="201 {file_id, checksum, size}" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;fontColor=#009900;strokeColor=#009900;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1180" y="845" as="sourcePoint" />
+            <mxPoint x="160" y="845" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="m12b" value="→ RegisterFile в AM, вернуть UploadResponse" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;fontColor=#009900;strokeColor=#009900;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="160" y="860" as="sourcePoint" />
+            <mxPoint x="160" y="880" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="200" y="870" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Divider: 507 -->
+        <mxCell id="alt1_div" value="" style="line;strokeWidth=1;dashed=1;dashPattern=5 5;strokeColor=#0050ef;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="80" y="900" as="sourcePoint" />
+            <mxPoint x="1270" y="900" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Alt: 507 — Retry Flow -->
+        <mxCell id="alt1_507" value="[507 Insufficient Storage] — se-edit-2 заполнен, retry" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#cc6600;" vertex="1" parent="1">
+          <mxGeometry x="120" y="910" width="420" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="m13" value="507 Insufficient Storage" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;fontColor=#cc6600;strokeColor=#cc6600;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1180" y="950" as="sourcePoint" />
+            <mxPoint x="160" y="950" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- UploadService: retry logic -->
+        <mxCell id="m14" value="excludedSEIDs += &quot;se-edit-2&quot;&lt;br&gt;tempFile.Seek(0, 0)&lt;br&gt;im_retry_total{reason=507}++&lt;br&gt;retryCount++ (1 из 3)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;fontColor=#cc6600;strokeColor=#cc6600;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="160" y="970" as="sourcePoint" />
+            <mxPoint x="160" y="1040" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="200" y="1005" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Retry: SelectSE (attempt 2) -->
+        <mxCell id="m15" value="&lt;b&gt;Попытка 2:&lt;/b&gt; SelectSE(ctx, 500MB,&lt;br&gt;&quot;temporary&quot;, excluded=[&quot;se-edit-2&quot;])" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;fontStyle=1;fontColor=#cc6600;strokeColor=#cc6600;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="160" y="1060" as="sourcePoint" />
+            <mxPoint x="425" y="1060" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Selector: sort, check, all excluded or insufficient -->
+        <mxCell id="m16" value="se-edit-1: 200MB &lt; 500MB → ✗&lt;br&gt;se-edit-2: excluded → ✗&lt;br&gt;Нет подходящих SE!" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;fontColor=#cc0000;strokeColor=#cc0000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="425" y="1085" as="sourcePoint" />
+            <mxPoint x="425" y="1150" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="465" y="1118" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Selector -> UploadService: ErrNoStorageAvailable -->
+        <mxCell id="m17" value="ErrNoStorageAvailable&lt;br&gt;im_se_selection_total{result=no_storage}++" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;fontColor=#cc0000;strokeColor=#cc0000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="425" y="1180" as="sourcePoint" />
+            <mxPoint x="160" y="1180" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- UploadService: return error 507 -->
+        <mxCell id="m18" value="Все retry исчерпаны, последний SE&lt;br&gt;вернул 507 → ошибка STORAGE_FULL (507)&lt;br&gt;im_uploads_total{status=error}++" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;fontColor=#cc0000;strokeColor=#cc0000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="160" y="1205" as="sourcePoint" />
+            <mxPoint x="160" y="1280" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="200" y="1243" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Note: error mapping -->
+        <mxCell id="note_errors" value="&lt;b&gt;Error mapping (handler):&lt;/b&gt;&lt;br&gt;ErrNoStorageAvailable → 502&lt;br&gt;ErrStorageFull → 507&lt;br&gt;(если retry все исчерпаны и&lt;br&gt;последняя ошибка была 507)" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=14;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;align=left;" vertex="1" parent="1">
+          <mxGeometry x="260" y="1220" width="220" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- ===== End ALT ===== -->
+
+        <!-- ===== Легенда ===== -->
+        <mxCell id="legend" value="&lt;b&gt;Легенда:&lt;/b&gt;&lt;br&gt;───── синхронный вызов&lt;br&gt;- - - - возврат/ответ&lt;br&gt;&lt;font color=&quot;#009900&quot;&gt;● зелёный — SE выбран / upload успешен&lt;/font&gt;&lt;br&gt;&lt;font color=&quot;#cc6600&quot;&gt;● оранжевый — retry при 507&lt;/font&gt;&lt;br&gt;&lt;font color=&quot;#cc0000&quot;&gt;● красный — SE не подходит / ошибка&lt;/font&gt;&lt;br&gt;&lt;br&gt;&lt;b&gt;Sequential Fill Algorithm:&lt;/b&gt;&lt;br&gt;1. temporary → mode &quot;edit&quot;, permanent → &quot;rw&quot;&lt;br&gt;2. GET SE list (mode, status=online)&lt;br&gt;3. Sort: priority ASC, name ASC&lt;br&gt;4. Перебор: skip excluded, skip nil bytes&lt;br&gt;5. Первый с available_bytes ≥ fileSize&lt;br&gt;6. При 507 → exclude SE, retry (max 3)" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=18;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="870" y="870" width="320" height="230" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -5,7 +5,7 @@
 - **Версия плана**: 1.0.0
 - **Дата создания**: 2026-03-01
 - **Последнее обновление**: 2026-03-01
-- **Статус**: In Progress
+- **Статус**: Done
 
 ---
 
@@ -17,10 +17,10 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 5
+- **Активная фаза**: Все завершены
 - **Активный подпункт**: —
 - **Последнее обновление**: 2026-03-01
-- **Примечание**: Phase 0-4 Done. Phase 4: Dockerfile, Helm chart, test infra, Docker v0.1.0-2, 16 интеграционных тестов (3 health + 3 auth + 10 upload). Keycloak: добавлен client_id protocolMapper для artstore-ingester и artstore-query. SE edit replicas=1 (workaround, задача на рефакторинг: plans/se-stateless-refactoring-plan.md)
+- **Примечание**: Все фазы 0-5 Done. Phase 5: 3 drawio-диаграммы, обновление брифа (IG_*→IM_*, Sequential Fill, retry), обновление CLAUDE.md. План перенесён в archive.
 
 ---
 
@@ -31,7 +31,7 @@
 - [x] [Phase 2: Инфраструктурный слой (конфиг, middleware, health)](#phase-2-инфраструктурный-слой-конфиг-middleware-health)
 - [x] [Phase 3: Бизнес-логика (upload pipeline, SE selection, file registration)](#phase-3-бизнес-логика-upload-pipeline-se-selection-file-registration)
 - [x] [Phase 4: Сборка, деплой и интеграционные тесты](#phase-4-сборка-деплой-и-интеграционные-тесты)
-- [ ] [Phase 5: Sequence-диаграммы и документация](#phase-5-sequence-диаграммы-и-документация)
+- [x] [Phase 5: Sequence-диаграммы и документация](#phase-5-sequence-диаграммы-и-документация)
 
 ---
 
@@ -989,7 +989,7 @@ Docker-образ: `harbor.kryukov.lan/library/ingester-module:v0.1.0-2`.
 ## Phase 5: Sequence-диаграммы и документация
 
 **Dependencies**: Phase 4
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -999,7 +999,7 @@ Docker-образ: `harbor.kryukov.lan/library/ingester-module:v0.1.0-2`.
 
 ### Подпункты
 
-- [ ] **5.1 Sequence-диаграмма: Upload файла**
+- [x] **5.1 Sequence-диаграмма: Upload файла**
   - **Dependencies**: None
   - **Description**: Создание drawio-диаграммы `im-file-upload-sequence.drawio`:
     Клиент → Gateway → Ingester → Admin Module (GET SE list) →
@@ -1012,7 +1012,7 @@ Docker-образ: `harbor.kryukov.lan/library/ingester-module:v0.1.0-2`.
   - **Links**:
     - Паттерн: `docs/design/qm-get-file-by-id-sequence.drawio`
 
-- [ ] **5.2 Sequence-диаграмма: SE Selection (Sequential Fill)**
+- [x] **5.2 Sequence-диаграмма: SE Selection (Sequential Fill)**
   - **Dependencies**: None
   - **Description**: Создание drawio-диаграммы `im-se-selection-sequence.drawio`:
     Подробная последовательность выбора SE по Sequential Fill Algorithm:
@@ -1022,7 +1022,7 @@ Docker-образ: `harbor.kryukov.lan/library/ingester-module:v0.1.0-2`.
   - **Creates**:
     - `docs/design/im-se-selection-sequence.drawio`
 
-- [ ] **5.3 Module-level диаграмма**
+- [x] **5.3 Module-level диаграмма**
   - **Dependencies**: None
   - **Description**: Создание drawio-диаграммы `im-upload-modules.drawio`:
     Обзор модулей участвующих в upload: Client, Gateway, Ingester,
@@ -1033,7 +1033,7 @@ Docker-образ: `harbor.kryukov.lan/library/ingester-module:v0.1.0-2`.
   - **Links**:
     - Паттерн: `docs/design/qm-get-file-by-id-modules.drawio`
 
-- [ ] **5.4 Обновление документации**
+- [x] **5.4 Обновление документации**
   - **Dependencies**: 5.1, 5.2, 5.3
   - **Description**: Обновить:
     - `docs/briefs/ingester-module.md` — добавить: Sequential Fill Algorithm,
@@ -1046,10 +1046,10 @@ Docker-образ: `harbor.kryukov.lan/library/ingester-module:v0.1.0-2`.
 
 ### Критерии завершения Phase 5
 
-- [ ] Все подпункты завершены (5.1–5.4)
-- [ ] 3 drawio-диаграммы созданы и корректны
-- [ ] Документация обновлена и актуальна
-- [ ] План перенесён в `plans/archive/`
+- [x] Все подпункты завершены (5.1–5.4)
+- [x] 3 drawio-диаграммы созданы и корректны
+- [x] Документация обновлена и актуальна
+- [x] План перенесён в `plans/archive/`
 
 ---
 

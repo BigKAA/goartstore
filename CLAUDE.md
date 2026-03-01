@@ -19,8 +19,8 @@ Artstore — переработка проекта ArtStore (распредел�
 |--------|-------|------------|--------|
 | Storage Element | 8010-8019 | Физическое хранение файлов, WAL, attr.json, репликация | ✅ Готов (Phase 6) |
 | Admin Module | 8000-8009 | Keycloak IdP, RBAC, реестр SE и файлов, Service Accounts, Admin UI | ✅ API + UI + i18n готовы |
-| Ingester Module | 8020-8029 | Streaming upload, валидация, выбор SE, регистрация файлов | ⏳ Не начат |
-| Query Module | 8030-8039 | Поиск (PostgreSQL FTS), LRU cache, proxy download | ⏳ Не начат |
+| Ingester Module | 8020-8029 | Sync upload, Sequential Fill SE selection, регистрация файлов | ✅ Готов (v0.1.0) |
+| Query Module | 8030-8039 | Поиск (PostgreSQL FTS), LRU cache, proxy download | ✅ Готов (v0.1.0) |
 
 Admin UI встроен в Admin Module. Стек: Templ + HTMX + Alpine.js + Tailwind CSS + ApexCharts. Keycloak-клиент `artstore-admin-ui` (Authorization Code + PKCE) используется для аутентификации администраторов через браузер.
 
@@ -122,6 +122,8 @@ old_artstore/      — Старый проект (Python/FastAPI) как спр�
 src/               — Исходные коды Go-модулей
   admin-module/    — Admin Module (go.mod: github.com/bigkaa/goartstore/admin-module)
   storage-element/ — Storage Element (go.mod: github.com/bigkaa/goartstore/storage-element)
+  ingester-module/ — Ingester Module (go.mod: github.com/bigkaa/goartstore/ingester-module)
+  query-module/    — Query Module (go.mod: github.com/bigkaa/goartstore/query-module)
 plans/             — Планы разработки (активные)
   archive/         — Завершённые планы
 docs/              — Документация
@@ -170,7 +172,7 @@ src/<module>/
 tests/helm/
 ├── artstore-infra/     — PG + KC (базовый слой)
 ├── artstore-se/        — 6 Storage Elements всех типов
-├── artstore-apps/      — Admin Module
+├── artstore-apps/      — AM + IM + QM
 └── init-job/          — standalone Job (загрузка данных)
 ```
 
@@ -181,11 +183,13 @@ tests/helm/
 ```
 make infra-up / infra-down     — PG + KC
 make se-up / se-down           — 6 SE
-make apps-up / apps-down       — AM
+make apps-up / apps-down       — AM + IM + QM
 make test-env-up / test-env-down — всё сразу (последовательно)
 make init-data                 — Init Job (загрузка тестовых данных)
 make port-forward-start / stop — port-forward ко всем сервисам
 make test-am                   — интеграционные тесты AM (~30 тестов)
+make test-im                   — интеграционные тесты IM (16 тестов)
+make test-qm                   — интеграционные тесты QM (16 тестов)
 make test-all                  — все интеграционные тесты
 ```
 
@@ -195,6 +199,8 @@ make test-all                  — все интеграционные тест�
 |--------|-----|------------|
 | `artstore-test-user` (secret: `test-user-secret`) | Password grant | JWT пользователей (admin/viewer) |
 | `artstore-admin-module` (secret: `admin-module-test-secret`) | Client credentials | JWT service account AM |
+| `artstore-ingester` (secret: `ingester-test-secret`) | Client credentials | JWT service account IM (scopes: files:read, files:write, storage:read) |
+| `artstore-query` (secret: `query-test-secret`) | Client credentials | JWT service account QM (scopes: files:read, storage:read) |
 | `artstore-test-init` (secret: `test-init-secret`) | Client credentials | Инициализация тестовых данных |
 
 ## Ключевые документы
