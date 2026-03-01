@@ -1,0 +1,314 @@
+<mxfile host="app.diagrams.net" modified="2026-03-01T12:00:00.000Z" agent="Claude Code" version="24.0.0" type="device">
+  <diagram id="seq-get-file-by-id" name="GET /api/v1/files/{file_id}">
+    <mxGraphModel dx="1422" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ===== Заголовок ===== -->
+        <mxCell id="title" value="&lt;b&gt;Sequence Diagram: Поиск файла по ID&lt;/b&gt;&lt;br&gt;GET /api/v1/files/{file_id} через Query Module" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="400" y="20" width="500" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ===== Участники (Lifeline headers) ===== -->
+        <!-- Client -->
+        <mxCell id="actor_client" value="&lt;b&gt;Client&lt;/b&gt;&lt;br&gt;(Browser / API)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};size=40;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="80" y="90" width="120" height="1060" as="geometry" />
+        </mxCell>
+
+        <!-- Gateway -->
+        <mxCell id="actor_gw" value="&lt;b&gt;API Gateway&lt;/b&gt;&lt;br&gt;(Envoy)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};size=40;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="270" y="90" width="120" height="1060" as="geometry" />
+        </mxCell>
+
+        <!-- Metrics Middleware -->
+        <mxCell id="actor_metrics" value="&lt;b&gt;Metrics&lt;/b&gt;&lt;br&gt;Middleware" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};size=40;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="440" y="90" width="100" height="1060" as="geometry" />
+        </mxCell>
+
+        <!-- Logging Middleware -->
+        <mxCell id="actor_logging" value="&lt;b&gt;Logging&lt;/b&gt;&lt;br&gt;Middleware" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};size=40;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="580" y="90" width="100" height="1060" as="geometry" />
+        </mxCell>
+
+        <!-- JWT Auth Middleware -->
+        <mxCell id="actor_jwt" value="&lt;b&gt;JWT Auth&lt;/b&gt;&lt;br&gt;Middleware" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};size=40;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="720" y="90" width="100" height="1060" as="geometry" />
+        </mxCell>
+
+        <!-- Handler -->
+        <mxCell id="actor_handler" value="&lt;b&gt;APIHandler&lt;/b&gt;&lt;br&gt;handlers/" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};size=40;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="870" y="90" width="110" height="1060" as="geometry" />
+        </mxCell>
+
+        <!-- SearchService -->
+        <mxCell id="actor_search" value="&lt;b&gt;SearchService&lt;/b&gt;&lt;br&gt;service/" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};size=40;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="1030" y="90" width="110" height="1060" as="geometry" />
+        </mxCell>
+
+        <!-- CacheService -->
+        <mxCell id="actor_cache" value="&lt;b&gt;CacheService&lt;/b&gt;&lt;br&gt;LRU (in-mem)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};size=40;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="1190" y="90" width="120" height="1060" as="geometry" />
+        </mxCell>
+
+        <!-- FileRepository -->
+        <mxCell id="actor_repo" value="&lt;b&gt;FileRepository&lt;/b&gt;&lt;br&gt;repository/" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};size=40;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="1360" y="90" width="120" height="1060" as="geometry" />
+        </mxCell>
+
+        <!-- PostgreSQL -->
+        <mxCell id="actor_pg" value="&lt;b&gt;PostgreSQL&lt;/b&gt;&lt;br&gt;file_registry" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};size=40;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="1530" y="90" width="120" height="1060" as="geometry" />
+        </mxCell>
+
+        <!-- ===== Сообщения ===== -->
+
+        <!-- 1. Client -> Gateway: HTTP GET -->
+        <mxCell id="msg1" value="GET /query/api/v1/files/{file_id}&lt;br&gt;Authorization: Bearer &amp;lt;JWT&amp;gt;" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="140" y="170" as="sourcePoint" />
+            <mxPoint x="330" y="170" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 2. Gateway -> Metrics: route to QM pod -->
+        <mxCell id="msg2" value="GET /api/v1/files/{file_id}&lt;br&gt;(strip /query prefix)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="330" y="210" as="sourcePoint" />
+            <mxPoint x="490" y="210" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 3. Metrics -> Logging -->
+        <mxCell id="msg3" value="start timer, record path" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;dashed=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="490" y="250" as="sourcePoint" />
+            <mxPoint x="630" y="250" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 4. Logging -> JWT Auth -->
+        <mxCell id="msg4" value="wrap ResponseWriter" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="630" y="290" as="sourcePoint" />
+            <mxPoint x="770" y="290" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 5. JWT Auth: self - Parse JWT -->
+        <mxCell id="msg5" value="ParseWithClaims(token, RS256)&lt;br&gt;buildAuthClaims()&lt;br&gt;→ set ctx AuthClaims" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="770" y="310" as="sourcePoint" />
+            <mxPoint x="770" y="370" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="810" y="340" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Note: JWT validation details -->
+        <mxCell id="note_jwt" value="Проверяет подпись RS256 через JWKS&lt;br&gt;Извлекает sub, groups → roles&lt;br&gt;или client_id, scope (Service Account)" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=14;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;" vertex="1" parent="1">
+          <mxGeometry x="820" y="310" width="230" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- 6. JWT -> Handler -->
+        <mxCell id="msg6" value="next(w, r)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="770" y="400" as="sourcePoint" />
+            <mxPoint x="925" y="400" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 7. Handler: checkAuth -->
+        <mxCell id="msg7" value="checkAuth()&lt;br&gt;HasAnyRole(admin,readonly)&lt;br&gt;|| HasAnyScope(files:read)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="925" y="420" as="sourcePoint" />
+            <mxPoint x="925" y="480" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="960" y="450" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 8. Handler -> SearchService: GetFileMetadata -->
+        <mxCell id="msg8" value="GetFileMetadata(ctx, fileID)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;fontStyle=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="925" y="510" as="sourcePoint" />
+            <mxPoint x="1085" y="510" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 9. SearchService -> CacheService: Get(fileID) -->
+        <mxCell id="msg9" value="cache.Get(fileID)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1085" y="550" as="sourcePoint" />
+            <mxPoint x="1250" y="550" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ===== ALT: Cache Hit ===== -->
+        <mxCell id="alt_frame" value="" style="shape=mxgraph.sequence.combined_fragment;whiteSpace=wrap;html=1;labelBackgroundColor=none;fillColor=none;strokeColor=#0050ef;dashed=1;dashPattern=5 5;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1050" y="575" width="560" height="370" as="geometry" />
+        </mxCell>
+        <mxCell id="alt_label" value="&lt;b&gt;alt&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=top;fontSize=11;fillColor=#0050ef;fontColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1050" y="575" width="30" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Alt: Cache HIT -->
+        <mxCell id="alt_hit_label" value="[cache hit] — qm_cache_hits_total++" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#009900;" vertex="1" parent="1">
+          <mxGeometry x="1090" y="595" width="280" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- CacheService -> SearchService: return FileRecord -->
+        <mxCell id="msg10" value="*FileRecord (из LRU)" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;fontColor=#009900;strokeColor=#009900;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1250" y="635" as="sourcePoint" />
+            <mxPoint x="1085" y="635" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Divider line -->
+        <mxCell id="alt_divider" value="" style="line;strokeWidth=1;dashed=1;dashPattern=5 5;strokeColor=#0050ef;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1050" y="670" as="sourcePoint" />
+            <mxPoint x="1610" y="670" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Alt: Cache MISS -->
+        <mxCell id="alt_miss_label" value="[cache miss] — qm_cache_misses_total++" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#cc0000;" vertex="1" parent="1">
+          <mxGeometry x="1090" y="680" width="300" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- SearchService -> FileRepository: GetByID -->
+        <mxCell id="msg11" value="fileRepo.GetByID(ctx, fileID)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1085" y="720" as="sourcePoint" />
+            <mxPoint x="1420" y="720" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- FileRepository -> PostgreSQL: SQL SELECT -->
+        <mxCell id="msg12" value="SELECT * FROM file_registry&lt;br&gt;WHERE file_id = $1" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;fontStyle=2;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1420" y="760" as="sourcePoint" />
+            <mxPoint x="1590" y="760" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- PostgreSQL -> FileRepository: row -->
+        <mxCell id="msg13" value="Row (or ErrNoRows)" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1590" y="800" as="sourcePoint" />
+            <mxPoint x="1420" y="800" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- FileRepository -> SearchService: return -->
+        <mxCell id="msg14" value="*FileRecord (или ErrNotFound)" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1420" y="840" as="sourcePoint" />
+            <mxPoint x="1085" y="840" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- SearchService -> CacheService: Set(fileID, record) -->
+        <mxCell id="msg15" value="cache.Set(fileID, record)&lt;br&gt;(заполняем кэш)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;fontColor=#cc6600;strokeColor=#cc6600;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1085" y="880" as="sourcePoint" />
+            <mxPoint x="1250" y="880" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- CacheService -> SearchService: ok -->
+        <mxCell id="msg15b" value="" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;strokeColor=#cc6600;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1250" y="910" as="sourcePoint" />
+            <mxPoint x="1085" y="910" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ===== End ALT ===== -->
+
+        <!-- SearchService -> Handler: return FileRecord -->
+        <mxCell id="msg16" value="*FileRecord" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1085" y="970" as="sourcePoint" />
+            <mxPoint x="925" y="970" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Handler: convert to FileMetadata -->
+        <mxCell id="msg17" value="FileRecord → FileMetadata&lt;br&gt;(сериализация в JSON)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="925" y="990" as="sourcePoint" />
+            <mxPoint x="925" y="1030" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="960" y="1010" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Handler -> Logging: response -->
+        <mxCell id="msg18" value="HTTP 200 + JSON body" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="925" y="1050" as="sourcePoint" />
+            <mxPoint x="630" y="1050" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Logging: log request -->
+        <mxCell id="msg19" value="slog.Info: method, path,&lt;br&gt;status, duration, bytes" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=9;fontColor=#888888;strokeColor=#888888;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="630" y="1060" as="sourcePoint" />
+            <mxPoint x="630" y="1085" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="660" y="1073" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Logging -> Metrics -->
+        <mxCell id="msg20" value="" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="630" y="1095" as="sourcePoint" />
+            <mxPoint x="490" y="1095" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Metrics: record -->
+        <mxCell id="msg21" value="qm_http_requests_total++&lt;br&gt;qm_http_request_duration_seconds.Observe()" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=9;fontColor=#888888;strokeColor=#888888;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="490" y="1095" as="sourcePoint" />
+            <mxPoint x="490" y="1120" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="520" y="1108" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Metrics -> Gateway: response -->
+        <mxCell id="msg22" value="" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="490" y="1125" as="sourcePoint" />
+            <mxPoint x="330" y="1125" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Gateway -> Client: HTTP 200 JSON -->
+        <mxCell id="msg23" value="HTTP 200 OK&lt;br&gt;Content-Type: application/json&lt;br&gt;{FileMetadata}" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;fontStyle=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="330" y="1140" as="sourcePoint" />
+            <mxPoint x="140" y="1140" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ===== Легенда ===== -->
+        <mxCell id="legend" value="&lt;b&gt;Легенда:&lt;/b&gt;&lt;br&gt;───── синхронный вызов&lt;br&gt;- - - - возврат/ответ&lt;br&gt;&lt;font color=&quot;#009900&quot;&gt;● зелёный — cache hit (быстрый путь)&lt;/font&gt;&lt;br&gt;&lt;font color=&quot;#cc6600&quot;&gt;● оранжевый — заполнение кэша&lt;/font&gt;&lt;br&gt;&lt;font color=&quot;#888888&quot;&gt;● серый — observability (логи, метрики)&lt;/font&gt;&lt;br&gt;&lt;br&gt;&lt;b&gt;Компоненты QM:&lt;/b&gt;&lt;br&gt;• LRU Cache: max 10K записей, TTL 5 мин&lt;br&gt;• Auth: JWT RS256, roles ∪ scopes&lt;br&gt;• Prometheus: qm_cache_*, qm_http_*" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=18;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="40" y="830" width="290" height="200" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
