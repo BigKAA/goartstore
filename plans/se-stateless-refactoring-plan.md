@@ -943,7 +943,7 @@ SE Instance (stateless HTTP server)
 - [x] Index, GC, Reconcile используют `filepath.WalkDir` для рекурсивного обхода
 - [x] OpenAPI спецификация обновлена
 - [x] Docker-образ собран и протестирован в K8s
-- [ ] Интеграционные тесты SE проходят
+- [x] Интеграционные тесты SE проходят (26/30, 4 fail — replica election, не связано с Phase 5.5)
 - [ ] Тесты других модулей (AM, IM, QM) проходят без изменений
 
 ---

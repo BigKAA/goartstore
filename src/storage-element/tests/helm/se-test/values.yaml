@@ -12,11 +12,11 @@ registry: harbor.kryukov.lan/library
 
 # Образ Storage Element
 seImage: storage-element
-seTag: v0.1.0-1
+seTag: v0.3.0-2
 
 # Образ JWKS Mock Server
 mockImage: jwks-mock
-mockTag: v0.1.0-1
+mockTag: v1.0.0-1
 
 imagePullPolicy: Always
 
@@ -50,6 +50,7 @@ seCommon:
   gcInterval: "30s"
   reconcileInterval: "6h"
   maxFileSize: "10485760"  # 10MB
+  maxCapacity: "209715200"  # 200MB (тестовое окружение)
   dephealthCheckInterval: "15s"
   dephealthGroup: "storage-element"
   dephealthDepName: "admin-jwks"
