@@ -15,11 +15,14 @@
 package lockfile
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/bigkaa/goartstore/storage-element/internal/backend"
 )
 
 const (
@@ -29,39 +32,8 @@ const (
 	lockSuffix = ".lock"
 )
 
-// LockInfo — метаданные lock-файла.
-type LockInfo struct {
-	// Holder — идентификатор экземпляра, захватившего lock (hostname pod-а).
-	Holder string `json:"holder"`
-	// FileID — идентификатор файла, защищённого lock-ом.
-	FileID string `json:"file_id"`
-	// AcquiredAt — время захвата lock-а (UTC).
-	AcquiredAt time.Time `json:"acquired_at"`
-	// TTLSeconds — время жизни lock-а в секундах.
-	TTLSeconds int `json:"ttl_seconds"`
-}
-
-// ExpiresAt возвращает время истечения lock-а.
-func (l *LockInfo) ExpiresAt() time.Time {
-	return l.AcquiredAt.Add(time.Duration(l.TTLSeconds) * time.Second)
-}
-
-// IsExpired проверяет, истёк ли TTL lock-а.
-func (l *LockInfo) IsExpired(now time.Time) bool {
-	return now.After(l.ExpiresAt())
-}
-
-// CleanupResult — результат очистки expired lock-ов.
-type CleanupResult struct {
-	// Cleaned — количество удалённых lock-ов.
-	Cleaned int `json:"cleaned"`
-	// Remaining — количество оставшихся активных lock-ов.
-	Remaining int `json:"remaining"`
-	// Removed — информация об удалённых lock-ах.
-	Removed []LockInfo `json:"removed"`
-	// Active — информация об оставшихся активных lock-ах.
-	Active []LockInfo `json:"active"`
-}
+// Compile-time check: LockManager реализует backend.LockStore.
+var _ backend.LockStore = (*LockManager)(nil)
 
 // LockManager — менеджер per-file lock-файлов.
 type LockManager struct {
@@ -100,8 +72,8 @@ func (lm *LockManager) EnsureDir() error {
 // Acquire захватывает lock для файла.
 // Создаёт lock-файл с JSON-метаданными (holder, file_id, acquired_at, ttl_seconds).
 // FileID уникален (UUID v4), поэтому коллизий не бывает.
-func (lm *LockManager) Acquire(fileID string) error {
-	info := LockInfo{
+func (lm *LockManager) Acquire(_ context.Context, fileID string) error {
+	info := backend.LockInfo{
 		Holder:     lm.holder,
 		FileID:     fileID,
 		AcquiredAt: time.Now().UTC(),
@@ -149,7 +121,7 @@ func (lm *LockManager) Acquire(fileID string) error {
 
 // Release удаляет lock для файла.
 // Если lock-файл не существует — не ошибка (идемпотентно).
-func (lm *LockManager) Release(fileID string) error {
+func (lm *LockManager) Release(_ context.Context, fileID string) error {
 	lockPath := lm.lockPath(fileID)
 	err := os.Remove(lockPath)
 	if err != nil && !os.IsNotExist(err) {
@@ -164,7 +136,7 @@ func (lm *LockManager) Release(fileID string) error {
 //   - true, *LockInfo — lock существует и TTL не истёк
 //   - false, *LockInfo — lock существует, но TTL истёк
 //   - false, nil — lock не существует
-func (lm *LockManager) IsLocked(fileID string) (bool, *LockInfo, error) {
+func (lm *LockManager) IsLocked(_ context.Context, fileID string) (bool, *backend.LockInfo, error) {
 	lockPath := lm.lockPath(fileID)
 
 	data, err := os.ReadFile(lockPath)
@@ -175,7 +147,7 @@ func (lm *LockManager) IsLocked(fileID string) (bool, *LockInfo, error) {
 		return false, nil, fmt.Errorf("ошибка чтения lock-файла: %w", err)
 	}
 
-	var info LockInfo
+	var info backend.LockInfo
 	if err := json.Unmarshal(data, &info); err != nil {
 		return false, nil, fmt.Errorf("ошибка десериализации lock-файла: %w", err)
 	}
@@ -189,7 +161,7 @@ func (lm *LockManager) IsLocked(fileID string) (bool, *LockInfo, error) {
 }
 
 // List возвращает список всех lock-ов (и активных, и expired).
-func (lm *LockManager) List() ([]LockInfo, error) {
+func (lm *LockManager) List(_ context.Context) ([]backend.LockInfo, error) {
 	dir := lm.locksDir()
 
 	entries, err := os.ReadDir(dir)
@@ -200,7 +172,7 @@ func (lm *LockManager) List() ([]LockInfo, error) {
 		return nil, fmt.Errorf("ошибка чтения директории lock-ов: %w", err)
 	}
 
-	var locks []LockInfo
+	var locks []backend.LockInfo
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
@@ -215,7 +187,7 @@ func (lm *LockManager) List() ([]LockInfo, error) {
 			continue
 		}
 
-		var info LockInfo
+		var info backend.LockInfo
 		if jsonErr := json.Unmarshal(data, &info); jsonErr != nil {
 			continue
 		}
@@ -228,13 +200,13 @@ func (lm *LockManager) List() ([]LockInfo, error) {
 
 // Cleanup удаляет expired lock-файлы.
 // При force=true удаляет все lock-файлы (включая активные).
-func (lm *LockManager) Cleanup(force bool) (*CleanupResult, error) {
-	locks, err := lm.List()
+func (lm *LockManager) Cleanup(_ context.Context, force bool) (*backend.CleanupResult, error) {
+	locks, err := lm.List(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("ошибка получения списка lock-ов: %w", err)
 	}
 
-	result := &CleanupResult{}
+	result := &backend.CleanupResult{}
 	now := time.Now().UTC()
 
 	for _, lock := range locks {

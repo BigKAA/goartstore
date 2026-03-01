@@ -6,8 +6,8 @@
 // операциях. Файлы, записанные другими pod-ами, обнаруживаются
 // через периодическую полную пересборку индекса из attr.json.
 //
-// IndexSyncService вызывает index.RebuildFromDir() каждые
-// SE_INDEX_SYNC_INTERVAL (default 30s).
+// IndexSyncService вызывает attrStore.ScanAll() → idx.RebuildFromMetadata()
+// каждые SE_INDEX_SYNC_INTERVAL (default 30s).
 //
 // Eventual consistency: собственные операции видны сразу,
 // чужие — после rebuild (до IndexSyncInterval).
@@ -20,6 +20,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/bigkaa/goartstore/storage-element/internal/backend"
 	"github.com/bigkaa/goartstore/storage-element/internal/storage/index"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -56,15 +57,15 @@ var (
 
 // IndexSyncService — сервис периодической пересборки in-memory индекса.
 //
-// Вызывает index.RebuildFromDir() для обнаружения файлов,
+// Вызывает attrStore.ScanAll() → idx.RebuildFromMetadata() для обнаружения файлов,
 // записанных другими pod-ами на общую файловую систему.
 //
 // Файлы с активным lock-ом могут не иметь attr.json (upload в процессе),
 // поэтому не попадают в индекс — это ожидаемое поведение.
 type IndexSyncService struct {
-	idx      *index.Index   // in-memory индекс для пересборки
-	dataDir  string         // базовая директория с файлами и attr.json
-	interval time.Duration  // интервал пересборки
+	idx      *index.Index      // in-memory индекс для пересборки
+	attrs    backend.AttrStore // хранилище метаданных
+	interval time.Duration     // интервал пересборки
 	logger   *slog.Logger
 
 	cancel context.CancelFunc
@@ -74,18 +75,18 @@ type IndexSyncService struct {
 //
 // Параметры:
 //   - idx: in-memory индекс
-//   - dataDir: базовая директория данных SE
+//   - attrs: хранилище метаданных (AttrStore)
 //   - interval: интервал пересборки (SE_INDEX_SYNC_INTERVAL)
 //   - logger: логгер
 func NewIndexSyncService(
 	idx *index.Index,
-	dataDir string,
+	attrs backend.AttrStore,
 	interval time.Duration,
 	logger *slog.Logger,
 ) *IndexSyncService {
 	return &IndexSyncService{
 		idx:      idx,
-		dataDir:  dataDir,
+		attrs:    attrs,
 		interval: interval,
 		logger:   logger.With(slog.String("component", "indexsync")),
 	}
@@ -101,7 +102,6 @@ func (iss *IndexSyncService) Start(ctx context.Context) {
 
 	iss.logger.Info("Периодическая пересборка индекса запущена",
 		slog.String("interval", iss.interval.String()),
-		slog.String("data_dir", iss.dataDir),
 	)
 }
 
@@ -115,7 +115,7 @@ func (iss *IndexSyncService) Stop() {
 
 // run — основной цикл фоновой горутины.
 // Первая пересборка НЕ выполняется сразу — индекс уже построен при старте
-// через index.BuildFromDir() в main.go.
+// через RebuildFromMetadata в main.go.
 func (iss *IndexSyncService) run(ctx context.Context) {
 	ticker := time.NewTicker(iss.interval)
 	defer ticker.Stop()
@@ -130,7 +130,7 @@ func (iss *IndexSyncService) run(ctx context.Context) {
 	}
 }
 
-// SyncOnce выполняет одну полную пересборку индекса из attr.json файлов.
+// SyncOnce выполняет одну полную пересборку индекса из AttrStore.
 //
 // Файлы с активным lock-ом (upload в процессе) могут не иметь attr.json —
 // они не попадут в индекс до завершения upload-а и следующего rebuild.
@@ -142,14 +142,19 @@ func (iss *IndexSyncService) SyncOnce() {
 	// Запоминаем количество файлов до пересборки
 	countBefore := iss.idx.Count()
 
-	// Полная пересборка из attr.json
-	if err := iss.idx.RebuildFromDir(iss.dataDir); err != nil {
-		iss.logger.Error("Ошибка пересборки индекса",
+	// Сканируем все метаданные через AttrStore
+	ctx := context.Background()
+	metadatas, err := iss.attrs.ScanAll(ctx)
+	if err != nil {
+		iss.logger.Error("Ошибка сканирования attr.json для пересборки индекса",
 			slog.String("error", err.Error()),
 		)
 		indexSyncErrorsTotal.Inc()
 		return
 	}
+
+	// Полная пересборка из метаданных
+	iss.idx.RebuildFromMetadata(metadatas)
 
 	duration := time.Since(start)
 	countAfter := iss.idx.Count()

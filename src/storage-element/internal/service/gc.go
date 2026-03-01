@@ -19,10 +19,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/bigkaa/goartstore/storage-element/internal/backend"
 	"github.com/bigkaa/goartstore/storage-element/internal/domain/model"
-	"github.com/bigkaa/goartstore/storage-element/internal/lockfile"
-	"github.com/bigkaa/goartstore/storage-element/internal/storage/attr"
-	"github.com/bigkaa/goartstore/storage-element/internal/storage/filestore"
 	"github.com/bigkaa/goartstore/storage-element/internal/storage/index"
 )
 
@@ -73,29 +71,32 @@ type GCResult struct {
 // Idempotent: каждый pod запускает свой GC без mutex-координации.
 // os.Remove() идемпотентен: два GC могут удалять один и тот же файл одновременно.
 type GCService struct {
-	store       *filestore.FileStore
-	idx         *index.Index
-	lockManager *lockfile.LockManager
-	interval    time.Duration
-	logger      *slog.Logger
+	files    backend.FileStore
+	attrs    backend.AttrStore
+	idx      *index.Index
+	locks    backend.LockStore
+	interval time.Duration
+	logger   *slog.Logger
 
 	cancel context.CancelFunc
 }
 
 // NewGCService создаёт сервис GC.
 func NewGCService(
-	store *filestore.FileStore,
+	files backend.FileStore,
+	attrs backend.AttrStore,
 	idx *index.Index,
-	lockManager *lockfile.LockManager,
+	locks backend.LockStore,
 	interval time.Duration,
 	logger *slog.Logger,
 ) *GCService {
 	return &GCService{
-		store:       store,
-		idx:         idx,
-		lockManager: lockManager,
-		interval:    interval,
-		logger:      logger.With(slog.String("component", "gc")),
+		files:    files,
+		attrs:    attrs,
+		idx:      idx,
+		locks:    locks,
+		interval: interval,
+		logger:   logger.With(slog.String("component", "gc")),
 	}
 }
 
@@ -187,6 +188,8 @@ func (gc *GCService) RunOnce() *GCResult {
 // markExpired находит active файлы с истёкшим TTL и помечает их как expired.
 // Обновляет и attr.json, и индекс.
 func (gc *GCService) markExpired(now time.Time) int {
+	ctx := context.Background()
+
 	// Получаем все active файлы из индекса
 	files, _ := gc.idx.List(0, 0, model.StatusActive)
 
@@ -199,9 +202,8 @@ func (gc *GCService) markExpired(now time.Time) int {
 		// Обновляем статус на expired
 		meta.Status = model.StatusExpired
 
-		// Обновляем attr.json
-		attrPath := attr.AttrFilePath(gc.store.FullPath(meta.StoragePath))
-		if err := attr.Write(attrPath, meta); err != nil {
+		// Обновляем attr.json через AttrStore
+		if err := gc.attrs.Write(ctx, meta.StoragePath, meta); err != nil {
 			gc.logger.Error("GC: ошибка обновления attr.json",
 				slog.String("file_id", meta.FileID),
 				slog.String("error", err.Error()),
@@ -232,12 +234,14 @@ func (gc *GCService) markExpired(now time.Time) int {
 // Перед удалением проверяет lock-файл: если файл locked (TTL не истёк) — пропускает.
 // Удаляет: файл данных, attr.json, запись в индексе.
 func (gc *GCService) deleteFiles() (deleted, skipped, errors int) {
+	ctx := context.Background()
+
 	// Получаем все deleted файлы из индекса
 	files, _ := gc.idx.List(0, 0, model.StatusDeleted)
 
 	for _, meta := range files {
 		// Проверяем lock перед удалением: если файл ещё загружается — пропускаем
-		locked, lockInfo, lockErr := gc.lockManager.IsLocked(meta.FileID)
+		locked, lockInfo, lockErr := gc.locks.IsLocked(ctx, meta.FileID)
 		if lockErr != nil {
 			gc.logger.Warn("GC: ошибка проверки lock, пропуск файла",
 				slog.String("file_id", meta.FileID),
@@ -256,7 +260,7 @@ func (gc *GCService) deleteFiles() (deleted, skipped, errors int) {
 		}
 
 		// Удаляем файл данных
-		if err := gc.store.DeleteFile(meta.StoragePath); err != nil {
+		if err := gc.files.DeleteFile(ctx, meta.StoragePath); err != nil {
 			gc.logger.Error("GC: ошибка удаления файла",
 				slog.String("file_id", meta.FileID),
 				slog.String("storage_path", meta.StoragePath),
@@ -266,9 +270,8 @@ func (gc *GCService) deleteFiles() (deleted, skipped, errors int) {
 			continue
 		}
 
-		// Удаляем attr.json
-		attrPath := attr.AttrFilePath(gc.store.FullPath(meta.StoragePath))
-		if err := attr.Delete(attrPath); err != nil {
+		// Удаляем attr.json через AttrStore
+		if err := gc.attrs.Delete(ctx, meta.StoragePath); err != nil {
 			gc.logger.Error("GC: ошибка удаления attr.json",
 				slog.String("file_id", meta.FileID),
 				slog.String("error", err.Error()),

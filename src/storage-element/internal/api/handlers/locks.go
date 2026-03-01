@@ -12,26 +12,17 @@ import (
 	"time"
 
 	"github.com/bigkaa/goartstore/storage-element/internal/api/errors"
-	"github.com/bigkaa/goartstore/storage-element/internal/lockfile"
+	"github.com/bigkaa/goartstore/storage-element/internal/backend"
 )
-
-// LockLister — интерфейс для получения списка lock-ов и их очистки.
-// Позволяет тестировать handler без реального LockManager.
-type LockLister interface {
-	// List возвращает все lock-и (активные и expired).
-	List() ([]lockfile.LockInfo, error)
-	// Cleanup удаляет expired (или все при force=true) lock-файлы.
-	Cleanup(force bool) (*lockfile.CleanupResult, error)
-}
 
 // LocksHandler — обработчик Lock API endpoints.
 type LocksHandler struct {
-	locker LockLister
+	locks backend.LockStore
 }
 
 // NewLocksHandler создаёт обработчик Lock API.
-func NewLocksHandler(locker LockLister) *LocksHandler {
-	return &LocksHandler{locker: locker}
+func NewLocksHandler(locks backend.LockStore) *LocksHandler {
+	return &LocksHandler{locks: locks}
 }
 
 // lockInfoResponse — представление одного lock-а в API-ответе.
@@ -76,8 +67,10 @@ type lockCleanupResponse struct {
 
 // ListLocks обрабатывает GET /api/v1/locks.
 // Возвращает список всех lock-ов с информацией об их статусе.
-func (h *LocksHandler) ListLocks(w http.ResponseWriter, _ *http.Request) {
-	locks, err := h.locker.List()
+func (h *LocksHandler) ListLocks(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	locks, err := h.locks.List(ctx)
 	if err != nil {
 		errors.InternalError(w, "не удалось получить список lock-ов: "+err.Error())
 		return
@@ -120,9 +113,10 @@ func (h *LocksHandler) ListLocks(w http.ResponseWriter, _ *http.Request) {
 // Без параметров — удаляет только expired lock-и.
 // С query-параметром force=true — удаляет все lock-и (аварийная очистка).
 func (h *LocksHandler) CleanupLocks(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	force := r.URL.Query().Get("force") == "true"
 
-	result, err := h.locker.Cleanup(force)
+	result, err := h.locks.Cleanup(ctx, force)
 	if err != nil {
 		errors.InternalError(w, "ошибка очистки lock-ов: "+err.Error())
 		return

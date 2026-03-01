@@ -21,11 +21,8 @@ package service
 
 import (
 	"context"
-	"io/fs"
 	"log/slog"
 	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -33,9 +30,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/bigkaa/goartstore/storage-element/internal/api/generated"
-	"github.com/bigkaa/goartstore/storage-element/internal/lockfile"
-	"github.com/bigkaa/goartstore/storage-element/internal/storage/attr"
-	"github.com/bigkaa/goartstore/storage-element/internal/storage/filestore"
+	"github.com/bigkaa/goartstore/storage-element/internal/backend"
 	"github.com/bigkaa/goartstore/storage-element/internal/storage/index"
 )
 
@@ -65,32 +60,32 @@ var (
 //
 // Idempotent: каждый pod запускает reconcile без mutex-координации.
 type ReconcileService struct {
-	store       *filestore.FileStore
-	idx         *index.Index
-	lockManager *lockfile.LockManager
-	dataDir     string
-	interval    time.Duration
-	logger      *slog.Logger
+	files    backend.FileStore
+	attrs    backend.AttrStore
+	idx      *index.Index
+	locks    backend.LockStore
+	interval time.Duration
+	logger   *slog.Logger
 
 	cancel context.CancelFunc
 }
 
 // NewReconcileService создаёт сервис reconciliation.
 func NewReconcileService(
-	store *filestore.FileStore,
+	files backend.FileStore,
+	attrs backend.AttrStore,
 	idx *index.Index,
-	lockManager *lockfile.LockManager,
-	dataDir string,
+	locks backend.LockStore,
 	interval time.Duration,
 	logger *slog.Logger,
 ) *ReconcileService {
 	return &ReconcileService{
-		store:       store,
-		idx:         idx,
-		lockManager: lockManager,
-		dataDir:     dataDir,
-		interval:    interval,
-		logger:      logger.With(slog.String("component", "reconcile")),
+		files:    files,
+		attrs:    attrs,
+		idx:      idx,
+		locks:    locks,
+		interval: interval,
+		logger:   logger.With(slog.String("component", "reconcile")),
 	}
 }
 
@@ -137,16 +132,20 @@ func (rs *ReconcileService) run(ctx context.Context) {
 // Возвращает:
 //   - *generated.ReconcileResponse — результат сверки
 func (rs *ReconcileService) RunOnce() *generated.ReconcileResponse {
+	ctx := context.Background()
 	startedAt := time.Now().UTC()
 	rs.logger.Info("Reconciliation начата")
 
-	issues := rs.reconcile()
+	issues := rs.reconcile(ctx)
 
-	// Пересобираем индекс из attr.json
-	if err := rs.idx.RebuildFromDir(rs.dataDir); err != nil {
-		rs.logger.Error("Ошибка пересборки индекса",
+	// Пересобираем индекс из attr.json через AttrStore
+	metadatas, err := rs.attrs.ScanAll(ctx)
+	if err != nil {
+		rs.logger.Error("Ошибка сканирования attr.json для пересборки индекса",
 			slog.String("error", err.Error()),
 		)
+	} else {
+		rs.idx.RebuildFromMetadata(metadatas)
 	}
 
 	completedAt := time.Now().UTC()
@@ -200,165 +199,119 @@ func (rs *ReconcileService) RunOnce() *generated.ReconcileResponse {
 	}
 }
 
-// reconcile выполняет сверку данных на диске.
-// Рекурсивно обходит иерархическую структуру YYYY/MM/DD/ через filepath.WalkDir.
-// Пропускает .locks/, mode.json, скрытые файлы, temp файлы и symlink-каталоги.
+// reconcile выполняет сверку данных через FileStore и AttrStore.
+// Использует FileStore.ListDataPaths() и AttrStore.ScanAll() для cross-reference.
 //
 //nolint:gocognit // reconcile — комплексная сверка с несколькими фазами
-func (rs *ReconcileService) reconcile() []generated.ReconcileIssue {
+func (rs *ReconcileService) reconcile(ctx context.Context) []generated.ReconcileIssue {
 	var issues []generated.ReconcileIssue
 
-	// Собираем все файлы на диске: относительные пути (от dataDir)
-	dataFiles := make(map[string]bool) // data-файлы (не attr.json)
-	attrFiles := make(map[string]bool) // attr.json файлы
-
-	err := filepath.WalkDir(rs.dataDir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		// Пропускаем скрытые каталоги (.locks/ и пр.)
-		if d.IsDir() {
-			name := d.Name()
-			if strings.HasPrefix(name, ".") && path != rs.dataDir {
-				return filepath.SkipDir
-			}
-			// Не следуем за symlink-каталогами
-			if d.Type()&fs.ModeSymlink != 0 {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-
-		// Вычисляем относительный путь от dataDir
-		relPath, relErr := filepath.Rel(rs.dataDir, path)
-		if relErr != nil {
-			return nil
-		}
-
-		name := d.Name()
-
-		// Пропускаем mode.json в корне
-		if name == "mode.json" {
-			return nil
-		}
-		// Пропускаем скрытые файлы
-		if strings.HasPrefix(name, ".") {
-			return nil
-		}
-		// Пропускаем temp файлы
-		if strings.HasSuffix(name, ".tmp") {
-			return nil
-		}
-
-		if attr.IsAttrFile(name) {
-			attrFiles[relPath] = true
-		} else {
-			dataFiles[relPath] = true
-		}
-		return nil
-	})
+	// Получаем список data-файлов через FileStore
+	dataPaths, err := rs.files.ListDataPaths(ctx)
 	if err != nil {
-		rs.logger.Error("Ошибка рекурсивного обхода директории данных",
+		rs.logger.Error("Ошибка получения списка data-файлов",
 			slog.String("error", err.Error()),
 		)
 		return issues
 	}
 
+	// Получаем все метаданные через AttrStore
+	allMetas, err := rs.attrs.ScanAll(ctx)
+	if err != nil {
+		rs.logger.Error("Ошибка сканирования attr.json",
+			slog.String("error", err.Error()),
+		)
+		return issues
+	}
+
+	// Строим maps для cross-reference
+	dataFilesSet := make(map[string]bool, len(dataPaths))
+	for _, p := range dataPaths {
+		dataFilesSet[p] = true
+	}
+
+	// storagePath → metadata
+	attrByPath := make(map[string]bool, len(allMetas))
+	metaByPath := make(map[string]*struct {
+		fileID   string
+		size     int64
+		checksum string
+	}, len(allMetas))
+
+	for _, m := range allMetas {
+		attrByPath[m.StoragePath] = true
+		metaByPath[m.StoragePath] = &struct {
+			fileID   string
+			size     int64
+			checksum string
+		}{
+			fileID:   m.FileID,
+			size:     m.Size,
+			checksum: m.Checksum,
+		}
+	}
+
 	// Определяем порог «свежести» файла: если файл создан в пределах lock TTL,
 	// он может быть in-flight upload-ом (данные записаны, attr.json ещё нет).
-	lockTTL := rs.lockManager.TTL()
+	lockTTL := rs.locks.TTL()
 	now := time.Now()
 
-	// 1. Проверяем: файл данных без attr.json (orphaned_file)
+	// 1. Проверяем: data-файл без attr.json (orphaned_file)
 	// Lock-aware: если файл свежий (mtime в пределах lockTTL) — пропускаем,
 	// т.к. upload мог записать данные, но ещё не записал attr.json.
-	for dataFile := range dataFiles {
-		expectedAttr := dataFile + attr.AttrSuffix
-		if !attrFiles[expectedAttr] {
-			// Проверяем mtime файла — если свежий, upload может быть в процессе
-			filePath := filepath.Join(rs.dataDir, dataFile)
-			if info, statErr := os.Stat(filePath); statErr == nil {
-				if now.Sub(info.ModTime()) < lockTTL {
-					rs.logger.Debug("Reconcile: orphaned файл свежий, пропуск (возможный in-flight upload)",
-						slog.String("file", dataFile),
-						slog.Duration("age", now.Sub(info.ModTime())),
-					)
-					continue
-				}
-			}
-
-			path := dataFile
-			issues = append(issues, generated.ReconcileIssue{
-				Type:        generated.OrphanedFile,
-				Path:        &path,
-				Description: "Файл на диске без attr.json",
-			})
-		}
-	}
-
-	// 2. Проверяем: attr.json без файла данных (orphaned_attr / missing_file)
-	// Lock-aware: если attr.json свежий (mtime в пределах lockTTL) — пропускаем,
-	// т.к. upload мог записать attr.json, но данные ещё не завершены.
-	for attrFile := range attrFiles {
-		dataFile := strings.TrimSuffix(attrFile, attr.AttrSuffix)
-		if !dataFiles[dataFile] {
-			// Проверяем mtime attr.json — если свежий, возможен in-flight upload
-			attrPath := filepath.Join(rs.dataDir, attrFile)
-			if info, statErr := os.Stat(attrPath); statErr == nil {
-				if now.Sub(info.ModTime()) < lockTTL {
-					rs.logger.Debug("Reconcile: orphaned attr свежий, пропуск (возможный in-flight upload)",
-						slog.String("attr_file", attrFile),
-						slog.Duration("age", now.Sub(info.ModTime())),
-					)
-					continue
-				}
-			}
-
-			// Читаем attr.json для получения file_id
-			meta, readErr := attr.Read(attrPath)
-			path := dataFile
-
-			issue := generated.ReconcileIssue{
-				Type:        generated.MissingFile,
-				Path:        &path,
-				Description: "attr.json без соответствующего файла на диске",
-			}
-
-			if readErr == nil {
-				if parsedUUID, parseErr := uuid.Parse(meta.FileID); parseErr == nil {
-					issue.FileId = &parsedUUID
-				}
-			}
-
-			issues = append(issues, issue)
-		}
-	}
-
-	// 3. Проверяем целостность файлов: size и checksum
-	// dataFile — относительный путь от dataDir (напр. 2026/03/01/photo.jpg)
-	for attrFile := range attrFiles {
-		dataFile := strings.TrimSuffix(attrFile, attr.AttrSuffix)
-		if !dataFiles[dataFile] {
-			// Файл отсутствует — уже обработан выше
+	for _, dataFile := range dataPaths {
+		if attrByPath[dataFile] {
 			continue
 		}
 
-		// Читаем метаданные из attr.json
-		attrPath := filepath.Join(rs.dataDir, attrFile)
-		meta, readErr := attr.Read(attrPath)
-		if readErr != nil {
-			rs.logger.Warn("Ошибка чтения attr.json при reconciliation",
-				slog.String("attr_file", attrFile),
-				slog.String("error", readErr.Error()),
-			)
+		// Проверяем mtime файла — если свежий, upload может быть в процессе
+		fullPath := rs.files.FullPath(dataFile)
+		if info, statErr := os.Stat(fullPath); statErr == nil {
+			if now.Sub(info.ModTime()) < lockTTL {
+				rs.logger.Debug("Reconcile: orphaned файл свежий, пропуск (возможный in-flight upload)",
+					slog.String("file", dataFile),
+				)
+				continue
+			}
+		}
+
+		path := dataFile
+		issues = append(issues, generated.ReconcileIssue{
+			Type:        generated.OrphanedFile,
+			Path:        &path,
+			Description: "Файл на диске без attr.json",
+		})
+	}
+
+	// 2. Проверяем: attr.json без data-файла (orphaned_attr / missing_file)
+	for _, m := range allMetas {
+		if dataFilesSet[m.StoragePath] {
 			continue
 		}
 
-		parsedUUID, _ := uuid.Parse(meta.FileID)
+		path := m.StoragePath
+		issue := generated.ReconcileIssue{
+			Type:        generated.MissingFile,
+			Path:        &path,
+			Description: "attr.json без соответствующего файла на диске",
+		}
 
-		// Проверяем размер (FileSize принимает относительный путь от dataDir)
-		actualSize, sizeErr := rs.store.FileSize(dataFile)
+		if parsedUUID, parseErr := uuid.Parse(m.FileID); parseErr == nil {
+			issue.FileId = &parsedUUID
+		}
+
+		issues = append(issues, issue)
+	}
+
+	// 3. Проверяем целостность: size и checksum
+	for _, dataFile := range dataPaths {
+		info, ok := metaByPath[dataFile]
+		if !ok {
+			continue // Уже обработан как orphaned
+		}
+
+		// Проверяем размер
+		actualSize, sizeErr := rs.files.FileSize(ctx, dataFile)
 		if sizeErr != nil {
 			rs.logger.Warn("Ошибка получения размера файла",
 				slog.String("file", dataFile),
@@ -367,8 +320,9 @@ func (rs *ReconcileService) reconcile() []generated.ReconcileIssue {
 			continue
 		}
 
-		if actualSize != meta.Size {
+		if actualSize != info.size {
 			path := dataFile
+			parsedUUID, _ := uuid.Parse(info.fileID)
 			issues = append(issues, generated.ReconcileIssue{
 				Type:        generated.SizeMismatch,
 				FileId:      &parsedUUID,
@@ -378,8 +332,8 @@ func (rs *ReconcileService) reconcile() []generated.ReconcileIssue {
 			continue // Если размер не совпадает, checksum точно не совпадёт
 		}
 
-		// Проверяем checksum (ComputeChecksum принимает относительный путь от dataDir)
-		actualChecksum, csErr := rs.store.ComputeChecksum(dataFile)
+		// Проверяем checksum
+		actualChecksum, csErr := rs.files.ComputeChecksum(ctx, dataFile)
 		if csErr != nil {
 			rs.logger.Warn("Ошибка вычисления checksum",
 				slog.String("file", dataFile),
@@ -388,8 +342,9 @@ func (rs *ReconcileService) reconcile() []generated.ReconcileIssue {
 			continue
 		}
 
-		if actualChecksum != meta.Checksum {
+		if actualChecksum != info.checksum {
 			path := dataFile
+			parsedUUID, _ := uuid.Parse(info.fileID)
 			issues = append(issues, generated.ReconcileIssue{
 				Type:        generated.ChecksumMismatch,
 				FileId:      &parsedUUID,
@@ -401,3 +356,4 @@ func (rs *ReconcileService) reconcile() []generated.ReconcileIssue {
 
 	return issues
 }
+

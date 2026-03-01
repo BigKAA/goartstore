@@ -14,11 +14,13 @@ import (
 )
 
 // setupIndexSyncTestEnv создаёт тестовое окружение для IndexSyncService тестов.
-// Возвращает: dataDir, index (пустой, ready=false).
-func setupIndexSyncTestEnv(t *testing.T) (string, *index.Index) {
+// Возвращает: dataDir, attrStore, index (пустой, ready=false).
+func setupIndexSyncTestEnv(t *testing.T) (string, *attr.Store, *index.Index) {
 	t.Helper()
 
 	dir := t.TempDir()
+	attrStore := attr.NewStore(dir)
+
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 	idx := index.New(logger)
 
@@ -27,7 +29,7 @@ func setupIndexSyncTestEnv(t *testing.T) (string, *index.Index) {
 		t.Fatalf("Ошибка построения индекса: %v", err)
 	}
 
-	return dir, idx
+	return dir, attrStore, idx
 }
 
 // createTestAttrFile создаёт файл данных и attr.json на диске (без добавления в индекс).
@@ -56,10 +58,10 @@ func createTestAttrFile(t *testing.T, dir string, meta *model.FileMetadata) {
 
 func TestIndexSyncService_SyncOnce_EmptyDir(t *testing.T) {
 	// Пустая директория — SyncOnce не должен паниковать
-	dir, idx := setupIndexSyncTestEnv(t)
+	_, attrStore, idx := setupIndexSyncTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
-	svc := NewIndexSyncService(idx, dir, 30*time.Second, logger)
+	svc := NewIndexSyncService(idx, attrStore, 30*time.Second, logger)
 	svc.SyncOnce()
 
 	if idx.Count() != 0 {
@@ -69,7 +71,7 @@ func TestIndexSyncService_SyncOnce_EmptyDir(t *testing.T) {
 
 func TestIndexSyncService_SyncOnce_DetectsNewFiles(t *testing.T) {
 	// Файлы добавлены на диск другим pod-ом — SyncOnce должен их обнаружить
-	dir, idx := setupIndexSyncTestEnv(t)
+	dir, attrStore, idx := setupIndexSyncTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Имитируем файлы, записанные другим pod-ом (на диске, но не в индексе)
@@ -106,7 +108,7 @@ func TestIndexSyncService_SyncOnce_DetectsNewFiles(t *testing.T) {
 		t.Fatalf("Индекс должен быть пуст: %d", idx.Count())
 	}
 
-	svc := NewIndexSyncService(idx, dir, 30*time.Second, logger)
+	svc := NewIndexSyncService(idx, attrStore, 30*time.Second, logger)
 	svc.SyncOnce()
 
 	// После sync — 2 файла
@@ -125,7 +127,7 @@ func TestIndexSyncService_SyncOnce_DetectsNewFiles(t *testing.T) {
 
 func TestIndexSyncService_SyncOnce_DetectsDeletedFiles(t *testing.T) {
 	// Файл удалён с диска другим pod-ом — SyncOnce должен убрать из индекса
-	dir, idx := setupIndexSyncTestEnv(t)
+	dir, attrStore, idx := setupIndexSyncTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Создаём файл на диске
@@ -152,7 +154,7 @@ func TestIndexSyncService_SyncOnce_DetectsDeletedFiles(t *testing.T) {
 	os.Remove(filepath.Join(dir, "2026/02/20/toremove.txt"))
 	os.Remove(attr.AttrFilePath(filepath.Join(dir, "2026/02/20/toremove.txt")))
 
-	svc := NewIndexSyncService(idx, dir, 30*time.Second, logger)
+	svc := NewIndexSyncService(idx, attrStore, 30*time.Second, logger)
 	svc.SyncOnce()
 
 	// После sync — 0 файлов (файл удалён с диска)
@@ -163,7 +165,7 @@ func TestIndexSyncService_SyncOnce_DetectsDeletedFiles(t *testing.T) {
 
 func TestIndexSyncService_SyncOnce_PreservesExistingFiles(t *testing.T) {
 	// Существующие файлы на диске — SyncOnce не теряет их
-	dir, idx := setupIndexSyncTestEnv(t)
+	dir, attrStore, idx := setupIndexSyncTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Создаём файлы на диске и в индексе
@@ -182,7 +184,7 @@ func TestIndexSyncService_SyncOnce_PreservesExistingFiles(t *testing.T) {
 	createTestAttrFile(t, dir, meta)
 	idx.Add(meta)
 
-	svc := NewIndexSyncService(idx, dir, 30*time.Second, logger)
+	svc := NewIndexSyncService(idx, attrStore, 30*time.Second, logger)
 	svc.SyncOnce()
 
 	// Файл остался в индексе
@@ -196,10 +198,10 @@ func TestIndexSyncService_SyncOnce_PreservesExistingFiles(t *testing.T) {
 
 func TestIndexSyncService_StartStop(t *testing.T) {
 	// Проверяем жизненный цикл: Start → Stop без паники
-	dir, idx := setupIndexSyncTestEnv(t)
+	_, attrStore, idx := setupIndexSyncTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
-	svc := NewIndexSyncService(idx, dir, 50*time.Millisecond, logger)
+	svc := NewIndexSyncService(idx, attrStore, 50*time.Millisecond, logger)
 	ctx := context.Background()
 
 	svc.Start(ctx)
@@ -214,10 +216,10 @@ func TestIndexSyncService_StartStop(t *testing.T) {
 
 func TestIndexSyncService_DetectsNewFiles_Background(t *testing.T) {
 	// Проверяем обнаружение файлов фоновым процессом
-	dir, idx := setupIndexSyncTestEnv(t)
+	dir, attrStore, idx := setupIndexSyncTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
-	svc := NewIndexSyncService(idx, dir, 50*time.Millisecond, logger)
+	svc := NewIndexSyncService(idx, attrStore, 50*time.Millisecond, logger)
 	ctx := context.Background()
 
 	svc.Start(ctx)

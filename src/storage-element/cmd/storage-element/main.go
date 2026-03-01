@@ -20,6 +20,7 @@ import (
 	"github.com/bigkaa/goartstore/storage-element/internal/modefile"
 	"github.com/bigkaa/goartstore/storage-element/internal/server"
 	"github.com/bigkaa/goartstore/storage-element/internal/service"
+	"github.com/bigkaa/goartstore/storage-element/internal/storage/attr"
 	"github.com/bigkaa/goartstore/storage-element/internal/storage/filestore"
 	"github.com/bigkaa/goartstore/storage-element/internal/storage/index"
 )
@@ -41,6 +42,7 @@ func main() {
 		slog.String("mode", cfg.Mode),
 		slog.Int("port", cfg.Port),
 		slog.Int64("max_capacity", cfg.MaxCapacity),
+		slog.String("storage_backend", cfg.StorageBackend),
 	)
 
 	// Предупреждения о параметрах topologymetrics с дефолтными значениями
@@ -81,53 +83,63 @@ func main() {
 	}
 	logger.Info("Режим работы установлен", slog.String("mode", initialMode))
 
-	// 3. Файловое хранилище
+	// 3. Storage Backend (через абстракцию)
+	hostname, _ := os.Hostname()
+
+	// Инициализация backend на основе cfg.StorageBackend
 	store, err := filestore.New(cfg.DataDir)
 	if err != nil {
 		logger.Error("Ошибка инициализации FileStore", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 
-	// 4. In-memory индекс метаданных
-	idx := index.New(logger)
-	if err = idx.BuildFromDir(cfg.DataDir); err != nil {
-		logger.Error("Ошибка построения индекса", slog.String("error", err.Error()))
-		os.Exit(1)
-	}
+	attrStore := attr.NewStore(cfg.DataDir)
 
-	// Обновляем Prometheus метрики файлов
-	updateFileMetrics(idx)
-
-	// 5. Lock Manager — координация per-file lock-файлами с TTL
-	hostname, _ := os.Hostname()
 	lockMgr := lockfile.NewLockManager(cfg.DataDir, cfg.UploadLockTTL, hostname)
 	if err := lockMgr.EnsureDir(); err != nil {
 		logger.Error("Ошибка создания директории lock-файлов", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
-	logger.Info("Lock Manager инициализирован",
+	logger.Info("Storage Backend инициализирован",
+		slog.String("backend", cfg.StorageBackend),
+		slog.String("data_dir", cfg.DataDir),
 		slog.String("lock_dir", cfg.DataDir+"/.locks"),
 		slog.String("ttl", cfg.UploadLockTTL.String()),
 		slog.String("holder", hostname),
 	)
 
-	// 6. Сервисы
-	uploadSvc := service.NewUploadService(cfg, store, idx, sm, lockMgr, logger)
+	// 4. In-memory индекс метаданных — построение из AttrStore
+	idx := index.New(logger)
+	metadatas, err := attrStore.ScanAll(context.Background())
+	if err != nil {
+		logger.Error("Ошибка сканирования attr.json для построения индекса", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+	idx.RebuildFromMetadata(metadatas)
+	logger.Info("Индекс построен из AttrStore",
+		slog.Int("files", idx.Count()),
+	)
+
+	// Обновляем Prometheus метрики файлов
+	updateFileMetrics(idx)
+
+	// 5. Сервисы (используют backend интерфейсы)
+	uploadSvc := service.NewUploadService(cfg, store, attrStore, idx, sm, lockMgr, logger)
 	downloadSvc := service.NewDownloadService(store, idx, sm, logger)
 
 	ctx := context.Background()
 
-	// 7. Фоновые процессы — запускаются безусловно на каждом pod-е (stateless)
-	gcSvc := service.NewGCService(store, idx, lockMgr, cfg.GCInterval, logger)
-	reconcileSvc := service.NewReconcileService(store, idx, lockMgr, cfg.DataDir, cfg.ReconcileInterval, logger)
+	// 6. Фоновые процессы — запускаются безусловно на каждом pod-е (stateless)
+	gcSvc := service.NewGCService(store, attrStore, idx, lockMgr, cfg.GCInterval, logger)
+	reconcileSvc := service.NewReconcileService(store, attrStore, idx, lockMgr, cfg.ReconcileInterval, logger)
 	modeSyncSvc := service.NewModeSyncService(modeFilePath, sm, cfg.ModeSyncInterval, logger)
-	indexSyncSvc := service.NewIndexSyncService(idx, cfg.DataDir, cfg.IndexSyncInterval, logger)
+	indexSyncSvc := service.NewIndexSyncService(idx, attrStore, cfg.IndexSyncInterval, logger)
 	gcSvc.Start(ctx)
 	reconcileSvc.Start(ctx)
 	modeSyncSvc.Start(ctx)
 	indexSyncSvc.Start(ctx)
 
-	// 8. topologymetrics — мониторинг зависимостей
+	// 7. topologymetrics — мониторинг зависимостей
 	//
 	// Определение имени владельца пода для метки name:
 	// 1. DEPHEALTH_NAME (env) → использовать как есть
@@ -169,7 +181,7 @@ func main() {
 		}
 	}
 
-	// 9. ModePersister — сохранение mode.json при смене режима
+	// 8. ModePersister — сохранение mode.json при смене режима
 	modePersister := &modePersisterAdapter{
 		path: modeFilePath,
 		updatedByFn: func() string {
@@ -177,9 +189,9 @@ func main() {
 		},
 	}
 
-	// 10. Handlers
-	filesHandler := handlers.NewFilesHandler(uploadSvc, downloadSvc, store, idx, sm, lockMgr)
-	systemHandler := handlers.NewSystemHandler(cfg, sm, idx)
+	// 9. Handlers (используют backend интерфейсы)
+	filesHandler := handlers.NewFilesHandler(uploadSvc, downloadSvc, store, attrStore, idx, sm, lockMgr)
+	systemHandler := handlers.NewSystemHandler(cfg, sm, idx, store)
 	modeHandler := handlers.NewModeHandler(sm, logger, modePersister)
 	maintenanceHandler := handlers.NewMaintenanceHandler(reconcileSvc)
 	locksHandler := handlers.NewLocksHandler(lockMgr)
@@ -197,7 +209,7 @@ func main() {
 		metricsHandler,
 	)
 
-	// 11. JWT middleware
+	// 10. JWT middleware
 	var jwtAuth server.JWTAuthProvider
 	jwtMiddleware, err := middleware.NewJWTAuth(middleware.JWTAuthConfig{
 		JWKSURL:         cfg.JWKSUrl,
@@ -220,7 +232,7 @@ func main() {
 		)
 	}
 
-	// 12. Создание и запуск HTTP-сервера
+	// 11. Создание и запуск HTTP-сервера
 	srv := server.New(cfg, logger, apiHandler, apiHandler, jwtAuth)
 
 	if err := srv.Run(); err != nil {

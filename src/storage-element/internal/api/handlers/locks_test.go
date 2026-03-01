@@ -2,6 +2,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -9,31 +10,37 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bigkaa/goartstore/storage-element/internal/lockfile"
+	"github.com/bigkaa/goartstore/storage-element/internal/backend"
 )
 
-// mockLockLister — мок для LockLister интерфейса.
-type mockLockLister struct {
-	locks      []lockfile.LockInfo
+// mockLockStore — мок для backend.LockStore.
+type mockLockStore struct {
+	locks      []backend.LockInfo
 	listErr    error
-	result     *lockfile.CleanupResult
+	result     *backend.CleanupResult
 	cleanupErr error
 	// lastForce запоминает аргумент force из последнего вызова Cleanup.
 	lastForce bool
 }
 
-func (m *mockLockLister) List() ([]lockfile.LockInfo, error) {
+func (m *mockLockStore) Acquire(_ context.Context, _ string) error           { return nil }
+func (m *mockLockStore) Release(_ context.Context, _ string) error           { return nil }
+func (m *mockLockStore) IsLocked(_ context.Context, _ string) (bool, *backend.LockInfo, error) {
+	return false, nil, nil
+}
+func (m *mockLockStore) List(_ context.Context) ([]backend.LockInfo, error) {
 	return m.locks, m.listErr
 }
-
-func (m *mockLockLister) Cleanup(force bool) (*lockfile.CleanupResult, error) {
+func (m *mockLockStore) Cleanup(_ context.Context, force bool) (*backend.CleanupResult, error) {
 	m.lastForce = force
 	return m.result, m.cleanupErr
 }
+func (m *mockLockStore) TTL() time.Duration { return 120 * time.Second }
+func (m *mockLockStore) EnsureDir() error   { return nil }
 
 // TestListLocks_Empty проверяет ответ при отсутствии lock-ов.
 func TestListLocks_Empty(t *testing.T) {
-	mock := &mockLockLister{locks: nil}
+	mock := &mockLockStore{locks: nil}
 	h := NewLocksHandler(mock)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/locks", nil)
@@ -67,8 +74,8 @@ func TestListLocks_Empty(t *testing.T) {
 // TestListLocks_WithActiveLock проверяет ответ с активным lock-ом.
 func TestListLocks_WithActiveLock(t *testing.T) {
 	now := time.Now().UTC()
-	mock := &mockLockLister{
-		locks: []lockfile.LockInfo{
+	mock := &mockLockStore{
+		locks: []backend.LockInfo{
 			{
 				Holder:     "se-edit-1-abc",
 				FileID:     "file-001",
@@ -113,8 +120,8 @@ func TestListLocks_WithActiveLock(t *testing.T) {
 // TestListLocks_WithExpiredLock проверяет ответ с expired lock-ом.
 func TestListLocks_WithExpiredLock(t *testing.T) {
 	past := time.Now().UTC().Add(-10 * time.Minute)
-	mock := &mockLockLister{
-		locks: []lockfile.LockInfo{
+	mock := &mockLockStore{
+		locks: []backend.LockInfo{
 			{
 				Holder:     "se-edit-1-dead",
 				FileID:     "file-expired",
@@ -153,8 +160,8 @@ func TestListLocks_WithExpiredLock(t *testing.T) {
 // TestListLocks_MixedActiveAndExpired проверяет ответ со смешанными lock-ами.
 func TestListLocks_MixedActiveAndExpired(t *testing.T) {
 	now := time.Now().UTC()
-	mock := &mockLockLister{
-		locks: []lockfile.LockInfo{
+	mock := &mockLockStore{
+		locks: []backend.LockInfo{
 			{Holder: "pod-1", FileID: "active-1", AcquiredAt: now, TTLSeconds: 300},
 			{Holder: "pod-dead", FileID: "expired-1", AcquiredAt: now.Add(-10 * time.Minute), TTLSeconds: 60},
 			{Holder: "pod-2", FileID: "active-2", AcquiredAt: now, TTLSeconds: 120},
@@ -185,7 +192,7 @@ func TestListLocks_MixedActiveAndExpired(t *testing.T) {
 
 // TestListLocks_Error проверяет обработку ошибки List().
 func TestListLocks_Error(t *testing.T) {
-	mock := &mockLockLister{
+	mock := &mockLockStore{
 		listErr: errTest,
 	}
 	h := NewLocksHandler(mock)
@@ -203,15 +210,15 @@ func TestListLocks_Error(t *testing.T) {
 // TestCleanupLocks_ExpiredOnly проверяет очистку только expired lock-ов.
 func TestCleanupLocks_ExpiredOnly(t *testing.T) {
 	now := time.Now().UTC()
-	mock := &mockLockLister{
-		result: &lockfile.CleanupResult{
+	mock := &mockLockStore{
+		result: &backend.CleanupResult{
 			Cleaned:   2,
 			Remaining: 1,
-			Removed: []lockfile.LockInfo{
+			Removed: []backend.LockInfo{
 				{FileID: "exp-1", Holder: "dead-pod", AcquiredAt: now.Add(-10 * time.Minute), TTLSeconds: 60},
 				{FileID: "exp-2", Holder: "dead-pod", AcquiredAt: now.Add(-5 * time.Minute), TTLSeconds: 60},
 			},
-			Active: []lockfile.LockInfo{
+			Active: []backend.LockInfo{
 				{FileID: "active-1", Holder: "live-pod", AcquiredAt: now, TTLSeconds: 300},
 			},
 		},
@@ -253,11 +260,11 @@ func TestCleanupLocks_ExpiredOnly(t *testing.T) {
 
 // TestCleanupLocks_ForceTrue проверяет принудительную очистку всех lock-ов.
 func TestCleanupLocks_ForceTrue(t *testing.T) {
-	mock := &mockLockLister{
-		result: &lockfile.CleanupResult{
+	mock := &mockLockStore{
+		result: &backend.CleanupResult{
 			Cleaned:   3,
 			Remaining: 0,
-			Removed: []lockfile.LockInfo{
+			Removed: []backend.LockInfo{
 				{FileID: "f1", Holder: "p1", AcquiredAt: time.Now().UTC(), TTLSeconds: 60},
 				{FileID: "f2", Holder: "p2", AcquiredAt: time.Now().UTC(), TTLSeconds: 120},
 				{FileID: "f3", Holder: "p3", AcquiredAt: time.Now().UTC(), TTLSeconds: 300},
@@ -295,7 +302,7 @@ func TestCleanupLocks_ForceTrue(t *testing.T) {
 
 // TestCleanupLocks_Error проверяет обработку ошибки Cleanup().
 func TestCleanupLocks_Error(t *testing.T) {
-	mock := &mockLockLister{
+	mock := &mockLockStore{
 		cleanupErr: errTest,
 	}
 	h := NewLocksHandler(mock)
@@ -312,8 +319,8 @@ func TestCleanupLocks_Error(t *testing.T) {
 
 // TestCleanupLocks_EmptyResult проверяет ответ при отсутствии lock-ов для очистки.
 func TestCleanupLocks_EmptyResult(t *testing.T) {
-	mock := &mockLockLister{
-		result: &lockfile.CleanupResult{
+	mock := &mockLockStore{
+		result: &backend.CleanupResult{
 			Cleaned:   0,
 			Remaining: 0,
 			Removed:   nil,

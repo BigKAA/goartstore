@@ -104,6 +104,10 @@ type Config struct {
 	UploadLockTTL time.Duration
 	// Интервал синхронизации mode.json между pod-ами (SE_MODE_SYNC_INTERVAL, по умолчанию 10s).
 	ModeSyncInterval time.Duration
+
+	// Тип storage backend: "localfs" (default), "s3" (Phase 7).
+	// SE_STORAGE_BACKEND
+	StorageBackend string
 }
 
 // Load загружает конфигурацию из переменных окружения, валидирует
@@ -309,6 +313,13 @@ func Load() (*Config, error) {
 	cfg.ModeSyncInterval, err = getEnvDuration("SE_MODE_SYNC_INTERVAL", 10*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("SE_MODE_SYNC_INTERVAL: %w", err)
+	}
+
+	// SE_STORAGE_BACKEND — тип storage backend (по умолчанию "localfs").
+	cfg.StorageBackend = getEnvDefault("SE_STORAGE_BACKEND", "localfs")
+	validBackends := map[string]bool{"localfs": true}
+	if !validBackends[cfg.StorageBackend] {
+		return nil, fmt.Errorf("SE_STORAGE_BACKEND: неизвестное значение %q, поддерживаемые: localfs", cfg.StorageBackend)
 	}
 
 	return cfg, nil

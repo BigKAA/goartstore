@@ -1,12 +1,18 @@
 package lockfile
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/bigkaa/goartstore/storage-element/internal/backend"
 )
+
+// ctx — общий контекст для тестов.
+var ctx = context.Background()
 
 // setupTestLockManager создаёт LockManager для тестов с temp-директорией.
 func setupTestLockManager(t *testing.T, ttl time.Duration) (*LockManager, string) {
@@ -47,7 +53,7 @@ func TestAcquireAndRelease(t *testing.T) {
 	lm, _ := setupTestLockManager(t, 120*time.Second)
 
 	// Acquire
-	if err := lm.Acquire("file-001"); err != nil {
+	if err := lm.Acquire(ctx, "file-001"); err != nil {
 		t.Fatalf("Acquire: %v", err)
 	}
 
@@ -58,7 +64,7 @@ func TestAcquireAndRelease(t *testing.T) {
 	}
 
 	// IsLocked — должен быть locked
-	locked, info, err := lm.IsLocked("file-001")
+	locked, info, err := lm.IsLocked(ctx, "file-001")
 	if err != nil {
 		t.Fatalf("IsLocked: %v", err)
 	}
@@ -79,7 +85,7 @@ func TestAcquireAndRelease(t *testing.T) {
 	}
 
 	// Release
-	if err := lm.Release("file-001"); err != nil {
+	if err := lm.Release(ctx, "file-001"); err != nil {
 		t.Fatalf("Release: %v", err)
 	}
 
@@ -89,7 +95,7 @@ func TestAcquireAndRelease(t *testing.T) {
 	}
 
 	// IsLocked — не locked
-	locked, info, err = lm.IsLocked("file-001")
+	locked, info, err = lm.IsLocked(ctx, "file-001")
 	if err != nil {
 		t.Fatalf("IsLocked после Release: %v", err)
 	}
@@ -105,18 +111,18 @@ func TestReleaseIdempotent(t *testing.T) {
 	lm, _ := setupTestLockManager(t, 120*time.Second)
 
 	// Release несуществующего lock — не ошибка
-	if err := lm.Release("nonexistent-file"); err != nil {
+	if err := lm.Release(ctx, "nonexistent-file"); err != nil {
 		t.Fatalf("Release несуществующего: %v", err)
 	}
 
 	// Double release — не ошибка
-	if err := lm.Acquire("file-002"); err != nil {
+	if err := lm.Acquire(ctx, "file-002"); err != nil {
 		t.Fatalf("Acquire: %v", err)
 	}
-	if err := lm.Release("file-002"); err != nil {
+	if err := lm.Release(ctx, "file-002"); err != nil {
 		t.Fatalf("первый Release: %v", err)
 	}
-	if err := lm.Release("file-002"); err != nil {
+	if err := lm.Release(ctx, "file-002"); err != nil {
 		t.Fatalf("второй Release: %v", err)
 	}
 }
@@ -125,14 +131,14 @@ func TestIsLockedExpired(t *testing.T) {
 	// TTL = 1 наносекунда — lock мгновенно истекает
 	lm, _ := setupTestLockManager(t, time.Nanosecond)
 
-	if err := lm.Acquire("file-003"); err != nil {
+	if err := lm.Acquire(ctx, "file-003"); err != nil {
 		t.Fatalf("Acquire: %v", err)
 	}
 
 	// Ждём чтобы TTL гарантированно истёк
 	time.Sleep(time.Millisecond)
 
-	locked, info, err := lm.IsLocked("file-003")
+	locked, info, err := lm.IsLocked(ctx, "file-003")
 	if err != nil {
 		t.Fatalf("IsLocked: %v", err)
 	}
@@ -151,7 +157,7 @@ func TestList(t *testing.T) {
 	lm, _ := setupTestLockManager(t, 120*time.Second)
 
 	// Пустой список
-	locks, err := lm.List()
+	locks, err := lm.List(ctx)
 	if err != nil {
 		t.Fatalf("List (пустой): %v", err)
 	}
@@ -161,12 +167,12 @@ func TestList(t *testing.T) {
 
 	// Добавляем lock-и
 	for _, id := range []string{"file-a", "file-b", "file-c"} {
-		if err := lm.Acquire(id); err != nil {
+		if err := lm.Acquire(ctx, id); err != nil {
 			t.Fatalf("Acquire(%s): %v", id, err)
 		}
 	}
 
-	locks, err = lm.List()
+	locks, err = lm.List(ctx)
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
@@ -192,14 +198,14 @@ func TestCleanup(t *testing.T) {
 
 	// Создаём expired lock-и
 	for _, id := range []string{"file-x", "file-y"} {
-		if err := lm.Acquire(id); err != nil {
+		if err := lm.Acquire(ctx, id); err != nil {
 			t.Fatalf("Acquire(%s): %v", id, err)
 		}
 	}
 
 	time.Sleep(time.Millisecond)
 
-	result, err := lm.Cleanup(false)
+	result, err := lm.Cleanup(ctx, false)
 	if err != nil {
 		t.Fatalf("Cleanup: %v", err)
 	}
@@ -211,7 +217,7 @@ func TestCleanup(t *testing.T) {
 	}
 
 	// Проверяем что lock-файлы удалены
-	locks, _ := lm.List()
+	locks, _ := lm.List(ctx)
 	if len(locks) != 0 {
 		t.Errorf("после cleanup: ожидалось 0 lock-ов, получено %d", len(locks))
 	}
@@ -221,12 +227,12 @@ func TestCleanupMixed(t *testing.T) {
 	lm, _ := setupTestLockManager(t, 120*time.Second)
 
 	// Создаём активный lock
-	if err := lm.Acquire("active-file"); err != nil {
+	if err := lm.Acquire(ctx, "active-file"); err != nil {
 		t.Fatalf("Acquire active: %v", err)
 	}
 
 	// Создаём expired lock вручную (записываем файл с прошлым acquired_at)
-	expiredInfo := LockInfo{
+	expiredInfo := backend.LockInfo{
 		Holder:     "dead-pod",
 		FileID:     "expired-file",
 		AcquiredAt: time.Now().UTC().Add(-24 * time.Hour),
@@ -236,7 +242,7 @@ func TestCleanupMixed(t *testing.T) {
 		t.Fatalf("создание expired lock: %v", err)
 	}
 
-	result, err := lm.Cleanup(false)
+	result, err := lm.Cleanup(ctx, false)
 	if err != nil {
 		t.Fatalf("Cleanup: %v", err)
 	}
@@ -249,7 +255,7 @@ func TestCleanupMixed(t *testing.T) {
 	}
 
 	// Активный lock должен остаться
-	locked, _, err := lm.IsLocked("active-file")
+	locked, _, err := lm.IsLocked(ctx, "active-file")
 	if err != nil {
 		t.Fatalf("IsLocked active: %v", err)
 	}
@@ -258,7 +264,7 @@ func TestCleanupMixed(t *testing.T) {
 	}
 
 	// Expired lock должен быть удалён
-	locked, _, err = lm.IsLocked("expired-file")
+	locked, _, err = lm.IsLocked(ctx, "expired-file")
 	if err != nil {
 		t.Fatalf("IsLocked expired: %v", err)
 	}
@@ -271,12 +277,12 @@ func TestCleanupForce(t *testing.T) {
 	lm, _ := setupTestLockManager(t, 120*time.Second)
 
 	// Создаём активный lock
-	if err := lm.Acquire("force-file"); err != nil {
+	if err := lm.Acquire(ctx, "force-file"); err != nil {
 		t.Fatalf("Acquire: %v", err)
 	}
 
 	// Force cleanup удаляет даже активные
-	result, err := lm.Cleanup(true)
+	result, err := lm.Cleanup(ctx, true)
 	if err != nil {
 		t.Fatalf("Cleanup force: %v", err)
 	}
@@ -284,7 +290,7 @@ func TestCleanupForce(t *testing.T) {
 		t.Errorf("cleaned: ожидалось 1, получено %d", result.Cleaned)
 	}
 
-	locks, _ := lm.List()
+	locks, _ := lm.List(ctx)
 	if len(locks) != 0 {
 		t.Errorf("после force cleanup: ожидалось 0 lock-ов, получено %d", len(locks))
 	}
@@ -292,7 +298,7 @@ func TestCleanupForce(t *testing.T) {
 
 func TestLockInfoExpiresAt(t *testing.T) {
 	acquired := time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
-	info := LockInfo{
+	info := backend.LockInfo{
 		AcquiredAt: acquired,
 		TTLSeconds: 120,
 	}
@@ -305,7 +311,7 @@ func TestLockInfoExpiresAt(t *testing.T) {
 
 func TestLockInfoIsExpired(t *testing.T) {
 	acquired := time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
-	info := LockInfo{
+	info := backend.LockInfo{
 		AcquiredAt: acquired,
 		TTLSeconds: 120,
 	}
@@ -324,7 +330,7 @@ func TestLockInfoIsExpired(t *testing.T) {
 }
 
 // writeTestLock записывает lock-файл для тестов.
-func writeTestLock(path string, info LockInfo) error {
+func writeTestLock(path string, info backend.LockInfo) error {
 	data, err := json.MarshalIndent(info, "", "  ")
 	if err != nil {
 		return err

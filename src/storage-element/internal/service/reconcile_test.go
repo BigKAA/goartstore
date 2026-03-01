@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -15,9 +16,12 @@ import (
 	"github.com/bigkaa/goartstore/storage-element/internal/storage/index"
 )
 
+// ctx — общий контекст для тестов.
+var ctx = context.Background()
+
 // setupReconcileTestEnv создаёт тестовое окружение для reconciliation тестов.
-// Возвращает: dir, store, idx, lockMgr.
-func setupReconcileTestEnv(t *testing.T) (string, *filestore.FileStore, *index.Index, *lockfile.LockManager) {
+// Возвращает: dir, store, attrStore, idx, lockMgr.
+func setupReconcileTestEnv(t *testing.T) (string, *filestore.FileStore, *attr.Store, *index.Index, *lockfile.LockManager) {
 	t.Helper()
 
 	dir := t.TempDir()
@@ -25,6 +29,8 @@ func setupReconcileTestEnv(t *testing.T) (string, *filestore.FileStore, *index.I
 	if err != nil {
 		t.Fatalf("Ошибка создания FileStore: %v", err)
 	}
+
+	attrStore := attr.NewStore(dir)
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 	idx := index.New(logger)
@@ -34,11 +40,11 @@ func setupReconcileTestEnv(t *testing.T) (string, *filestore.FileStore, *index.I
 		t.Fatalf("Ошибка создания директории lock-файлов: %v", err)
 	}
 
-	return dir, store, idx, lockMgr
+	return dir, store, attrStore, idx, lockMgr
 }
 
 func TestReconcileRunOnce_NoIssues(t *testing.T) {
-	dir, store, idx, lockMgr := setupReconcileTestEnv(t)
+	dir, store, attrStore, idx, lockMgr := setupReconcileTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Создаём корректную пару файл + attr.json в иерархической структуре
@@ -67,7 +73,7 @@ func TestReconcileRunOnce_NoIssues(t *testing.T) {
 	}
 
 	// Вычисляем checksum
-	checksum, err := store.ComputeChecksum(storagePath)
+	checksum, err := store.ComputeChecksum(ctx, storagePath)
 	if err != nil {
 		t.Fatalf("Ошибка вычисления checksum: %v", err)
 	}
@@ -84,7 +90,7 @@ func TestReconcileRunOnce_NoIssues(t *testing.T) {
 		t.Fatalf("Ошибка построения индекса: %v", err)
 	}
 
-	rs := NewReconcileService(store, idx, lockMgr, dir, time.Hour, logger)
+	rs := NewReconcileService(store, attrStore, idx, lockMgr, time.Hour, logger)
 	result := rs.RunOnce()
 
 	if result == nil {
@@ -102,7 +108,7 @@ func TestReconcileRunOnce_NoIssues(t *testing.T) {
 }
 
 func TestReconcileRunOnce_OrphanedFile(t *testing.T) {
-	dir, store, idx, lockMgr := setupReconcileTestEnv(t)
+	dir, store, attrStore, idx, lockMgr := setupReconcileTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Файл на диске без attr.json в иерархической структуре
@@ -125,7 +131,7 @@ func TestReconcileRunOnce_OrphanedFile(t *testing.T) {
 		t.Fatalf("Ошибка построения индекса: %v", err)
 	}
 
-	rs := NewReconcileService(store, idx, lockMgr, dir, time.Hour, logger)
+	rs := NewReconcileService(store, attrStore, idx, lockMgr, time.Hour, logger)
 	result := rs.RunOnce()
 
 	if result == nil {
@@ -148,7 +154,7 @@ func TestReconcileRunOnce_OrphanedFile(t *testing.T) {
 }
 
 func TestReconcileRunOnce_OrphanedFileSkippedWhenFresh(t *testing.T) {
-	dir, store, idx, lockMgr := setupReconcileTestEnv(t)
+	dir, store, attrStore, idx, lockMgr := setupReconcileTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Файл на диске без attr.json — свежий (mtime в пределах lockTTL)
@@ -166,7 +172,7 @@ func TestReconcileRunOnce_OrphanedFileSkippedWhenFresh(t *testing.T) {
 		t.Fatalf("Ошибка построения индекса: %v", err)
 	}
 
-	rs := NewReconcileService(store, idx, lockMgr, dir, time.Hour, logger)
+	rs := NewReconcileService(store, attrStore, idx, lockMgr, time.Hour, logger)
 	result := rs.RunOnce()
 
 	if result == nil {
@@ -182,7 +188,7 @@ func TestReconcileRunOnce_OrphanedFileSkippedWhenFresh(t *testing.T) {
 }
 
 func TestReconcileRunOnce_MissingFile(t *testing.T) {
-	dir, store, idx, lockMgr := setupReconcileTestEnv(t)
+	dir, store, attrStore, idx, lockMgr := setupReconcileTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// attr.json без файла данных в иерархической структуре
@@ -215,7 +221,7 @@ func TestReconcileRunOnce_MissingFile(t *testing.T) {
 		t.Fatalf("Ошибка построения индекса: %v", err)
 	}
 
-	rs := NewReconcileService(store, idx, lockMgr, dir, time.Hour, logger)
+	rs := NewReconcileService(store, attrStore, idx, lockMgr, time.Hour, logger)
 	result := rs.RunOnce()
 
 	if result == nil {
@@ -242,7 +248,7 @@ func TestReconcileRunOnce_MissingFile(t *testing.T) {
 }
 
 func TestReconcileRunOnce_SizeMismatch(t *testing.T) {
-	dir, store, idx, lockMgr := setupReconcileTestEnv(t)
+	dir, store, attrStore, idx, lockMgr := setupReconcileTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Файл с неправильным размером в attr.json
@@ -277,7 +283,7 @@ func TestReconcileRunOnce_SizeMismatch(t *testing.T) {
 		t.Fatalf("Ошибка построения индекса: %v", err)
 	}
 
-	rs := NewReconcileService(store, idx, lockMgr, dir, time.Hour, logger)
+	rs := NewReconcileService(store, attrStore, idx, lockMgr, time.Hour, logger)
 	result := rs.RunOnce()
 
 	if result == nil {
@@ -300,7 +306,7 @@ func TestReconcileRunOnce_SizeMismatch(t *testing.T) {
 }
 
 func TestReconcileRunOnce_ChecksumMismatch(t *testing.T) {
-	dir, store, idx, lockMgr := setupReconcileTestEnv(t)
+	dir, store, attrStore, idx, lockMgr := setupReconcileTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Файл с неправильным checksum в attr.json
@@ -336,7 +342,7 @@ func TestReconcileRunOnce_ChecksumMismatch(t *testing.T) {
 		t.Fatalf("Ошибка построения индекса: %v", err)
 	}
 
-	rs := NewReconcileService(store, idx, lockMgr, dir, time.Hour, logger)
+	rs := NewReconcileService(store, attrStore, idx, lockMgr, time.Hour, logger)
 	result := rs.RunOnce()
 
 	if result == nil {
@@ -359,7 +365,7 @@ func TestReconcileRunOnce_ChecksumMismatch(t *testing.T) {
 }
 
 func TestReconcileRunOnce_SkipsHiddenAndTmpFiles(t *testing.T) {
-	dir, store, idx, lockMgr := setupReconcileTestEnv(t)
+	dir, store, attrStore, idx, lockMgr := setupReconcileTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Скрытые и temp файлы — не должны обнаруживаться как orphaned
@@ -374,7 +380,7 @@ func TestReconcileRunOnce_SkipsHiddenAndTmpFiles(t *testing.T) {
 		t.Fatalf("Ошибка построения индекса: %v", err)
 	}
 
-	rs := NewReconcileService(store, idx, lockMgr, dir, time.Hour, logger)
+	rs := NewReconcileService(store, attrStore, idx, lockMgr, time.Hour, logger)
 	result := rs.RunOnce()
 
 	if result == nil {
@@ -389,14 +395,14 @@ func TestReconcileRunOnce_SkipsHiddenAndTmpFiles(t *testing.T) {
 }
 
 func TestReconcileRunOnce_ConcurrentSafety(t *testing.T) {
-	dir, store, idx, lockMgr := setupReconcileTestEnv(t)
+	dir, store, attrStore, idx, lockMgr := setupReconcileTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	if err := idx.BuildFromDir(dir); err != nil {
 		t.Fatalf("Ошибка построения индекса: %v", err)
 	}
 
-	rs := NewReconcileService(store, idx, lockMgr, dir, time.Hour, logger)
+	rs := NewReconcileService(store, attrStore, idx, lockMgr, time.Hour, logger)
 
 	// Запускаем из нескольких горутин — не должно быть паники
 	done := make(chan struct{}, 5)
@@ -414,14 +420,14 @@ func TestReconcileRunOnce_ConcurrentSafety(t *testing.T) {
 }
 
 func TestReconcileRunOnce_EmptyDirectory(t *testing.T) {
-	dir, store, idx, lockMgr := setupReconcileTestEnv(t)
+	dir, store, attrStore, idx, lockMgr := setupReconcileTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	if err := idx.BuildFromDir(dir); err != nil {
 		t.Fatalf("Ошибка построения индекса: %v", err)
 	}
 
-	rs := NewReconcileService(store, idx, lockMgr, dir, time.Hour, logger)
+	rs := NewReconcileService(store, attrStore, idx, lockMgr, time.Hour, logger)
 	result := rs.RunOnce()
 
 	if result == nil {
@@ -433,7 +439,7 @@ func TestReconcileRunOnce_EmptyDirectory(t *testing.T) {
 }
 
 func TestReconcileRunOnce_RebuildIndex(t *testing.T) {
-	dir, store, idx, lockMgr := setupReconcileTestEnv(t)
+	_, store, attrStore, idx, lockMgr := setupReconcileTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Добавляем файл напрямую в индекс (без диска)
@@ -454,7 +460,7 @@ func TestReconcileRunOnce_RebuildIndex(t *testing.T) {
 		t.Fatalf("Индекс должен содержать 1 файл, содержит %d", idx.Count())
 	}
 
-	rs := NewReconcileService(store, idx, lockMgr, dir, time.Hour, logger)
+	rs := NewReconcileService(store, attrStore, idx, lockMgr, time.Hour, logger)
 	rs.RunOnce()
 
 	// После reconciliation индекс пересобран — phantom файла нет на диске
