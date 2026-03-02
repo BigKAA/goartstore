@@ -19,6 +19,14 @@ const (
 	FileMetadataRetentionPolicyTemporary FileMetadataRetentionPolicy = "temporary"
 )
 
+// Defines values for FileMetadataSeMode.
+const (
+	FileMetadataSeModeAr   FileMetadataSeMode = "ar"
+	FileMetadataSeModeEdit FileMetadataSeMode = "edit"
+	FileMetadataSeModeRo   FileMetadataSeMode = "ro"
+	FileMetadataSeModeRw   FileMetadataSeMode = "rw"
+)
+
 // Defines values for FileMetadataStatus.
 const (
 	FileMetadataStatusActive  FileMetadataStatus = "active"
@@ -83,6 +91,14 @@ const (
 	Temporary SearchResultItemRetentionPolicy = "temporary"
 )
 
+// Defines values for SearchResultItemSeMode.
+const (
+	SearchResultItemSeModeAr   SearchResultItemSeMode = "ar"
+	SearchResultItemSeModeEdit SearchResultItemSeMode = "edit"
+	SearchResultItemSeModeRo   SearchResultItemSeMode = "ro"
+	SearchResultItemSeModeRw   SearchResultItemSeMode = "rw"
+)
+
 // Defines values for SearchResultItemStatus.
 const (
 	Active  SearchResultItemStatus = "active"
@@ -100,6 +116,7 @@ type ErrorResponse struct {
 		// - `FORBIDDEN` — недостаточно прав
 		// - `INVALID_RANGE` — некорректный Range header
 		// - `SE_UNAVAILABLE` — Storage Element недоступен (при download)
+		// - `FILE_ARCHIVED` — файл в архивном SE (410 Gone)
 		// - `INTERNAL_ERROR` — внутренняя ошибка
 		Code string `json:"code"`
 
@@ -121,10 +138,17 @@ type FileMetadata struct {
 	OriginalFilename string                      `json:"original_filename"`
 	RetentionPolicy  FileMetadataRetentionPolicy `json:"retention_policy"`
 
+	// SeMode Режим Storage Element, на котором хранится файл.
+	// Если `ar` (архив) — binary файлов нет, скачивание невозможно (410 Gone).
+	SeMode *FileMetadataSeMode `json:"se_mode,omitempty"`
+
 	// Size Размер файла в байтах
 	Size   int64              `json:"size"`
 	Status FileMetadataStatus `json:"status"`
-	Tags   *[]string          `json:"tags,omitempty"`
+
+	// StorageElementId UUID Storage Element, на котором хранится файл
+	StorageElementId *openapi_types.UUID `json:"storage_element_id,omitempty"`
+	Tags             *[]string           `json:"tags,omitempty"`
 
 	// TtlDays Срок хранения в днях (для temporary)
 	TtlDays *int `json:"ttl_days"`
@@ -138,6 +162,10 @@ type FileMetadata struct {
 
 // FileMetadataRetentionPolicy defines model for FileMetadata.RetentionPolicy.
 type FileMetadataRetentionPolicy string
+
+// FileMetadataSeMode Режим Storage Element, на котором хранится файл.
+// Если `ar` (архив) — binary файлов нет, скачивание невозможно (410 Gone).
+type FileMetadataSeMode string
 
 // FileMetadataStatus defines model for FileMetadata.Status.
 type FileMetadataStatus string
@@ -296,10 +324,20 @@ type SearchResultItem struct {
 	OriginalFilename string                          `json:"original_filename"`
 	RetentionPolicy  SearchResultItemRetentionPolicy `json:"retention_policy"`
 
+	// SeMode Режим Storage Element, на котором хранится файл:
+	// - `edit` — редактирование (запись с одной реплики)
+	// - `rw` — чтение-запись (запись с репликацией)
+	// - `ro` — только чтение (файлы доступны, запись запрещена)
+	// - `ar` — архив (только метаданные, binary файлов отсутствуют)
+	SeMode *SearchResultItemSeMode `json:"se_mode,omitempty"`
+
 	// Size Размер файла в байтах
 	Size   int64                  `json:"size"`
 	Status SearchResultItemStatus `json:"status"`
-	Tags   *[]string              `json:"tags,omitempty"`
+
+	// StorageElementId UUID Storage Element, на котором хранится файл
+	StorageElementId *openapi_types.UUID `json:"storage_element_id,omitempty"`
+	Tags             *[]string           `json:"tags,omitempty"`
 
 	// TtlDays Срок хранения в днях (для temporary)
 	TtlDays    *int      `json:"ttl_days"`
@@ -309,6 +347,13 @@ type SearchResultItem struct {
 
 // SearchResultItemRetentionPolicy defines model for SearchResultItem.RetentionPolicy.
 type SearchResultItemRetentionPolicy string
+
+// SearchResultItemSeMode Режим Storage Element, на котором хранится файл:
+// - `edit` — редактирование (запись с одной реплики)
+// - `rw` — чтение-запись (запись с репликацией)
+// - `ro` — только чтение (файлы доступны, запись запрещена)
+// - `ar` — архив (только метаданные, binary файлов отсутствуют)
+type SearchResultItemSeMode string
 
 // SearchResultItemStatus defines model for SearchResultItem.Status.
 type SearchResultItemStatus string

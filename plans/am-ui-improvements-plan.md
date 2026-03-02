@@ -17,8 +17,8 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 3
-- **Активный подпункт**: 3.1
+- **Активная фаза**: Phase 4
+- **Активный подпункт**: 4.1
 - **Последнее обновление**: 2026-03-02
 - **Примечание**: Две независимые доработки AM UI + изменения QM
 
@@ -28,7 +28,7 @@
 
 - [x] [Phase 1: SE Priority — ограничение для ro/ar режимов](#phase-1-se-priority--ограничение-для-roar-режимов)
 - [x] [Phase 2: Файлы в SE Archive — виртуальный статус "В архиве"](#phase-2-файлы-в-se-archive--виртуальный-статус-в-архиве)
-- [ ] [Phase 3: Query Module — обработка архивных файлов](#phase-3-query-module--обработка-архивных-файлов)
+- [x] [Phase 3: Query Module — обработка архивных файлов](#phase-3-query-module--обработка-архивных-файлов)
 - [ ] [Phase 4: Сборка, деплой и тестирование](#phase-4-сборка-деплой-и-тестирование)
 
 ---
@@ -162,7 +162,7 @@
 ## Phase 3: Query Module — обработка архивных файлов
 
 **Dependencies**: Phase 2 (понимание контракта)
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -172,7 +172,7 @@ QM должен корректно обрабатывать запросы к ф
 
 ### Подпункты
 
-- [ ] **3.1 QM Download: проверка SE mode перед скачиванием**
+- [x] **3.1 QM Download: проверка SE mode перед скачиванием**
   - **Dependencies**: None
   - **Description**: В `DownloadService.Download()` — после получения SE info из Admin Module, проверить SE mode. Если mode=ar → вернуть HTTP 410 Gone с сообщением "Файл находится в архивном хранилище и недоступен для скачивания". QM уже получает SE info через `adminClient.GetStorageElement()` — нужно проверить, содержит ли ответ поле mode.
   - **Файлы**:
@@ -180,7 +180,7 @@ QM должен корректно обрабатывать запросы к ф
     - `src/query-module/internal/service/adminclient/client.go` — проверить что StorageElementResponse содержит mode (если нет — добавить)
     - `src/query-module/internal/api/errors/` — добавить ошибку для archived file (410 Gone)
 
-- [ ] **3.2 QM Search: пометка архивных файлов в результатах**
+- [x] **3.2 QM Search: пометка архивных файлов в результатах**
   - **Dependencies**: None
   - **Description**: QM Search возвращает файлы из SE-AR в результатах. Нужно добавить поле `is_archived` (или `se_mode`) в ответ search API, чтобы клиент мог отображать статус. Проверить: (a) есть ли в search response информация о SE, (b) если нет — нужен JOIN или post-query enrichment.
   - **Файлы**:
@@ -191,11 +191,11 @@ QM должен корректно обрабатывать запросы к ф
 
 ### Критерии завершения Phase 3
 
-- [ ] Все подпункты завершены (3.1, 3.2)
-- [ ] QM Download возвращает 410 Gone для файлов из SE-AR
-- [ ] QM Search возвращает se_mode в результатах
-- [ ] Unit-тесты для новой логики
-- [ ] `go build` проходит без ошибок
+- [x] Все подпункты завершены (3.1, 3.2)
+- [x] QM Download возвращает 410 Gone для файлов из SE-AR
+- [x] QM Search возвращает se_mode в результатах
+- [x] Unit-тесты для новой логики
+- [x] `go build` проходит без ошибок
 
 ---
 
@@ -211,8 +211,15 @@ QM должен корректно обрабатывать запросы к ф
 
 ### Подпункты
 
-- [ ] **4.1 Сборка Docker-образов AM и QM**
+- [ ] **4.0 Проверка linter для AM и QM**
   - **Dependencies**: None
+  - **Description**: Запустить golangci-lint для Admin Module и Query Module, исправить все замечания. Проверить что md-файлы (план, OpenAPI описание) соответствуют linter.
+  - **Команды**:
+    - `cd src/admin-module && golangci-lint run ./...`
+    - `cd src/query-module && golangci-lint run ./...`
+
+- [ ] **4.1 Сборка Docker-образов AM и QM**
+  - **Dependencies**: 4.0
   - **Description**: Собрать новые Docker образы для Admin Module и Query Module. Тег: инкремент текущей версии.
   - **Файлы**:
     - `src/admin-module/Dockerfile`
@@ -238,7 +245,8 @@ QM должен корректно обрабатывать запросы к ф
 
 ### Критерии завершения Phase 4
 
-- [ ] Все подпункты завершены (4.1 — 4.4)
+- [ ] Все подпункты завершены (4.0 — 4.4)
+- [ ] golangci-lint проходит без ошибок для AM и QM
 - [ ] Docker образы AM и QM собраны и запушены в Harbor
 - [ ] Все существующие интеграционные тесты проходят (`make test-am`, `make test-qm`)
 - [ ] Новые тест-кейсы для archived files проходят

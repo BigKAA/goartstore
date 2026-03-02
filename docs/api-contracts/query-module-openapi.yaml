@@ -264,6 +264,16 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "410":
+          description: Файл в архивном Storage Element (недоступен для скачивания)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: FILE_ARCHIVED
+                  message: "Файл находится в архивном хранилище и недоступен для скачивания"
         "416":
           description: Некорректный Range
           content:
@@ -661,6 +671,21 @@ components:
           nullable: true
           description: Дата истечения (для temporary)
           example: "2026-03-23T15:30:00Z"
+        storage_element_id:
+          type: string
+          format: uuid
+          description: UUID Storage Element, на котором хранится файл
+          example: 550e8400-e29b-41d4-a716-446655440001
+        se_mode:
+          type: string
+          enum: [edit, rw, ro, ar]
+          description: |
+            Режим Storage Element, на котором хранится файл:
+            - `edit` — редактирование (запись с одной реплики)
+            - `rw` — чтение-запись (запись с репликацией)
+            - `ro` — только чтение (файлы доступны, запись запрещена)
+            - `ar` — архив (только метаданные, binary файлов отсутствуют)
+          example: rw
     # -----------------------------------------------------------------------
     # Files
     # -----------------------------------------------------------------------
@@ -735,6 +760,18 @@ components:
           nullable: true
           description: Дата истечения (для temporary)
           example: "2026-03-23T15:30:00Z"
+        storage_element_id:
+          type: string
+          format: uuid
+          description: UUID Storage Element, на котором хранится файл
+          example: 550e8400-e29b-41d4-a716-446655440001
+        se_mode:
+          type: string
+          enum: [edit, rw, ro, ar]
+          description: |
+            Режим Storage Element, на котором хранится файл.
+            Если `ar` (архив) — binary файлов нет, скачивание невозможно (410 Gone).
+          example: rw
 
     # -----------------------------------------------------------------------
     # Health
@@ -838,6 +875,7 @@ components:
                 - `FORBIDDEN` — недостаточно прав
                 - `INVALID_RANGE` — некорректный Range header
                 - `SE_UNAVAILABLE` — Storage Element недоступен (при download)
+                - `FILE_ARCHIVED` — файл в архивном SE (410 Gone)
                 - `INTERNAL_ERROR` — внутренняя ошибка
               example: NOT_FOUND
             message:

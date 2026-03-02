@@ -17,6 +17,7 @@ const (
 	CodeInvalidRange    = "INVALID_RANGE"
 	CodeSEUnavailable   = "SE_UNAVAILABLE"
 	CodeAMUnavailable   = "AM_UNAVAILABLE"
+	CodeFileArchived    = "FILE_ARCHIVED"
 	CodeInternalError   = "INTERNAL_ERROR"
 )
 
@@ -79,6 +80,11 @@ func SEUnavailable(w http.ResponseWriter, message string) {
 // AMUnavailable — 502 Admin Module недоступен.
 func AMUnavailable(w http.ResponseWriter, message string) {
 	WriteError(w, http.StatusBadGateway, CodeAMUnavailable, message)
+}
+
+// FileArchived — 410 Gone, файл в архивном SE (недоступен для скачивания).
+func FileArchived(w http.ResponseWriter, message string) {
+	WriteError(w, http.StatusGone, CodeFileArchived, message)
 }
 
 // InternalError — 500 внутренняя ошибка.

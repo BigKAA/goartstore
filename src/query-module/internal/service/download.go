@@ -25,6 +25,8 @@ import (
 var (
 	// ErrFileDeleted — файл помечен как удалённый (lazy cleanup).
 	ErrFileDeleted = fmt.Errorf("файл удалён из Storage Element")
+	// ErrFileArchived — файл находится в архивном SE (mode=ar), скачивание невозможно.
+	ErrFileArchived = fmt.Errorf("файл находится в архивном хранилище и недоступен для скачивания")
 )
 
 // Prometheus-метрики download.
@@ -122,7 +124,19 @@ func (ds *DownloadService) Download(ctx context.Context, w http.ResponseWriter, 
 		slog.String("file_id", fileID),
 		slog.String("se_id", record.StorageElementID),
 		slog.String("se_url", seInfo.URL),
+		slog.String("se_mode", seInfo.Mode),
 	)
+
+	// 2.5. Проверка SE mode: архивный SE не содержит binary файлов
+	if seInfo.Mode == "ar" {
+		ds.logger.Info("Попытка скачивания файла из архивного SE",
+			slog.String("file_id", fileID),
+			slog.String("se_id", record.StorageElementID),
+			slog.String("se_mode", seInfo.Mode),
+		)
+		downloadsTotal.WithLabelValues("archived").Inc()
+		return ErrFileArchived
+	}
 
 	// 3. Запросить файл у SE (streaming)
 	resp, err := ds.seClient.Download(ctx, seInfo.URL, fileID, rangeHeader)

@@ -306,6 +306,58 @@ func TestDownloadService_DeletedFile(t *testing.T) {
 	}
 }
 
+// TestDownloadService_ArchivedFile проверяет 410 Gone при скачивании из архивного SE.
+func TestDownloadService_ArchivedFile(t *testing.T) {
+	// Mock SE — не должен быть вызван
+	seSrvCalled := false
+	seSrv := newMockSEServer(func(w http.ResponseWriter, _ *http.Request) {
+		seSrvCalled = true
+		w.WriteHeader(http.StatusOK)
+	})
+	defer seSrv.Close()
+
+	// Mock AM — возвращает SE с mode=ar
+	amSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case (r.URL.Path == "/auth/token" || r.URL.Path == "/token") && r.Method == http.MethodPost:
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"access_token":"test-token","expires_in":3600,"token_type":"bearer"}`))
+		case strings.HasPrefix(r.URL.Path, "/api/v1/storage-elements/"):
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"id":"se-ar","name":"archive-se","url":"` + seSrv.URL + `","mode":"ar","status":"online"}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer amSrv.Close()
+
+	repo := &mockFileRepo{
+		getByIDFn: func(_ context.Context, _ string) (*model.FileRecord, error) {
+			return &model.FileRecord{
+				FileID:           "file-ar",
+				StorageElementID: "se-ar",
+				Status:           "active",
+			}, nil
+		},
+	}
+
+	svc := newTestDownloadService(t, repo, amSrv, seSrv)
+
+	rec := httptest.NewRecorder()
+	err := svc.Download(context.Background(), rec, "file-ar", "")
+	if err == nil {
+		t.Fatal("ожидалась ошибка ErrFileArchived")
+	}
+	if !errors.Is(err, ErrFileArchived) {
+		t.Errorf("ошибка = %v, ожидалась ErrFileArchived", err)
+	}
+
+	// SE не должен быть вызван — проверка mode отсекает запрос раньше
+	if seSrvCalled {
+		t.Error("SE был вызван, хотя файл из архивного SE — запрос не должен дойти до SE")
+	}
+}
+
 // TestDownloadService_SEError проверяет ошибку при неожиданном статусе от SE.
 func TestDownloadService_SEError(t *testing.T) {
 	// Mock SE — возвращает 500
