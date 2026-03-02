@@ -429,15 +429,16 @@ func (h *FilesHandler) HandleDelete(w http.ResponseWriter, r *http.Request) {
 func (h *FilesHandler) buildFilters(status, retention, seID, showDeleted, role string) repository.FileListFilters {
 	var filters repository.FileListFilters
 
-	if status == "archived" {
+	switch {
+	case status == "archived":
 		// Виртуальный статус "В архиве": файлы active в SE с mode=ar
 		activeStatus := "active"
 		arMode := "ar"
 		filters.Status = &activeStatus
 		filters.SEMode = &arMode
-	} else if status != "" {
+	case status != "":
 		filters.Status = &status
-	} else if showDeleted != "true" || role != "admin" {
+	case showDeleted != "true" || role != "admin":
 		// По умолчанию показываем только активные файлы (если не включён showDeleted)
 		activeStatus := "active"
 		filters.Status = &activeStatus
@@ -461,7 +462,7 @@ type seInfo struct {
 }
 
 // getSEInfo получает список SE для фильтра и map ID→seInfo для маппинга.
-func (h *FilesHandler) getSEInfo(ctx context.Context) ([]pages.SEOption, map[string]seInfo) {
+func (h *FilesHandler) getSEInfo(ctx context.Context) (options []pages.SEOption, infoMap map[string]seInfo) {
 	ses, _, err := h.storageElemsSvc.List(ctx, nil, nil, "", 1000, 0)
 	if err != nil {
 		h.logger.Warn("Ошибка получения списка SE для фильтра",
@@ -470,8 +471,8 @@ func (h *FilesHandler) getSEInfo(ctx context.Context) ([]pages.SEOption, map[str
 		return nil, nil
 	}
 
-	options := make([]pages.SEOption, 0, len(ses))
-	infoMap := make(map[string]seInfo, len(ses))
+	options = make([]pages.SEOption, 0, len(ses))
+	infoMap = make(map[string]seInfo, len(ses))
 	for _, se := range ses {
 		options = append(options, pages.SEOption{
 			ID:   se.ID,

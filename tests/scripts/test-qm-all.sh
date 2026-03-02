@@ -6,10 +6,10 @@
 #   1-3:   Health & Metrics
 #   4-6:   Auth
 #   7-12:  Search & Files
-#   13-16: Download
+#   13-17: Download
 #
 # Аргументы:
-#   --skip-download  Пропустить тесты download (13-16)
+#   --skip-download  Пропустить тесты download (13-17)
 #
 # Использование:
 #   ./test-qm-all.sh
@@ -77,10 +77,10 @@ run_test_group "Auth (4-6)" "test-qm-auth.sh"
 run_test_group "Search & Files (7-12)" "test-qm-search.sh"
 
 if [[ "$SKIP_DOWNLOAD" == "false" ]]; then
-    run_test_group "Download (13-16)" "test-qm-download.sh"
+    run_test_group "Download (13-17)" "test-qm-download.sh"
 else
     echo ""
-    echo "  >>> Download тесты (13-16) пропущены (--skip-download)"
+    echo "  >>> Download тесты (13-17) пропущены (--skip-download)"
 fi
 
 # --- Итоговый отчёт ---

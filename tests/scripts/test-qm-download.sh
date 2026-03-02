@@ -2,8 +2,8 @@
 # ==========================================================================
 # test-qm-download.sh — Интеграционные тесты Query Module: Download
 #
-# Тесты 13-16: proxy download, Range requests, 404 для несуществующего файла,
-#              Content-Disposition header
+# Тесты 13-17: proxy download, Range requests, 404 для несуществующего файла,
+#              Content-Disposition header, 410 Gone для архивного файла
 # Предусловие: данные загружены через init-data (тестовые файлы на SE)
 # ==========================================================================
 
@@ -20,7 +20,7 @@ source "${SCRIPT_DIR}/lib.sh"
 
 echo ""
 log_info "=========================================="
-log_info "  Query Module: Download (тесты 13-16)"
+log_info "  Query Module: Download (тесты 13-17)"
 log_info "=========================================="
 echo ""
 
@@ -40,8 +40,8 @@ fi
 search_response=$(http_post "$QM_URL" "$admin_token" "/api/v1/search" \
     '{"limit":1,"offset":0,"status":"active"}')
 search_body=$(get_response_body "$search_response")
-file_id=$(echo "$search_body" | jq -r '.files[0].file_id // empty')
-filename=$(echo "$search_body" | jq -r '.files[0].original_filename // empty')
+file_id=$(echo "$search_body" | jq -r '.items[0].file_id // empty')
+filename=$(echo "$search_body" | jq -r '.items[0].original_filename // empty')
 
 if [[ -z "$file_id" ]]; then
     log_warn "Нет активных файлов в БД. Пропускаю тесты download."
@@ -50,6 +50,7 @@ if [[ -z "$file_id" ]]; then
     test_pass "Тест 14: (пропущен — нет файлов)"
     test_pass "Тест 15: (пропущен — нет файлов)"
     test_pass "Тест 16: (пропущен — нет файлов)"
+    test_pass "Тест 17: (пропущен — нет файлов)"
     print_summary
     exit 0
 fi
@@ -132,6 +133,43 @@ if echo "$headers" | grep -qi "Content-Disposition"; then
 else
     # Content-Disposition не обязателен, но ожидаем его при streaming
     test_pass "Тест 16: download без Content-Disposition (допустимо, зависит от SE)"
+fi
+
+# --------------------------------------------------------------------------
+# Тест 17: GET /api/v1/files/{archived_file_id}/download → 410 Gone
+# Файл из SE с mode=ar (archive) — физически отсутствует, только метаданные
+# --------------------------------------------------------------------------
+log_info "Тест 17: GET /api/v1/files/{archived}/download → 410 Gone"
+
+# Ищем файл в архивном SE (se_mode=ar) через обычный поиск
+archived_response=$(http_post "$QM_URL" "$admin_token" "/api/v1/search" \
+    '{"limit":100,"offset":0,"status":"active"}')
+archived_body=$(get_response_body "$archived_response")
+# Находим первый файл с se_mode=ar через jq-фильтр
+archived_file_id=$(echo "$archived_body" | jq -r '[.items[] | select(.se_mode == "ar")][0].file_id // empty')
+archived_se_mode=$(echo "$archived_body" | jq -r '[.items[] | select(.se_mode == "ar")][0].se_mode // empty')
+
+if [[ -n "$archived_file_id" && "$archived_se_mode" == "ar" ]]; then
+    tmpfile=$(mktemp)
+    http_code=$(curl $CURL_OPTS -w "%{http_code}" -o "$tmpfile" \
+        -H "Authorization: Bearer ${admin_token}" \
+        "${QM_URL}/api/v1/files/${archived_file_id}/download") || http_code="000"
+
+    if [[ "$http_code" == "410" ]]; then
+        error_body=$(cat "$tmpfile")
+        error_code=$(echo "$error_body" | jq -r '.error.code // empty')
+        if [[ "$error_code" == "FILE_ARCHIVED" ]]; then
+            test_pass "Тест 17: archived download → 410 Gone, code=FILE_ARCHIVED"
+        else
+            test_pass "Тест 17: archived download → 410 Gone (code=${error_code})"
+        fi
+    else
+        test_fail "Тест 17: archived download → ожидался 410, получен ${http_code}"
+    fi
+    rm -f "$tmpfile"
+else
+    log_warn "Тест 17: нет файлов в архивном SE (se_mode=ar), пропускаю"
+    test_pass "Тест 17: (пропущен — нет архивных файлов)"
 fi
 
 # --------------------------------------------------------------------------

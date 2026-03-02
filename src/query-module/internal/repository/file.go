@@ -12,12 +12,6 @@ import (
 	"github.com/bigkaa/goartstore/query-module/internal/domain/model"
 )
 
-// fileColumns — список столбцов таблицы file_registry для SELECT-запросов.
-// DRY: одно место для всех SELECT'ов.
-const fileColumns = `file_id, original_filename, content_type, size, checksum,
-	storage_element_id, uploaded_by, uploaded_at, description, tags,
-	status, retention_policy, ttl_days, expires_at, created_at, updated_at`
-
 // fileColumnsWithSEMode — столбцы file_registry + se.mode через JOIN.
 // Используется в запросах, где нужен режим Storage Element.
 const fileColumnsWithSEMode = `fr.file_id, fr.original_filename, fr.content_type, fr.size, fr.checksum,
