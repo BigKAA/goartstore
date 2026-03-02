@@ -413,6 +413,8 @@ func (h *StorageElementsHandler) HandleEdit(w http.ResponseWriter, r *http.Reque
 			h.renderAlert(w, r, "SE не найден")
 		case errors.Is(err, service.ErrConflict):
 			h.renderAlert(w, r, "URL или storage_id уже зарегистрирован")
+		case errors.Is(err, service.ErrPriorityReadOnly):
+			h.renderAlert(w, r, err.Error())
 		default:
 			h.renderAlert(w, r, "Ошибка обновления: "+err.Error())
 		}
@@ -683,7 +685,7 @@ func (h *StorageElementsHandler) HandleEditForm(w http.ResponseWriter, r *http.R
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := partials.SEEditForm(se.ID, se.Name, se.URL, se.Priority).Render(ctx, w); err != nil {
+	if err := partials.SEEditForm(se.ID, se.Name, se.URL, se.Mode, se.Priority).Render(ctx, w); err != nil {
 		h.logger.Error("Ошибка рендеринга edit form",
 			slog.String("error", err.Error()),
 		)
