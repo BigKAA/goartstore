@@ -149,6 +149,61 @@ ingesterModule:
 # QM: /query/* → strip /query prefix
 # IM: /upload/* → strip /upload prefix
 # -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# Uniproxy — точка входа для мониторинга зависимостей (topologymetrics)
+# Subchart: charts/uniproxy (https://github.com/BigKAA/uniproxy)
+# isEntry: true — отмечен как точка входа в топологии
+# Критические зависимости: Admin Module, Query Module, Ingester Module
+# -----------------------------------------------------------------------------
+uniproxy:
+  image:
+    repository: harbor.kryukov.lan/library/uniproxy
+    tag: "v0.7.0"
+    pullPolicy: Always
+  config:
+    name: "artstore-uniproxy"
+    group: "core-modules"
+    checkInterval: "15"
+  log:
+    format: "json"
+    level: "info"
+  configFile:
+    enabled: true
+    content: |
+      name: artstore-uniproxy
+      group: core-modules
+      isEntry: true
+      checkInterval: "15"
+      dependencies:
+        - name: admin-module
+          type: http
+          url: "http://admin-module.artstore-test.svc.cluster.local:8000"
+          critical: true
+          healthPath: "/health/ready"
+        - name: query-module
+          type: http
+          url: "http://query-module.artstore-test.svc.cluster.local:8030"
+          critical: true
+          healthPath: "/health/ready"
+        - name: ingester-module
+          type: http
+          url: "http://ingester-module.artstore-test.svc.cluster.local:8020"
+          critical: true
+          healthPath: "/health/ready"
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+
+# -----------------------------------------------------------------------------
+# HTTPRoute (Gateway API) — внешний доступ через Envoy Gateway
+# AM: /api/v1/*, /health/*, /admin/*, /static/*, /metrics
+# QM: /query/* → strip /query prefix
+# IM: /upload/* → strip /upload prefix
+# -----------------------------------------------------------------------------
 httproute:
   enabled: true
   hostname: artstore.kryukov.lan

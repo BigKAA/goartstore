@@ -1,6 +1,10 @@
 apiVersion: v2
 name: artstore-apps
-description: "Приложения Artstore для тестовой среды: Admin Module"
+description: "Приложения Artstore для тестовой среды: Admin Module, Query Module, Ingester Module, Uniproxy"
 type: application
 version: 0.1.0
 appVersion: "0.1.0"
+dependencies:
+  - name: uniproxy
+    version: "0.2.0"
+    repository: "file://charts/uniproxy"
