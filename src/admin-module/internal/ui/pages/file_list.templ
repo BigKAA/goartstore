@@ -18,6 +18,7 @@ type FileListItem struct {
 	SizeBytes        int64
 	StorageElementID string
 	SEName           string // Имя SE (для отображения)
+	SEMode           string // Режим SE (edit, rw, ro, ar) — для виртуального статуса "В архиве"
 	UploadedBy       string
 	UploadedAt       time.Time
 	Status           string // active, deleted, expired
@@ -139,6 +140,27 @@ func fileContentTypeShort(ct string) string {
 	return ct
 }
 
+// isArchivedFile — файл считается "В архиве", если он active и находится в SE с mode=ar.
+func isArchivedFile(status, seMode string) bool {
+	return status == "active" && seMode == "ar"
+}
+
+// fileEffectiveStatusLabel возвращает метку с учётом виртуального статуса "В архиве".
+func fileEffectiveStatusLabel(status, seMode string) string {
+	if isArchivedFile(status, seMode) {
+		return "Archived"
+	}
+	return fileStatusLabel(status)
+}
+
+// fileEffectiveStatusVariant возвращает вариант бейджа с учётом виртуального статуса "В архиве".
+func fileEffectiveStatusVariant(status, seMode string) components.BadgeVariant {
+	if isArchivedFile(status, seMode) {
+		return components.BadgeArchived
+	}
+	return fileStatusVariant(status)
+}
+
 // --- Экспортированные функции для использования в partials ---
 
 // FileFormatBytesFn — экспортированная обёртка fileFormatBytes для partials.
@@ -159,6 +181,21 @@ func FileStatusLabelFn(status string) string {
 // FileStatusVariantFn — экспортированная обёртка fileStatusVariant для partials.
 func FileStatusVariantFn(status string) components.BadgeVariant {
 	return fileStatusVariant(status)
+}
+
+// FileEffectiveStatusLabelFn — экспортированная обёртка с учётом виртуального статуса "В архиве".
+func FileEffectiveStatusLabelFn(status, seMode string) string {
+	return fileEffectiveStatusLabel(status, seMode)
+}
+
+// FileEffectiveStatusVariantFn — экспортированная обёртка с учётом виртуального статуса "В архиве".
+func FileEffectiveStatusVariantFn(status, seMode string) components.BadgeVariant {
+	return fileEffectiveStatusVariant(status, seMode)
+}
+
+// IsArchivedFileFn — экспортированная проверка виртуального статуса "В архиве".
+func IsArchivedFileFn(status, seMode string) bool {
+	return isArchivedFile(status, seMode)
 }
 
 // FileList — страница списка файлов с фильтрами, поиском, сортировкой и пагинацией.
@@ -207,6 +244,7 @@ templ FileList(data FileListData) {
 						<option value="active" selected?={ data.Filters.Status == "active" }>{ i18n.T(ctx, "files.filter.active") }</option>
 						<option value="deleted" selected?={ data.Filters.Status == "deleted" }>{ i18n.T(ctx, "files.filter.deleted") }</option>
 						<option value="expired" selected?={ data.Filters.Status == "expired" }>{ i18n.T(ctx, "files.filter.expired") }</option>
+					<option value="archived" selected?={ data.Filters.Status == "archived" }>{ i18n.T(ctx, "files.filter.archived") }</option>
 					</select>
 				</div>
 
@@ -392,7 +430,7 @@ templ fileTableContent(data FileListData) {
 								<span class="text-text-muted text-xs">{ fileFormatTime(f.UploadedAt) }</span>
 							</td>
 							<td class="px-4 py-3">
-								@components.Badge(fileStatusVariant(f.Status), fileStatusLabel(f.Status))
+								@components.Badge(fileEffectiveStatusVariant(f.Status, f.SEMode), fileEffectiveStatusLabel(f.Status, f.SEMode))
 							</td>
 							<td class="px-4 py-3 text-right">
 								<div class="flex items-center justify-end gap-1">
@@ -409,7 +447,7 @@ templ fileTableContent(data FileListData) {
 											<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
 										</svg>
 									</button>
-									if data.Role == "admin" && f.Status == "active" {
+									if data.Role == "admin" && f.Status == "active" && !isArchivedFile(f.Status, f.SEMode) {
 										<!-- Редактировать -->
 										<button
 											class="p-1.5 text-text-muted hover:text-status-info transition-colors rounded-button hover:bg-bg-hover"

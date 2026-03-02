@@ -17,8 +17,8 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 2
-- **Активный подпункт**: 2.1
+- **Активная фаза**: Phase 3
+- **Активный подпункт**: 3.1
 - **Последнее обновление**: 2026-03-02
 - **Примечание**: Две независимые доработки AM UI + изменения QM
 
@@ -27,7 +27,7 @@
 ## Оглавление
 
 - [x] [Phase 1: SE Priority — ограничение для ro/ar режимов](#phase-1-se-priority--ограничение-для-roar-режимов)
-- [ ] [Phase 2: Файлы в SE Archive — виртуальный статус "В архиве"](#phase-2-файлы-в-se-archive--виртуальный-статус-в-архиве)
+- [x] [Phase 2: Файлы в SE Archive — виртуальный статус "В архиве"](#phase-2-файлы-в-se-archive--виртуальный-статус-в-архиве)
 - [ ] [Phase 3: Query Module — обработка архивных файлов](#phase-3-query-module--обработка-архивных-файлов)
 - [ ] [Phase 4: Сборка, деплой и тестирование](#phase-4-сборка-деплой-и-тестирование)
 
@@ -88,7 +88,7 @@
 ## Phase 2: Файлы в SE Archive — виртуальный статус "В архиве"
 
 **Dependencies**: None (параллельно с Phase 1)
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -99,46 +99,46 @@
 
 ### Подпункты
 
-- [ ] **2.1 Model: добавить SEMode в структуры данных файлов**
+- [x] **2.1 Model: добавить SEMode в структуры данных файлов**
   - **Dependencies**: None
   - **Description**: Добавить поле `SEMode string` в `FileListItem` и `FileDetailData`. Это виртуальное поле, заполняемое handler'ом (не из БД).
   - **Файлы**:
     - `src/admin-module/internal/ui/pages/file_list.templ` — добавить `SEMode string` в struct `FileListItem`
     - `src/admin-module/internal/ui/pages/partials/file_detail.templ` — добавить `SEMode string` в struct `FileDetailData`
 
-- [ ] **2.2 Handler: передавать SEMode вместе с SEName**
+- [x] **2.2 Handler: передавать SEMode вместе с SEName**
   - **Dependencies**: 2.1
   - **Description**: В `files.go` handler уже загружает все SE через `getSENames()` и строит map `id→name`. Расширить: (a) создать struct `seInfo{Name, Mode string}`, (b) переименовать/расширить `getSENames()` → `getSEInfo()`, (c) при маппинге файлов заполнять `SEMode` из seInfo map.
   - **Файлы**:
     - `src/admin-module/internal/ui/handlers/files.go` — расширить `getSENames` → `getSEInfo`, возвращать map[string]seInfo; обновить маппинг в HandleList, HandleDetailModal, HandleTablePartial
 
-- [ ] **2.3 Badge: добавить вариант для "В архиве"**
+- [x] **2.3 Badge: добавить вариант для "В архиве"**
   - **Dependencies**: None
   - **Description**: Добавить новый `BadgeVariant` (например `BadgeArchived`) в badge.templ с нейтрально-синим стилем (отличающимся от существующих). Добавить helper-функцию `isArchivedFile(status, seMode string) bool` → true если status=="active" && seMode=="ar".
   - **Файлы**:
     - `src/admin-module/internal/ui/components/badge.templ` — добавить `BadgeArchived BadgeVariant`, стили (bg-mode-ar/20 text-mode-ar или свой)
 
-- [ ] **2.4 i18n: добавить ключи для "В архиве"**
+- [x] **2.4 i18n: добавить ключи для "В архиве"**
   - **Dependencies**: None
   - **Description**: Добавить локализованные ключи для нового статуса.
   - **Файлы**:
     - `src/admin-module/internal/ui/i18n/locales/ru.json` — добавить `"files.status.archived": "В архиве"`, `"files.filter.archived": "В архиве"`, `"file_detail.archived_notice": "Файл находится в архивном Storage Element. Скачивание и редактирование недоступны."`
     - `src/admin-module/internal/ui/i18n/locales/en.json` — аналогичные ключи на английском
 
-- [ ] **2.5 UI: отображение виртуального статуса в таблице файлов**
+- [x] **2.5 UI: отображение виртуального статуса в таблице файлов**
   - **Dependencies**: 2.1, 2.2, 2.3, 2.4
   - **Description**: В `file_table.templ` — изменить логику badge статуса: если `f.Status == "active" && f.SEMode == "ar"` → показать badge "В архиве" (BadgeArchived). Скрыть кнопки Edit/Delete для таких файлов (условие: `data.Role == "admin" && f.Status == "active" && f.SEMode != "ar"`).
   - **Файлы**:
     - `src/admin-module/internal/ui/pages/partials/file_table.templ` — обновить badge и условие кнопок
     - `src/admin-module/internal/ui/pages/file_list.templ` — обновить `fileStatusLabel()` и `fileStatusVariant()` (добавить параметр seMode или создать новую функцию)
 
-- [ ] **2.6 UI: отображение в деталях файла**
+- [x] **2.6 UI: отображение в деталях файла**
   - **Dependencies**: 2.1, 2.2, 2.3, 2.4
   - **Description**: В `file_detail.templ` — аналогичная логика: (a) badge "В архиве" вместо "Active", (b) скрыть кнопки Edit/Delete, (c) показать info-блок с пояснением "Файл в архивном SE, скачивание недоступно".
   - **Файлы**:
     - `src/admin-module/internal/ui/pages/partials/file_detail.templ` — обновить badge, скрыть кнопки, добавить info notice
 
-- [ ] **2.7 UI: фильтр "В архиве" на странице файлов**
+- [x] **2.7 UI: фильтр "В архиве" на странице файлов**
   - **Dependencies**: 2.2
   - **Description**: Добавить опцию "В архиве" в dropdown фильтра по статусу на странице file_list. При выборе фильтра "archived" — handler фильтрует: status=active + se.mode=ar. Потребуется расширить `FileListFilters` в service/repository.
   - **Файлы**:
@@ -149,12 +149,12 @@
 
 ### Критерии завершения Phase 2
 
-- [ ] Все подпункты завершены (2.1 — 2.7)
-- [ ] Файлы в SE-AR отображаются с badge "В архиве" (не "Active")
-- [ ] Кнопки Edit/Delete скрыты для файлов в SE-AR
-- [ ] Info-блок в detail modal поясняет недоступность скачивания
-- [ ] Фильтр "В архиве" работает на странице файлов
-- [ ] `templ generate` и `go build` проходят без ошибок
+- [x] Все подпункты завершены (2.1 — 2.7)
+- [x] Файлы в SE-AR отображаются с badge "В архиве" (не "Active")
+- [x] Кнопки Edit/Delete скрыты для файлов в SE-AR
+- [x] Info-блок в detail modal поясняет недоступность скачивания
+- [x] Фильтр "В архиве" работает на странице файлов
+- [x] `templ generate` и `go build` проходят без ошибок
 - [ ] Визуальная проверка в UI (ручная)
 
 ---

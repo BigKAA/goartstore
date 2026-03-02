@@ -280,7 +280,7 @@ func FileTableBody(data FileTableData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = components.Badge(pages.FileStatusVariantFn(f.Status), pages.FileStatusLabelFn(f.Status)).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Badge(pages.FileEffectiveStatusVariantFn(f.Status, f.SEMode), pages.FileEffectiveStatusLabelFn(f.Status, f.SEMode)).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -314,7 +314,7 @@ func FileTableBody(data FileTableData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if data.Role == "admin" && f.Status == "active" {
+			if data.Role == "admin" && f.Status == "active" && !pages.IsArchivedFileFn(f.Status, f.SEMode) {
 				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "<!-- Редактировать --> <button class=\"p-1.5 text-text-muted hover:text-status-info transition-colors rounded-button hover:bg-bg-hover\" title=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err

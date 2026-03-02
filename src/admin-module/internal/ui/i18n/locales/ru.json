@@ -181,6 +181,8 @@
   "files.filter.active": "Active",
   "files.filter.deleted": "Deleted",
   "files.filter.expired": "Expired",
+  "files.filter.archived": "В архиве",
+  "files.status.archived": "В архиве",
   "files.filter.retention": "Тип хранения",
   "files.filter.all_types": "Все типы",
   "files.filter.permanent": "Permanent",
@@ -217,6 +219,7 @@
   "file_detail.tags_help": "Разделяйте теги запятой",
   "file_detail.success": "Файл успешно обновлён",
   "file_detail.deleted": "Файл помечен как удалённый",
+  "file_detail.archived_notice": "Файл находится в архивном Storage Element. Скачивание и редактирование недоступны.",
   "file_detail.confirm_delete": "Вы уверены, что хотите удалить файл? Это действие пометит файл как удалённый.",
 
   "access.title": "Управление доступом",

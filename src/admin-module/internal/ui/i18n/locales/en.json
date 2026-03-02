@@ -181,6 +181,8 @@
   "files.filter.active": "Active",
   "files.filter.deleted": "Deleted",
   "files.filter.expired": "Expired",
+  "files.filter.archived": "Archived",
+  "files.status.archived": "Archived",
   "files.filter.retention": "Storage Type",
   "files.filter.all_types": "All types",
   "files.filter.permanent": "Permanent",
@@ -217,6 +219,7 @@
   "file_detail.tags_help": "Separate tags with commas",
   "file_detail.success": "File updated successfully",
   "file_detail.deleted": "File marked as deleted",
+  "file_detail.archived_notice": "File is in an archive Storage Element. Download and editing are unavailable.",
   "file_detail.confirm_delete": "Are you sure you want to delete the file? This action will mark the file as deleted.",
 
   "access.title": "Access Management",
