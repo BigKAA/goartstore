@@ -177,13 +177,17 @@ func (c *Client) GetToken(ctx context.Context) (string, error) {
 
 // GetStorageElements запрашивает список Storage Elements с фильтрами mode и status.
 // GET /api/v1/storage-elements?mode={mode}&status={status}
+// Пустые параметры не отправляются (опускаются из query string).
 // Результат: список SE из AM API. AvailableBytes может быть nil.
 func (c *Client) GetStorageElements(ctx context.Context, mode, status string) ([]SEInfo, error) {
-	reqURL := fmt.Sprintf("%s/api/v1/storage-elements?mode=%s&status=%s",
-		c.adminURL,
-		url.QueryEscape(mode),
-		url.QueryEscape(status),
-	)
+	params := url.Values{}
+	if mode != "" {
+		params.Set("mode", mode)
+	}
+	if status != "" {
+		params.Set("status", status)
+	}
+	reqURL := fmt.Sprintf("%s/api/v1/storage-elements?%s", c.adminURL, params.Encode())
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, http.NoBody)
 	if err != nil {

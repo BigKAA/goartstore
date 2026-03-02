@@ -13,9 +13,9 @@ registry: harbor.kryukov.lan/library
 amImage: admin-module
 amTag: v0.3.0-2
 qmImage: query-module
-qmTag: v0.1.0-2
+qmTag: v0.1.0-5
 imImage: ingester-module
-imTag: v0.1.0-1
+imTag: v0.1.0-4
 imagePullPolicy: Always
 
 # -----------------------------------------------------------------------------

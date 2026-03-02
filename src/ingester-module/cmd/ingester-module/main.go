@@ -112,12 +112,29 @@ func main() {
 	)
 
 	// 12. Topologymetrics (graceful start — warn при ошибке, не exit)
+
+	// SEListFetcher — адаптер adminclient → dephealth
+	seListFetcher := func(ctx context.Context) ([]service.SEEndpoint, error) {
+		elements, fetchErr := adminClient.GetStorageElements(ctx, "", "online")
+		if fetchErr != nil {
+			return nil, fetchErr
+		}
+		result := make([]service.SEEndpoint, len(elements))
+		for i, e := range elements {
+			result[i] = service.SEEndpoint{ID: e.ID, Name: e.Name, URL: e.URL}
+		}
+		return result, nil
+	}
+
 	dephealthSvc, err := service.NewDephealthService(
 		cfg.DephealthName,
 		cfg.DephealthGroup,
 		cfg.AdminURL,
+		cfg.JWKSURL,
 		cfg.DephealthCheckInterval,
+		cfg.TLSSkipVerify,
 		cfg.DephealthIsEntry,
+		seListFetcher,
 		logger,
 	)
 	if err != nil {

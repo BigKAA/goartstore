@@ -57,6 +57,8 @@ tls:
   # Существующий Secret с CA-сертификатом для TLS-соединений
   # Если задан — монтируется в /certs и IM_CA_CERT_PATH=/certs/ca.crt
   caSecret: ""
+  # Пропускать проверку TLS-сертификатов при health check (только для dev!)
+  skipVerify: false
 
 # --- Dependency health (topologymetrics) ---
 dephealth:

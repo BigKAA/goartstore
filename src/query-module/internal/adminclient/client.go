@@ -42,6 +42,7 @@ type tokenInfo struct {
 type Client struct {
 	httpClient   *http.Client
 	adminURL     string
+	tokenURL     string // URL Keycloak token endpoint для client_credentials grant
 	clientID     string
 	clientSecret string //nolint:gosec // G101: поле структуры, не содержит секрет напрямую
 	logger       *slog.Logger
@@ -53,10 +54,12 @@ type Client struct {
 
 // New создаёт Admin Module клиент.
 // adminURL — базовый URL Admin Module (например, http://admin-module:8000).
+// tokenURL — URL Keycloak token endpoint для client_credentials grant.
 // caCertPath — путь к CA-сертификату для TLS (пустая строка — стандартный пул).
 // timeout — таймаут HTTP-запросов (из конфигурации QM_ADMIN_TIMEOUT).
 func New(
 	adminURL string,
+	tokenURL string,
 	caCertPath string,
 	timeout time.Duration,
 	clientID string,
@@ -81,6 +84,7 @@ func New(
 	return &Client{
 		httpClient:   httpClient,
 		adminURL:     strings.TrimRight(adminURL, "/"),
+		tokenURL:     strings.TrimRight(tokenURL, "/"),
 		clientID:     clientID,
 		clientSecret: clientSecret,
 		logger:       logger.With(slog.String("component", "admin_client")),
@@ -153,11 +157,59 @@ func (c *Client) GetStorageElement(ctx context.Context, seID string) (*SEInfo, e
 	return &info, nil
 }
 
+// seListResponse — обёртка ответа GET /api/v1/storage-elements.
+type seListResponse struct {
+	Items []SEInfo `json:"items"`
+}
+
+// GetStorageElements запрашивает список Storage Elements с заданным статусом.
+// GET /api/v1/storage-elements?status={status}
+// Используется для мониторинга топологии (периодический опрос).
+func (c *Client) GetStorageElements(ctx context.Context, status string) ([]SEInfo, error) {
+	reqURL := fmt.Sprintf("%s/api/v1/storage-elements?status=%s",
+		c.adminURL, url.QueryEscape(status))
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("создание запроса GetStorageElements: %w", err)
+	}
+
+	// SA-токен для авторизации
+	token, err := c.GetToken(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("получение токена для AM: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := c.httpClient.Do(req) //nolint:gosec // G704: URL из конфигурации
+	if err != nil {
+		return nil, fmt.Errorf("запрос GetStorageElements к %s: %w", c.adminURL, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("AM вернул статус %d для GetStorageElements: %s", resp.StatusCode, string(body))
+	}
+
+	var listResp seListResponse
+	if err := json.NewDecoder(resp.Body).Decode(&listResp); err != nil {
+		return nil, fmt.Errorf("декодирование ответа SE list от AM: %w", err)
+	}
+
+	c.logger.Debug("Получен список SE из AM",
+		slog.String("status", status),
+		slog.Int("count", len(listResp.Items)),
+	)
+
+	return listResp.Items, nil
+}
+
 // requestToken запрашивает новый SA-токен через client_credentials grant.
 // Вызывается под write lock.
 func (c *Client) requestToken(ctx context.Context) (string, error) {
-	// Token endpoint — через AM proxy /auth/token
-	tokenURL := c.adminURL + "/auth/token"
+	// Token endpoint — напрямую Keycloak (client_credentials grant)
+	tokenURL := c.tokenURL
 
 	data := url.Values{
 		"grant_type":    {"client_credentials"},

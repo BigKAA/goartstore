@@ -17,8 +17,8 @@
 # -----------------------------------------------------------------------------
 DOCKER_REGISTRY ?= harbor.kryukov.lan/library
 AM_TAG          ?= v0.3.0-2
-QM_TAG          ?= v0.1.0-1
-IM_TAG          ?= v0.1.0-1
+QM_TAG          ?= v0.1.0-5
+IM_TAG          ?= v0.1.0-4
 SE_TAG          ?= v0.3.0-1
 KC_TAG          ?= v26.1-1
 NAMESPACE       ?= artstore-test

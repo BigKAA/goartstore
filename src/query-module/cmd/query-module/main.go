@@ -81,6 +81,7 @@ func main() {
 	// 7. Admin Module HTTP-клиент
 	adminClient, err := adminclient.New(
 		cfg.AdminURL,
+		cfg.TokenURL,
 		cfg.CACertPath,
 		cfg.AdminTimeout,
 		cfg.ClientID,
@@ -150,14 +151,31 @@ func main() {
 	if serviceID == "" {
 		serviceID = "query-module"
 	}
+
+	// SEListFetcher — адаптер adminclient → dephealth
+	seListFetcher := func(fetchCtx context.Context) ([]service.SEEndpoint, error) {
+		elements, fetchErr := adminClient.GetStorageElements(fetchCtx, "online")
+		if fetchErr != nil {
+			return nil, fetchErr
+		}
+		result := make([]service.SEEndpoint, len(elements))
+		for i, e := range elements {
+			result[i] = service.SEEndpoint{ID: e.ID, Name: e.Name, URL: e.URL}
+		}
+		return result, nil
+	}
+
 	dephealthSvc, dephealthErr := service.NewDephealthService(
 		serviceID,
 		cfg.DephealthGroup,
 		sqlDB,
 		cfg.DatabaseURL(),
 		cfg.AdminURL,
+		cfg.JWKSURL,
 		cfg.DephealthCheckInterval,
+		cfg.TLSSkipVerify,
 		cfg.DephealthIsEntry,
+		seListFetcher,
 		logger,
 	)
 	if dephealthErr != nil {

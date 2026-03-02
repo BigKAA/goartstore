@@ -44,6 +44,7 @@ adminModule:
 
 # --- Keycloak OAuth2 (Client Credentials для SA) ---
 oauth:
+  tokenUrl: ""      # обязательный: URL Keycloak token endpoint (protocol/openid-connect/token)
   clientId: ""      # обязательный: Client ID для client_credentials grant
   clientSecret: ""  # обязательный: Client Secret для client_credentials grant
 
@@ -65,6 +66,8 @@ tls:
   # Существующий Secret с CA-сертификатом для TLS-соединений
   # Если задан — монтируется в /certs и QM_CA_CERT_PATH=/certs/ca.crt
   caSecret: ""
+  # Пропускать проверку TLS-сертификатов при health check (только для dev!)
+  skipVerify: false
 
 # --- Dependency health (topologymetrics) ---
 dephealth:

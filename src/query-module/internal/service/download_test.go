@@ -32,7 +32,7 @@ func newMockSEServer(handler http.HandlerFunc) *httptest.Server {
 func newMockAMServer(seURL string) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case r.URL.Path == "/auth/token" && r.Method == http.MethodPost:
+		case (r.URL.Path == "/auth/token" || r.URL.Path == "/token") && r.Method == http.MethodPost:
 			// Token endpoint — возвращаем тестовый токен
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"access_token":"test-token","expires_in":3600,"token_type":"bearer"}`))
@@ -60,7 +60,8 @@ func newTestDownloadService(
 	// Создаём реальный adminclient с mock AM server
 	adminClient, err := adminclient.New(
 		amServer.URL,
-		"", // без CA
+		amServer.URL+"/token", // mock token endpoint
+		"",                    // без CA
 		10*time.Second,
 		"test-client",
 		"test-secret",

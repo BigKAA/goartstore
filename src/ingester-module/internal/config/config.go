@@ -31,6 +31,8 @@ type Config struct {
 	// Путь к CA-сертификату для TLS-соединений (опционально).
 	// Используется для JWKS и Admin Module HTTP-клиента.
 	CACertPath string
+	// Пропускать проверку TLS-сертификатов при health check (только для dev!)
+	TLSSkipVerify bool
 
 	// --- JWT/JWKS ---
 
@@ -151,6 +153,12 @@ func Load() (*Config, error) {
 
 	// IM_CA_CERT_PATH — путь к CA-сертификату (опционально)
 	cfg.CACertPath = getEnvDefault("IM_CA_CERT_PATH", "")
+
+	// IM_TLS_SKIP_VERIFY — пропускать TLS-проверку (по умолчанию false, только для dev)
+	cfg.TLSSkipVerify, err = getEnvBool("IM_TLS_SKIP_VERIFY", false)
+	if err != nil {
+		return nil, fmt.Errorf("IM_TLS_SKIP_VERIFY: %w", err)
+	}
 
 	// --- JWT/JWKS ---
 
