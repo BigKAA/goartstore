@@ -1,0 +1,213 @@
+<mxfile host="Claude Code" modified="2026-03-03T12:00:00.000Z" agent="Claude Code" version="24.0.0" etag="seq-jwt-auth-v1" type="device">
+  <diagram id="seq-jwt-auth" name="Sequence — JWT Authentication">
+    <mxGraphModel dx="1600" dy="900" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Заголовок -->
+        <mxCell id="title" value="&lt;font style=&quot;font-size:16px&quot;&gt;&lt;b&gt;Sequence Diagram: JWT Authentication&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;color:#666&quot;&gt;Два потока: Authorization Code + PKCE (Admin UI) и Client Credentials (M2M)&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="1" vertex="1">
+          <mxGeometry x="300" y="10" width="560" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== УЧАСТНИКИ ==================== -->
+
+        <mxCell id="actor_browser" value="&lt;b&gt;Браузер&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;Admin UI&lt;/font&gt;" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="60" y="80" width="100" height="1100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="actor_gateway" value="&lt;b&gt;API Gateway&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;Envoy&lt;/font&gt;" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="260" y="80" width="120" height="1100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="actor_kc" value="&lt;b&gt;Keycloak&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;IdP&lt;/font&gt;" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="480" y="80" width="110" height="1100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="actor_module" value="&lt;b&gt;Module&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;AM/IM/QM/SE&lt;/font&gt;" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="720" y="80" width="120" height="1100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="actor_sa" value="&lt;b&gt;Service Account&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;M2M клиент&lt;/font&gt;" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="960" y="80" width="130" height="1100" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== ПОТОК 1: Authorization Code + PKCE ==================== -->
+
+        <mxCell id="section1" value="&lt;font style=&quot;font-size:11px;color:#6c8ebf&quot;&gt;&lt;b&gt;═══ Поток 1: Admin UI (Authorization Code + PKCE) ═══&lt;/b&gt;&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;" parent="1" vertex="1">
+          <mxGeometry x="100" y="140" width="500" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- 1: Browser → AM: GET /admin/ -->
+        <mxCell id="msg1" value="&lt;b&gt;1&lt;/b&gt; GET /admin/ (нет сессии)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="110" y="185" as="sourcePoint" />
+            <mxPoint x="320" y="185" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 2: Redirect to KC -->
+        <mxCell id="msg2" value="&lt;b&gt;2&lt;/b&gt; 302 Redirect → KC /auth (code_challenge, state)" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="320" y="220" as="sourcePoint" />
+            <mxPoint x="110" y="220" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 3: Browser → KC: Login page -->
+        <mxCell id="msg3" value="&lt;b&gt;3&lt;/b&gt; GET /auth/realms/artstore/protocol/openid-connect/auth" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="110" y="260" as="sourcePoint" />
+            <mxPoint x="535" y="260" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 3r: KC → Browser: Login form (custom theme) -->
+        <mxCell id="msg3r" value="200 OK: Login form (тема &quot;artstore&quot;)" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=9;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="535" y="295" as="sourcePoint" />
+            <mxPoint x="110" y="295" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 4: Browser → KC: POST credentials -->
+        <mxCell id="msg4" value="&lt;b&gt;4&lt;/b&gt; POST login (username, password)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="110" y="335" as="sourcePoint" />
+            <mxPoint x="535" y="335" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- KC internal: validate -->
+        <mxCell id="msg_kc_validate" value="Проверка credentials (Local/LDAP)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=9;fontColor=#555;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="535" y="360" as="sourcePoint" />
+            <mxPoint x="535" y="400" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="590" y="380" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 4r: KC → Browser: Redirect with auth code -->
+        <mxCell id="msg4r" value="302 Redirect → callback?code=AUTH_CODE&amp;amp;state=STATE" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=9;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="535" y="425" as="sourcePoint" />
+            <mxPoint x="110" y="425" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 5: Browser → AM: callback with code -->
+        <mxCell id="msg5" value="&lt;b&gt;5&lt;/b&gt; GET /admin/callback?code=AUTH_CODE" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="110" y="465" as="sourcePoint" />
+            <mxPoint x="780" y="465" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 6: AM → KC: Exchange code for token -->
+        <mxCell id="msg6" value="&lt;b&gt;6&lt;/b&gt; POST /token (code + code_verifier)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="780" y="505" as="sourcePoint" />
+            <mxPoint x="535" y="505" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 6r: KC → AM: JWT -->
+        <mxCell id="msg6r" value="{access_token: JWT, refresh_token, id_token}" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=9;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="535" y="540" as="sourcePoint" />
+            <mxPoint x="780" y="540" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 7: AM → Browser: Set session + redirect -->
+        <mxCell id="msg7" value="&lt;b&gt;7&lt;/b&gt; Set-Cookie: session (JWT) → 302 /admin/dashboard" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="780" y="580" as="sourcePoint" />
+            <mxPoint x="110" y="580" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== ПОТОК 2: Client Credentials (M2M) ==================== -->
+
+        <mxCell id="section2" value="&lt;font style=&quot;font-size:11px;color:#d79b00&quot;&gt;&lt;b&gt;═══ Поток 2: Service Account (Client Credentials) ═══&lt;/b&gt;&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;" parent="1" vertex="1">
+          <mxGeometry x="500" y="640" width="500" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- SA → KC: POST /token -->
+        <mxCell id="msg_sa1" value="&lt;b&gt;A&lt;/b&gt; POST /token (client_id, client_secret, grant_type=client_credentials)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1025" y="690" as="sourcePoint" />
+            <mxPoint x="535" y="690" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- KC → SA: JWT with scopes -->
+        <mxCell id="msg_sa1r" value="{access_token: JWT (scopes: files:read, files:write, storage:read)}" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=9;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="535" y="730" as="sourcePoint" />
+            <mxPoint x="1025" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- SA → Gateway: API call with JWT -->
+        <mxCell id="msg_sa2" value="&lt;b&gt;B&lt;/b&gt; API call: Authorization: Bearer JWT" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1025" y="780" as="sourcePoint" />
+            <mxPoint x="320" y="780" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Gateway: validate JWT (JWKS) -->
+        <mxCell id="msg_gw_validate" value="Validate JWT (RS256, JWKS)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=9;fontColor=#555;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="320" y="810" as="sourcePoint" />
+            <mxPoint x="320" y="850" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="385" y="830" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Gateway → Module: forward with claims -->
+        <mxCell id="msg_sa3" value="&lt;b&gt;C&lt;/b&gt; Forward (JWT claims в headers)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="320" y="880" as="sourcePoint" />
+            <mxPoint x="780" y="880" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Module: check scopes/roles -->
+        <mxCell id="msg_module_check" value="JWT middleware: roles, scopes, client_id" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=9;fontColor=#555;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="780" y="910" as="sourcePoint" />
+            <mxPoint x="780" y="950" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="845" y="930" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Module → SA: response -->
+        <mxCell id="msg_sa4" value="&lt;b&gt;D&lt;/b&gt; Response (authorized)" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="780" y="980" as="sourcePoint" />
+            <mxPoint x="1025" y="980" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== ЗАМЕТКИ ==================== -->
+
+        <mxCell id="note_jwt" value="&lt;font style=&quot;font-size:9px&quot;&gt;&lt;b&gt;JWT Claims:&lt;/b&gt;&lt;br&gt;• sub: user/client ID&lt;br&gt;• realm_access.roles: [admin, readonly]&lt;br&gt;• groups: [artstore-admins]&lt;br&gt;• scope: files:read files:write&lt;br&gt;• &lt;b&gt;client_id&lt;/b&gt;: SA identifier (mapper!)&lt;br&gt;• iss, exp, aud&lt;/font&gt;" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=14;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;spacingLeft=5;" parent="1" vertex="1">
+          <mxGeometry x="30" y="660" width="220" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="note_pkce" value="&lt;font style=&quot;font-size:9px&quot;&gt;&lt;b&gt;PKCE (Proof Key for Code Exchange):&lt;/b&gt;&lt;br&gt;• code_verifier: random 128 bytes&lt;br&gt;• code_challenge: SHA256(code_verifier)&lt;br&gt;• Защита от code interception&lt;br&gt;• Обязателен для public clients&lt;/font&gt;" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=14;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;spacingLeft=5;" parent="1" vertex="1">
+          <mxGeometry x="30" y="810" width="240" height="90" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
