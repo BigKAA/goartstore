@@ -1,0 +1,242 @@
+# Artstore AlertManager Rules (PrometheusRule CRD)
+# Для использования: kubectl apply -f artstore-alerts.yaml
+# Или через Helm: включить в values.yaml monitoring.alerts.enabled: true
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: artstore-alerts
+  labels:
+    app.kubernetes.io/name: artstore
+    app.kubernetes.io/component: monitoring
+    prometheus: kube-prometheus
+    role: alert-rules
+spec:
+  groups:
+    # =========================================================================
+    # Группа 1: Доступность сервисов
+    # =========================================================================
+    - name: artstore.availability
+      rules:
+        # Алерт: сервис недоступен более 2 минут
+        - alert: ArtstoreServiceDown
+          expr: up{job=~".*admin-module.*|.*ingester-module.*|.*query-module.*|.*storage-element.*"} == 0
+          for: 2m
+          labels:
+            severity: critical
+            team: artstore
+          annotations:
+            summary: "Artstore сервис {{ $labels.job }} недоступен"
+            description: >-
+              Сервис {{ $labels.job }} (instance: {{ $labels.instance }})
+              не отвечает на Prometheus scrape более 2 минут.
+              Проверьте статус pod-а и логи.
+            runbook_url: "docs/guides/operations-guide.md#artstoreservicedown"
+
+        # Алерт: нет ни одного SE в режиме edit
+        - alert: SENoEditAvailable
+          expr: count(se_files_total{status="active"}) == 0 or absent(se_files_total{status="active"})
+          for: 5m
+          labels:
+            severity: warning
+            team: artstore
+          annotations:
+            summary: "Нет доступных Storage Element для записи"
+            description: >-
+              Не обнаружено ни одного активного Storage Element.
+              Загрузка новых файлов невозможна. Проверьте SE pods
+              и их режимы (edit/rw/ro/ar).
+            runbook_url: "docs/guides/operations-guide.md#senoeditavailable"
+
+    # =========================================================================
+    # Группа 2: Частота ошибок
+    # =========================================================================
+    - name: artstore.errors
+      rules:
+        # Алерт: высокая частота 5xx ошибок Admin Module
+        - alert: ArtstoreHighErrorRate
+          expr: >-
+            100 * sum(rate(am_http_requests_total{status=~"5.."}[5m]))
+            / sum(rate(am_http_requests_total[5m])) > 5
+          for: 5m
+          labels:
+            severity: warning
+            team: artstore
+            module: admin-module
+          annotations:
+            summary: "Admin Module: высокая частота 5xx ошибок ({{ $value | printf \"%.1f\" }}%)"
+            description: >-
+              Процент 5xx ответов Admin Module превышает 5%
+              в течение 5 минут. Текущее значение: {{ $value | printf "%.1f" }}%.
+              Проверьте логи AM и зависимости (PostgreSQL, Keycloak).
+            runbook_url: "docs/guides/operations-guide.md#artstorehigherrorrate"
+
+        # Алерт: высокая частота 5xx ошибок Ingester Module
+        - alert: ArtstoreHighErrorRate
+          expr: >-
+            100 * sum(rate(im_http_requests_total{status=~"5.."}[5m]))
+            / sum(rate(im_http_requests_total[5m])) > 5
+          for: 5m
+          labels:
+            severity: warning
+            team: artstore
+            module: ingester-module
+          annotations:
+            summary: "Ingester Module: высокая частота 5xx ошибок ({{ $value | printf \"%.1f\" }}%)"
+            description: >-
+              Процент 5xx ответов Ingester Module превышает 5%
+              в течение 5 минут. Текущее значение: {{ $value | printf "%.1f" }}%.
+              Проверьте логи IM и доступность SE/AM.
+            runbook_url: "docs/guides/operations-guide.md#artstorehigherrorrate"
+
+        # Алерт: высокая частота 5xx ошибок Query Module
+        - alert: ArtstoreHighErrorRate
+          expr: >-
+            100 * sum(rate(qm_http_requests_total{status=~"5.."}[5m]))
+            / sum(rate(qm_http_requests_total[5m])) > 5
+          for: 5m
+          labels:
+            severity: warning
+            team: artstore
+            module: query-module
+          annotations:
+            summary: "Query Module: высокая частота 5xx ошибок ({{ $value | printf \"%.1f\" }}%)"
+            description: >-
+              Процент 5xx ответов Query Module превышает 5%
+              в течение 5 минут. Текущее значение: {{ $value | printf "%.1f" }}%.
+              Проверьте логи QM и доступность PostgreSQL/AM/SE.
+            runbook_url: "docs/guides/operations-guide.md#artstorehigherrorrate"
+
+        # Алерт: высокая частота 5xx ошибок Storage Element
+        - alert: ArtstoreHighErrorRate
+          expr: >-
+            100 * sum(rate(se_http_requests_total{status=~"5.."}[5m])) by (instance)
+            / sum(rate(se_http_requests_total[5m])) by (instance) > 5
+          for: 5m
+          labels:
+            severity: warning
+            team: artstore
+            module: storage-element
+          annotations:
+            summary: "Storage Element {{ $labels.instance }}: высокая частота 5xx ошибок ({{ $value | printf \"%.1f\" }}%)"
+            description: >-
+              Процент 5xx ответов SE instance {{ $labels.instance }}
+              превышает 5% в течение 5 минут. Текущее значение: {{ $value | printf "%.1f" }}%.
+              Проверьте логи SE, дисковое пространство и состояние файловой системы.
+            runbook_url: "docs/guides/operations-guide.md#artstorehigherrorrate"
+
+    # =========================================================================
+    # Группа 3: Задержки (Latency)
+    # =========================================================================
+    - name: artstore.latency
+      rules:
+        # Алерт: высокая задержка Admin Module (p99 > 2s)
+        - alert: ArtstoreHighLatency
+          expr: >-
+            histogram_quantile(0.99,
+              sum(rate(am_http_request_duration_seconds_bucket[5m])) by (le)
+            ) > 2
+          for: 5m
+          labels:
+            severity: warning
+            team: artstore
+            module: admin-module
+          annotations:
+            summary: "Admin Module: высокая задержка p99 ({{ $value | printf \"%.2f\" }}s)"
+            description: >-
+              Задержка p99 Admin Module превышает 2 секунды
+              в течение 5 минут. Текущее значение: {{ $value | printf "%.2f" }}s.
+              Проверьте нагрузку на PostgreSQL и Keycloak.
+            runbook_url: "docs/guides/operations-guide.md#artstorehighlatency"
+
+        # Алерт: высокая задержка Query Module search (p99 > 3s)
+        - alert: ArtstoreHighLatency
+          expr: >-
+            histogram_quantile(0.99,
+              sum(rate(qm_search_duration_seconds_bucket[5m])) by (le)
+            ) > 3
+          for: 5m
+          labels:
+            severity: warning
+            team: artstore
+            module: query-module
+            operation: search
+          annotations:
+            summary: "Query Module Search: высокая задержка p99 ({{ $value | printf \"%.2f\" }}s)"
+            description: >-
+              Задержка p99 поисковых запросов QM превышает 3 секунды
+              в течение 5 минут. Текущее значение: {{ $value | printf "%.2f" }}s.
+              Проверьте нагрузку на PostgreSQL (FTS), индексы.
+            runbook_url: "docs/guides/operations-guide.md#artstorehighlatency"
+
+        # Алерт: высокая задержка зависимостей (topologymetrics)
+        - alert: DependencyLatencyHigh
+          expr: >-
+            rate(app_dependency_latency_seconds_sum[5m])
+            / rate(app_dependency_latency_seconds_count[5m]) > 1
+          for: 5m
+          labels:
+            severity: warning
+            team: artstore
+          annotations:
+            summary: "Высокая задержка зависимости: {{ $labels.group }} → {{ $labels.target }} ({{ $value | printf \"%.2f\" }}s)"
+            description: >-
+              Средняя задержка проверки зависимости {{ $labels.target }}
+              от сервиса {{ $labels.group }} превышает 1 секунду.
+              Текущее значение: {{ $value | printf "%.2f" }}s.
+              Проверьте сетевую связность и состояние целевого сервиса.
+            runbook_url: "docs/guides/operations-guide.md#dependencylatencyhigh"
+
+    # =========================================================================
+    # Группа 4: Storage Element
+    # =========================================================================
+    - name: artstore.storage
+      rules:
+        # Алерт: много ошибок reconcile (проблемы с целостностью данных)
+        - alert: SEReconcileIssuesHigh
+          expr: >-
+            sum(rate(se_reconcile_issues_total[15m])) by (instance) > 0.1
+          for: 15m
+          labels:
+            severity: warning
+            team: artstore
+          annotations:
+            summary: "SE {{ $labels.instance }}: обнаружены проблемы reconciliation"
+            description: >-
+              Storage Element {{ $labels.instance }} обнаруживает проблемы
+              при reconciliation (orphaned files, checksum mismatch и т.д.)
+              со скоростью {{ $value | printf "%.2f" }}/s в течение 15 минут.
+              Проверьте логи SE для деталей.
+            runbook_url: "docs/guides/operations-guide.md#sereconcileissueshigh"
+
+        # Алерт: ошибки index sync
+        - alert: SEIndexSyncErrors
+          expr: >-
+            rate(se_index_sync_errors_total[5m]) > 0
+          for: 10m
+          labels:
+            severity: warning
+            team: artstore
+          annotations:
+            summary: "SE {{ $labels.instance }}: ошибки синхронизации индекса"
+            description: >-
+              Storage Element {{ $labels.instance }} имеет ошибки при
+              пересборке индекса. Это может привести к некорректным
+              результатам поиска файлов. Проверьте логи SE.
+            runbook_url: "docs/guides/operations-guide.md#seindexsyncerrors"
+
+        # Алерт: нет SE selection (Ingester не может найти SE)
+        - alert: IMNoStorageAvailable
+          expr: >-
+            sum(rate(im_se_selection_total{result="no_storage"}[5m]))
+            / sum(rate(im_se_selection_total[5m])) > 0.1
+          for: 5m
+          labels:
+            severity: critical
+            team: artstore
+          annotations:
+            summary: "Ingester Module: невозможно выбрать Storage Element для записи"
+            description: >-
+              Более 10% попыток выбора SE завершаются ошибкой no_storage.
+              Загрузка файлов может быть недоступна. Проверьте наличие SE
+              в режиме edit и их доступность.
+            runbook_url: "docs/guides/operations-guide.md#imnostorageavailable"

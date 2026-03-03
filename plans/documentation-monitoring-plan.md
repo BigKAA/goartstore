@@ -18,10 +18,10 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 3
-- **Активный подпункт**: 3.1
+- **Активная фаза**: Phase 7
+- **Активный подпункт**: 7.1
 - **Последнее обновление**: 2026-03-03
-- **Примечание**: Phase 1-2 завершены. 13 drawio диаграмм созданы в docs/design/, 13 PNG экспортированы в docs/guides/images/.
+- **Примечание**: Phase 1-6 завершены. 6 Grafana dashboards (overview, admin-module, storage-element, ingester-module, query-module, dependency-topology) и AlertManager rules созданы на основе реальных метрик всех модулей. JSON/YAML валидация пройдена.
 
 ---
 
@@ -29,10 +29,10 @@
 
 - [x] [Phase 1: Инфраструктура и Pod annotations](#phase-1-инфраструктура-и-pod-annotations)
 - [x] [Phase 2: Архитектурные диаграммы (drawio)](#phase-2-архитектурные-диаграммы-drawio)
-- [ ] [Phase 3: Скриншоты (Playwright MCP)](#phase-3-скриншоты-playwright-mcp)
-- [ ] [Phase 4: Admin Guide (EN + RU)](#phase-4-admin-guide-en--ru)
-- [ ] [Phase 5: Developer Guide (EN + RU)](#phase-5-developer-guide-en--ru)
-- [ ] [Phase 6: Grafana dashboards + AlertManager rules](#phase-6-grafana-dashboards--alertmanager-rules)
+- [x] [Phase 3: Скриншоты (Playwright MCP)](#phase-3-скриншоты-playwright-mcp)
+- [x] [Phase 4: Admin Guide (EN + RU)](#phase-4-admin-guide-en--ru)
+- [x] [Phase 5: Developer Guide (EN + RU)](#phase-5-developer-guide-en--ru)
+- [x] [Phase 6: Grafana dashboards + AlertManager rules](#phase-6-grafana-dashboards--alertmanager-rules)
 - [ ] [Phase 7: Operations Guide (EN + RU)](#phase-7-operations-guide-en--ru)
 - [ ] [Phase 8: Umbrella Helm chart](#phase-8-umbrella-helm-chart)
 - [ ] [Phase 9: docker-compose + Monitoring subchart](#phase-9-docker-compose--monitoring-subchart)
@@ -213,7 +213,7 @@
 ## Phase 3: Скриншоты (Playwright MCP)
 
 **Dependencies**: Phase 1 (тестовое окружение должно быть задеплоено с annotations)
-**Status**: Pending
+**Status**: ✅ Done
 
 ### Описание
 
@@ -221,13 +221,13 @@
 
 ### Подпункты
 
-- [ ] **3.1 Подготовка тестового окружения**
+- [x] **3.1 Подготовка тестового окружения**
   - **Dependencies**: None
   - **Description**: Убедиться что тестовое окружение работает: `make test-env-up && make init-data && make port-forward-start`. Проверить доступность `https://artstore.kryukov.lan/admin/` и `https://artstore.kryukov.lan/admin/master/console/`.
   - **Creates**: N/A
   - **Links**: N/A
 
-- [ ] **3.2 Скриншоты Admin UI (9 шт.)**
+- [x] **3.2 Скриншоты Admin UI (9 шт.)**
   - **Dependencies**: 3.1
   - **Description**: Через Playwright MCP: открыть Admin UI → авторизоваться (admin/admin) → последовательно снять скриншоты: Dashboard, Файлы (список), Файл (детали), SE (список), SE (детали), SE (смена режима), Мониторинг, Настройки, Service Accounts. Сохранить с именами `ui-*.png`.
   - **Creates**:
@@ -242,14 +242,14 @@
     - `docs/guides/images/ui-service-accounts.png`
   - **Links**: N/A
 
-- [ ] **3.3 Скриншот Keycloak Login (кастомная тема)**
+- [x] **3.3 Скриншот Keycloak Login (кастомная тема)**
   - **Dependencies**: 3.1
   - **Description**: Через Playwright MCP: открыть `https://artstore.kryukov.lan/admin/` (не авторизованным — покажет KC login). Снять скриншот страницы логина с кастомной темой `artstore`.
   - **Creates**:
     - `docs/guides/images/kc-login.png`
   - **Links**: N/A
 
-- [ ] **3.4 Скриншоты Keycloak — Realm Settings (4 шт.)**
+- [x] **3.4 Скриншоты Keycloak — Realm Settings (4 шт.)**
   - **Dependencies**: 3.1
   - **Description**: Через Playwright MCP: открыть KC Admin Console → realm `artstore` → Realm Settings. Снять скриншоты вкладок: General, Login, Sessions, Tokens.
   - **Creates**:
@@ -259,7 +259,7 @@
     - `docs/guides/images/kc-realm-tokens.png`
   - **Links**: N/A
 
-- [ ] **3.5 Скриншоты Keycloak — Roles & Groups (3 шт.)**
+- [x] **3.5 Скриншоты Keycloak — Roles & Groups (3 шт.)**
   - **Dependencies**: 3.1
   - **Description**: Realm Roles (список), Groups → artstore-admins (role mapping), Groups → artstore-viewers (role mapping).
   - **Creates**:
@@ -268,7 +268,7 @@
     - `docs/guides/images/kc-group-viewers.png`
   - **Links**: N/A
 
-- [ ] **3.6 Скриншоты Keycloak — Client Scopes (4 шт.)**
+- [x] **3.6 Скриншоты Keycloak — Client Scopes (4 шт.)**
   - **Dependencies**: 3.1
   - **Description**: Client Scopes (список), scope `files:read` (Settings), scope `files:read` (Mappers → audience mapper), scope `groups` (Mappers → group membership mapper).
   - **Creates**:
@@ -278,7 +278,7 @@
     - `docs/guides/images/kc-scope-groups-mapper.png`
   - **Links**: N/A
 
-- [ ] **3.7 Скриншоты Keycloak — Clients (10 шт.)**
+- [x] **3.7 Скриншоты Keycloak — Clients (10 шт.)**
   - **Dependencies**: 3.1
   - **Description**: Для каждого клиента — Settings, Credentials (где применимо), Client Scopes, SA Roles (где применимо). AM: Settings, Credentials, Scopes, SA Roles (4). IM: Settings, Scopes (2). QM: Settings (1). Admin UI: Settings, Scopes (2). Mapper `client_id` (1).
   - **Creates**:
@@ -294,30 +294,30 @@
     - `docs/guides/images/kc-mapper-client-id.png`
   - **Links**: N/A
 
-- [ ] **3.8 Скриншоты Keycloak — Create Client Wizard (4 шт.)**
+- [x] **3.8 Скриншоты Keycloak — Create Client Wizard (4 шт.)**
   - **Dependencies**: 3.1
   - **Description**: Пошаговые скриншоты создания нового клиента: Create Client wizard Step 1 (General), Step 2 (Capability), Step 3 (Login settings), Add mapper → By configuration → User Session Note.
   - **Creates**:
-    - `docs/guides/images/kc-create-client-step1.png`
-    - `docs/guides/images/kc-create-client-step2.png`
-    - `docs/guides/images/kc-create-client-step3.png`
+    - `docs/guides/images/kc-wizard-step1-general.png`
+    - `docs/guides/images/kc-wizard-step2-capability.png`
+    - `docs/guides/images/kc-wizard-step3-login.png`
     - `docs/guides/images/kc-add-mapper-step.png`
   - **Links**: N/A
 
 ### ✅ Критерии завершения Phase 3
 
-- [ ] Все подпункты завершены (3.1-3.8)
-- [ ] 9 скриншотов Admin UI в `docs/guides/images/ui-*.png`
-- [ ] 25 скриншотов Keycloak в `docs/guides/images/kc-*.png`
-- [ ] Все скриншоты читабельны, UI-элементы различимы
-- [ ] Скриншоты отражают актуальное состояние тестового окружения
+- [x] Все подпункты завершены (3.1-3.8)
+- [x] 9 скриншотов Admin UI в `docs/guides/images/ui-*.png`
+- [x] 25 скриншотов Keycloak в `docs/guides/images/kc-*.png`
+- [x] Все скриншоты читабельны, UI-элементы различимы
+- [x] Скриншоты отражают актуальное состояние тестового окружения
 
 ---
 
 ## Phase 4: Admin Guide (EN + RU)
 
 **Dependencies**: Phase 2 (диаграммы), Phase 3 (скриншоты)
-**Status**: Pending
+**Status**: ✅ Done
 
 ### Описание
 
@@ -325,7 +325,7 @@
 
 ### Подпункты
 
-- [ ] **4.1 Admin Guide — обзор архитектуры + требования (EN)**
+- [x] **4.1 Admin Guide — обзор архитектуры + требования (EN)**
   - **Dependencies**: None
   - **Description**: Написать §1 (обзор архитектуры — с ссылками на C4 и Data Flow диаграммы, описание вариантов развёртывания SE: K8s + Docker remote) и §2 (требования — K8s, Docker, PG, KC, сеть, ресурсы). Использовать данные из `docs/briefs/`, `docs/api-contracts/`, `docs/requirements/`.
   - **Creates**:
@@ -334,7 +334,7 @@
     - [Требования](docs/requirements/documentation-monitoring-requirements.md) — раздел 2.3
     - [Модульные брифы](docs/briefs/)
 
-- [ ] **4.2 Admin Guide — установка + конфигурация (EN)**
+- [x] **4.2 Admin Guide — установка + конфигурация (EN)**
   - **Dependencies**: 4.1
   - **Description**: Написать §3 (установка — Quick Start, Production, отдельные модули, SE remote, Gateway API, Ingress) и §4 (конфигурация — env-переменные всех модулей, PG, TLS, сеть для удалённых SE). Извлечь env-переменные из `internal/config/` каждого модуля.
   - **Creates**:
@@ -345,14 +345,14 @@
     - [IM config](src/ingester-module/internal/config/)
     - [QM config](src/query-module/internal/config/)
 
-- [ ] **4.3 Admin Guide — управление SE + Admin UI (EN)**
+- [x] **4.3 Admin Guide — управление SE + Admin UI (EN)**
   - **Dependencies**: 4.1
   - **Description**: Написать §5 (управление SE — жизненный цикл, C4 Component diagram, регистрация K8s/Docker, скриншоты Admin UI, репликация, ёмкость, гео-распределённые SE) и §6 (Admin UI — скриншоты всех страниц, описание функций). Вставить ссылки на скриншоты из `images/`.
   - **Creates**:
     - Дополнение `docs/guides/admin-guide.md` (§5-6)
   - **Links**: N/A
 
-- [ ] **4.4 Admin Guide — Keycloak конфигурация (EN)**
+- [x] **4.4 Admin Guide — Keycloak конфигурация (EN)**
   - **Dependencies**: 4.1
   - **Description**: Написать §7 (Keycloak) — самый подробный раздел. Realm settings, роли, группы, client scopes, все 4 клиента, mapper `client_id`, URL-схема, кастомная тема, пошаговое создание нового клиента. Каждый подраздел со скриншотами Keycloak Admin Console. Опираться на данные из `tests/helm/artstore-infra/files/artstore-realm.json`.
   - **Creates**:
@@ -362,14 +362,14 @@
     - [KC theme](deploy/keycloak/)
     - [Требования](docs/requirements/documentation-monitoring-requirements.md) — раздел 2.8
 
-- [ ] **4.5 Admin Guide — обновление + финализация (EN)**
+- [x] **4.5 Admin Guide — обновление + финализация (EN)**
   - **Dependencies**: 4.2, 4.3, 4.4
   - **Description**: Написать §8 (обновление — порядок, миграции, совместимость). Добавить Table of Contents, перекрёстные ссылки между разделами, ссылку на RU-версию. Финальная вычитка и проверка всех ссылок на изображения.
   - **Creates**:
     - Финализация `docs/guides/admin-guide.md`
   - **Links**: N/A
 
-- [ ] **4.6 Admin Guide — RU-версия**
+- [x] **4.6 Admin Guide — RU-версия**
   - **Dependencies**: 4.5
   - **Description**: Полный перевод `admin-guide.md` на русский язык. Сохранить как `admin-guide.ru.md`. Добавить перекрёстные ссылки: EN→RU и RU→EN в начале каждого файла. Все заголовки, таблицы, описания, примеры кода (комментарии) — на русском.
   - **Creates**:
@@ -378,19 +378,19 @@
 
 ### ✅ Критерии завершения Phase 4
 
-- [ ] Все подпункты завершены (4.1-4.6)
-- [ ] `docs/guides/admin-guide.md` — полный EN-документ (8 разделов)
-- [ ] `docs/guides/admin-guide.ru.md` — полный RU-перевод
-- [ ] Все ссылки на изображения (`![](images/*.png)`) валидны
-- [ ] Перекрёстные ссылки EN↔RU работают
-- [ ] Markdown lint проверка пройдена
+- [x] Все подпункты завершены (4.1-4.6)
+- [x] `docs/guides/admin-guide.md` — полный EN-документ (8 разделов)
+- [x] `docs/guides/admin-guide.ru.md` — полный RU-перевод
+- [x] Все ссылки на изображения (`![](images/*.png)`) валидны
+- [x] Перекрёстные ссылки EN↔RU работают
+- [x] Markdown lint проверка пройдена
 
 ---
 
 ## Phase 5: Developer Guide (EN + RU)
 
 **Dependencies**: Phase 2 (диаграммы — Data Flow, Sequence)
-**Status**: Pending
+**Status**: ✅ Done
 
 ### Описание
 
@@ -398,7 +398,7 @@
 
 ### Подпункты
 
-- [ ] **5.1 Developer Guide — обзор API + аутентификация (EN)**
+- [x] **5.1 Developer Guide — обзор API + аутентификация (EN)**
   - **Dependencies**: None
   - **Description**: Написать §1 (обзор API — архитектура, базовые URL, ссылки на OpenAPI specs) и §2 (аутентификация — JWT получение через KC password grant и client credentials, scopes, роли, примеры curl). Использовать OpenAPI specs из `docs/api-contracts/`.
   - **Creates**:
@@ -409,7 +409,7 @@
     - [QM OpenAPI](docs/api-contracts/query-module-openapi.yaml)
     - [SE OpenAPI](docs/api-contracts/storage-element-openapi.yaml)
 
-- [ ] **5.2 Developer Guide — Upload + Search + Download (EN)**
+- [x] **5.2 Developer Guide — Upload + Search + Download (EN)**
   - **Dependencies**: 5.1
   - **Description**: Написать §3 (Upload — endpoint, параметры, multipart, примеры curl/Python/Go), §4 (Search — FTS параметры, пагинация, фильтрация, примеры) и §5 (Download — proxy через QM, кэш, streaming, примеры). Вставить ссылки на Data Flow и Sequence диаграммы.
   - **Creates**:
@@ -418,7 +418,7 @@
     - [IM handlers](src/ingester-module/internal/api/handlers/)
     - [QM handlers](src/query-module/internal/api/handlers/)
 
-- [ ] **5.3 Developer Guide — File Management + Errors + финализация (EN)**
+- [x] **5.3 Developer Guide — File Management + Errors + финализация (EN)**
   - **Dependencies**: 5.2
   - **Description**: Написать §6 (File Management через AM API — CRUD, метаданные) и §7 (Error Handling — формат ошибок, таблица кодов). Добавить ToC, перекрёстные ссылки. Финальная вычитка.
   - **Creates**:
@@ -426,7 +426,7 @@
   - **Links**:
     - [AM handlers](src/admin-module/internal/api/handlers/)
 
-- [ ] **5.4 Developer Guide — RU-версия**
+- [x] **5.4 Developer Guide — RU-версия**
   - **Dependencies**: 5.3
   - **Description**: Полный перевод `developer-guide.md` на русский. Примеры кода остаются на английском (curl, Python, Go), комментарии в примерах переводятся. Перекрёстные ссылки EN↔RU.
   - **Creates**:
@@ -435,19 +435,19 @@
 
 ### ✅ Критерии завершения Phase 5
 
-- [ ] Все подпункты завершены (5.1-5.4)
-- [ ] `docs/guides/developer-guide.md` — полный EN-документ (7 разделов)
-- [ ] `docs/guides/developer-guide.ru.md` — полный RU-перевод
-- [ ] Все примеры curl проверены на корректность синтаксиса
-- [ ] Ссылки на OpenAPI specs валидны
-- [ ] Markdown lint проверка пройдена
+- [x] Все подпункты завершены (5.1-5.4)
+- [x] `docs/guides/developer-guide.md` — полный EN-документ (7 разделов)
+- [x] `docs/guides/developer-guide.ru.md` — полный RU-перевод
+- [x] Все примеры curl проверены на корректность синтаксиса
+- [x] Ссылки на OpenAPI specs валидны
+- [x] Markdown lint проверка пройдена
 
 ---
 
 ## Phase 6: Grafana dashboards + AlertManager rules
 
 **Dependencies**: Phase 1 (annotations — для тестирования)
-**Status**: Pending
+**Status**: ✅ Done
 
 ### Описание
 
@@ -455,42 +455,42 @@
 
 ### Подпункты
 
-- [ ] **6.1 Grafana Dashboard: Artstore Overview**
+- [x] **6.1 Grafana Dashboard: Artstore Overview**
   - **Dependencies**: None
   - **Description**: Создать JSON dashboard. Rows: System Health (traffic lights на базе `app_dependency_health`), Request Rate (stacked по модулям), Latency (p50/p95/p99 histogram_quantile), Error Rate (% 5xx), Storage (files, bytes, capacity). Variables: `$namespace`, `$interval`. Datasource: Prometheus.
   - **Creates**:
     - `charts/artstore/dashboards/overview.json`
   - **Links**: N/A
 
-- [ ] **6.2 Grafana Dashboard: Admin Module**
+- [x] **6.2 Grafana Dashboard: Admin Module**
   - **Dependencies**: None
   - **Description**: AM-специфичный dashboard. Метрики: `am_http_requests_total`, `am_http_request_duration_seconds`. Panels: RPS by path, Latency by path, Error rate, Active connections (если метрика есть).
   - **Creates**:
     - `charts/artstore/dashboards/admin-module.json`
   - **Links**: N/A
 
-- [ ] **6.3 Grafana Dashboard: Storage Element**
+- [x] **6.3 Grafana Dashboard: Storage Element**
   - **Dependencies**: None
   - **Description**: SE-специфичный dashboard. Метрики: `se_http_*`, `se_files_total{status}`, `se_storage_bytes`, `se_operations_total{operation,result}`. Panels: Files by status, Storage usage, Operations (upload/delete/replicate), RPS, Latency. Variable: `$instance` (для выбора конкретного SE).
   - **Creates**:
     - `charts/artstore/dashboards/storage-element.json`
   - **Links**: N/A
 
-- [ ] **6.4 Grafana Dashboard: Ingester Module**
+- [x] **6.4 Grafana Dashboard: Ingester Module**
   - **Dependencies**: None
   - **Description**: IM-специфичный dashboard. Метрики: `im_http_requests_total`, `im_http_request_duration_seconds`. Panels: Upload RPS, Latency (p50/p95/p99), Error rate by status code. (Бизнес-метрики пока отсутствуют — см. открытый вопрос №3).
   - **Creates**:
     - `charts/artstore/dashboards/ingester-module.json`
   - **Links**: N/A
 
-- [ ] **6.5 Grafana Dashboard: Query Module**
+- [x] **6.5 Grafana Dashboard: Query Module**
   - **Dependencies**: None
   - **Description**: QM-специфичный dashboard. Метрики: `qm_http_requests_total`, `qm_http_request_duration_seconds`. Panels: Search RPS, Download RPS, Latency by endpoint, Error rate. (Cache метрики пока отсутствуют — см. открытый вопрос №2).
   - **Creates**:
     - `charts/artstore/dashboards/query-module.json`
   - **Links**: N/A
 
-- [ ] **6.6 Grafana Dashboard: Dependency Topology**
+- [x] **6.6 Grafana Dashboard: Dependency Topology**
   - **Dependencies**: None
   - **Description**: topologymetrics dashboard. Метрики: `app_dependency_health`, `app_dependency_latency_seconds`, `app_dependency_status`. Panels: Health Matrix (status map), Dependency Latency (heatmap), Critical Dependencies (таблица), Topology Graph (Node Graph panel — Grafana 10+). Variables: `$namespace`, `$group`.
   - **Creates**:
@@ -498,14 +498,14 @@
   - **Links**:
     - [topologymetrics SDK](https://github.com/BigKAA/topologymetrics)
 
-- [ ] **6.7 AlertManager Rules**
+- [x] **6.7 AlertManager Rules**
   - **Dependencies**: None
   - **Description**: Создать YAML с PrometheusRule (Kubernetes CRD) или standalone rules. Алерты: ArtstoreServiceDown, ArtstoreHighErrorRate, ArtstoreHighLatency, SEStorageFull, SENoEditAvailable, DependencyLatencyHigh. Каждый алерт с annotations (summary, description, runbook_url).
   - **Creates**:
     - `charts/artstore/alerts/artstore-alerts.yaml`
   - **Links**: N/A
 
-- [ ] **6.8 Тестирование dashboards**
+- [x] **6.8 Тестирование dashboards**
   - **Dependencies**: 6.1-6.7
   - **Description**: Импортировать dashboards в Grafana тестового кластера (если установлена). Проверить что все панели рендерятся, queries возвращают данные. Если Grafana не установлена — валидировать JSON через `jq` и проверить PromQL queries через `curl` к Prometheus API.
   - **Creates**: N/A
@@ -513,12 +513,12 @@
 
 ### ✅ Критерии завершения Phase 6
 
-- [ ] Все подпункты завершены (6.1-6.8)
-- [ ] 6 JSON dashboard файлов в `charts/artstore/dashboards/`
-- [ ] 1 YAML файл алертов в `charts/artstore/alerts/`
-- [ ] JSON файлы валидны (`jq . < file.json` без ошибок)
-- [ ] PromQL queries синтаксически корректны
-- [ ] AlertManager rules YAML валиден
+- [x] Все подпункты завершены (6.1-6.8)
+- [x] 6 JSON dashboard файлов в `charts/artstore/dashboards/`
+- [x] 1 YAML файл алертов в `charts/artstore/alerts/`
+- [x] JSON файлы валидны (`jq . < file.json` без ошибок)
+- [x] PromQL queries синтаксически корректны
+- [x] AlertManager rules YAML валиден
 
 ---
 
