@@ -18,10 +18,10 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 7
-- **Активный подпункт**: 7.1
+- **Активная фаза**: Phase 8
+- **Активный подпункт**: 8.1
 - **Последнее обновление**: 2026-03-03
-- **Примечание**: Phase 1-6 завершены. 6 Grafana dashboards (overview, admin-module, storage-element, ingester-module, query-module, dependency-topology) и AlertManager rules созданы на основе реальных метрик всех модулей. JSON/YAML валидация пройдена.
+- **Примечание**: Phase 1-7 завершены. Operations Guide (EN + RU) создан: 6 разделов (мониторинг, Grafana dashboards, алертинг с runbooks, troubleshooting, backup, масштабирование). Markdown lint пройден.
 
 ---
 
@@ -33,7 +33,7 @@
 - [x] [Phase 4: Admin Guide (EN + RU)](#phase-4-admin-guide-en--ru)
 - [x] [Phase 5: Developer Guide (EN + RU)](#phase-5-developer-guide-en--ru)
 - [x] [Phase 6: Grafana dashboards + AlertManager rules](#phase-6-grafana-dashboards--alertmanager-rules)
-- [ ] [Phase 7: Operations Guide (EN + RU)](#phase-7-operations-guide-en--ru)
+- [x] [Phase 7: Operations Guide (EN + RU)](#phase-7-operations-guide-en--ru)
 - [ ] [Phase 8: Umbrella Helm chart](#phase-8-umbrella-helm-chart)
 - [ ] [Phase 9: docker-compose + Monitoring subchart](#phase-9-docker-compose--monitoring-subchart)
 
@@ -525,7 +525,7 @@
 ## Phase 7: Operations Guide (EN + RU)
 
 **Dependencies**: Phase 6 (dashboards, alerts), Phase 3 (скриншоты мониторинга)
-**Status**: Pending
+**Status**: ✅ Done
 
 ### Описание
 
@@ -533,7 +533,7 @@
 
 ### Подпункты
 
-- [ ] **7.1 Operations Guide — Мониторинг + Dashboards (EN)**
+- [x] **7.1 Operations Guide — Мониторинг + Dashboards (EN)**
   - **Dependencies**: None
   - **Description**: Написать §1 (обзор метрик — таблица всех метрик по модулям, настройка ServiceMonitor/Pod annotations, встроенный мониторинг Admin UI со скриншотом, topologymetrics + uniproxy) и §2 (Grafana Dashboards — установка, provisioning через ConfigMap, описание каждого из 6 дашбордов с ключевыми панелями).
   - **Creates**:
@@ -541,21 +541,21 @@
   - **Links**:
     - [Требования](docs/requirements/documentation-monitoring-requirements.md) — раздел 2.9, 4
 
-- [ ] **7.2 Operations Guide — Алертинг + Troubleshooting (EN)**
+- [x] **7.2 Operations Guide — Алертинг + Troubleshooting (EN)**
   - **Dependencies**: 7.1
   - **Description**: Написать §3 (алертинг — описание каждого алерта, пороги, severity, runbooks: что делать при срабатывании) и §4 (troubleshooting — типичные проблемы, диагностика через topologymetrics, формат логов slog JSON, health check endpoints, примеры `kubectl logs` + `jq`).
   - **Creates**:
     - Дополнение `docs/guides/operations-guide.md` (§3-4)
   - **Links**: N/A
 
-- [ ] **7.3 Operations Guide — Backup + Масштабирование + финализация (EN)**
+- [x] **7.3 Operations Guide — Backup + Масштабирование + финализация (EN)**
   - **Dependencies**: 7.2
   - **Description**: Написать §5 (backup рекомендации — pg_dump для PG, VolumeSnapshot для PVC SE, KC realm export, пометка что автоматизация = будущая задача) и §6 (масштабирование — horizontal scaling IM/QM, добавление SE, рекомендации по ресурсам). ToC, ссылки, вычитка.
   - **Creates**:
     - Финализация `docs/guides/operations-guide.md`
   - **Links**: N/A
 
-- [ ] **7.4 Operations Guide — RU-версия**
+- [x] **7.4 Operations Guide — RU-версия**
   - **Dependencies**: 7.3
   - **Description**: Полный перевод `operations-guide.md` на русский. Перекрёстные ссылки EN↔RU.
   - **Creates**:
@@ -564,12 +564,12 @@
 
 ### ✅ Критерии завершения Phase 7
 
-- [ ] Все подпункты завершены (7.1-7.4)
-- [ ] `docs/guides/operations-guide.md` — полный EN-документ (6 разделов)
-- [ ] `docs/guides/operations-guide.ru.md` — полный RU-перевод
-- [ ] Runbooks для каждого алерта описаны
-- [ ] Ссылки на dashboards JSON корректны
-- [ ] Markdown lint проверка пройдена
+- [x] Все подпункты завершены (7.1-7.4)
+- [x] `docs/guides/operations-guide.md` — полный EN-документ (6 разделов)
+- [x] `docs/guides/operations-guide.ru.md` — полный RU-перевод
+- [x] Runbooks для каждого алерта описаны
+- [x] Ссылки на dashboards JSON корректны
+- [x] Markdown lint проверка пройдена
 
 ---
 
