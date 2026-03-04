@@ -573,6 +573,9 @@ templ FileDetailPartial(file *gateway.FileInfo) {
 				>
 					{ i18n.T(ctx, "btn.close") }
 				</button>
+				if file.SEMode == "edit" && file.Status == "active" {
+					@deleteFileButton(file)
+				}
 				if file.SEMode != "ar" {
 					<a
 						href={ templ.SafeURL(fmt.Sprintf("/files/%s/download", file.FileID)) }
@@ -584,9 +587,6 @@ templ FileDetailPartial(file *gateway.FileInfo) {
 						{ i18n.T(ctx, "btn.download") }
 					</a>
 				}
-			}
-			if file.SEMode == "edit" && file.Status == "active" {
-				@deleteFileButton(file)
 			}
 		}
 	</div>
