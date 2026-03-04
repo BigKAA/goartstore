@@ -18,8 +18,11 @@ import (
 	"os"
 	"time"
 
+	"github.com/bigkaa/goartstore/demo-client/internal/activity"
 	"github.com/bigkaa/goartstore/demo-client/internal/config"
+	"github.com/bigkaa/goartstore/demo-client/internal/gateway"
 	"github.com/bigkaa/goartstore/demo-client/internal/server"
+	"github.com/bigkaa/goartstore/demo-client/internal/service"
 	"github.com/bigkaa/goartstore/demo-client/internal/token"
 )
 
@@ -65,7 +68,41 @@ func main() {
 		"scopes", cfg.Scopes,
 	)
 
-	// 5. HTTP-сервер
+	// 5. Activity Log — in-memory ring buffer для записи API-вызовов
+	activityLog := activity.NewLog(cfg.ActivityLogSize)
+	logger.Info("Activity Log инициализирован",
+		"size", cfg.ActivityLogSize,
+	)
+
+	// 6. Gateway Client — HTTP-клиент к API Gateway
+	gwClient := gateway.NewClient(gateway.ClientConfig{
+		BaseURL:        cfg.GatewayURL,
+		RequestTimeout: cfg.RequestTimeout,
+		UploadTimeout:  cfg.UploadTimeout,
+		HTTPClient:     httpClient,
+	}, tokenMgr.GetToken, logger.With("component", "gateway"))
+
+	logger.Info("Gateway Client инициализирован",
+		"gateway_url", cfg.GatewayURL,
+		"request_timeout", cfg.RequestTimeout,
+		"upload_timeout", cfg.UploadTimeout,
+	)
+
+	// 7. Service Layer — бизнес-логика поверх Gateway Client
+	uploadSvc := service.NewUploadService(gwClient, activityLog, logger.With("component", "upload"))
+	searchSvc := service.NewSearchService(gwClient, activityLog, logger.With("component", "search"))
+	downloadSvc := service.NewDownloadService(gwClient, activityLog, logger.With("component", "download"))
+	dashboardSvc := service.NewDashboardService(gwClient, tokenMgr, activityLog, logger.With("component", "dashboard"))
+
+	// TODO: передать сервисы в UI handlers в Phase 4
+	_ = uploadSvc
+	_ = searchSvc
+	_ = downloadSvc
+	_ = dashboardSvc
+
+	logger.Info("Service Layer инициализирован")
+
+	// 8. HTTP-сервер
 	srv := server.New(cfg, logger, tokenMgr)
 
 	if err := srv.Run(); err != nil {

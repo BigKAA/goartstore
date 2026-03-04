@@ -1,6 +1,6 @@
 # Бинарники
 bin/
-demo-client
+/demo-client
 
 # Tailwind CSS (генерируется)
 internal/ui/static/css/output.css

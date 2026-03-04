@@ -21,10 +21,10 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 2
-- **Активный подпункт**: 2.1
+- **Активная фаза**: Phase 3
+- **Активный подпункт**: 3.1
 - **Последнее обновление**: 2026-03-04
-- **Примечание**: Phase 1 завершена — каркас, конфиг, Token Manager, HTTP-сервер
+- **Примечание**: Phase 2 завершена — Gateway Client, Activity Log, Service Layer, unit-тесты
 
 ---
 
@@ -228,7 +228,7 @@ Download flow:
 ## Оглавление
 
 - [x] [Phase 1: Каркас проекта + конфигурация + Token Manager](#phase-1-каркас-проекта--конфигурация--token-manager)
-- [ ] [Phase 2: Gateway Client + Service Layer](#phase-2-gateway-client--service-layer)
+- [x] [Phase 2: Gateway Client + Service Layer](#phase-2-gateway-client--service-layer)
 - [ ] [Phase 3: UI Framework (layouts, components, i18n)](#phase-3-ui-framework-layouts-components-i18n)
 - [ ] [Phase 4: Dashboard + Activity Log + Settings](#phase-4-dashboard--activity-log--settings)
 - [ ] [Phase 5: Upload (single + batch)](#phase-5-upload-single--batch)
@@ -338,7 +338,7 @@ Activity Log (in-memory ring buffer) для записи всех API-вызов
 
 ### Подпункты
 
-- [ ] **2.1 Gateway базовый клиент + типы ошибок**
+- [x] **2.1 Gateway базовый клиент + типы ошибок**
   - **Dependencies**: None
   - **Description**: HTTP-клиент с авто-инъекцией `Authorization: Bearer <token>`.
     Configurable timeouts (request vs upload). TLS настройки из конфига
@@ -353,7 +353,7 @@ Activity Log (in-memory ring buffer) для записи всех API-вызов
     - `internal/gateway/models.go`
     - `internal/gateway/errors.go`
 
-- [ ] **2.2 Activity Log**
+- [x] **2.2 Activity Log**
   - **Dependencies**: None
   - **Description**: Thread-safe ring buffer фиксированного размера.
     Структура записи: timestamp, method, path, status, duration_ms, description.
@@ -362,7 +362,7 @@ Activity Log (in-memory ring buffer) для записи всех API-вызов
   - **Creates**:
     - `internal/activity/log.go`
 
-- [ ] **2.3 Gateway: Upload + Search + Download + Metadata + Health**
+- [x] **2.3 Gateway: Upload + Search + Download + Metadata + Health**
   - **Dependencies**: 2.1
   - **Description**: Реализация всех методов Gateway Client:
     - `Upload(file, params) → UploadResult` (multipart/form-data)
@@ -378,7 +378,7 @@ Activity Log (in-memory ring buffer) для записи всех API-вызов
     - `internal/gateway/metadata.go`
     - `internal/gateway/health.go`
 
-- [ ] **2.4 Service Layer**
+- [x] **2.4 Service Layer**
   - **Dependencies**: 2.2, 2.3
   - **Description**: Сервисы — тонкая прослойка над Gateway Client.
     - `UploadService`: single upload + batch upload (sequential, с отчётом по каждому файлу)
@@ -392,7 +392,7 @@ Activity Log (in-memory ring buffer) для записи всех API-вызов
     - `internal/service/download.go`
     - `internal/service/dashboard.go`
 
-- [ ] **2.5 Unit-тесты Phase 2**
+- [x] **2.5 Unit-тесты Phase 2**
   - **Dependencies**: 2.2, 2.4
   - **Description**: Unit-тесты для компонентов Phase 2:
     - Activity Log: ring buffer overflow, concurrency (goroutines), Subscribe/Unsubscribe
@@ -405,10 +405,10 @@ Activity Log (in-memory ring buffer) для записи всех API-вызов
 
 ### Критерии завершения Phase 2
 
-- [ ] Все подпункты завершены (2.1–2.5)
-- [ ] Unit-тесты для Activity Log (ring buffer, concurrency)
-- [ ] Unit-тесты для Gateway Client (mock HTTP server)
-- [ ] `go test ./...` проходит
+- [x] Все подпункты завершены (2.1–2.5)
+- [x] Unit-тесты для Activity Log (ring buffer, concurrency)
+- [x] Unit-тесты для Gateway Client (mock HTTP server)
+- [x] `go test ./...` проходит
 
 ---
 
