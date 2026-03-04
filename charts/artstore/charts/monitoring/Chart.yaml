@@ -1,0 +1,13 @@
+# Monitoring subchart — Prometheus + Grafana для Artstore
+#
+# Встроенный стек мониторинга для dev/test инсталляций.
+# Для production рекомендуется использовать внешний Prometheus Operator + Grafana.
+#
+# Включение: monitoring.enabled: true в umbrella chart values.
+
+apiVersion: v2
+name: monitoring
+description: Встроенный мониторинг (Prometheus + Grafana) для Artstore
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

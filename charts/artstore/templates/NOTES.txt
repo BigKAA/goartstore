@@ -1,0 +1,40 @@
+
+╔══════════════════════════════════════════════════════════════╗
+║                    Artstore v{{ .Chart.AppVersion }}                       ║
+╚══════════════════════════════════════════════════════════════╝
+
+Развёрнутые компоненты:
+{{- if index .Values "admin-module" "enabled" }}
+  ✓ Admin Module     (порт 8000)
+{{- end }}
+{{- if index .Values "storage-element" "enabled" }}
+  ✓ Storage Element  (порт 8010, id: {{ index .Values "storage-element" "elementId" }}, mode: {{ index .Values "storage-element" "mode" }})
+{{- end }}
+{{- if index .Values "ingester-module" "enabled" }}
+  ✓ Ingester Module  (порт 8020)
+{{- end }}
+{{- if index .Values "query-module" "enabled" }}
+  ✓ Query Module     (порт 8030)
+{{- end }}
+
+{{- if .Values.monitoring.dashboards.enabled }}
+Мониторинг:
+  ✓ Grafana dashboards (6 шт., label: {{ .Values.monitoring.dashboards.label }}={{ .Values.monitoring.dashboards.labelValue }})
+{{- end }}
+{{- if .Values.monitoring.alerts.enabled }}
+  ✓ PrometheusRule алерты
+{{- end }}
+
+{{- if .Values.global.gateway.enabled }}
+Gateway:
+  hostname: {{ .Values.global.gateway.hostname }}
+  gateway:  {{ .Values.global.gateway.namespace }}/{{ .Values.global.gateway.name }}
+{{- end }}
+
+Проверка состояния:
+  kubectl get pods -n {{ include "artstore.namespace" . }} -l app.kubernetes.io/part-of=artstore
+
+Документация:
+  - Admin Guide:      docs/guides/admin-guide.md
+  - Developer Guide:  docs/guides/developer-guide.md
+  - Operations Guide: docs/guides/operations-guide.md

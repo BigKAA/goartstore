@@ -1,0 +1,238 @@
+# Artstore — Production профиль
+#
+# HA-конфигурация: рекомендуемые ресурсы, множественные реплики,
+# TLS через cert-manager, Gateway API, ServiceMonitor.
+#
+# Использование:
+#   helm install artstore charts/artstore/ \
+#     -f charts/artstore/values-production.yaml \
+#     --set global.postgresql.host=pg.example.com \
+#     --set global.postgresql.password=<secret> \
+#     --set global.keycloak.url=https://keycloak.example.com \
+#     --set admin-module.keycloak.clientSecret=<secret> \
+#     ...
+
+# =============================================================================
+# Global
+# =============================================================================
+global:
+  namespace: artstore
+
+  registry: harbor.kryukov.lan
+  imagePullPolicy: IfNotPresent
+
+  postgresql:
+    external: true
+    host: ""          # обязательный: внешний PostgreSQL
+    port: 5432
+    database: artstore
+    user: artstore
+    password: ""      # обязательный
+    sslMode: verify-ca
+
+  keycloak:
+    external: true
+    url: ""           # обязательный: внешний Keycloak
+    externalUrl: ""   # публичный URL Keycloak
+    realm: artstore
+
+  tls:
+    caSecret: artstore-ca
+    skipVerify: false
+
+  gateway:
+    enabled: true
+    name: eg
+    namespace: envoy-gateway-system
+    hostname: artstore.example.com
+
+# =============================================================================
+# Мониторинг
+# =============================================================================
+monitoring:
+  dashboards:
+    enabled: true
+    label: grafana_dashboard
+    labelValue: "1"
+    folder: "Artstore"
+  alerts:
+    enabled: true
+    additionalLabels:
+      prometheus: kube-prometheus
+      role: alert-rules
+
+# =============================================================================
+# Admin Module — production
+# =============================================================================
+admin-module:
+  enabled: true
+  tag: latest         # переопределяется при деплое: --set admin-module.tag=v0.3.0
+  replicas: 1         # AM — singleton (owner файлового реестра)
+  logLevel: info
+  logFormat: json
+
+  database:
+    host: ""          # → global.postgresql.host
+    port: 5432
+    name: artstore
+    user: artstore
+    password: ""      # → global.postgresql.password
+    sslMode: verify-ca
+
+  keycloak:
+    url: ""           # → global.keycloak.url
+    realm: artstore
+    clientId: artstore-admin-module
+    clientSecret: ""  # обязательный: задаётся при деплое
+    saPrefix: "sa_"
+
+  tls:
+    caSecret: artstore-ca
+
+  ui:
+    enabled: true
+    sessionSecret: "" # обязательный: 32-byte hex для AES-256-GCM
+    oidcClientId: artstore-admin-ui
+
+  sync:
+    interval: "30m"
+    pageSize: 5000
+    saInterval: "10m"
+
+  httproute:
+    enabled: true
+    gatewayName: eg
+    gatewayNamespace: envoy-gateway-system
+    hostname: artstore.example.com
+    pathPrefixes:
+      - /api/v1
+      - /health
+      - /admin
+      - /static
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+
+# =============================================================================
+# Storage Element — production (несколько экземпляров)
+# Базовый SE — edit-режим для новых файлов.
+# Дополнительные SE (rw, ro) деплоятся отдельными Helm release-ами
+# или через отдельные values-файлы.
+# =============================================================================
+storage-element:
+  enabled: true
+  elementId: se-prod-01
+  port: 8010
+  mode: edit
+  replicas: 1
+  tag: latest         # переопределяется при деплое: --set storage-element.tag=v0.3.0
+  logLevel: info
+  logFormat: json
+
+  maxCapacity: "107374182400"  # 100GB
+  maxFileSize: "5368709120"    # 5GB
+
+  storageClass: ""    # обязательный: production StorageClass
+  dataSize: 100Gi
+
+  tls:
+    enabled: true
+    clusterIssuer: ""  # обязательный: production ClusterIssuer
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+
+# =============================================================================
+# Ingester Module — production (HA)
+# =============================================================================
+ingester-module:
+  enabled: true
+  tag: latest         # переопределяется при деплое
+  replicas: 2
+  logLevel: info
+  logFormat: json
+
+  oauth:
+    clientId: artstore-ingester
+    clientSecret: ""  # обязательный
+
+  tls:
+    caSecret: artstore-ca
+    skipVerify: false
+
+  upload:
+    maxFileSize: 5368709120   # 5GB
+    defaultTtlDays: 30
+    maxRetries: 3
+
+  httproute:
+    enabled: true
+    gatewayName: eg
+    gatewayNamespace: envoy-gateway-system
+    hostname: artstore.example.com
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+
+  tempUpload:
+    sizeLimit: "10Gi"
+
+# =============================================================================
+# Query Module — production (HA)
+# =============================================================================
+query-module:
+  enabled: true
+  tag: latest         # переопределяется при деплое
+  replicas: 2
+  logLevel: info
+  logFormat: json
+
+  database:
+    host: ""          # → global.postgresql.host
+    port: 5432
+    name: artstore
+    user: artstore
+    password: ""      # → global.postgresql.password
+    sslMode: verify-ca
+    maxConns: 20
+
+  oauth:
+    clientId: artstore-query
+    clientSecret: ""  # обязательный
+
+  cache:
+    ttl: "5m"
+    maxSize: 50000
+
+  tls:
+    caSecret: artstore-ca
+    skipVerify: false
+
+  httproute:
+    enabled: true
+    gatewayName: eg
+    gatewayNamespace: envoy-gateway-system
+    hostname: artstore.example.com
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi

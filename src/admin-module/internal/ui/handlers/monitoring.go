@@ -258,8 +258,9 @@ func (h *MonitoringHandler) collectAlerts(data *pages.MonitoringData) {
 			})
 		}
 
-		// Проверяем заполненность SE (>80%)
-		if se.CapacityBytes > 0 {
+		// Проверяем заполненность SE (>80%).
+		// SE в режимах ro и ar могут быть заполнены на 100% — это нормально.
+		if se.CapacityBytes > 0 && se.Mode != "ro" && se.Mode != "ar" {
 			usagePct := float64(se.UsedBytes) / float64(se.CapacityBytes) * 100
 			if usagePct >= 80 {
 				data.Alerts = append(data.Alerts, pages.MonitoringAlert{

@@ -100,6 +100,10 @@ httproute:
   # Маршруты: /query/* → QM (с strip /query prefix)
   # /health/* и /metrics — прямые (без strip)
 
+# --- Дополнительные annotations для pods ---
+# Произвольные annotations, добавляемые к pods (помимо Prometheus)
+podAnnotations: {}
+
 # --- Prometheus метрики ---
 metrics:
   enabled: true

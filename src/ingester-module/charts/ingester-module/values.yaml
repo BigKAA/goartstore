@@ -89,6 +89,10 @@ httproute:
   gatewayNamespace: envoy-gateway-system
   hostname: "artstore.kryukov.lan"
 
+# --- Дополнительные annotations для pods ---
+# Произвольные annotations, добавляемые к pods (помимо Prometheus)
+podAnnotations: {}
+
 # --- Prometheus метрики ---
 metrics:
   enabled: true

@@ -1,0 +1,256 @@
+# Artstore — Dev/Test профиль
+#
+# Минимальные ресурсы для minikube/kind (4GB RAM).
+# Один SE в режиме edit, debug-логирование, без TLS-проверок.
+#
+# Использование:
+#   helm install artstore charts/artstore/ -f charts/artstore/values-dev.yaml
+
+# =============================================================================
+# Global
+# =============================================================================
+global:
+  namespace: artstore-dev
+
+  registry: harbor.kryukov.lan
+  imagePullPolicy: Always
+
+  postgresql:
+    external: true
+    host: postgresql.artstore-dev.svc.cluster.local
+    port: 5432
+    database: artstore
+    user: artstore
+    password: artstore-dev
+    sslMode: disable
+
+  keycloak:
+    external: true
+    url: http://keycloak.artstore-dev.svc.cluster.local:8080
+    externalUrl: https://artstore-dev.kryukov.lan
+    realm: artstore
+
+  tls:
+    caSecret: artstore-ca
+    skipVerify: true
+
+  gateway:
+    enabled: true
+    name: eg
+    namespace: envoy-gateway-system
+    hostname: artstore-dev.kryukov.lan
+
+# =============================================================================
+# Мониторинг
+# =============================================================================
+monitoring:
+  dashboards:
+    enabled: true
+    label: grafana_dashboard
+    labelValue: "1"
+    folder: "Artstore"
+  alerts:
+    enabled: false
+
+# Встроенный мониторинг — Prometheus + Grafana для dev/test
+monitoring-stack:
+  enabled: true
+  prometheus:
+    enabled: true
+    retention: 3d
+    scrapeInterval: 15s
+    storage:
+      size: 1Gi
+      storageClass: ""
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+  grafana:
+    enabled: true
+    anonymousEnabled: true
+    anonymousRole: Viewer
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
+# =============================================================================
+# Namespace
+# =============================================================================
+createNamespace: true
+
+# =============================================================================
+# Admin Module — dev
+# =============================================================================
+admin-module:
+  enabled: true
+  tag: latest
+  imagePullPolicy: Always
+  replicas: 1
+  logLevel: debug
+  logFormat: json
+
+  database:
+    host: postgresql.artstore-dev.svc.cluster.local
+    port: 5432
+    name: artstore
+    user: artstore
+    password: artstore-dev
+    sslMode: disable
+
+  keycloak:
+    url: http://keycloak.artstore-dev.svc.cluster.local:8080
+    realm: artstore
+    clientId: artstore-admin-module
+    clientSecret: admin-module-dev-secret
+    saPrefix: "sa_"
+
+  tls:
+    caSecret: artstore-ca
+
+  ui:
+    enabled: true
+    oidcClientId: artstore-admin-ui
+
+  httproute:
+    enabled: true
+    gatewayName: eg
+    gatewayNamespace: envoy-gateway-system
+    hostname: artstore-dev.kryukov.lan
+    pathPrefixes:
+      - /api/v1
+      - /health
+      - /admin
+      - /static
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+# =============================================================================
+# Storage Element — dev (один SE, режим edit)
+# =============================================================================
+storage-element:
+  enabled: true
+  elementId: se-dev-01
+  port: 8010
+  mode: edit
+  replicas: 1
+  tag: latest
+  imagePullPolicy: Always
+  logLevel: debug
+  logFormat: json
+
+  maxCapacity: "5368709120"   # 5GB
+
+  storageClass: nfs-client
+  dataSize: 5Gi
+
+  tls:
+    enabled: true
+    clusterIssuer: dev-ca-issuer
+
+  httproute:
+    enabled: false
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+# =============================================================================
+# Ingester Module — dev
+# =============================================================================
+ingester-module:
+  enabled: true
+  tag: latest
+  imagePullPolicy: Always
+  replicas: 1
+  logLevel: debug
+  logFormat: json
+
+  oauth:
+    clientId: artstore-ingester
+    clientSecret: ingester-dev-secret
+
+  tls:
+    caSecret: artstore-ca
+    skipVerify: true
+
+  upload:
+    maxFileSize: 104857600     # 100MB для dev
+    defaultTtlDays: 7
+    maxRetries: 2
+
+  httproute:
+    enabled: true
+    gatewayName: eg
+    gatewayNamespace: envoy-gateway-system
+    hostname: artstore-dev.kryukov.lan
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+  tempUpload:
+    sizeLimit: "512Mi"
+
+# =============================================================================
+# Query Module — dev
+# =============================================================================
+query-module:
+  enabled: true
+  tag: latest
+  imagePullPolicy: Always
+  replicas: 1
+  logLevel: debug
+  logFormat: json
+
+  database:
+    host: postgresql.artstore-dev.svc.cluster.local
+    port: 5432
+    name: artstore
+    user: artstore
+    password: artstore-dev
+    sslMode: disable
+    maxConns: 5
+
+  oauth:
+    clientId: artstore-query
+    clientSecret: query-dev-secret
+
+  tls:
+    caSecret: artstore-ca
+    skipVerify: true
+
+  httproute:
+    enabled: true
+    gatewayName: eg
+    gatewayNamespace: envoy-gateway-system
+    hostname: artstore-dev.kryukov.lan
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi

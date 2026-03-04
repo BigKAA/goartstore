@@ -23,13 +23,16 @@ spec:
     metadata:
       labels:
         {{- include "se.selectorLabels" . | nindent 8 }}
-      {{- if .Values.metrics.enabled }}
       annotations:
+        {{- if .Values.metrics.enabled }}
         prometheus.io/scrape: "true"
         prometheus.io/port: {{ .Values.port | quote }}
         prometheus.io/path: {{ .Values.metrics.path | quote }}
         prometheus.io/scheme: {{ .Values.metrics.scheme | quote }}
-      {{- end }}
+        {{- end }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
     spec:
       containers:
         - name: storage-element

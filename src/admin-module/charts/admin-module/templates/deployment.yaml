@@ -29,6 +29,9 @@ spec:
         prometheus.io/port: {{ .Values.port | quote }}
         prometheus.io/path: {{ .Values.metrics.path | quote }}
         {{- end }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
     spec:
       containers:
         - name: admin-module

@@ -111,6 +111,10 @@ httproute:
   pathPrefixes:
     - /api/v1
 
+# --- Дополнительные annotations для pods ---
+# Произвольные annotations, добавляемые к pods (помимо Prometheus)
+podAnnotations: {}
+
 # --- Prometheus метрики ---
 metrics:
   enabled: true

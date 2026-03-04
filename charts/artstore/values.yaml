@@ -1,0 +1,407 @@
+# Artstore Umbrella Chart — значения по умолчанию
+#
+# Этот файл содержит defaults для всех subcharts.
+# Для dev/test используйте values-dev.yaml, для production — values-production.yaml.
+#
+# Subcharts конфигурируются через ключи с именем subchart-а:
+#   admin-module, storage-element, ingester-module, query-module
+#
+# Общие параметры — через секцию global.
+
+# =============================================================================
+# Global — общие параметры, доступные всем subcharts
+# =============================================================================
+global:
+  # Namespace для развёртывания (если пусто — используется Release namespace)
+  namespace: ""
+
+  # Docker registry для всех образов
+  registry: harbor.kryukov.lan
+  imagePullPolicy: IfNotPresent
+
+  # Дополнительные labels для всех ресурсов umbrella chart
+  labels: {}
+
+  # Имя сервиса Admin Module (для формирования URL-ов)
+  adminModuleServiceName: "admin-module"
+
+  # --- PostgreSQL ---
+  # Если external: true — используется указанный хост.
+  # Если external: false — ожидается внешний PostgreSQL (umbrella не деплоит PG).
+  postgresql:
+    external: true
+    host: ""          # обязательный
+    port: 5432
+    database: artstore
+    user: artstore
+    password: ""      # обязательный
+    sslMode: disable
+
+  # --- Keycloak ---
+  # external: true — используется указанный URL.
+  # external: false — ожидается внешний Keycloak (umbrella не деплоит KC).
+  keycloak:
+    external: true
+    url: ""           # обязательный: внутренний URL Keycloak
+    externalUrl: ""   # публичный URL (для JWT issuer, если отличается)
+    realm: artstore
+
+  # --- TLS ---
+  tls:
+    # Общий CA Secret (монтируется во все модули)
+    caSecret: ""
+    # Пропускать проверку TLS-сертификатов (только для dev/test!)
+    skipVerify: false
+
+  # --- Gateway API ---
+  gateway:
+    enabled: false
+    name: eg
+    namespace: envoy-gateway-system
+    hostname: "artstore.kryukov.lan"
+
+# =============================================================================
+# Мониторинг — Grafana dashboards + AlertManager rules
+# =============================================================================
+monitoring:
+  # Grafana dashboards как ConfigMaps (для auto-provisioning)
+  dashboards:
+    enabled: false
+    # Label, по которому Grafana sidecar обнаруживает ConfigMaps
+    label: grafana_dashboard
+    labelValue: "1"
+    # Folder в Grafana для dashboards
+    folder: "Artstore"
+
+  # PrometheusRule CRD для AlertManager
+  alerts:
+    enabled: false
+    # Дополнительные labels для PrometheusRule (для Prometheus operator selector)
+    additionalLabels: {}
+
+  # Примечание: для встроенного мониторинга (Prometheus + Grafana) — см. секцию monitoring-stack ниже.
+
+# =============================================================================
+# Monitoring Stack — встроенный Prometheus + Grafana (для dev/test)
+# Для production используйте внешний Prometheus Operator + Grafana.
+# =============================================================================
+monitoring-stack:
+  # Включение встроенного стека мониторинга
+  enabled: false
+  # Subchart values — см. charts/monitoring/values.yaml для полного списка
+  prometheus:
+    enabled: true
+    retention: 7d
+    scrapeInterval: 15s
+    storage:
+      size: 2Gi
+      storageClass: ""
+  grafana:
+    enabled: true
+    anonymousEnabled: true
+    anonymousRole: Viewer
+
+# =============================================================================
+# Namespace — опционально создать namespace
+# =============================================================================
+createNamespace: false
+
+# =============================================================================
+# Admin Module
+# =============================================================================
+admin-module:
+  enabled: true
+
+  registry: harbor.kryukov.lan
+  image: library/admin-module
+  tag: latest
+  imagePullPolicy: IfNotPresent
+
+  replicas: 1
+  port: 8000
+  logLevel: info
+  logFormat: json
+
+  # PostgreSQL — обязательные параметры
+  database:
+    host: ""
+    port: 5432
+    name: artstore
+    user: artstore
+    password: ""
+    sslMode: disable
+
+  # Keycloak — обязательные параметры
+  keycloak:
+    url: ""
+    realm: artstore
+    clientId: ""
+    clientSecret: ""
+    saPrefix: "sa_"
+
+  jwt:
+    rolesClaim: "realm_access.roles"
+    groupsClaim: "groups"
+
+  rbac:
+    adminGroups: "artstore-admins"
+    readonlyGroups: "artstore-viewers"
+
+  sync:
+    interval: "1h"
+    pageSize: 1000
+    saInterval: "15m"
+
+  tls:
+    caSecret: ""
+
+  dephealth:
+    checkInterval: "15s"
+    group: "core-modules"
+    isEntry: false
+
+  ui:
+    enabled: true
+    sessionSecret: ""
+    oidcClientId: "artstore-admin-ui"
+
+  shutdownTimeout: "5s"
+
+  httproute:
+    enabled: false
+    gatewayName: eg
+    gatewayNamespace: envoy-gateway-system
+    hostname: "artstore.kryukov.lan"
+    pathPrefixes:
+      - /api/v1
+      - /health
+      - /admin
+      - /static
+
+  podAnnotations: {}
+
+  metrics:
+    enabled: true
+    path: /metrics
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+# =============================================================================
+# Storage Element (экземпляр по умолчанию)
+# =============================================================================
+storage-element:
+  enabled: true
+
+  elementId: se-01
+  port: 8010
+  mode: rw
+  replicas: 1
+
+  registry: harbor.kryukov.lan
+  image: library/storage-element
+  tag: latest
+  imagePullPolicy: IfNotPresent
+
+  # JWKS URL — автоформируется через _helpers.tpl или задаётся вручную
+  jwksUrl: ""
+
+  logLevel: info
+  logFormat: json
+
+  gcInterval: "1h"
+  reconcileInterval: "6h"
+  maxFileSize: "1073741824"
+  maxCapacity: "10737418240"
+
+  uploadLockTTL: "120s"
+  modeSyncInterval: "10s"
+  indexSyncInterval: "30s"
+
+  shutdownTimeout: "5s"
+
+  dephealthCheckInterval: "15s"
+  dephealthGroup: "storage-element"
+  dephealthDepName: "admin-jwks"
+  dephealthIsEntry: false
+
+  storageClass: nfs-client
+  dataSize: 2Gi
+
+  tls:
+    enabled: true
+    clusterIssuer: dev-ca-issuer
+
+  ingress:
+    enabled: false
+
+  httproute:
+    enabled: false
+    gatewayName: eg
+    gatewayNamespace: envoy-gateway-system
+    hostname: "se-01.kryukov.lan"
+    pathPrefixes:
+      - /api/v1
+
+  podAnnotations: {}
+
+  metrics:
+    enabled: true
+    path: /metrics
+    scheme: https
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+# =============================================================================
+# Ingester Module
+# =============================================================================
+ingester-module:
+  enabled: true
+
+  registry: harbor.kryukov.lan
+  image: library/ingester-module
+  tag: latest
+  imagePullPolicy: IfNotPresent
+
+  replicas: 2
+  port: 8020
+  logLevel: info
+  logFormat: json
+
+  jwt:
+    jwksUrl: ""
+
+  rbac:
+    adminGroups: "artstore-admins"
+    readonlyGroups: "artstore-viewers"
+
+  adminModule:
+    url: ""
+
+  oauth:
+    tokenUrl: ""
+    clientId: ""
+    clientSecret: ""
+
+  upload:
+    maxFileSize: 1073741824
+    defaultTtlDays: 30
+    maxRetries: 3
+
+  tls:
+    caSecret: ""
+    skipVerify: false
+
+  dephealth:
+    checkInterval: "15s"
+    group: "core-modules"
+    isEntry: false
+
+  shutdownTimeout: "10s"
+
+  httproute:
+    enabled: false
+    gatewayName: eg
+    gatewayNamespace: envoy-gateway-system
+    hostname: "artstore.kryukov.lan"
+
+  podAnnotations: {}
+
+  metrics:
+    enabled: true
+    path: /metrics
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+  tempUpload:
+    sizeLimit: "2Gi"
+    mountPath: "/tmp/uploads"
+
+# =============================================================================
+# Query Module
+# =============================================================================
+query-module:
+  enabled: true
+
+  registry: harbor.kryukov.lan
+  image: library/query-module
+  tag: latest
+  imagePullPolicy: IfNotPresent
+
+  replicas: 1
+  port: 8030
+  logLevel: info
+  logFormat: json
+
+  # PostgreSQL — обязательные параметры (shared БД с Admin Module)
+  database:
+    host: ""
+    port: 5432
+    name: artstore
+    user: artstore
+    password: ""
+    sslMode: disable
+    maxConns: 10
+
+  jwt:
+    jwksUrl: ""
+
+  rbac:
+    adminGroups: "artstore-admins"
+    readonlyGroups: "artstore-viewers"
+
+  adminModule:
+    url: ""
+
+  oauth:
+    tokenUrl: ""
+    clientId: ""
+    clientSecret: ""
+
+  tls:
+    caSecret: ""
+    skipVerify: false
+
+  dephealth:
+    checkInterval: "15s"
+    group: "core-modules"
+    isEntry: false
+
+  shutdownTimeout: "5s"
+
+  httproute:
+    enabled: false
+    gatewayName: eg
+    gatewayNamespace: envoy-gateway-system
+    hostname: "artstore.kryukov.lan"
+
+  podAnnotations: {}
+
+  metrics:
+    enabled: true
+    path: /metrics
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi

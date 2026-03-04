@@ -11,7 +11,7 @@ namespace: artstore-test
 # -----------------------------------------------------------------------------
 registry: harbor.kryukov.lan/library
 amImage: admin-module
-amTag: v0.3.0-3
+amTag: v0.3.0-4
 qmImage: query-module
 qmTag: v0.1.0-6
 imImage: ingester-module

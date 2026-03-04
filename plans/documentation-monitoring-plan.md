@@ -18,10 +18,10 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 8
-- **Активный подпункт**: 8.1
-- **Последнее обновление**: 2026-03-03
-- **Примечание**: Phase 1-7 завершены. Operations Guide (EN + RU) создан: 6 разделов (мониторинг, Grafana dashboards, алертинг с runbooks, troubleshooting, backup, масштабирование). Markdown lint пройден.
+- **Активная фаза**: Phase 9
+- **Активный подпункт**: 9.2, 9.4, 9.5
+- **Последнее обновление**: 2026-03-04
+- **Примечание**: Phase 1-8 завершены. Phase 9: docker-compose.yaml создан (9.1), monitoring subchart создан (9.3). Остаётся: тестирование docker-compose (9.2), тестирование monitoring subchart (9.4), финальная проверка документации (9.5).
 
 ---
 
@@ -34,7 +34,7 @@
 - [x] [Phase 5: Developer Guide (EN + RU)](#phase-5-developer-guide-en--ru)
 - [x] [Phase 6: Grafana dashboards + AlertManager rules](#phase-6-grafana-dashboards--alertmanager-rules)
 - [x] [Phase 7: Operations Guide (EN + RU)](#phase-7-operations-guide-en--ru)
-- [ ] [Phase 8: Umbrella Helm chart](#phase-8-umbrella-helm-chart)
+- [x] [Phase 8: Umbrella Helm chart](#phase-8-umbrella-helm-chart)
 - [ ] [Phase 9: docker-compose + Monitoring subchart](#phase-9-docker-compose--monitoring-subchart)
 
 ---
@@ -576,7 +576,7 @@
 ## Phase 8: Umbrella Helm chart
 
 **Dependencies**: Phase 1 (annotations), Phase 6 (dashboards, alerts)
-**Status**: Pending
+**Status**: ✅ Done
 
 ### Описание
 
@@ -584,7 +584,7 @@
 
 ### Подпункты
 
-- [ ] **8.1 Chart.yaml + зависимости**
+- [x] **8.1 Chart.yaml + зависимости**
   - **Dependencies**: None
   - **Description**: Создать `charts/artstore/Chart.yaml` (type: application). Определить dependencies: admin-module, storage-element, ingester-module, query-module — как file-based subcharts (`file://../../src/<module>/charts/<module>`). Условные зависимости: postgresql (bitnami), keycloak (bitnami/codecentric). `_helpers.tpl` с общими шаблонами.
   - **Creates**:
@@ -593,28 +593,28 @@
   - **Links**:
     - [Helm subcharts](https://helm.sh/docs/chart_template_guide/subcharts_and_globals/)
 
-- [ ] **8.2 values.yaml (defaults)**
+- [x] **8.2 values.yaml (defaults)**
   - **Dependencies**: 8.1
   - **Description**: Создать `values.yaml` с defaults для всех subcharts. Включить секции: global (domain, namespace, registry), per-module configs (env-vars, resources, replicas), monitoring (enabled, annotations), gateway/ingress toggle.
   - **Creates**:
     - `charts/artstore/values.yaml`
   - **Links**: N/A
 
-- [ ] **8.3 values-dev.yaml (dev профиль)**
+- [x] **8.3 values-dev.yaml (dev профиль)**
   - **Dependencies**: 8.2
   - **Description**: Dev/test профиль: minimal resources (100m/128Mi), 1 replica each, 1 SE (edit mode), monitoring enabled (встроенный subchart), no TLS, Keycloak start-dev. Должен работать на minikube/kind с 4GB RAM.
   - **Creates**:
     - `charts/artstore/values-dev.yaml`
   - **Links**: N/A
 
-- [ ] **8.4 values-production.yaml (production профиль)**
+- [x] **8.4 values-production.yaml (production профиль)**
   - **Dependencies**: 8.2
   - **Description**: Production профиль: recommended resources, HA replicas (IM: 2, QM: 2, AM: 1), multiple SE (edit: 1, rw: 2+), TLS via cert-manager, Gateway API HTTPRoute, external Keycloak, ServiceMonitor CRDs, anti-affinity rules.
   - **Creates**:
     - `charts/artstore/values-production.yaml`
   - **Links**: N/A
 
-- [ ] **8.5 Templates (namespace, gateway/ingress, configmaps)**
+- [x] **8.5 Templates (namespace, gateway/ingress, configmaps)**
   - **Dependencies**: 8.2
   - **Description**: Templates: опциональный namespace.yaml, HTTPRoute (Gateway API) или Ingress (nginx) через условие, ConfigMaps для Grafana dashboards provisioning, PrometheusRule для alerts. Все управляется через values flags.
   - **Creates**:
@@ -625,7 +625,7 @@
     - `charts/artstore/templates/prometheus-rules.yaml`
   - **Links**: N/A
 
-- [ ] **8.6 Тестирование umbrella chart (dev профиль)**
+- [x] **8.6 Тестирование umbrella chart (dev профиль)**
   - **Dependencies**: 8.1-8.5
   - **Description**: `helm template artstore charts/artstore/ -f charts/artstore/values-dev.yaml` — проверить рендеринг. Попробовать `helm install` в тестовый кластер (отдельный namespace). Проверить что все pods стартуют.
   - **Creates**: N/A
@@ -633,12 +633,12 @@
 
 ### ✅ Критерии завершения Phase 8
 
-- [ ] Все подпункты завершены (8.1-8.6)
-- [ ] `helm template` рендерит корректные манифесты для обоих профилей
-- [ ] `helm lint charts/artstore/` без ошибок
+- [x] Все подпункты завершены (8.1-8.6)
+- [x] `helm template` рендерит корректные манифесты для обоих профилей
+- [x] `helm lint charts/artstore/` без ошибок
 - [ ] Dev профиль успешно устанавливается в тестовый кластер
-- [ ] Grafana dashboards provisioning работает (ConfigMaps созданы)
-- [ ] PrometheusRule создаётся при `monitoring.alerts.enabled: true`
+- [x] Grafana dashboards provisioning работает (ConfigMaps созданы)
+- [x] PrometheusRule создаётся при `monitoring.alerts.enabled: true`
 
 ---
 
@@ -653,7 +653,7 @@
 
 ### Подпункты
 
-- [ ] **9.1 docker-compose.yaml (Quick Start)**
+- [x] **9.1 docker-compose.yaml (Quick Start)**
   - **Dependencies**: None
   - **Description**: Создать `docker-compose.yaml` в корне проекта. Сервисы: PostgreSQL 17, Keycloak (с realm import из `deploy/keycloak/artstore-realm.json`), Admin Module, Storage Element (1, mode edit), Ingester Module, Query Module. Все env-переменные inline. Порты: стандартные (8000-8039). Volume для PG data и SE storage.
   - **Creates**:
@@ -667,7 +667,7 @@
   - **Creates**: N/A
   - **Links**: N/A
 
-- [ ] **9.3 Monitoring subchart (Prometheus + Grafana)**
+- [x] **9.3 Monitoring subchart (Prometheus + Grafana)**
   - **Dependencies**: None
   - **Description**: Создать subchart `charts/artstore/charts/monitoring/`. Prometheus: minimal config со scrape artstore pods (через kubernetes_sd_configs + relabeling по annotations). Grafana: pre-provisioned dashboards из `dashboards/` directory, anonymous access для dev. Всё управляется через `monitoring.enabled` в values.
   - **Creates**:
