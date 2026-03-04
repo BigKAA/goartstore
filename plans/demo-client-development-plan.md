@@ -21,10 +21,10 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 6
-- **Активный подпункт**: 6.1
+- **Активная фаза**: Phase 7
+- **Активный подпункт**: 7.1
 - **Последнее обновление**: 2026-03-04
-- **Примечание**: Phase 5 завершена — Upload (single + batch), формы с drag&drop, CSRF, i18n
+- **Примечание**: Phase 6 завершена — Search (fulltext/partial/exact, фильтры, пагинация, сортировка), Download (streaming, FILE_ARCHIVED modal с copy file_id), File Detail (метаданные, archived warning)
 
 ---
 
@@ -232,7 +232,7 @@ Download flow:
 - [x] [Phase 3: UI Framework (layouts, components, i18n)](#phase-3-ui-framework-layouts-components-i18n)
 - [x] [Phase 4: Dashboard + Activity Log + Settings](#phase-4-dashboard--activity-log--settings)
 - [x] [Phase 5: Upload (single + batch)](#phase-5-upload-single--batch)
-- [ ] [Phase 6: Search + Download + AR handling](#phase-6-search--download--ar-handling)
+- [x] [Phase 6: Search + Download + AR handling](#phase-6-search--download--ar-handling)
 - [ ] [Phase 7: Docker + Helm + Keycloak client + Integration](#phase-7-docker--helm--keycloak-client--integration)
 
 ---
@@ -601,7 +601,7 @@ batch upload нескольких файлов с общими параметр�
 ## Phase 6: Search + Download + AR handling
 
 **Dependencies**: Phase 4
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -611,7 +611,7 @@ batch upload нескольких файлов с общими параметр�
 
 ### Подпункты
 
-- [ ] **6.1 Search page + results**
+- [x] **6.1 Search page + results**
   - **Dependencies**: None
   - **Description**: Строка поиска (fulltext по умолчанию).
     Расширенные фильтры (раскрывающаяся панель, Alpine.js toggle):
@@ -628,7 +628,7 @@ batch upload нескольких файлов с общими параметр�
     - `internal/ui/pages/search.templ`
     - `internal/ui/pages/partials/search_results.templ`
 
-- [ ] **6.2 Download + FILE_ARCHIVED modal**
+- [x] **6.2 Download + FILE_ARCHIVED modal**
   - **Dependencies**: 6.1
   - **Description**: GET /download/{id} → backend → Gateway QM → stream файл.
     Если 410 → рендерить archived_modal partial:
@@ -642,7 +642,7 @@ batch upload нескольких файлов с общими параметр�
     - `internal/ui/handlers/download.go`
     - `internal/ui/pages/partials/archived_modal.templ`
 
-- [ ] **6.3 File detail (metadata)**
+- [x] **6.3 File detail (metadata)**
   - **Dependencies**: 6.1
   - **Description**: Карточка/модалка с полной информацией о файле.
     HTMX: клик на файл → GET /partials/file/{id} → modal с метаданными.
@@ -656,14 +656,14 @@ batch upload нескольких файлов с общими параметр�
 
 ### Критерии завершения Phase 6
 
-- [ ] Все подпункты завершены (6.1–6.3)
+- [x] Все подпункты завершены (6.1–6.3)
 - [ ] Fulltext поиск работает
 - [ ] Фильтры (retention, tags, status) работают
 - [ ] Пагинация и сортировка работают
 - [ ] Скачивание файлов из rw/ro SE работает
 - [ ] При попытке скачать ar файл — модалка с file_id + copy
 - [ ] Карточка метаданных отображает полную информацию
-- [ ] Activity Log записывает search/download операции
+- [x] Activity Log записывает search/download операции
 
 ---
 

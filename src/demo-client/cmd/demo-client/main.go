@@ -99,8 +99,8 @@ func main() {
 
 	// 8. Service Layer — бизнес-логика поверх Gateway Client
 	uploadSvc := service.NewUploadService(gwClient, activityLog, logger.With("component", "upload"))
-	_ = service.NewSearchService(gwClient, activityLog, logger.With("component", "search"))
-	_ = service.NewDownloadService(gwClient, activityLog, logger.With("component", "download"))
+	searchSvc := service.NewSearchService(gwClient, activityLog, logger.With("component", "search"))
+	downloadSvc := service.NewDownloadService(gwClient, activityLog, logger.With("component", "download"))
 	dashboardSvc := service.NewDashboardService(gwClient, tokenMgr, activityLog, logger.With("component", "dashboard"))
 
 	logger.Info("Service Layer инициализирован")
@@ -109,6 +109,8 @@ func main() {
 	srv := server.New(cfg, logger, tokenMgr, server.Deps{
 		DashboardSvc: dashboardSvc,
 		UploadSvc:    uploadSvc,
+		SearchSvc:    searchSvc,
+		DownloadSvc:  downloadSvc,
 		ActivityLog:  activityLog,
 	})
 

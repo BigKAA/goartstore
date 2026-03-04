@@ -60,6 +60,8 @@ type ReadinessChecker interface {
 type Deps struct {
 	DashboardSvc *service.DashboardService
 	UploadSvc    *service.UploadService
+	SearchSvc    *service.SearchService
+	DownloadSvc  *service.DownloadService
 	ActivityLog  *activity.Log
 }
 
@@ -122,16 +124,24 @@ func registerUIRoutes(router chi.Router, cfg *config.Config, deps Deps, logger *
 	activityH := handlers.NewActivityHandler(deps.ActivityLog, logger.With("handler", "activity"))
 	settingsH := handlers.NewSettingsHandler(cfg, deps.DashboardSvc, logger.With("handler", "settings"))
 	uploadH := handlers.NewUploadHandler(deps.UploadSvc, cfg, logger.With("handler", "upload"))
+	searchH := handlers.NewSearchHandler(deps.SearchSvc, logger.With("handler", "search"))
+	downloadH := handlers.NewDownloadHandler(deps.DownloadSvc, logger.With("handler", "download"))
 
 	// --- Страницы ---
 	router.Get("/", dashboardH.Page)
 	router.Get("/upload", uploadH.Page)
+	router.Get("/search", searchH.Page)
 	router.Get("/settings", settingsH.Page)
 
 	// --- Partials (HTMX) ---
 	router.Get("/partials/health", dashboardH.HealthPartial)
 	router.Get("/partials/token", dashboardH.TokenPartial)
 	router.Get("/partials/settings/health", settingsH.HealthPartial)
+	router.Get("/search/results", searchH.HandleSearch)
+	router.Get("/files/{fileID}", searchH.FileDetail)
+
+	// --- Downloads ---
+	router.Get("/files/{fileID}/download", downloadH.Download)
 
 	// --- SSE ---
 	router.Get("/activity/stream", activityH.Stream)

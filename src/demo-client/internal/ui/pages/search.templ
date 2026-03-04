@@ -1,0 +1,621 @@
+package pages
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/bigkaa/goartstore/demo-client/internal/gateway"
+	"github.com/bigkaa/goartstore/demo-client/internal/service"
+	"github.com/bigkaa/goartstore/demo-client/internal/ui/components"
+	"github.com/bigkaa/goartstore/demo-client/internal/ui/i18n"
+	"github.com/bigkaa/goartstore/demo-client/internal/ui/layouts"
+)
+
+// SearchPageData — данные для рендера страницы поиска.
+type SearchPageData struct{}
+
+// SearchResultsData — данные для partial результатов поиска.
+type SearchResultsData struct {
+	Items      []gateway.FileInfo // Найденные файлы
+	Total      int                // Всего результатов
+	Page       int                // Текущая страница
+	TotalPages int                // Всего страниц
+	PageSize   int                // Размер страницы
+	SortBy     string             // Текущий ключ сортировки
+	SortOrder  string             // Направление сортировки
+	BaseURL    string             // Базовый URL для пагинации (с параметрами фильтров)
+}
+
+// Search — полная страница поиска файлов.
+templ Search(data SearchPageData) {
+	@layouts.Page(layouts.PageParams{
+		Title:     i18n.T(ctx, "search.title"),
+		ActiveNav: "search",
+	}) {
+		<div class="max-w-7xl mx-auto">
+			<h1 class="text-2xl font-bold text-text-primary mb-6">{ i18n.T(ctx, "search.title") }</h1>
+
+			<!-- Форма поиска -->
+			<div x-data="{ showAdvanced: false }" class="space-y-4">
+				<!-- Строка поиска + режим + кнопка -->
+				<div class="card">
+					<div class="flex flex-col sm:flex-row gap-4">
+						<!-- Поле поиска -->
+						<div class="flex-1 relative">
+							<div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+								<svg class="w-5 h-5 text-text-muted" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"></path>
+								</svg>
+							</div>
+							<input
+								type="text"
+								id="search-query"
+								name="q"
+								placeholder={ i18n.T(ctx, "search.placeholder") }
+								class="input-field pl-10 w-full"
+								hx-get="/search/results"
+								hx-target="#search-results"
+								hx-swap="innerHTML"
+								hx-trigger="keyup changed delay:500ms"
+								hx-include="#search-filters"
+							/>
+						</div>
+
+						<!-- Режим поиска -->
+						<div class="flex-shrink-0">
+							<select
+								name="mode"
+								class="select-field"
+								hx-get="/search/results"
+								hx-target="#search-results"
+								hx-swap="innerHTML"
+								hx-include="#search-filters"
+							>
+								<option value="fulltext">{ i18n.T(ctx, "filter.fulltext") }</option>
+								<option value="partial">{ i18n.T(ctx, "filter.partial") }</option>
+								<option value="exact">{ i18n.T(ctx, "filter.exact") }</option>
+							</select>
+						</div>
+
+						<!-- Кнопка поиска -->
+						<div class="flex-shrink-0">
+							<button
+								type="button"
+								class="btn-primary px-6 py-2 rounded-button"
+								hx-get="/search/results"
+								hx-target="#search-results"
+								hx-swap="innerHTML"
+								hx-include="#search-filters"
+							>
+								{ i18n.T(ctx, "btn.search") }
+							</button>
+						</div>
+					</div>
+
+					<!-- Кнопка расширенных фильтров -->
+					<div class="mt-3">
+						<button
+							type="button"
+							x-on:click="showAdvanced = !showAdvanced"
+							class="text-sm text-text-secondary hover:text-accent-primary transition-colors flex items-center gap-1"
+						>
+							<svg
+								class="w-4 h-4 transition-transform"
+								x-bind:class="showAdvanced ? 'rotate-180' : ''"
+								fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
+							>
+								<path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"></path>
+							</svg>
+							{ i18n.T(ctx, "filter.advanced") }
+						</button>
+					</div>
+				</div>
+
+				<!-- Расширенные фильтры (Alpine.js toggle) -->
+				<div x-show="showAdvanced" x-transition x-cloak>
+					@searchFilters()
+				</div>
+
+				<!-- Контейнер для результатов (заполняется через HTMX) -->
+				<div id="search-results"></div>
+
+				<!-- Контейнер для модалки деталей файла (HTMX) -->
+				<div id="file-detail-container"></div>
+			</div>
+		</div>
+	}
+}
+
+// searchFilters — панель расширенных фильтров.
+templ searchFilters() {
+	<div id="search-filters" class="card">
+		<h3 class="text-sm font-semibold text-text-primary mb-4">{ i18n.T(ctx, "filter.advanced") }</h3>
+		<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+			<!-- Retention Policy -->
+			<div>
+				<label class="block text-xs font-medium text-text-secondary uppercase tracking-wide mb-1">
+					{ i18n.T(ctx, "filter.retention") }
+				</label>
+				<select name="retention" class="select-field w-full">
+					<option value="">{ i18n.T(ctx, "filter.all_retention") }</option>
+					<option value="temporary">{ i18n.T(ctx, "filter.temporary") }</option>
+					<option value="permanent">{ i18n.T(ctx, "filter.permanent") }</option>
+				</select>
+			</div>
+
+			<!-- Status -->
+			<div>
+				<label class="block text-xs font-medium text-text-secondary uppercase tracking-wide mb-1">
+					{ i18n.T(ctx, "filter.status") }
+				</label>
+				<select name="status" class="select-field w-full">
+					<option value="">{ i18n.T(ctx, "filter.all_statuses") }</option>
+					<option value="active">{ i18n.T(ctx, "filter.active") }</option>
+					<option value="archived">{ i18n.T(ctx, "filter.archived") }</option>
+				</select>
+			</div>
+
+			<!-- Extension -->
+			<div>
+				<label class="block text-xs font-medium text-text-secondary uppercase tracking-wide mb-1">
+					{ i18n.T(ctx, "filter.extension") }
+				</label>
+				<input
+					type="text"
+					name="extension"
+					placeholder="pdf, jpg, docx..."
+					class="input-field w-full"
+				/>
+			</div>
+
+			<!-- Tags -->
+			<div>
+				<label class="block text-xs font-medium text-text-secondary uppercase tracking-wide mb-1">
+					{ i18n.T(ctx, "filter.tags") }
+				</label>
+				<input
+					type="text"
+					name="tags"
+					placeholder={ i18n.T(ctx, "upload.tags_placeholder") }
+					class="input-field w-full"
+				/>
+			</div>
+
+			<!-- Date from -->
+			<div>
+				<label class="block text-xs font-medium text-text-secondary uppercase tracking-wide mb-1">
+					{ i18n.T(ctx, "filter.date_from") }
+				</label>
+				<input type="date" name="date_from" class="input-field w-full"/>
+			</div>
+
+			<!-- Date to -->
+			<div>
+				<label class="block text-xs font-medium text-text-secondary uppercase tracking-wide mb-1">
+					{ i18n.T(ctx, "filter.date_to") }
+				</label>
+				<input type="date" name="date_to" class="input-field w-full"/>
+			</div>
+		</div>
+
+		<!-- Кнопка применения фильтров -->
+		<div class="flex justify-end mt-4 gap-3">
+			<button
+				type="button"
+				class="text-sm text-text-secondary hover:text-text-primary transition-colors px-4 py-2"
+				onclick="this.closest('#search-filters').querySelectorAll('select, input').forEach(el => { if(el.tagName === 'SELECT') el.selectedIndex = 0; else el.value = ''; })"
+			>
+				{ i18n.T(ctx, "btn.clear") }
+			</button>
+			<button
+				type="button"
+				class="btn-primary px-4 py-2 rounded-button text-sm"
+				hx-get="/search/results"
+				hx-target="#search-results"
+				hx-swap="innerHTML"
+				hx-include="#search-filters, #search-query"
+			>
+				{ i18n.T(ctx, "btn.apply") }
+			</button>
+		</div>
+	</div>
+}
+
+// SearchResultsPartial — partial: результаты поиска (таблица + пагинация).
+templ SearchResultsPartial(data SearchResultsData) {
+	<div>
+		<!-- Количество результатов -->
+		<div class="flex items-center justify-between mb-4">
+			<p class="text-sm text-text-secondary">
+				{ i18n.Tf(ctx, "search.results.count", data.Total) }
+			</p>
+		</div>
+
+		<!-- Таблица результатов -->
+		@components.DataTable(components.DataTableParams{
+			Columns: searchColumns(ctx),
+			SortKey: data.SortBy,
+			SortDir: data.SortOrder,
+			SortURL: data.BaseURL,
+			TargetID: "search-table-body",
+			Empty:   len(data.Items) == 0,
+		}) {
+			for _, file := range data.Items {
+				@searchResultRow(file)
+			}
+		}
+
+		<!-- Пагинация -->
+		if data.TotalPages > 1 {
+			@components.Pagination(components.PaginationParams{
+				CurrentPage: data.Page,
+				TotalPages:  data.TotalPages,
+				TotalItems:  data.Total,
+				PageSize:    data.PageSize,
+				BaseURL:     data.BaseURL,
+				TargetID:    "search-results",
+			})
+		}
+	</div>
+}
+
+// searchResultRow — строка таблицы с файлом.
+templ searchResultRow(file gateway.FileInfo) {
+	@components.TableRow() {
+		<!-- Имя файла с иконкой -->
+		@components.TableCell("") {
+			<div class="flex items-center gap-3">
+				@components.FileIcon(file.ContentType, "sm")
+				<div class="min-w-0">
+					<p class="text-sm font-medium text-text-primary truncate max-w-[200px]" title={ file.OriginalFilename }>
+						{ file.OriginalFilename }
+					</p>
+					<p class="text-xs text-text-muted truncate max-w-[200px]">
+						{ file.ContentType }
+					</p>
+				</div>
+			</div>
+		}
+		<!-- Размер -->
+		@components.TableCell("right") {
+			<span class="text-sm font-mono text-text-primary">{ formatSearchSize(file.Size) }</span>
+		}
+		<!-- Дата загрузки -->
+		@components.TableCell("") {
+			<span class="text-sm text-text-primary">{ file.UploadedAt.Format("2006-01-02 15:04") }</span>
+		}
+		<!-- Теги -->
+		@components.TableCell("") {
+			if len(file.Tags) > 0 {
+				<div class="flex flex-wrap gap-1">
+					for _, tag := range file.Tags {
+						@components.Badge(components.BadgeInfo, tag)
+					}
+				</div>
+			} else {
+				<span class="text-xs text-text-muted">—</span>
+			}
+		}
+		<!-- Retention -->
+		@components.TableCell("center") {
+			@components.RetentionBadge(file.RetentionPolicy)
+		}
+		<!-- SE Mode -->
+		@components.TableCell("center") {
+			@components.ModeBadge(file.SEMode)
+		}
+		<!-- Действия -->
+		@components.TableCell("right") {
+			<div class="flex items-center justify-end gap-2">
+				<!-- Подробности -->
+				<button
+					type="button"
+					class="text-text-secondary hover:text-accent-primary transition-colors"
+					title={ i18n.T(ctx, "btn.details") }
+					hx-get={ fmt.Sprintf("/files/%s", file.FileID) }
+					hx-target="#file-detail-container"
+					hx-swap="innerHTML"
+				>
+					<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"></path>
+					</svg>
+				</button>
+				<!-- Скачать -->
+				if file.SEMode != "ar" {
+					<a
+						href={ templ.SafeURL(fmt.Sprintf("/files/%s/download", file.FileID)) }
+						class="text-text-secondary hover:text-accent-primary transition-colors"
+						title={ i18n.T(ctx, "btn.download") }
+					>
+						<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"></path>
+						</svg>
+					</a>
+				} else {
+					<span
+						class="text-text-muted cursor-not-allowed"
+						title={ i18n.T(ctx, "file_detail.archived_warning") }
+					>
+						<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"></path>
+						</svg>
+					</span>
+				}
+			</div>
+		}
+	}
+}
+
+// ArchivedModalPartial — partial: модалка FILE_ARCHIVED (410).
+// Показывается при попытке скачать файл из архивного Storage Element.
+templ ArchivedModalPartial(archived *service.ArchivedFileInfo) {
+	<div x-data="{ showArchived: true }">
+		@components.Modal(components.ModalParams{
+			ID:    "showArchived",
+			Title: i18n.T(ctx, "download.error.archived.title"),
+			Size:  components.ModalSizeMD,
+		}) {
+			<div class="space-y-4">
+				<!-- Иконка предупреждения -->
+				<div class="flex items-center justify-center">
+					<div class="w-12 h-12 rounded-full bg-status-warning/10 flex items-center justify-center">
+						<svg class="w-6 h-6 text-status-warning" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"></path>
+						</svg>
+					</div>
+				</div>
+
+				<!-- Сообщение -->
+				<p class="text-sm text-text-secondary text-center">
+					{ i18n.T(ctx, "download.error.archived.message") }
+				</p>
+
+				<!-- File ID с кнопкой копирования -->
+				<div class="bg-bg-elevated rounded-lg p-4">
+					<div class="flex items-center justify-between">
+						<div>
+							<p class="text-xs text-text-muted uppercase tracking-wide mb-1">
+								{ i18n.T(ctx, "download.error.archived.file_id") }
+							</p>
+							<p class="text-sm font-mono text-text-primary">{ archived.FileID }</p>
+						</div>
+						@components.CopyButton(components.CopyButtonParams{
+							Value: archived.FileID,
+							Size:  "md",
+						})
+					</div>
+				</div>
+
+				<!-- Метаданные файла (если есть) -->
+				if archived.FileInfo != nil {
+					<div class="space-y-2">
+						if archived.Filename != "" {
+							<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">
+								<span class="text-xs text-text-secondary">{ i18n.T(ctx, "file_detail.filename") }</span>
+								<span class="text-sm text-text-primary">{ archived.Filename }</span>
+							</div>
+						}
+						if len(archived.FileInfo.Tags) > 0 {
+							<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">
+								<span class="text-xs text-text-secondary">{ i18n.T(ctx, "file_detail.tags") }</span>
+								<div class="flex flex-wrap gap-1">
+									for _, tag := range archived.FileInfo.Tags {
+										@components.Badge(components.BadgeInfo, tag)
+									}
+								</div>
+							</div>
+						}
+					</div>
+				}
+
+				<!-- Инструкция -->
+				<p class="text-xs text-text-muted text-center">
+					{ i18n.T(ctx, "download.error.archived.instruction") }
+				</p>
+			</div>
+
+			<!-- Footer с кнопкой закрытия -->
+			@components.ModalFooter() {
+				<button
+					type="button"
+					x-on:click="showArchived = false"
+					class="inline-flex items-center justify-center font-medium transition-colors px-4 py-2 text-sm rounded-button gap-1.5 bg-bg-elevated text-text-primary border border-accent-primary hover:bg-bg-hover"
+				>
+					{ i18n.T(ctx, "btn.close") }
+				</button>
+			}
+		}
+	</div>
+}
+
+// FileDetailPartial — partial: карточка метаданных файла (для модалки).
+templ FileDetailPartial(file *gateway.FileInfo) {
+	<div x-data="{ showDetail: true }">
+		@components.Modal(components.ModalParams{
+			ID:    "showDetail",
+			Title: i18n.T(ctx, "file_detail.title"),
+			Size:  components.ModalSizeLG,
+		}) {
+			<div class="space-y-3">
+				<!-- File ID -->
+				<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">
+					<span class="text-sm text-text-secondary">{ i18n.T(ctx, "file_detail.file_id") }</span>
+					<div class="flex items-center gap-2">
+						<span class="text-sm font-mono text-text-primary">{ file.FileID }</span>
+						@components.CopyButton(components.CopyButtonParams{
+							Value: file.FileID,
+							Size:  "sm",
+						})
+					</div>
+				</div>
+				<!-- Имя файла -->
+				<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">
+					<span class="text-sm text-text-secondary">{ i18n.T(ctx, "file_detail.filename") }</span>
+					<div class="flex items-center gap-2">
+						@components.FileIcon(file.ContentType, "sm")
+						<span class="text-sm text-text-primary">{ file.OriginalFilename }</span>
+					</div>
+				</div>
+				<!-- Content Type -->
+				<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">
+					<span class="text-sm text-text-secondary">{ i18n.T(ctx, "file_detail.content_type") }</span>
+					<span class="text-sm text-text-primary">{ file.ContentType }</span>
+				</div>
+				<!-- Размер -->
+				<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">
+					<span class="text-sm text-text-secondary">{ i18n.T(ctx, "file_detail.size") }</span>
+					<span class="text-sm font-mono text-text-primary">{ formatSearchSize(file.Size) }</span>
+				</div>
+				<!-- Контрольная сумма -->
+				<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">
+					<span class="text-sm text-text-secondary">{ i18n.T(ctx, "file_detail.checksum") }</span>
+					<div class="flex items-center gap-2">
+						<span class="text-sm font-mono text-text-primary truncate max-w-[200px]" title={ file.Checksum }>{ file.Checksum }</span>
+						@components.CopyButton(components.CopyButtonParams{
+							Value: file.Checksum,
+							Size:  "sm",
+						})
+					</div>
+				</div>
+				<!-- Загружен -->
+				<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">
+					<span class="text-sm text-text-secondary">{ i18n.T(ctx, "file_detail.uploaded_by") }</span>
+					<span class="text-sm text-text-primary">{ file.UploadedBy }</span>
+				</div>
+				<!-- Дата загрузки -->
+				<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">
+					<span class="text-sm text-text-secondary">{ i18n.T(ctx, "file_detail.uploaded_at") }</span>
+					<span class="text-sm text-text-primary">{ file.UploadedAt.Format("2006-01-02 15:04:05") }</span>
+				</div>
+				<!-- Описание -->
+				<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">
+					<span class="text-sm text-text-secondary">{ i18n.T(ctx, "file_detail.description") }</span>
+					if file.Description != nil && *file.Description != "" {
+						<span class="text-sm text-text-primary max-w-[300px] text-right">{ *file.Description }</span>
+					} else {
+						<span class="text-sm text-text-muted italic">{ i18n.T(ctx, "file_detail.no_description") }</span>
+					}
+				</div>
+				<!-- Теги -->
+				<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">
+					<span class="text-sm text-text-secondary">{ i18n.T(ctx, "file_detail.tags") }</span>
+					if len(file.Tags) > 0 {
+						<div class="flex flex-wrap gap-1 justify-end">
+							for _, tag := range file.Tags {
+								@components.Badge(components.BadgeInfo, tag)
+							}
+						</div>
+					} else {
+						<span class="text-sm text-text-muted italic">{ i18n.T(ctx, "file_detail.no_tags") }</span>
+					}
+				</div>
+				<!-- Retention -->
+				<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">
+					<span class="text-sm text-text-secondary">{ i18n.T(ctx, "file_detail.retention") }</span>
+					@components.RetentionBadge(file.RetentionPolicy)
+				</div>
+				<!-- TTL Days -->
+				if file.TTLDays != nil {
+					<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">
+						<span class="text-sm text-text-secondary">{ i18n.T(ctx, "file_detail.ttl_days") }</span>
+						<span class="text-sm text-text-primary">{ i18n.Tf(ctx, "file_detail.days", *file.TTLDays) }</span>
+					</div>
+				}
+				<!-- Expires At -->
+				if file.ExpiresAt != nil && *file.ExpiresAt != "" {
+					<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">
+						<span class="text-sm text-text-secondary">{ i18n.T(ctx, "file_detail.expires_at") }</span>
+						<span class="text-sm text-text-primary">{ *file.ExpiresAt }</span>
+					</div>
+				}
+				<!-- Статус -->
+				<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">
+					<span class="text-sm text-text-secondary">{ i18n.T(ctx, "file_detail.status") }</span>
+					@components.FileStatusBadge(file.Status)
+				</div>
+				<!-- Storage Element -->
+				<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">
+					<span class="text-sm text-text-secondary">{ i18n.T(ctx, "file_detail.storage_element") }</span>
+					<span class="text-sm font-mono text-text-primary">{ file.StorageElementID }</span>
+				</div>
+				<!-- SE Mode -->
+				<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">
+					<span class="text-sm text-text-secondary">{ i18n.T(ctx, "file_detail.se_mode") }</span>
+					@components.ModeBadge(file.SEMode)
+				</div>
+				<!-- Предупреждение для архивных файлов -->
+				if file.SEMode == "ar" {
+					<div class="flex items-center gap-3 py-3 px-4 rounded-lg bg-status-warning/10 border border-status-warning/20">
+						<svg class="w-5 h-5 text-status-warning flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"></path>
+						</svg>
+						<p class="text-sm text-status-warning">{ i18n.T(ctx, "file_detail.archived_warning") }</p>
+					</div>
+				}
+			</div>
+
+			<!-- Footer с действиями -->
+			@components.ModalFooter() {
+				<button
+					type="button"
+					x-on:click="showDetail = false"
+					class="inline-flex items-center justify-center font-medium transition-colors px-4 py-2 text-sm rounded-button gap-1.5 bg-bg-elevated text-text-primary border border-accent-primary hover:bg-bg-hover"
+				>
+					{ i18n.T(ctx, "btn.close") }
+				</button>
+				if file.SEMode != "ar" {
+					<a
+						href={ templ.SafeURL(fmt.Sprintf("/files/%s/download", file.FileID)) }
+						class="btn-primary px-4 py-2 rounded-button text-sm inline-flex items-center gap-2"
+					>
+						<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"></path>
+						</svg>
+						{ i18n.T(ctx, "btn.download") }
+					</a>
+				}
+			}
+		}
+	</div>
+
+	<!-- Контейнер для модалки archived (если скачивание вернёт 410) -->
+	<div id="archived-modal-container"></div>
+}
+
+// --- Вспомогательные функции ---
+
+// searchColumns — определение колонок таблицы результатов поиска.
+func searchColumns(ctx context.Context) []components.TableColumn {
+	return []components.TableColumn{
+		{Key: "original_filename", Label: i18n.T(ctx, "search.table.name"), Sortable: true},
+		{Key: "size", Label: i18n.T(ctx, "search.table.size"), Sortable: true, Align: "right", Width: "w-24"},
+		{Key: "uploaded_at", Label: i18n.T(ctx, "search.table.date"), Sortable: true, Width: "w-40"},
+		{Key: "tags", Label: i18n.T(ctx, "search.table.tags"), Sortable: false},
+		{Key: "retention_policy", Label: i18n.T(ctx, "search.table.retention"), Sortable: true, Align: "center", Width: "w-28"},
+		{Key: "se_mode", Label: i18n.T(ctx, "search.table.se_mode"), Sortable: false, Align: "center", Width: "w-24"},
+		{Key: "", Label: i18n.T(ctx, "search.table.actions"), Sortable: false, Align: "right", Width: "w-24"},
+	}
+}
+
+// formatSearchSize — форматирование размера файла для таблицы поиска.
+func formatSearchSize(size int64) string {
+	const (
+		kb = 1024
+		mb = 1024 * kb
+		gb = 1024 * mb
+	)
+
+	switch {
+	case size >= gb:
+		return fmt.Sprintf("%.1f ГБ", float64(size)/float64(gb))
+	case size >= mb:
+		return fmt.Sprintf("%.1f МБ", float64(size)/float64(mb))
+	case size >= kb:
+		return fmt.Sprintf("%.1f КБ", float64(size)/float64(kb))
+	default:
+		return fmt.Sprintf("%d Б", size)
+	}
+}
+
+// Подавление предупреждения о неиспользуемом импорте context.
+var _ context.Context
