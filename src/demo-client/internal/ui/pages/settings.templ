@@ -1,0 +1,89 @@
+package pages
+
+import (
+	"github.com/bigkaa/goartstore/demo-client/internal/gateway"
+	"github.com/bigkaa/goartstore/demo-client/internal/ui/components"
+	"github.com/bigkaa/goartstore/demo-client/internal/ui/i18n"
+	"github.com/bigkaa/goartstore/demo-client/internal/ui/layouts"
+)
+
+// SettingsPageData — данные для рендера страницы Settings.
+type SettingsPageData struct {
+	GatewayURL string
+	TokenURL   string
+	ClientID   string
+	Scopes     string
+	Health     map[string]gateway.HealthStatus
+	Version    string
+}
+
+// Settings — полная страница Settings (read-only).
+templ Settings(data SettingsPageData) {
+	@layouts.Page(layouts.PageParams{
+		Title:     i18n.T(ctx, "settings.title"),
+		ActiveNav: "settings",
+	}) {
+		<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+			<!-- Параметры подключения -->
+			<div class="card">
+				<h2 class="text-lg font-semibold text-text-primary mb-4">{ i18n.T(ctx, "settings.connection") }</h2>
+				<div class="space-y-4">
+					@settingsRow(i18n.T(ctx, "settings.gateway_url"), data.GatewayURL)
+					@settingsRow(i18n.T(ctx, "settings.token_url"), data.TokenURL)
+					@settingsRow(i18n.T(ctx, "settings.client_id"), data.ClientID)
+					@settingsRow(i18n.T(ctx, "settings.scopes"), data.Scopes)
+					@settingsRow("Version", data.Version)
+				</div>
+			</div>
+
+			<!-- Health-check зависимостей -->
+			<div class="card">
+				<div class="flex items-center justify-between mb-4">
+					<h2 class="text-lg font-semibold text-text-primary">{ i18n.T(ctx, "settings.health") }</h2>
+					<button
+						hx-get="/partials/settings/health"
+						hx-target="#settings-health"
+						hx-swap="innerHTML"
+						class="text-sm text-accent-primary hover:text-accent-hover transition-colors"
+					>
+						{ i18n.T(ctx, "settings.health.check") }
+					</button>
+				</div>
+				<div id="settings-health">
+					@SettingsHealthPartial(data.Health)
+				</div>
+			</div>
+		</div>
+	}
+}
+
+// SettingsHealthPartial — partial: health-check зависимостей (HTMX).
+templ SettingsHealthPartial(health map[string]gateway.HealthStatus) {
+	<div class="space-y-3">
+		@settingsHealthRow(i18n.T(ctx, "dashboard.health.ingester"), health["ingester"])
+		@settingsHealthRow(i18n.T(ctx, "dashboard.health.query"), health["query"])
+	</div>
+}
+
+// settingsRow — строка с настройкой (label: value).
+templ settingsRow(label, value string) {
+	<div class="flex flex-col py-2 px-3 rounded-lg bg-bg-elevated">
+		<span class="text-xs text-text-muted mb-1">{ label }</span>
+		<span class="text-sm font-mono text-text-primary break-all">{ value }</span>
+	</div>
+}
+
+// settingsHealthRow — строка health-check с бейджем.
+templ settingsHealthRow(name string, status gateway.HealthStatus) {
+	<div class="flex items-center justify-between py-3 px-3 rounded-lg bg-bg-elevated">
+		<div class="flex flex-col">
+			<span class="text-sm text-text-primary font-medium">{ name }</span>
+			<span class="text-xs text-text-muted mt-0.5">{ status.Status }</span>
+		</div>
+		if status.Ready {
+			@components.Badge(components.BadgeHealthy, i18n.T(ctx, "badge.status.healthy"))
+		} else {
+			@components.Badge(components.BadgeUnhealthy, i18n.T(ctx, "badge.status.unhealthy"))
+		}
+	</div>
+}

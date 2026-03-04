@@ -69,6 +69,7 @@
   "dashboard.stat.temporary": "Temporary",
   "dashboard.stat.permanent": "Permanent",
   "dashboard.stat.archived": "Archived",
+  "dashboard.stat.sub_active": "active: %d",
   "dashboard.health": "Service Health",
   "dashboard.health.ingester": "Ingester Module",
   "dashboard.health.query": "Query Module",

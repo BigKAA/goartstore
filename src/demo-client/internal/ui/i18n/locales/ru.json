@@ -69,6 +69,7 @@
   "dashboard.stat.temporary": "Временные",
   "dashboard.stat.permanent": "Постоянные",
   "dashboard.stat.archived": "В архиве",
+  "dashboard.stat.sub_active": "активных: %d",
   "dashboard.health": "Состояние сервисов",
   "dashboard.health.ingester": "Ingester Module",
   "dashboard.health.query": "Query Module",

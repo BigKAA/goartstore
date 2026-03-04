@@ -5,7 +5,8 @@
 //  2. Настройка логирования (slog, JSON/text)
 //  3. Создание HTTP-клиента с TLS (CA cert из конфигурации)
 //  4. Запуск Token Manager (Client Credentials flow, фоновое обновление)
-//  5. Запуск HTTP-сервера с graceful shutdown
+//  5. Инициализация Activity Log, Gateway Client, Service Layer
+//  6. Запуск HTTP-сервера с graceful shutdown
 package main
 
 import (
@@ -24,6 +25,7 @@ import (
 	"github.com/bigkaa/goartstore/demo-client/internal/server"
 	"github.com/bigkaa/goartstore/demo-client/internal/service"
 	"github.com/bigkaa/goartstore/demo-client/internal/token"
+	"github.com/bigkaa/goartstore/demo-client/internal/ui/i18n"
 )
 
 func main() {
@@ -41,14 +43,21 @@ func main() {
 		"port", cfg.Port,
 	)
 
-	// 3. HTTP-клиент с TLS настройками (для Keycloak и Gateway)
+	// 3. Инициализация i18n
+	bundle := i18n.Init(logger.With("component", "i18n"))
+	if err := i18n.LoadFromEmbedFS(bundle, logger.With("component", "i18n")); err != nil {
+		logger.Error("ошибка загрузки i18n", "error", err)
+		os.Exit(1)
+	}
+
+	// 4. HTTP-клиент с TLS настройками (для Keycloak и Gateway)
 	httpClient, err := buildHTTPClient(cfg.CACertPath, cfg.RequestTimeout)
 	if err != nil {
 		logger.Error("ошибка создания HTTP-клиента", "error", err)
 		os.Exit(1)
 	}
 
-	// 4. Token Manager — фоновое обновление SA-токена
+	// 5. Token Manager — фоновое обновление SA-токена
 	tokenMgr := token.NewManager(
 		cfg.TokenURL,
 		cfg.ClientID,
@@ -68,13 +77,13 @@ func main() {
 		"scopes", cfg.Scopes,
 	)
 
-	// 5. Activity Log — in-memory ring buffer для записи API-вызовов
+	// 6. Activity Log — in-memory ring buffer для записи API-вызовов
 	activityLog := activity.NewLog(cfg.ActivityLogSize)
 	logger.Info("Activity Log инициализирован",
 		"size", cfg.ActivityLogSize,
 	)
 
-	// 6. Gateway Client — HTTP-клиент к API Gateway
+	// 7. Gateway Client — HTTP-клиент к API Gateway
 	gwClient := gateway.NewClient(gateway.ClientConfig{
 		BaseURL:        cfg.GatewayURL,
 		RequestTimeout: cfg.RequestTimeout,
@@ -88,22 +97,19 @@ func main() {
 		"upload_timeout", cfg.UploadTimeout,
 	)
 
-	// 7. Service Layer — бизнес-логика поверх Gateway Client
-	uploadSvc := service.NewUploadService(gwClient, activityLog, logger.With("component", "upload"))
-	searchSvc := service.NewSearchService(gwClient, activityLog, logger.With("component", "search"))
-	downloadSvc := service.NewDownloadService(gwClient, activityLog, logger.With("component", "download"))
+	// 8. Service Layer — бизнес-логика поверх Gateway Client
+	_ = service.NewUploadService(gwClient, activityLog, logger.With("component", "upload"))
+	_ = service.NewSearchService(gwClient, activityLog, logger.With("component", "search"))
+	_ = service.NewDownloadService(gwClient, activityLog, logger.With("component", "download"))
 	dashboardSvc := service.NewDashboardService(gwClient, tokenMgr, activityLog, logger.With("component", "dashboard"))
-
-	// TODO: передать сервисы в UI handlers в Phase 4
-	_ = uploadSvc
-	_ = searchSvc
-	_ = downloadSvc
-	_ = dashboardSvc
 
 	logger.Info("Service Layer инициализирован")
 
-	// 8. HTTP-сервер
-	srv := server.New(cfg, logger, tokenMgr)
+	// 9. HTTP-сервер с UI маршрутами
+	srv := server.New(cfg, logger, tokenMgr, server.Deps{
+		DashboardSvc: dashboardSvc,
+		ActivityLog:  activityLog,
+	})
 
 	if err := srv.Run(); err != nil {
 		logger.Error("ошибка HTTP-сервера", "error", err)

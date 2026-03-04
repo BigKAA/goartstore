@@ -1,6 +1,6 @@
 // Package server — HTTP-сервер Demo Client на chi router
 // с graceful shutdown, health endpoints, Prometheus метрики,
-// security middleware (CSP, CSRF).
+// security middleware (CSP, CSRF), UI маршруты.
 package server
 
 import (
@@ -21,8 +21,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/bigkaa/goartstore/demo-client/internal/activity"
 	"github.com/bigkaa/goartstore/demo-client/internal/config"
+	"github.com/bigkaa/goartstore/demo-client/internal/service"
 	"github.com/bigkaa/goartstore/demo-client/internal/token"
+	"github.com/bigkaa/goartstore/demo-client/internal/ui/handlers"
+	"github.com/bigkaa/goartstore/demo-client/internal/ui/i18n"
+	"github.com/bigkaa/goartstore/demo-client/internal/ui/static"
 )
 
 // --- Prometheus метрики ---
@@ -51,6 +56,12 @@ type ReadinessChecker interface {
 	IsReady() bool
 }
 
+// Deps — зависимости сервера для UI-маршрутов.
+type Deps struct {
+	DashboardSvc *service.DashboardService
+	ActivityLog  *activity.Log
+}
+
 // Server — HTTP-сервер Demo Client.
 type Server struct {
 	httpServer *http.Server
@@ -59,8 +70,8 @@ type Server struct {
 }
 
 // New — создание нового HTTP-сервера с chi router.
-// tokenMgr используется для health/ready проверки.
-func New(cfg *config.Config, logger *slog.Logger, tokenMgr *token.Manager) *Server {
+// Регистрирует системные и UI маршруты.
+func New(cfg *config.Config, logger *slog.Logger, tokenMgr *token.Manager, deps Deps) *Server {
 	router := chi.NewRouter()
 
 	// --- Middleware stack ---
@@ -72,14 +83,21 @@ func New(cfg *config.Config, logger *slog.Logger, tokenMgr *token.Manager) *Serv
 	router.Use(metricsMiddleware())
 	// 4. Request logging
 	router.Use(requestLoggingMiddleware(logger))
+	// 5. i18n — определение языка из cookie/Accept-Language
+	router.Use(i18n.Middleware())
 
-	// --- System endpoints (без CSRF) ---
+	// --- System endpoints ---
 	router.Get("/health/live", healthLiveHandler())
 	router.Get("/health/ready", healthReadyHandler(tokenMgr))
 	router.Handle("/metrics", promhttp.Handler())
-
-	// --- CSRF token endpoint (для UI) ---
 	router.Get("/csrf-token", csrfTokenHandler())
+
+	// --- Static files ---
+	fileServer := http.FileServer(static.FileSystem())
+	router.Handle("/static/*", http.StripPrefix("/static/", fileServer))
+
+	// --- UI routes ---
+	registerUIRoutes(router, cfg, deps, logger)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.Port),
@@ -96,7 +114,30 @@ func New(cfg *config.Config, logger *slog.Logger, tokenMgr *token.Manager) *Serv
 	}
 }
 
-// Router — доступ к chi router для регистрации UI-маршрутов (Phase 4+).
+// registerUIRoutes — регистрация всех UI-маршрутов (Phase 4+).
+func registerUIRoutes(router chi.Router, cfg *config.Config, deps Deps, logger *slog.Logger) {
+	// Handlers
+	dashboardH := handlers.NewDashboardHandler(deps.DashboardSvc, logger.With("handler", "dashboard"))
+	activityH := handlers.NewActivityHandler(deps.ActivityLog, logger.With("handler", "activity"))
+	settingsH := handlers.NewSettingsHandler(cfg, deps.DashboardSvc, logger.With("handler", "settings"))
+
+	// --- Страницы ---
+	router.Get("/", dashboardH.Page)
+	router.Get("/settings", settingsH.Page)
+
+	// --- Partials (HTMX) ---
+	router.Get("/partials/health", dashboardH.HealthPartial)
+	router.Get("/partials/token", dashboardH.TokenPartial)
+	router.Get("/partials/settings/health", settingsH.HealthPartial)
+
+	// --- SSE ---
+	router.Get("/activity/stream", activityH.Stream)
+
+	// --- Actions ---
+	router.Post("/set-language", handlers.SetLanguage)
+}
+
+// Router — доступ к chi router (для тестов или расширений).
 func (s *Server) Router() chi.Router {
 	return s.httpServer.Handler.(chi.Router)
 }
@@ -182,7 +223,7 @@ func securityHeadersMiddleware() func(http.Handler) http.Handler {
 					"script-src 'self' 'unsafe-inline' 'unsafe-eval'; "+
 					"style-src 'self' 'unsafe-inline'; "+
 					"img-src 'self' data:; "+
-					"font-src 'self'; "+
+					"font-src 'self' https://fonts.gstatic.com; "+
 					"connect-src 'self'; "+
 					"frame-ancestors 'none'")
 			w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -197,7 +238,7 @@ func securityHeadersMiddleware() func(http.Handler) http.Handler {
 
 // csrfMiddleware — CSRF-защита для POST/PUT/DELETE форм.
 // Проверяет заголовок X-CSRF-Token или скрытое поле _csrf_token.
-// Пропускает системные endpoints (/health/, /metrics).
+// Пропускает системные endpoints (/health/, /metrics) и /set-language.
 func csrfMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -209,6 +250,12 @@ func csrfMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
 
 			path := r.URL.Path
 			if strings.HasPrefix(path, "/health/") || path == "/metrics" {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			// /set-language — безопасный POST без CSRF (устанавливает только cookie)
+			if path == "/set-language" {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -295,14 +342,15 @@ func requestLoggingMiddleware(logger *slog.Logger) func(http.Handler) http.Handl
 
 			next.ServeHTTP(ww, r)
 
-			// Пропускаем health/metrics в логах
-			if strings.HasPrefix(r.URL.Path, "/health/") || r.URL.Path == "/metrics" {
+			// Пропускаем health/metrics/static в логах
+			path := r.URL.Path
+			if strings.HasPrefix(path, "/health/") || path == "/metrics" || strings.HasPrefix(path, "/static/") {
 				return
 			}
 
 			logger.Info("HTTP-запрос",
 				"method", r.Method,
-				"path", r.URL.Path,
+				"path", path,
 				"status", ww.statusCode,
 				"duration_ms", time.Since(start).Milliseconds(),
 				"remote_addr", r.RemoteAddr,

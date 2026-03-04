@@ -21,10 +21,10 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 4
-- **Активный подпункт**: 4.1
+- **Активная фаза**: Phase 5
+- **Активный подпункт**: 5.1
 - **Последнее обновление**: 2026-03-04
-- **Примечание**: Phase 3 завершена — UI Framework (layouts, components, i18n, static resources)
+- **Примечание**: Phase 4 завершена — Dashboard, Activity Log SSE, Settings, UI routing
 
 ---
 
@@ -230,7 +230,7 @@ Download flow:
 - [x] [Phase 1: Каркас проекта + конфигурация + Token Manager](#phase-1-каркас-проекта--конфигурация--token-manager)
 - [x] [Phase 2: Gateway Client + Service Layer](#phase-2-gateway-client--service-layer)
 - [x] [Phase 3: UI Framework (layouts, components, i18n)](#phase-3-ui-framework-layouts-components-i18n)
-- [ ] [Phase 4: Dashboard + Activity Log + Settings](#phase-4-dashboard--activity-log--settings)
+- [x] [Phase 4: Dashboard + Activity Log + Settings](#phase-4-dashboard--activity-log--settings)
 - [ ] [Phase 5: Upload (single + batch)](#phase-5-upload-single--batch)
 - [ ] [Phase 6: Search + Download + AR handling](#phase-6-search--download--ar-handling)
 - [ ] [Phase 7: Docker + Helm + Keycloak client + Integration](#phase-7-docker--helm--keycloak-client--integration)
@@ -489,7 +489,7 @@ i18n (RU + EN), Tailwind CSS, статические ресурсы (HTMX, Alpin
 ## Phase 4: Dashboard + Activity Log + Settings
 
 **Dependencies**: Phase 2, Phase 3
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -498,7 +498,7 @@ i18n (RU + EN), Tailwind CSS, статические ресурсы (HTMX, Alpin
 
 ### Подпункты
 
-- [ ] **4.1 Регистрация UI-маршрутов**
+- [x] **4.1 Регистрация UI-маршрутов**
   - **Dependencies**: None
   - **Description**: Chi router: UI routes (GET /, /upload, /search, /settings),
     partials (GET /partials/*), actions (POST /upload, /set-language),
@@ -508,7 +508,7 @@ i18n (RU + EN), Tailwind CSS, статические ресурсы (HTMX, Alpin
   - **Creates**:
     - Обновление `internal/server/server.go` — регистрация UI routes
 
-- [ ] **4.2 Dashboard page**
+- [x] **4.2 Dashboard page**
   - **Dependencies**: 4.1
   - **Description**: Dashboard handler + templ page.
     Карточки: Health (IM/QM статус), Token (валидность, TTL),
@@ -521,7 +521,7 @@ i18n (RU + EN), Tailwind CSS, статические ресурсы (HTMX, Alpin
     - `internal/ui/pages/partials/health_status.templ`
     - `internal/ui/pages/partials/token_status.templ`
 
-- [ ] **4.3 Activity Log SSE**
+- [x] **4.3 Activity Log SSE**
   - **Dependencies**: 4.2, 2.2 (Activity Log backend)
   - **Description**: SSE handler для live-обновления лога операций.
     HTMX SSE extension подключает поток.
@@ -531,7 +531,7 @@ i18n (RU + EN), Tailwind CSS, статические ресурсы (HTMX, Alpin
     - `internal/ui/handlers/activity.go`
     - `internal/ui/pages/partials/activity_row.templ`
 
-- [ ] **4.4 Settings page**
+- [x] **4.4 Settings page**
   - **Dependencies**: 4.1
   - **Description**: Страница настроек (read-only):
     API Gateway URL, Token URL, Client ID, Scopes.
@@ -542,11 +542,11 @@ i18n (RU + EN), Tailwind CSS, статические ресурсы (HTMX, Alpin
 
 ### Критерии завершения Phase 4
 
-- [ ] Все подпункты завершены (4.1–4.4)
-- [ ] Dashboard отображает health, token status, статистику
-- [ ] Activity Log обновляется в реальном времени (SSE)
-- [ ] Settings показывает конфигурацию и health-checks
-- [ ] Навигация по sidebar работает
+- [x] Все подпункты завершены (4.1–4.4)
+- [x] Dashboard отображает health, token status, статистику
+- [x] Activity Log обновляется в реальном времени (SSE)
+- [x] Settings показывает конфигурацию и health-checks
+- [x] Навигация по sidebar работает
 
 ---
 

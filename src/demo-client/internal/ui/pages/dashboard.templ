@@ -1,0 +1,261 @@
+package pages
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/bigkaa/goartstore/demo-client/internal/activity"
+	"github.com/bigkaa/goartstore/demo-client/internal/gateway"
+	"github.com/bigkaa/goartstore/demo-client/internal/service"
+	"github.com/bigkaa/goartstore/demo-client/internal/token"
+	"github.com/bigkaa/goartstore/demo-client/internal/ui/components"
+	"github.com/bigkaa/goartstore/demo-client/internal/ui/i18n"
+	"github.com/bigkaa/goartstore/demo-client/internal/ui/layouts"
+)
+
+// DashboardPageData — данные для рендера Dashboard.
+type DashboardPageData struct {
+	Health         map[string]gateway.HealthStatus
+	Token          token.TokenStatus
+	Stats          service.FileStats
+	RecentActivity []activity.Entry
+	Lang           string
+}
+
+// Dashboard — полная страница Dashboard.
+templ Dashboard(data DashboardPageData) {
+	@layouts.Page(layouts.PageParams{
+		Title:     i18n.T(ctx, "dashboard.title"),
+		ActiveNav: "dashboard",
+	}) {
+		<!-- Статистика файлов -->
+		<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+			@components.StatCard(components.StatCardParams{
+				Label:       i18n.T(ctx, "dashboard.stat.total_files"),
+				Value:       fmt.Sprintf("%d", data.Stats.Total),
+				SubValue:    i18n.Tf(ctx, "dashboard.stat.sub_active", data.Stats.Active),
+				Icon:        "M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z",
+				BorderColor: "border-accent-primary",
+			})
+			@components.StatCard(components.StatCardParams{
+				Label:       i18n.T(ctx, "dashboard.stat.temporary"),
+				Value:       fmt.Sprintf("%d", data.Stats.Temporary),
+				Icon:        "M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z",
+				BorderColor: "border-retention-temporary",
+			})
+			@components.StatCard(components.StatCardParams{
+				Label:       i18n.T(ctx, "dashboard.stat.permanent"),
+				Value:       fmt.Sprintf("%d", data.Stats.Permanent),
+				Icon:        "M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z",
+				BorderColor: "border-retention-permanent",
+			})
+			@components.StatCard(components.StatCardParams{
+				Label:       i18n.T(ctx, "dashboard.stat.archived"),
+				Value:       fmt.Sprintf("%d", data.Stats.Expired + data.Stats.Deleted),
+				SubValue:    fmt.Sprintf("%s: %d / %s: %d", i18n.T(ctx, "badge.file.expired"), data.Stats.Expired, i18n.T(ctx, "badge.file.deleted"), data.Stats.Deleted),
+				Icon:        "M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5m6 4.125l2.25 2.25m0 0l2.25 2.25M12 13.875l2.25-2.25M12 13.875l-2.25 2.25M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z",
+				BorderColor: "border-status-warning",
+			})
+		</div>
+
+		<!-- Health + Token (2 колонки) -->
+		<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+			<!-- Health статусы -->
+			<div class="card">
+				<div class="flex items-center justify-between mb-4">
+					<h2 class="text-lg font-semibold text-text-primary">{ i18n.T(ctx, "dashboard.health") }</h2>
+					<button
+						hx-get="/partials/health"
+						hx-target="#health-status"
+						hx-swap="innerHTML"
+						class="text-sm text-accent-primary hover:text-accent-hover transition-colors"
+					>
+						{ i18n.T(ctx, "btn.refresh") }
+					</button>
+				</div>
+				<div id="health-status" hx-get="/partials/health" hx-trigger="every 30s" hx-swap="innerHTML">
+					@HealthStatusPartial(data.Health)
+				</div>
+			</div>
+
+			<!-- Token статус -->
+			<div class="card">
+				<div class="flex items-center justify-between mb-4">
+					<h2 class="text-lg font-semibold text-text-primary">{ i18n.T(ctx, "dashboard.token") }</h2>
+				</div>
+				<div id="token-status" hx-get="/partials/token" hx-trigger="every 30s" hx-swap="innerHTML">
+					@TokenStatusPartial(data.Token)
+				</div>
+			</div>
+		</div>
+
+		<!-- Activity Log -->
+		<div class="card">
+			<div class="flex items-center justify-between mb-4">
+				<h2 class="text-lg font-semibold text-text-primary">{ i18n.T(ctx, "dashboard.activity") }</h2>
+				<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-status-success/20 text-status-success">
+					<span class="w-1.5 h-1.5 rounded-full bg-status-success mr-1.5 animate-pulse"></span>
+					{ i18n.T(ctx, "dashboard.live") }
+				</span>
+			</div>
+
+			<!-- Таблица Activity Log с SSE обновлениями -->
+			<div class="overflow-x-auto">
+				<table class="w-full text-sm">
+					<thead>
+						<tr class="border-b border-border-subtle">
+							<th class="text-left py-2 px-3 text-text-secondary font-medium">{ i18n.T(ctx, "activity.timestamp") }</th>
+							<th class="text-left py-2 px-3 text-text-secondary font-medium">{ i18n.T(ctx, "activity.method") }</th>
+							<th class="text-left py-2 px-3 text-text-secondary font-medium">{ i18n.T(ctx, "activity.path") }</th>
+							<th class="text-left py-2 px-3 text-text-secondary font-medium">{ i18n.T(ctx, "activity.status") }</th>
+							<th class="text-left py-2 px-3 text-text-secondary font-medium">{ i18n.T(ctx, "activity.duration") }</th>
+							<th class="text-left py-2 px-3 text-text-secondary font-medium">{ i18n.T(ctx, "activity.description") }</th>
+						</tr>
+					</thead>
+					<tbody id="activity-log" hx-ext="sse" sse-connect="/activity/stream" sse-swap="activity" hx-swap="afterbegin">
+						if len(data.RecentActivity) == 0 {
+							<tr id="activity-empty">
+								<td colspan="6" class="text-center py-8 text-text-muted">
+									{ i18n.T(ctx, "dashboard.activity.empty") }
+								</td>
+							</tr>
+						} else {
+							for _, entry := range data.RecentActivity {
+								@ActivityRow(entry)
+							}
+						}
+					</tbody>
+				</table>
+			</div>
+		</div>
+	}
+}
+
+// HealthStatusPartial — partial: статусы health для HTMX обновления.
+templ HealthStatusPartial(health map[string]gateway.HealthStatus) {
+	<div class="space-y-3">
+		@healthRow(i18n.T(ctx, "dashboard.health.ingester"), health["ingester"])
+		@healthRow(i18n.T(ctx, "dashboard.health.query"), health["query"])
+	</div>
+}
+
+// healthRow — строка health-статуса одного сервиса.
+templ healthRow(name string, status gateway.HealthStatus) {
+	<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">
+		<span class="text-sm text-text-primary">{ name }</span>
+		if status.Ready {
+			@components.Badge(components.BadgeHealthy, i18n.T(ctx, "badge.status.healthy"))
+		} else {
+			@components.Badge(components.BadgeUnhealthy, i18n.T(ctx, "badge.status.unhealthy"))
+		}
+	</div>
+}
+
+// TokenStatusPartial — partial: статус SA-токена для HTMX обновления.
+templ TokenStatusPartial(ts token.TokenStatus) {
+	<div class="space-y-3">
+		<!-- Статус валидности -->
+		<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">
+			<span class="text-sm text-text-secondary">{ i18n.T(ctx, "dashboard.token") }</span>
+			if ts.Valid {
+				@components.Badge(components.BadgeSuccess, i18n.T(ctx, "dashboard.token.valid"))
+			} else {
+				@components.Badge(components.BadgeError, i18n.T(ctx, "dashboard.token.expired"))
+			}
+		</div>
+
+		<!-- TTL -->
+		if ts.Valid {
+			<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">
+				<span class="text-sm text-text-secondary">TTL</span>
+				<span class="text-sm font-mono text-text-primary">{ formatDuration(time.Until(ts.Expiry)) }</span>
+			</div>
+		}
+
+		<!-- Client ID -->
+		<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">
+			<span class="text-sm text-text-secondary">{ i18n.T(ctx, "dashboard.token.client_id") }</span>
+			<span class="text-sm font-mono text-text-primary">{ ts.ClientID }</span>
+		</div>
+	</div>
+}
+
+// ActivityRow — одна строка Activity Log (используется и в полной странице, и как SSE partial).
+templ ActivityRow(entry activity.Entry) {
+	<tr class="border-b border-border-subtle hover:bg-bg-hover transition-colors">
+		<td class="py-2 px-3 text-text-muted text-xs font-mono whitespace-nowrap">
+			{ entry.Timestamp.Format("15:04:05") }
+		</td>
+		<td class="py-2 px-3">
+			<span class={ "text-xs font-mono font-medium px-1.5 py-0.5 rounded", methodColor(entry.Method) }>
+				{ entry.Method }
+			</span>
+		</td>
+		<td class="py-2 px-3 text-text-primary text-xs font-mono max-w-[200px] truncate" title={ entry.Path }>
+			{ entry.Path }
+		</td>
+		<td class="py-2 px-3">
+			<span class={ "text-xs font-mono font-medium", statusColor(entry.StatusCode) }>
+				{ fmt.Sprintf("%d", entry.StatusCode) }
+			</span>
+		</td>
+		<td class="py-2 px-3 text-text-muted text-xs font-mono">
+			{ fmt.Sprintf("%dms", entry.DurationMs) }
+		</td>
+		<td class="py-2 px-3 text-text-secondary text-xs max-w-[200px] truncate" title={ entry.Description }>
+			if entry.Error != "" {
+				<span class="text-status-error">{ entry.Error }</span>
+			} else {
+				{ entry.Description }
+			}
+		</td>
+	</tr>
+}
+
+// --- Вспомогательные функции ---
+
+// formatDuration — форматирование длительности до истечения токена.
+func formatDuration(d time.Duration) string {
+	if d < 0 {
+		return "expired"
+	}
+	minutes := int(d.Minutes())
+	if minutes < 60 {
+		return fmt.Sprintf("%dm", minutes)
+	}
+	hours := minutes / 60
+	mins := minutes % 60
+	return fmt.Sprintf("%dh %dm", hours, mins)
+}
+
+// methodColor — CSS-класс цвета для HTTP метода.
+func methodColor(method string) string {
+	switch method {
+	case "GET":
+		return "bg-status-info/20 text-status-info"
+	case "POST":
+		return "bg-status-success/20 text-status-success"
+	case "PUT":
+		return "bg-status-warning/20 text-status-warning"
+	case "DELETE":
+		return "bg-status-error/20 text-status-error"
+	default:
+		return "bg-bg-elevated text-text-secondary"
+	}
+}
+
+// statusColor — CSS-класс цвета для HTTP статус кода.
+func statusColor(code int) string {
+	switch {
+	case code == 0:
+		return "text-status-error"
+	case code >= 200 && code < 300:
+		return "text-status-success"
+	case code >= 300 && code < 400:
+		return "text-status-info"
+	case code >= 400 && code < 500:
+		return "text-status-warning"
+	default:
+		return "text-status-error"
+	}
+}
