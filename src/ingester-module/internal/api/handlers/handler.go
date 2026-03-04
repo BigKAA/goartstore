@@ -17,19 +17,22 @@ import (
 type APIHandler struct {
 	health        *HealthHandler
 	uploadService *service.UploadService
+	deleteService *service.DeleteService
 	logger        *slog.Logger
 }
 
 // NewAPIHandler создаёт основной обработчик API.
-// uploadService может быть nil (тогда upload возвращает 501).
+// uploadService и deleteService могут быть nil (тогда возвращают 501).
 func NewAPIHandler(
 	health *HealthHandler,
 	uploadService *service.UploadService,
+	deleteService *service.DeleteService,
 	logger *slog.Logger,
 ) *APIHandler {
 	return &APIHandler{
 		health:        health,
 		uploadService: uploadService,
+		deleteService: deleteService,
 		logger:        logger.With(slog.String("component", "api_handler")),
 	}
 }

@@ -274,6 +274,89 @@ func (c *Client) RegisterFile(ctx context.Context, fileReq FileRegisterRequest) 
 	return &record, nil
 }
 
+// GetStorageElement возвращает информацию о конкретном Storage Element по его ID.
+// GET /api/v1/storage-elements/{seID}
+func (c *Client) GetStorageElement(ctx context.Context, seID string) (*SEInfo, error) {
+	reqURL := fmt.Sprintf("%s/api/v1/storage-elements/%s", c.adminURL, seID)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("создание запроса GetStorageElement: %w", err)
+	}
+
+	// SA-токен для авторизации
+	token, err := c.GetToken(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("получение токена для AM: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := c.httpClient.Do(req) //nolint:gosec // G704: URL из конфигурации
+	if err != nil {
+		return nil, fmt.Errorf("запрос GetStorageElement к %s: %w", c.adminURL, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("SE %s не найден в реестре AM: %s", seID, string(body))
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("AM вернул статус %d для GetStorageElement: %s", resp.StatusCode, string(body))
+	}
+
+	var se SEInfo
+	if err := json.NewDecoder(resp.Body).Decode(&se); err != nil {
+		return nil, fmt.Errorf("декодирование ответа SE от AM: %w", err)
+	}
+
+	c.logger.Debug("Получена информация о SE из AM",
+		slog.String("se_id", se.ID),
+		slog.String("se_url", se.URL),
+		slog.String("se_mode", se.Mode),
+	)
+
+	return &se, nil
+}
+
+// DeleteFile удаляет запись файла из реестра Admin Module.
+// DELETE /api/v1/files/{fileID}
+func (c *Client) DeleteFile(ctx context.Context, fileID string) error {
+	reqURL := fmt.Sprintf("%s/api/v1/files/%s", c.adminURL, fileID)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, reqURL, http.NoBody)
+	if err != nil {
+		return fmt.Errorf("создание запроса DeleteFile: %w", err)
+	}
+
+	// SA-токен для авторизации
+	token, err := c.GetToken(ctx)
+	if err != nil {
+		return fmt.Errorf("получение токена для AM: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := c.httpClient.Do(req) //nolint:gosec // G704: URL из конфигурации
+	if err != nil {
+		return fmt.Errorf("запрос DeleteFile к %s: %w", c.adminURL, err)
+	}
+	defer resp.Body.Close()
+	// Вычитываем тело для переиспользования соединения
+	_, _ = io.ReadAll(resp.Body)
+
+	// 204 No Content или 200 OK — успешное удаление
+	if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
+		c.logger.Debug("Файл удалён из реестра AM",
+			slog.String("file_id", fileID),
+		)
+		return nil
+	}
+
+	return fmt.Errorf("AM вернул статус %d для DeleteFile %s", resp.StatusCode, fileID)
+}
+
 // CheckHealth проверяет готовность Admin Module.
 // GET /health/ready — используется для readiness check Ingester Module.
 func (c *Client) CheckHealth(ctx context.Context) error {

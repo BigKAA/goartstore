@@ -41,6 +41,17 @@ var (
 	// ErrValidation — ошибка валидации входных данных.
 	// HTTP 400 Bad Request.
 	ErrValidation = errors.New("validation error")
+
+	// ErrModeNotAllowed — SE не в разрешённом режиме для удаления.
+	// HTTP 409 Conflict (CODE: MODE_NOT_ALLOWED).
+	ErrModeNotAllowed = errors.New("delete not allowed: storage element is not in edit mode")
+
+	// ErrFileUploadInProgress — файл в процессе загрузки, удаление невозможно.
+	// HTTP 409 Conflict (CODE: FILE_UPLOAD_IN_PROGRESS).
+	ErrFileUploadInProgress = errors.New("delete not allowed: file upload is in progress")
+
+	// ErrConflict — общая ошибка конфликта (409) без конкретного кода.
+	ErrConflict = errors.New("conflict: operation cannot be completed")
 )
 
 // Error оборачивает типизированную ошибку с дополнительным контекстом от API.
@@ -88,6 +99,15 @@ func mapHTTPError(statusCode int, apiErr *ErrorResponse) error {
 		baseErr = ErrNotFound
 	case 410:
 		baseErr = ErrFileArchived
+	case 409:
+		// Маппим 409 Conflict по коду ошибки API
+		if code == "MODE_NOT_ALLOWED" {
+			baseErr = ErrModeNotAllowed
+		} else if code == "FILE_UPLOAD_IN_PROGRESS" {
+			baseErr = ErrFileUploadInProgress
+		} else {
+			baseErr = ErrConflict
+		}
 	case 413:
 		baseErr = ErrFileTooLarge
 	case 502, 503:

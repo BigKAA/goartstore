@@ -169,6 +169,17 @@
   "activity.description": "Описание",
   "activity.timestamp": "Время",
 
+  "btn.delete": "Удалить",
+  "delete.confirm_title": "Удаление файла",
+  "delete.confirm_message": "Вы уверены, что хотите удалить этот файл? Это действие необратимо.",
+  "delete.success": "Файл успешно удалён",
+  "delete.error.general": "Ошибка удаления файла",
+  "delete.error.not_found": "Файл не найден",
+  "delete.error.mode_not_allowed": "Удаление доступно только для файлов на SE в режиме edit",
+  "delete.error.upload_in_progress": "Файл в данный момент загружается",
+  "delete.error.forbidden": "Недостаточно прав для удаления файла",
+  "delete.error.validation": "Не указан Storage Element ID",
+
   "error.server": "Ошибка сервера",
   "error.render": "Ошибка отображения страницы",
   "error.form_parse": "Ошибка обработки формы",

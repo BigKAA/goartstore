@@ -60,6 +60,11 @@ type ErrorResponse struct {
 		// - `NO_STORAGE_AVAILABLE` — нет подходящих SE
 		// - `SE_UPLOAD_FAILED` — ошибка загрузки в SE
 		// - `ADMIN_UNAVAILABLE` — Admin Module недоступен
+		// - `FILE_NOT_FOUND` — файл не найден
+		// - `MODE_NOT_ALLOWED` — SE не в разрешённом режиме
+		// - `FILE_UPLOAD_IN_PROGRESS` — файл в процессе загрузки
+		// - `SE_DELETE_FAILED` — ошибка удаления на SE
+		// - `SE_NOT_FOUND` — SE не найден в реестре
 		// - `INTERNAL_ERROR` — внутренняя ошибка
 		Code string `json:"code"`
 
@@ -173,6 +178,9 @@ type UploadResponseRetentionPolicy string
 // UploadResponseStatus Статус файла (всегда `active` при загрузке)
 type UploadResponseStatus string
 
+// FileId defines model for FileId.
+type FileId = openapi_types.UUID
+
 // Forbidden Стандартный формат ошибки (единый для всей системы Artstore)
 type Forbidden = ErrorResponse
 
@@ -206,6 +214,12 @@ type UploadFileMultipartBody struct {
 
 // UploadFileMultipartBodyRetentionPolicy defines parameters for UploadFile.
 type UploadFileMultipartBodyRetentionPolicy string
+
+// DeleteFileParams defines parameters for DeleteFile.
+type DeleteFileParams struct {
+	// StorageElementId UUID Storage Element, на котором расположен файл
+	StorageElementId openapi_types.UUID `form:"storage_element_id" json:"storage_element_id"`
+}
 
 // UploadFileMultipartRequestBody defines body for UploadFile for multipart/form-data ContentType.
 type UploadFileMultipartRequestBody UploadFileMultipartBody

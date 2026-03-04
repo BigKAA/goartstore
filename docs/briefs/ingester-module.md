@@ -9,9 +9,10 @@
 
 ## 1. Назначение модуля
 
-Ingester Module — точка входа для загрузки файлов в систему Artstore.
+Ingester Module — точка входа для загрузки и удаления файлов в системе Artstore.
 Принимает файлы от клиентов, валидирует, определяет целевой Storage Element,
 выполняет upload и регистрирует файл в реестре Admin Module.
+Также обеспечивает удаление файлов из SE в режиме `edit` с обновлением реестра.
 
 Ingester — stateless-модуль. Не хранит данные, не имеет собственной БД.
 Вся информация о SE и файлах — в Admin Module. Горизонтально масштабируется
@@ -142,7 +143,10 @@ Ingester не использует PostgreSQL, Redis или файловую с�
 | Keycloak | Ingester → Keycloak | JWKS keys (`GET /.../certs`, кэшируются ~15 сек) |
 | Admin Module | Ingester → Admin | Список SE (`GET /api/v1/storage-elements?mode=...&status=online`) |
 | Admin Module | Ingester → Admin | Регистрация файла (`POST /api/v1/files`) |
+| Admin Module | Ingester → Admin | Получение SE (`GET /api/v1/storage-elements/{id}`) |
+| Admin Module | Ingester → Admin | Удаление файла из реестра (`DELETE /api/v1/files/{id}`) |
 | Storage Element | Ingester → SE | Загрузка файла (`POST /api/v1/files/upload`) |
+| Storage Element | Ingester → SE | Удаление файла (`DELETE /api/v1/files/{id}`) |
 
 ---
 
@@ -221,9 +225,62 @@ Ingester не использует PostgreSQL, Redis или файловую с�
 
 ---
 
+## 4.1. Workflow удаления
+
+Удаление файлов доступно только для SE в режиме `edit` (temporary файлы).
+Ingester проксирует запрос: получает URL SE из Admin Module, выполняет
+soft-delete на SE, затем обновляет реестр Admin Module.
+
+### Успешный сценарий
+
+```text
+Клиент                    Ingester              Admin Module           Storage Element
+  │                          │                       │                       │
+  │  DELETE /files/{id}      │                       │                       │
+  │  ?storage_element_id=    │                       │                       │
+  │─────────────────────────▶│                       │                       │
+  │                          │                       │                       │
+  │                          │  GET /storage-elements │                       │
+  │                          │  /{se_id}              │                       │
+  │                          │──────────────────────▶│                       │
+  │                          │  {id, url, mode, ...}  │                       │
+  │                          │◀──────────────────────│                       │
+  │                          │                       │                       │
+  │                          │                  DELETE /api/v1/files/{id}     │
+  │                          │──────────────────────────────────────────────▶│
+  │                          │                  204 No Content               │
+  │                          │◀──────────────────────────────────────────────│
+  │                          │                       │                       │
+  │                          │  DELETE /files/{id}    │                       │
+  │                          │  (обновить реестр)     │                       │
+  │                          │──────────────────────▶│                       │
+  │                          │  204 / 200             │                       │
+  │                          │◀──────────────────────│                       │
+  │                          │                       │                       │
+  │  204 No Content          │                       │                       │
+  │◀─────────────────────────│                       │                       │
+```
+
+### Обработка ошибок удаления
+
+| Этап | Ошибка | Код | Реакция Ingester |
+|------|--------|-----|------------------|
+| Валидация | Отсутствует storage_element_id | 400 | VALIDATION_ERROR |
+| Получение SE | SE не найден в реестре AM | 502 | SE_NOT_FOUND |
+| Удаление из SE | Файл не найден на SE | 404 | FILE_NOT_FOUND |
+| Удаление из SE | SE не в режиме edit | 409 | MODE_NOT_ALLOWED |
+| Удаление из SE | Файл в процессе загрузки | 409 | FILE_UPLOAD_IN_PROGRESS |
+| Удаление из SE | SE недоступен / другая ошибка | 502 | SE_DELETE_FAILED |
+| Обновление реестра | AM вернул ошибку | — | Warning в логах (файл уже удалён с SE) |
+
+Примечание: если файл удалён с SE, но обновление реестра AM не удалось,
+Ingester логирует предупреждение и возвращает 204 (файл физически удалён).
+
+---
+
 ## 5. API endpoints
 
-4 endpoints. Полная спецификация —
+5 endpoints. Полная спецификация —
 [ingester-module-openapi.yaml](../api-contracts/ingester-module-openapi.yaml).
 
 ### Upload (1 endpoint)
@@ -261,6 +318,31 @@ Ingester не использует PostgreSQL, Redis или файловую с�
 | `expires_at` | datetime/null | Дата истечения (только для temporary) |
 | `storage_element_id` | UUID | ID записи SE в реестре Admin Module |
 
+### Delete (1 endpoint)
+
+| Метод | Endpoint | Назначение | Аутентификация |
+|-------|----------|------------|----------------|
+| `DELETE` | `/api/v1/files/{file_id}` | Удаление файла из SE и реестра | JWT `files:write` или роль `admin` |
+
+**Query параметры:**
+
+| Параметр | Тип | Обязательный | Описание |
+|----------|-----|:------------:|----------|
+| `storage_element_id` | UUID | да | ID Storage Element, на котором хранится файл |
+
+**Ответ:** `204 No Content` (без тела).
+
+**Коды ошибок:**
+
+| Код HTTP | Код ошибки | Описание |
+|----------|-----------|----------|
+| 400 | `VALIDATION_ERROR` | Отсутствует storage_element_id или невалидный UUID |
+| 404 | `FILE_NOT_FOUND` | Файл не найден на SE |
+| 409 | `MODE_NOT_ALLOWED` | SE не в режиме edit |
+| 409 | `FILE_UPLOAD_IN_PROGRESS` | Файл в процессе загрузки |
+| 502 | `SE_NOT_FOUND` | Storage Element не найден в реестре AM |
+| 502 | `SE_DELETE_FAILED` | Ошибка при удалении файла на SE |
+
 ### Health (3 endpoints)
 
 | Метод | Endpoint | Назначение | Аутентификация |
@@ -292,8 +374,8 @@ JWT RS256 токены, выданные Keycloak.
 
 | Scope / Role | Операции |
 |-------------|----------|
-| SA `files:write` | Загрузка файлов |
-| Роль `admin` | Загрузка файлов |
+| SA `files:write` | Загрузка и удаление файлов |
+| Роль `admin` | Загрузка и удаление файлов |
 
 Валидация JWT:
 
@@ -429,6 +511,13 @@ protocolMapper (oidc-usersessionmodel-note-mapper) для корректного
 | `im_active_uploads` | gauge | — | Количество активных загрузок |
 | `im_retry_total` | counter | `reason` | Количество retry (reason=507\|se_error) |
 | `im_se_selection_total` | counter | `result` | Результат выбора SE (success\|no_storage) |
+
+### Бизнес-метрики (delete)
+
+| Метрика | Тип | Labels | Описание |
+|---------|-----|--------|----------|
+| `im_deletes_total` | counter | `status` | Общее количество удалений (`success`, `error`) |
+| `im_delete_duration_seconds` | histogram | — | Время выполнения удаления (SE + AM) |
 
 ### Topologymetrics
 

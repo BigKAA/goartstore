@@ -30,6 +30,20 @@ info:
     Ingester запрашивает список доступных SE через Admin Module API
     и выбирает подходящий SE с достаточной свободной ёмкостью.
 
+    ## Workflow удаления
+
+    ```
+    Клиент → DELETE /api/v1/files/{file_id}?storage_element_id={se_id}
+      → Ingester получает URL SE из Admin Module
+        (GET /api/v1/storage-elements/{se_id})
+      → Ingester удаляет файл из SE (DELETE /api/v1/files/{file_id})
+      → Ingester удаляет запись файла из Admin Module (DELETE /api/v1/files/{file_id})
+      → Клиент получает 204 No Content
+    ```
+
+    Удаление возможно только для файлов на SE в режиме `edit`.
+    SE выполняет soft-delete (файл помечается как удалённый, физически удаляется GC).
+
     ### Ограничения
 
     - Максимальный размер файла: конфигурируемый (default 1 GB)
@@ -64,6 +78,8 @@ servers:
 tags:
   - name: upload
     description: Загрузка файлов
+  - name: delete
+    description: Удаление файлов из Storage Element
   - name: health
     description: Kubernetes probes и метрики
 
@@ -225,6 +241,114 @@ paths:
           $ref: "#/components/responses/InternalError"
 
   # =========================================================================
+  # Delete
+  # =========================================================================
+
+  /api/v1/files/{file_id}:
+    delete:
+      tags: [delete]
+      summary: Удаление файла из Storage Element
+      description: |
+        Удаляет файл из указанного Storage Element и обновляет реестр
+        в Admin Module.
+
+        Процесс:
+        1. Ingester получает информацию о SE из Admin Module
+        2. Отправляет DELETE запрос на SE
+        3. При успехе (204) — удаляет запись файла из Admin Module
+        4. Возвращает 204 No Content клиенту
+
+        Удаление возможно только для файлов на SE в режиме `edit`.
+        SE выполняет soft-delete: файл помечается как удалённый и
+        физически удаляется встроенным GC.
+      operationId: deleteFile
+      security:
+        - bearerAuth: [files:write]
+      parameters:
+        - $ref: "#/components/parameters/FileId"
+        - name: storage_element_id
+          in: query
+          required: true
+          description: UUID Storage Element, на котором расположен файл
+          schema:
+            type: string
+            format: uuid
+          example: 660e8400-e29b-41d4-a716-446655440001
+      responses:
+        "204":
+          description: Файл успешно удалён
+        "400":
+          description: Некорректный запрос (невалидный UUID)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: VALIDATION_ERROR
+                  message: "Некорректный формат storage_element_id"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Файл не найден на указанном SE
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: FILE_NOT_FOUND
+                  message: "Файл не найден на Storage Element"
+        "409":
+          description: Операция невозможна (SE не в режиме edit или файл в процессе загрузки)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                modeNotAllowed:
+                  summary: SE не в режиме edit
+                  value:
+                    error:
+                      code: MODE_NOT_ALLOWED
+                      message: "Удаление возможно только для SE в режиме edit"
+                uploadInProgress:
+                  summary: Файл в процессе загрузки
+                  value:
+                    error:
+                      code: FILE_UPLOAD_IN_PROGRESS
+                      message: "Файл находится в процессе загрузки"
+        "502":
+          description: Ошибка при взаимодействии с SE или Admin Module
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                seDeleteFailed:
+                  summary: Ошибка удаления на SE
+                  value:
+                    error:
+                      code: SE_DELETE_FAILED
+                      message: "Ошибка при удалении файла из Storage Element"
+                seNotFound:
+                  summary: SE не найден в реестре
+                  value:
+                    error:
+                      code: SE_NOT_FOUND
+                      message: "Storage Element не найден в реестре Admin Module"
+                adminUnavailable:
+                  summary: Admin Module недоступен
+                  value:
+                    error:
+                      code: ADMIN_UNAVAILABLE
+                      message: "Admin Module недоступен"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # =========================================================================
   # Health
   # =========================================================================
 
@@ -287,6 +411,8 @@ paths:
         - im_se_upload_duration_seconds — время передачи в SE
         - im_active_uploads — gauge текущих активных загрузок
         - im_retry_total — счётчик retry (по причине)
+        - im_deletes_total — счётчик удалений (по статусу)
+        - im_delete_duration_seconds — гистограмма длительности удаления
         - Метрики зависимостей topologymetrics (app_dependency_health,
           app_dependency_latency_seconds, app_dependency_status,
           app_dependency_status_detail)
@@ -326,6 +452,20 @@ components:
         JWT RS256 token, выданный Admin Module.
         Для загрузки файлов необходим scope `files:write` (SA)
         или роль `admin` (Admin User).
+
+  # =========================================================================
+  # Параметры
+  # =========================================================================
+  parameters:
+    FileId:
+      name: file_id
+      in: path
+      required: true
+      description: UUID файла
+      schema:
+        type: string
+        format: uuid
+      example: 550e8400-e29b-41d4-a716-446655440000
 
   # =========================================================================
   # Переиспользуемые ответы
@@ -577,6 +717,11 @@ components:
                 - `NO_STORAGE_AVAILABLE` — нет подходящих SE
                 - `SE_UPLOAD_FAILED` — ошибка загрузки в SE
                 - `ADMIN_UNAVAILABLE` — Admin Module недоступен
+                - `FILE_NOT_FOUND` — файл не найден
+                - `MODE_NOT_ALLOWED` — SE не в разрешённом режиме
+                - `FILE_UPLOAD_IN_PROGRESS` — файл в процессе загрузки
+                - `SE_DELETE_FAILED` — ошибка удаления на SE
+                - `SE_NOT_FOUND` — SE не найден в реестре
                 - `INTERNAL_ERROR` — внутренняя ошибка
               example: VALIDATION_ERROR
             message:

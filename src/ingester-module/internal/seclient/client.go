@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-// Sentinel errors для обработки в upload pipeline.
+// Sentinel errors для обработки в upload/delete pipeline.
 var (
 	// ErrStorageFull — SE вернул 507 (нет свободного места).
 	// Upload pipeline использует для retry с другим SE.
@@ -26,6 +26,15 @@ var (
 
 	// ErrFileTooLarge — SE вернул 413 (файл превышает лимит SE).
 	ErrFileTooLarge = fmt.Errorf("storage element: файл превышает допустимый размер SE (413)")
+
+	// ErrFileNotFound — SE вернул 404 (файл не найден).
+	ErrFileNotFound = fmt.Errorf("storage element: файл не найден (404)")
+
+	// ErrModeNotAllowed — SE вернул 409 (SE не в режиме edit для удаления).
+	ErrModeNotAllowed = fmt.Errorf("storage element: операция запрещена для текущего режима SE (409)")
+
+	// ErrFileUploadInProgress — SE вернул 409 (файл в процессе загрузки).
+	ErrFileUploadInProgress = fmt.Errorf("storage element: файл в процессе загрузки (409)")
 )
 
 // TokenProvider — функция, возвращающая SA-токен для авторизации запросов к SE.
@@ -130,6 +139,78 @@ func (c *Client) Upload(
 
 	// Обработка ответа SE
 	return c.handleUploadResponse(resp, seURL)
+}
+
+// Delete удаляет файл из Storage Element.
+// seURL — базовый URL SE, fileID — UUID файла.
+//
+// Sentinel errors:
+//   - ErrFileNotFound (404) — файл не найден
+//   - ErrModeNotAllowed (409) — SE не в режиме edit
+//   - ErrFileUploadInProgress (409) — файл в процессе загрузки
+func (c *Client) Delete(ctx context.Context, seURL, fileID string) error {
+	reqURL := fmt.Sprintf("%s/api/v1/files/%s", normalizeURL(seURL), fileID)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, reqURL, http.NoBody)
+	if err != nil {
+		return fmt.Errorf("создание запроса Delete: %w", err)
+	}
+
+	// SA-токен для авторизации
+	if c.tokenProvider != nil {
+		token, tokenErr := c.tokenProvider(ctx)
+		if tokenErr != nil {
+			return fmt.Errorf("получение токена для SE: %w", tokenErr)
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+
+	resp, err := c.httpClient.Do(req) //nolint:gosec // G704: URL из конфигурации SE
+	if err != nil {
+		return fmt.Errorf("запрос Delete к %s: %w", seURL, err)
+	}
+	defer resp.Body.Close()
+
+	return c.handleDeleteResponse(resp, seURL, fileID)
+}
+
+// handleDeleteResponse обрабатывает HTTP-ответ SE после delete.
+func (c *Client) handleDeleteResponse(resp *http.Response, seURL, fileID string) error {
+	switch resp.StatusCode {
+	case http.StatusNoContent:
+		c.logger.Debug("Файл удалён из SE",
+			slog.String("se_url", seURL),
+			slog.String("file_id", fileID),
+		)
+		return nil
+
+	case http.StatusNotFound:
+		body, _ := io.ReadAll(resp.Body)
+		c.logger.Warn("SE вернул 404 (файл не найден)",
+			slog.String("se_url", seURL),
+			slog.String("file_id", fileID),
+			slog.String("body", string(body)),
+		)
+		return ErrFileNotFound
+
+	case http.StatusConflict:
+		body, _ := io.ReadAll(resp.Body)
+		bodyStr := string(body)
+		c.logger.Warn("SE вернул 409 (конфликт)",
+			slog.String("se_url", seURL),
+			slog.String("file_id", fileID),
+			slog.String("body", bodyStr),
+		)
+		// Различаем причину конфликта по коду ошибки в теле ответа
+		if strings.Contains(bodyStr, "UPLOAD_IN_PROGRESS") || strings.Contains(bodyStr, "upload") {
+			return ErrFileUploadInProgress
+		}
+		return ErrModeNotAllowed
+
+	default:
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("SE %s вернул статус %d при удалении файла %s: %s", seURL, resp.StatusCode, fileID, string(body))
+	}
 }
 
 // buildMultipartPipe создаёт io.Pipe со streaming multipart body.

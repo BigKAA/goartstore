@@ -127,6 +127,71 @@ func (h *SearchHandler) FileDetail(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// DeleteFile — POST /files/{fileID}/delete — удаление файла (HTMX).
+// Парсит fileID из URL, storageElementID из формы.
+func (h *SearchHandler) DeleteFile(w http.ResponseWriter, r *http.Request) {
+	fileID := chi.URLParam(r, "fileID")
+	if fileID == "" {
+		http.Error(w, "file ID required", http.StatusBadRequest)
+		return
+	}
+
+	storageElementID := r.FormValue("storage_element_id")
+	if storageElementID == "" {
+		ctx := r.Context()
+		_ = components.Toast(components.ToastParams{
+			Variant: components.ToastError,
+			Message: i18n.T(ctx, "delete.error.validation"),
+		}).Render(ctx, w)
+		return
+	}
+
+	err := h.svc.DeleteFile(fileID, storageElementID)
+	if err != nil {
+		h.logger.Error("ошибка удаления файла",
+			"file_id", fileID,
+			"storage_element_id", storageElementID,
+			"error", err,
+		)
+		h.renderDeleteError(w, r, err)
+		return
+	}
+
+	// Успех — отправляем toast + trigger обновления результатов поиска
+	ctx := r.Context()
+	w.Header().Set("HX-Trigger", "fileDeleted")
+	_ = components.Toast(components.ToastParams{
+		Variant: components.ToastSuccess,
+		Message: i18n.T(ctx, "delete.success"),
+	}).Render(ctx, w)
+}
+
+// renderDeleteError — рендер ошибки удаления как toast.
+func (h *SearchHandler) renderDeleteError(w http.ResponseWriter, r *http.Request, err error) {
+	ctx := r.Context()
+	var msg string
+
+	switch {
+	case errors.Is(err, gateway.ErrNotFound):
+		msg = i18n.T(ctx, "delete.error.not_found")
+	case errors.Is(err, gateway.ErrModeNotAllowed):
+		msg = i18n.T(ctx, "delete.error.mode_not_allowed")
+	case errors.Is(err, gateway.ErrFileUploadInProgress):
+		msg = i18n.T(ctx, "delete.error.upload_in_progress")
+	case errors.Is(err, gateway.ErrForbidden):
+		msg = i18n.T(ctx, "delete.error.forbidden")
+	case errors.Is(err, gateway.ErrServiceUnavailable):
+		msg = i18n.T(ctx, "download.error.unavailable")
+	default:
+		msg = i18n.T(ctx, "delete.error.general")
+	}
+
+	_ = components.Toast(components.ToastParams{
+		Variant: components.ToastError,
+		Message: msg,
+	}).Render(ctx, w)
+}
+
 // parseSearchParams — извлечение параметров поиска из query string.
 func (h *SearchHandler) parseSearchParams(r *http.Request) gateway.SearchRequest {
 	q := r.URL.Query()

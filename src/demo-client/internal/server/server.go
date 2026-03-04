@@ -140,6 +140,9 @@ func registerUIRoutes(router chi.Router, cfg *config.Config, deps Deps, logger *
 	router.Get("/search/results", searchH.HandleSearch)
 	router.Get("/files/{fileID}", searchH.FileDetail)
 
+	// --- Delete ---
+	router.Post("/files/{fileID}/delete", searchH.DeleteFile)
+
 	// --- Downloads ---
 	router.Get("/files/{fileID}/download", downloadH.Download)
 

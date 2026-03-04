@@ -72,6 +72,44 @@ func (s *SearchService) Search(params gateway.SearchRequest) (*gateway.SearchRes
 	return result, nil
 }
 
+// DeleteFile удаляет файл через Gateway (Ingester Module).
+func (s *SearchService) DeleteFile(fileID, storageElementID string) error {
+	start := time.Now()
+
+	err := s.gw.DeleteFile(fileID, storageElementID)
+	duration := time.Since(start)
+
+	entry := activity.Entry{
+		Timestamp:   time.Now(),
+		Method:      "DELETE",
+		Path:        "/upload/api/v1/files/" + fileID,
+		DurationMs:  duration.Milliseconds(),
+		Description: fmt.Sprintf("удаление файла: %s", fileID),
+	}
+
+	if err != nil {
+		entry.StatusCode = 0
+		entry.Error = err.Error()
+		s.log.Append(entry)
+		s.logger.Error("ошибка удаления файла",
+			"file_id", fileID,
+			"storage_element_id", storageElementID,
+			"error", err,
+			"duration_ms", duration.Milliseconds(),
+		)
+		return err
+	}
+
+	entry.StatusCode = 204
+	s.log.Append(entry)
+	s.logger.Info("файл удалён",
+		"file_id", fileID,
+		"storage_element_id", storageElementID,
+		"duration_ms", duration.Milliseconds(),
+	)
+	return nil
+}
+
 // GetMetadata получает метаданные файла через Gateway.
 func (s *SearchService) GetMetadata(fileID string) (*gateway.FileInfo, error) {
 	start := time.Now()

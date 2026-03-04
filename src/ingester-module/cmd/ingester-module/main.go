@@ -85,7 +85,10 @@ func main() {
 		cfg.MaxFileSize, cfg.MaxRetries, logger,
 	)
 
-	// 8. JWKS readiness checker
+	// 8. Delete service (pipeline: получение SE → удаление из SE → удаление из AM)
+	deleteService := service.NewDeleteService(adminClient, seClient, logger)
+
+	// 9. JWKS readiness checker (нумерация сдвинута: delete service = шаг 8)
 	jwksChecker, err := middleware.NewKeycloakReadinessChecker(
 		cfg.JWKSURL, cfg.CACertPath, cfg.JWKSClientTimeout,
 	)
@@ -100,7 +103,7 @@ func main() {
 	healthHandler := handlers.NewHealthHandler(adminChecker, jwksChecker)
 
 	// 10. API handler (полный — с upload service)
-	apiHandler := handlers.NewAPIHandler(healthHandler, uploadService, logger)
+	apiHandler := handlers.NewAPIHandler(healthHandler, uploadService, deleteService, logger)
 
 	// 11. HTTP-сервер с middleware:
 	//     Порядок: metrics -> logging -> JWT (с exclusions для health/metrics)

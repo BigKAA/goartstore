@@ -17,8 +17,13 @@ const (
 	CodeNoStorageAvailable = "NO_STORAGE_AVAILABLE"
 	CodeSEUploadFailed     = "SE_UPLOAD_FAILED"
 	CodeAdminUnavailable   = "ADMIN_UNAVAILABLE"
-	CodeStorageFull        = "STORAGE_FULL"
-	CodeInternalError      = "INTERNAL_ERROR"
+	CodeStorageFull           = "STORAGE_FULL"
+	CodeFileNotFound          = "FILE_NOT_FOUND"
+	CodeModeNotAllowed        = "MODE_NOT_ALLOWED"
+	CodeFileUploadInProgress  = "FILE_UPLOAD_IN_PROGRESS"
+	CodeSEDeleteFailed        = "SE_DELETE_FAILED"
+	CodeSENotFound            = "SE_NOT_FOUND"
+	CodeInternalError         = "INTERNAL_ERROR"
 )
 
 // errorBody — структура тела ответа ошибки.
@@ -85,6 +90,31 @@ func AdminUnavailable(w http.ResponseWriter, message string) {
 // StorageFull — 507 нет свободного места на доступных SE.
 func StorageFull(w http.ResponseWriter, message string) {
 	WriteError(w, http.StatusInsufficientStorage, CodeStorageFull, message)
+}
+
+// FileNotFound — 404 файл не найден.
+func FileNotFound(w http.ResponseWriter, message string) {
+	WriteError(w, http.StatusNotFound, CodeFileNotFound, message)
+}
+
+// ModeNotAllowed — 409 SE не в разрешённом режиме.
+func ModeNotAllowed(w http.ResponseWriter, message string) {
+	WriteError(w, http.StatusConflict, CodeModeNotAllowed, message)
+}
+
+// FileUploadInProgress — 409 файл в процессе загрузки.
+func FileUploadInProgress(w http.ResponseWriter, message string) {
+	WriteError(w, http.StatusConflict, CodeFileUploadInProgress, message)
+}
+
+// SEDeleteFailed — 502 ошибка удаления на SE.
+func SEDeleteFailed(w http.ResponseWriter, message string) {
+	WriteError(w, http.StatusBadGateway, CodeSEDeleteFailed, message)
+}
+
+// SENotFound — 502 SE не найден в реестре AM.
+func SENotFound(w http.ResponseWriter, message string) {
+	WriteError(w, http.StatusBadGateway, CodeSENotFound, message)
 }
 
 // InternalError — 500 внутренняя ошибка.

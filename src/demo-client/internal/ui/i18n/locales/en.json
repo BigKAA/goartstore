@@ -169,6 +169,17 @@
   "activity.description": "Description",
   "activity.timestamp": "Time",
 
+  "btn.delete": "Delete",
+  "delete.confirm_title": "Delete File",
+  "delete.confirm_message": "Are you sure you want to delete this file? This action cannot be undone.",
+  "delete.success": "File deleted successfully",
+  "delete.error.general": "Error deleting file",
+  "delete.error.not_found": "File not found",
+  "delete.error.mode_not_allowed": "Deletion is only available for files on SE in edit mode",
+  "delete.error.upload_in_progress": "File is currently being uploaded",
+  "delete.error.forbidden": "Insufficient permissions to delete file",
+  "delete.error.validation": "Storage Element ID is required",
+
   "error.server": "Server Error",
   "error.render": "Page render error",
   "error.form_parse": "Form processing error",
