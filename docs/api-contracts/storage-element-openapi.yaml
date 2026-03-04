@@ -17,9 +17,10 @@ info:
     единственным источником истины для метаданных. Внутренний кэш (если используется)
     пересоздаётся из attr.json файлов.
 
-    ### WAL Protocol
-    Все операции записи проходят через Write-Ahead Log для обеспечения атомарности:
-    WAL entry → запись файла → создание attr.json → WAL commit.
+    ### Per-file Lock Protocol
+    Все операции записи защищены per-file lock-файлами с TTL.
+    Lock → запись файла → создание attr.json → снятие lock.
+    При crash pod-а lock автоматически истекает по TTL, и GC подхватывает orphaned файлы.
 
     ### Режимы работы (modes)
     Storage Element работает в одном из четырёх режимов, определяющих доступные операции:
@@ -77,6 +78,8 @@ tags:
     description: Управление режимом работы
   - name: maintenance
     description: Обслуживание и диагностика
+  - name: locks
+    description: Диагностика и очистка lock-файлов
   - name: health
     description: Kubernetes probes и метрики
 
@@ -104,8 +107,8 @@ paths:
         3. Создаётся `*.attr.json` с метаданными
         4. WAL entry коммитится
 
-        Имя файла на диске формируется по шаблону:
-        `{original_name}_{username}_{timestamp}_{uuid}.{ext}`
+        Файл на диске хранится в иерархической структуре YYYY/MM/DD/:
+        `{year}/{month}/{day}/{original_name}_{username}_{timestamp}_{uuid}.{ext}`
       operationId: uploadFile
       security:
         - bearerAuth: [files:write]
@@ -344,15 +347,27 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: Операция не разрешена в текущем режиме
+          description: |
+            Операция невозможна. Возможные коды ошибок:
+            - `MODE_NOT_ALLOWED` — удаление не разрешено в текущем режиме
+            - `FILE_UPLOAD_IN_PROGRESS` — файл в процессе загрузки (lock активен)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              example:
-                error:
-                  code: MODE_NOT_ALLOWED
-                  message: "Удаление файлов доступно только в режиме 'edit'"
+              examples:
+                modeNotAllowed:
+                  summary: Операция не разрешена в текущем режиме
+                  value:
+                    error:
+                      code: MODE_NOT_ALLOWED
+                      message: "Удаление файлов доступно только в режиме 'edit'"
+                uploadInProgress:
+                  summary: Файл загружается
+                  value:
+                    error:
+                      code: FILE_UPLOAD_IN_PROGRESS
+                      message: "Cannot delete file while upload is in progress"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -613,6 +628,73 @@ paths:
                 error:
                   code: RECONCILE_IN_PROGRESS
                   message: "Сверка уже выполняется, дождитесь завершения"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # =========================================================================
+  # Locks
+  # =========================================================================
+
+  /api/v1/locks:
+    get:
+      tags: [locks]
+      summary: Список текущих lock-ов
+      description: |
+        Возвращает список всех per-file lock-ов (активных и expired).
+        Используется для диагностики: мониторинг активных upload-ов,
+        обнаружение orphaned lock-ов после crash pod-ов.
+      operationId: listLocks
+      security:
+        - bearerAuth: [storage:write]
+      responses:
+        "200":
+          description: Список lock-ов
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LockListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/locks/cleanup:
+    post:
+      tags: [locks]
+      summary: Очистка expired lock-ов
+      description: |
+        Удаляет expired lock-файлы. Используется для ручной очистки
+        после crash pod-ов, если автоматическая очистка GC ещё не
+        отработала.
+
+        С параметром `force=true` удаляет **все** lock-и, включая
+        активные. Использовать только в аварийных ситуациях.
+      operationId: cleanupLocks
+      security:
+        - bearerAuth: [storage:write]
+      parameters:
+        - name: force
+          in: query
+          required: false
+          description: |
+            Принудительная очистка всех lock-ов (включая активные).
+            Внимание: может прервать текущие upload-ы.
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Результат очистки
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LockCleanupResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -971,20 +1053,6 @@ components:
           example: 1.0.0
         capacity:
           $ref: "#/components/schemas/CapacityInfo"
-        replica_mode:
-          type: string
-          enum: [standalone, replicated]
-          description: Режим развёртывания
-          example: standalone
-        role:
-          type: string
-          enum: [standalone, leader, follower]
-          description: |
-            Роль экземпляра:
-            - `standalone` — единственный экземпляр (replica_mode=standalone)
-            - `leader` — лидер в replicated-режиме (обрабатывает запись)
-            - `follower` — follower в replicated-режиме (только чтение)
-          example: standalone
         allowed_operations:
           type: array
           items:
@@ -1131,8 +1199,8 @@ components:
           example: 550e8400-e29b-41d4-a716-446655440000
         path:
           type: string
-          description: Путь к файлу на диске (относительный)
-          example: data/photo_user1_20260221_abc123.jpg
+          description: Путь к файлу на диске (относительный, формат YYYY/MM/DD/filename)
+          example: 2026/02/21/photo_user1_20260221150405_abc12345.jpg
         type:
           type: string
           enum:
@@ -1184,6 +1252,141 @@ components:
           type: integer
           description: Несовпадения размера
           example: 0
+
+    # -----------------------------------------------------------------------
+    # Locks
+    # -----------------------------------------------------------------------
+
+    LockInfo:
+      type: object
+      description: Информация о per-file lock-е
+      required:
+        - file_id
+        - holder
+        - acquired_at
+        - ttl_seconds
+        - expires_at
+        - expired
+      properties:
+        file_id:
+          type: string
+          format: uuid
+          description: ID файла, защищённого lock-ом
+          example: 550e8400-e29b-41d4-a716-446655440000
+        holder:
+          type: string
+          description: Идентификатор pod-а/экземпляра, захватившего lock
+          example: se-edit-1-7f9b4c6d8-x2k9p
+        acquired_at:
+          type: string
+          format: date-time
+          description: Время захвата lock-а (ISO 8601, UTC)
+          example: "2026-03-01T12:00:00Z"
+        ttl_seconds:
+          type: integer
+          description: Время жизни lock-а в секундах
+          example: 120
+        expires_at:
+          type: string
+          format: date-time
+          description: Время истечения lock-а (ISO 8601, UTC)
+          example: "2026-03-01T12:02:00Z"
+        expired:
+          type: boolean
+          description: Истёк ли TTL lock-а
+          example: false
+
+    LockListResponse:
+      type: object
+      description: Ответ со списком lock-ов
+      required:
+        - locks
+        - total
+        - active
+        - expired
+      properties:
+        locks:
+          type: array
+          items:
+            $ref: "#/components/schemas/LockInfo"
+        total:
+          type: integer
+          description: Общее количество lock-ов
+          example: 3
+        active:
+          type: integer
+          description: Количество активных (не expired) lock-ов
+          example: 2
+        expired:
+          type: integer
+          description: Количество expired lock-ов
+          example: 1
+
+    LockCleanupResponse:
+      type: object
+      description: Результат очистки lock-ов
+      required:
+        - cleaned
+        - remaining
+        - removed
+        - active
+      properties:
+        cleaned:
+          type: integer
+          description: Количество удалённых lock-ов
+          example: 2
+        remaining:
+          type: integer
+          description: Количество оставшихся активных lock-ов
+          example: 1
+        removed:
+          type: array
+          description: Информация об удалённых lock-ах
+          items:
+            type: object
+            required:
+              - file_id
+              - holder
+              - expired_at
+            properties:
+              file_id:
+                type: string
+                format: uuid
+                description: ID файла
+                example: 550e8400-e29b-41d4-a716-446655440000
+              holder:
+                type: string
+                description: Pod, захвативший lock
+                example: se-edit-1-dead-pod
+              expired_at:
+                type: string
+                format: date-time
+                description: Время истечения lock-а
+                example: "2026-03-01T11:58:00Z"
+        active:
+          type: array
+          description: Информация об оставшихся активных lock-ах
+          items:
+            type: object
+            required:
+              - file_id
+              - holder
+              - expires_at
+            properties:
+              file_id:
+                type: string
+                format: uuid
+                description: ID файла
+                example: 550e8400-e29b-41d4-a716-446655440000
+              holder:
+                type: string
+                description: Pod, захвативший lock
+                example: se-edit-1-live-pod
+              expires_at:
+                type: string
+                format: date-time
+                description: Время истечения lock-а
+                example: "2026-03-01T12:04:00Z"
 
     # -----------------------------------------------------------------------
     # Health
@@ -1247,11 +1450,11 @@ components:
           properties:
             filesystem:
               $ref: "#/components/schemas/HealthCheck"
-            wal:
+            index:
               $ref: "#/components/schemas/HealthCheck"
           required:
             - filesystem
-            - wal
+            - index
 
     HealthCheck:
       type: object
@@ -1298,6 +1501,7 @@ components:
                 - `INVALID_RANGE` — некорректный Range header
                 - `FILE_TOO_LARGE` — файл превышает лимит
                 - `STORAGE_FULL` — нет свободного места
+                - `FILE_UPLOAD_IN_PROGRESS` — файл загружается (lock активен)
                 - `RECONCILE_IN_PROGRESS` — сверка уже выполняется
                 - `INTERNAL_ERROR` — внутренняя ошибка
               example: NOT_FOUND

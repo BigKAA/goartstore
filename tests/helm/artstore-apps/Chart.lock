@@ -1,0 +1,6 @@
+dependencies:
+- name: uniproxy
+  repository: file://charts/uniproxy
+  version: 0.2.0
+digest: sha256:ada184e85ecdf7a1ddaaaf9e597fdfbb898d55160231e19128bbcf36bfc26278
+generated: "2026-03-02T17:00:56.381571+03:00"

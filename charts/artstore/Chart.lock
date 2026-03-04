@@ -1,0 +1,18 @@
+dependencies:
+- name: admin-module
+  repository: file://../../src/admin-module/charts/admin-module
+  version: 0.3.0
+- name: storage-element
+  repository: file://../../src/storage-element/charts/storage-element
+  version: 0.3.0
+- name: ingester-module
+  repository: file://../../src/ingester-module/charts/ingester-module
+  version: 0.1.0
+- name: query-module
+  repository: file://../../src/query-module/charts/query-module
+  version: 0.1.0
+- name: monitoring
+  repository: file://charts/monitoring
+  version: 0.1.0
+digest: sha256:e59ce175023fc932a7a4e40368c7d02e167f0ce62cd732dfc4783058395f7ded
+generated: "2026-03-04T14:55:35.044751+03:00"

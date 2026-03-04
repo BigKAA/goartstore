@@ -12,11 +12,12 @@ import (
 	"github.com/bigkaa/goartstore/query-module/internal/domain/model"
 )
 
-// fileColumns — список столбцов таблицы file_registry для SELECT-запросов.
-// DRY: одно место для всех SELECT'ов.
-const fileColumns = `file_id, original_filename, content_type, size, checksum,
-	storage_element_id, uploaded_by, uploaded_at, description, tags,
-	status, retention_policy, ttl_days, expires_at, created_at, updated_at`
+// fileColumnsWithSEMode — столбцы file_registry + se.mode через JOIN.
+// Используется в запросах, где нужен режим Storage Element.
+const fileColumnsWithSEMode = `fr.file_id, fr.original_filename, fr.content_type, fr.size, fr.checksum,
+	fr.storage_element_id, fr.uploaded_by, fr.uploaded_at, fr.description, fr.tags,
+	fr.status, fr.retention_policy, fr.ttl_days, fr.expires_at, fr.created_at, fr.updated_at,
+	COALESCE(se.mode, '') AS se_mode`
 
 // SearchParams — параметры поиска файлов.
 // Все поля — указатели, nil = фильтр не применяется.
@@ -78,14 +79,19 @@ func NewFileRepository(db DBTX) FileRepository {
 }
 
 // GetByID возвращает файл по UUID или ErrNotFound.
+// Включает JOIN с storage_elements для получения se_mode.
 func (r *fileRepo) GetByID(ctx context.Context, fileID string) (*model.FileRecord, error) {
-	query := fmt.Sprintf(`SELECT %s FROM file_registry WHERE file_id = $1`, fileColumns)
+	query := fmt.Sprintf(
+		`SELECT %s FROM file_registry fr
+		LEFT JOIN storage_elements se ON fr.storage_element_id = se.id
+		WHERE fr.file_id = $1`, fileColumnsWithSEMode)
 
 	f := &model.FileRecord{}
 	err := r.db.QueryRow(ctx, query, fileID).Scan(
 		&f.FileID, &f.OriginalFilename, &f.ContentType, &f.Size, &f.Checksum,
 		&f.StorageElementID, &f.UploadedBy, &f.UploadedAt, &f.Description, &f.Tags,
 		&f.Status, &f.RetentionPolicy, &f.TTLDays, &f.ExpiresAt, &f.CreatedAt, &f.UpdatedAt,
+		&f.SEMode,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -97,19 +103,22 @@ func (r *fileRepo) GetByID(ctx context.Context, fileID string) (*model.FileRecor
 }
 
 // Search выполняет поиск файлов с динамическими фильтрами, сортировкой и пагинацией.
+// Включает JOIN с storage_elements для получения se_mode.
 // Возвращает (результаты, общее количество, ошибка).
 func (r *fileRepo) Search(ctx context.Context, params SearchParams) ([]*model.FileRecord, int, error) {
-	// Построение WHERE-условия
+	// Построение WHERE-условия (с алиасом fr для file_registry)
 	where, args := buildSearchWhere(params, 1)
 	argNum := len(args) + 1
 
 	// Сортировка (безопасный whitelist)
 	orderBy := buildOrderBy(params.SortBy, params.SortOrder)
 
-	// Запрос данных с пагинацией
+	// Запрос данных с пагинацией (JOIN storage_elements для se_mode)
 	dataQuery := fmt.Sprintf(
-		`SELECT %s FROM file_registry %s %s LIMIT $%d OFFSET $%d`,
-		fileColumns, where, orderBy, argNum, argNum+1,
+		`SELECT %s FROM file_registry fr
+		LEFT JOIN storage_elements se ON fr.storage_element_id = se.id
+		%s %s LIMIT $%d OFFSET $%d`,
+		fileColumnsWithSEMode, where, orderBy, argNum, argNum+1,
 	)
 	args = append(args, params.Limit, params.Offset)
 
@@ -126,6 +135,7 @@ func (r *fileRepo) Search(ctx context.Context, params SearchParams) ([]*model.Fi
 			&f.FileID, &f.OriginalFilename, &f.ContentType, &f.Size, &f.Checksum,
 			&f.StorageElementID, &f.UploadedBy, &f.UploadedAt, &f.Description, &f.Tags,
 			&f.Status, &f.RetentionPolicy, &f.TTLDays, &f.ExpiresAt, &f.CreatedAt, &f.UpdatedAt,
+			&f.SEMode,
 		); err != nil {
 			return nil, 0, fmt.Errorf("ошибка сканирования файла: %w", err)
 		}
@@ -136,8 +146,9 @@ func (r *fileRepo) Search(ctx context.Context, params SearchParams) ([]*model.Fi
 	}
 
 	// Запрос общего количества (с теми же фильтрами, без LIMIT/OFFSET)
+	// COUNT не требует JOIN — se_mode не влияет на подсчёт
 	countWhere, countArgs := buildSearchWhere(params, 1)
-	countQuery := fmt.Sprintf(`SELECT COUNT(*) FROM file_registry %s`, countWhere)
+	countQuery := fmt.Sprintf(`SELECT COUNT(*) FROM file_registry fr %s`, countWhere)
 
 	var total int
 	if err := r.db.QueryRow(ctx, countQuery, countArgs...).Scan(&total); err != nil {
@@ -167,6 +178,7 @@ func (r *fileRepo) MarkDeleted(ctx context.Context, fileID string) error {
 
 // buildSearchWhere строит WHERE-условие и аргументы для поиска файлов.
 // startArg — номер первого $-параметра (для корректной нумерации).
+// Все столбцы используют алиас fr. (file_registry) для совместимости с JOIN.
 //
 //nolint:cyclop // сложность обусловлена количеством фильтров
 func buildSearchWhere(params SearchParams, startArg int) (whereClause string, args []any) {
@@ -177,11 +189,11 @@ func buildSearchWhere(params SearchParams, startArg int) (whereClause string, ar
 	if params.Query != nil && *params.Query != "" {
 		if params.Mode == "exact" {
 			// Exact: case-insensitive точное совпадение
-			conditions = append(conditions, fmt.Sprintf("LOWER(original_filename) = LOWER($%d)", argNum))
+			conditions = append(conditions, fmt.Sprintf("LOWER(fr.original_filename) = LOWER($%d)", argNum))
 			args = append(args, *params.Query)
 		} else {
 			// Partial (по умолчанию): ILIKE подстрока
-			conditions = append(conditions, fmt.Sprintf("original_filename ILIKE $%d", argNum))
+			conditions = append(conditions, fmt.Sprintf("fr.original_filename ILIKE $%d", argNum))
 			args = append(args, "%"+*params.Query+"%")
 		}
 		argNum++
@@ -189,70 +201,70 @@ func buildSearchWhere(params SearchParams, startArg int) (whereClause string, ar
 
 	// Фильтр по filename (всегда partial match — ILIKE)
 	if params.Filename != nil && *params.Filename != "" {
-		conditions = append(conditions, fmt.Sprintf("original_filename ILIKE $%d", argNum))
+		conditions = append(conditions, fmt.Sprintf("fr.original_filename ILIKE $%d", argNum))
 		args = append(args, "%"+*params.Filename+"%")
 		argNum++
 	}
 
 	// Фильтр по расширению файла (exact match по суффиксу)
 	if params.FileExtension != nil && *params.FileExtension != "" {
-		conditions = append(conditions, fmt.Sprintf("original_filename ILIKE $%d", argNum))
+		conditions = append(conditions, fmt.Sprintf("fr.original_filename ILIKE $%d", argNum))
 		args = append(args, "%."+*params.FileExtension)
 		argNum++
 	}
 
 	// Фильтр по тегам (файл должен содержать все указанные теги — оператор @>)
 	if params.Tags != nil && len(*params.Tags) > 0 {
-		conditions = append(conditions, fmt.Sprintf("tags @> $%d", argNum))
+		conditions = append(conditions, fmt.Sprintf("fr.tags @> $%d", argNum))
 		args = append(args, *params.Tags)
 		argNum++
 	}
 
 	// Фильтр по загрузившему (exact match)
 	if params.UploadedBy != nil && *params.UploadedBy != "" {
-		conditions = append(conditions, fmt.Sprintf("uploaded_by = $%d", argNum))
+		conditions = append(conditions, fmt.Sprintf("fr.uploaded_by = $%d", argNum))
 		args = append(args, *params.UploadedBy)
 		argNum++
 	}
 
 	// Фильтр по политике хранения
 	if params.RetentionPolicy != nil && *params.RetentionPolicy != "" {
-		conditions = append(conditions, fmt.Sprintf("retention_policy = $%d", argNum))
+		conditions = append(conditions, fmt.Sprintf("fr.retention_policy = $%d", argNum))
 		args = append(args, *params.RetentionPolicy)
 		argNum++
 	}
 
 	// Фильтр по статусу
 	if params.Status != nil && *params.Status != "" {
-		conditions = append(conditions, fmt.Sprintf("status = $%d", argNum))
+		conditions = append(conditions, fmt.Sprintf("fr.status = $%d", argNum))
 		args = append(args, *params.Status)
 		argNum++
 	}
 
 	// Фильтр по минимальному размеру
 	if params.MinSize != nil {
-		conditions = append(conditions, fmt.Sprintf("size >= $%d", argNum))
+		conditions = append(conditions, fmt.Sprintf("fr.size >= $%d", argNum))
 		args = append(args, *params.MinSize)
 		argNum++
 	}
 
 	// Фильтр по максимальному размеру
 	if params.MaxSize != nil {
-		conditions = append(conditions, fmt.Sprintf("size <= $%d", argNum))
+		conditions = append(conditions, fmt.Sprintf("fr.size <= $%d", argNum))
 		args = append(args, *params.MaxSize)
 		argNum++
 	}
 
 	// Фильтр по дате загрузки (после)
 	if params.UploadedAfter != nil {
-		conditions = append(conditions, fmt.Sprintf("uploaded_at >= $%d", argNum))
+		conditions = append(conditions, fmt.Sprintf("fr.uploaded_at >= $%d", argNum))
 		args = append(args, *params.UploadedAfter)
 		argNum++
 	}
 
 	// Фильтр по дате загрузки (до)
 	if params.UploadedBefore != nil {
-		conditions = append(conditions, fmt.Sprintf("uploaded_at <= $%d", argNum))
+		conditions = append(conditions, fmt.Sprintf("fr.uploaded_at <= $%d", argNum))
 		args = append(args, *params.UploadedBefore)
 	}
 
@@ -267,17 +279,18 @@ func buildSearchWhere(params SearchParams, startArg int) (whereClause string, ar
 const defaultSortColumn = "uploaded_at"
 
 // buildOrderBy строит ORDER BY с безопасным whitelist полей.
+// Все столбцы используют алиас fr. для совместимости с JOIN.
 // Предотвращает SQL-инъекции — только разрешённые значения.
 func buildOrderBy(sortBy, sortOrder string) string {
-	// Whitelist допустимых полей сортировки
-	column := defaultSortColumn
+	// Whitelist допустимых полей сортировки (с алиасом fr.)
+	column := "fr." + defaultSortColumn
 	switch sortBy {
 	case "original_filename":
-		column = "original_filename"
+		column = "fr.original_filename"
 	case "size":
-		column = "size"
+		column = "fr.size"
 	case defaultSortColumn:
-		column = defaultSortColumn
+		column = "fr." + defaultSortColumn
 	}
 
 	// Whitelist направлений сортировки

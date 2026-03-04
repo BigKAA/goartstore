@@ -50,10 +50,18 @@ spec:
       backendRefs:
         - name: {{ .Release.Name }}-keycloak
           port: 8080
+    # Keycloak Admin REST API — /admin/realms, /admin/serverinfo
     - matches:
         - path:
             type: PathPrefix
             value: /admin/realms
+      backendRefs:
+        - name: {{ .Release.Name }}-keycloak
+          port: 8080
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /admin/serverinfo
       backendRefs:
         - name: {{ .Release.Name }}-keycloak
           port: 8080

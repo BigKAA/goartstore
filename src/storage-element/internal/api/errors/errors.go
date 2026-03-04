@@ -20,6 +20,7 @@ const (
 	CodeInvalidRange         = "INVALID_RANGE"
 	CodeFileTooLarge         = "FILE_TOO_LARGE"
 	CodeStorageFull          = "STORAGE_FULL"
+	CodeFileUploadInProgress = "FILE_UPLOAD_IN_PROGRESS"
 	CodeReconcileInProgress  = "RECONCILE_IN_PROGRESS"
 	CodeInternalError        = "INTERNAL_ERROR"
 )

@@ -45,9 +45,9 @@ body=$(get_response_body "$response")
 
 if [[ "$code" == "200" ]]; then
     total=$(echo "$body" | jq -r '.total // 0')
-    items_count=$(echo "$body" | jq -r '.files | length // 0')
+    items_count=$(echo "$body" | jq -r '.items | length // 0')
     if [[ "$total" -ge 0 && "$items_count" -ge 0 ]]; then
-        test_pass "Тест 7: пустой поиск → 200, total=${total}, files=${items_count}"
+        test_pass "Тест 7: пустой поиск → 200, total=${total}, items=${items_count}"
     else
         test_fail "Тест 7: пустой поиск → 200, но некорректный формат ответа"
     fi
@@ -65,11 +65,11 @@ body=$(get_response_body "$response")
 
 if [[ "$code" == "200" ]]; then
     total=$(echo "$body" | jq -r '.total // 0')
-    items_count=$(echo "$body" | jq -r '.files | length // 0')
+    items_count=$(echo "$body" | jq -r '.items | length // 0')
     limit=$(echo "$body" | jq -r '.limit // 0')
     offset=$(echo "$body" | jq -r '.offset // 0')
     if [[ "$limit" == "2" && "$offset" == "0" ]]; then
-        test_pass "Тест 8: пагинация → limit=${limit}, offset=${offset}, total=${total}, files=${items_count}"
+        test_pass "Тест 8: пагинация → limit=${limit}, offset=${offset}, total=${total}, items=${items_count}"
     else
         test_fail "Тест 8: пагинация → limit=${limit}, offset=${offset} (ожидались 2, 0)"
     fi
@@ -89,7 +89,7 @@ body=$(get_response_body "$response")
 if [[ "$code" == "200" ]]; then
     total=$(echo "$body" | jq -r '.total // 0')
     # Проверяем, что все возвращённые файлы имеют status=active
-    non_active=$(echo "$body" | jq -r '[(.files // [])[] | select(.status != "active")] | length')
+    non_active=$(echo "$body" | jq -r '[(.items // [])[] | select(.status != "active")] | length')
     if [[ "$non_active" == "0" ]]; then
         test_pass "Тест 9: status=active → total=${total}, все файлы active"
     else
@@ -124,7 +124,7 @@ log_info "Тест 11: GET /api/v1/files/{file_id} — метаданные фа
 # Получаем file_id из результатов поиска
 search_response=$(http_post "$QM_URL" "$admin_token" "/api/v1/search" '{"limit":1,"offset":0}')
 search_body=$(get_response_body "$search_response")
-file_id=$(echo "$search_body" | jq -r '.files[0].file_id // empty')
+file_id=$(echo "$search_body" | jq -r '.items[0].file_id // empty')
 
 if [[ -n "$file_id" ]]; then
     response=$(http_get "$QM_URL" "$admin_token" "/api/v1/files/${file_id}")

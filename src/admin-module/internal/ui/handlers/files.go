@@ -91,8 +91,8 @@ func (h *FilesHandler) HandleList(w http.ResponseWriter, r *http.Request) {
 		)
 	}
 
-	// Получаем список SE для фильтра (имена)
-	seList := h.getSENames(ctx)
+	// Получаем список SE для фильтра (имена + режимы)
+	seList, seInfoMap := h.getSEInfo(ctx)
 
 	// Преобразуем в отображаемые элементы с фильтрацией по поиску и content_type
 	items := make([]pages.FileListItem, 0, len(files))
@@ -109,8 +109,9 @@ func (h *FilesHandler) HandleList(w http.ResponseWriter, r *http.Request) {
 			RetentionPolicy:  f.RetentionPolicy,
 		}
 
-		// Находим имя SE
-		item.SEName = h.findSEName(seList, f.StorageElementID)
+		// Находим имя и режим SE
+		item.SEName = findSENameFromMap(seInfoMap, f.StorageElementID)
+		item.SEMode = findSEModeFromMap(seInfoMap, f.StorageElementID)
 
 		// Фильтрация по content_type (client-side, т.к. нет фильтра в репозитории)
 		if contentType != "" && !matchContentType(f.ContentType, contentType) {
@@ -212,7 +213,7 @@ func (h *FilesHandler) HandleTablePartial(w http.ResponseWriter, r *http.Request
 		)
 	}
 
-	seList := h.getSENames(ctx)
+	_, seInfoMapPartial := h.getSEInfo(ctx)
 
 	items := make([]pages.FileListItem, 0, len(files))
 	for _, f := range files {
@@ -228,7 +229,8 @@ func (h *FilesHandler) HandleTablePartial(w http.ResponseWriter, r *http.Request
 			RetentionPolicy:  f.RetentionPolicy,
 		}
 
-		item.SEName = h.findSEName(seList, f.StorageElementID)
+		item.SEName = findSENameFromMap(seInfoMapPartial, f.StorageElementID)
+		item.SEMode = findSEModeFromMap(seInfoMapPartial, f.StorageElementID)
 
 		if contentType != "" && !matchContentType(f.ContentType, contentType) {
 			continue
@@ -292,9 +294,8 @@ func (h *FilesHandler) HandleDetailModal(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Получаем имя SE
-	seList := h.getSENames(ctx)
-	seName := h.findSEName(seList, f.StorageElementID)
+	// Получаем имя и режим SE
+	_, seInfoMapDetail := h.getSEInfo(ctx)
 
 	detail := partials.FileDetailData{
 		ID:               f.FileID,
@@ -303,7 +304,8 @@ func (h *FilesHandler) HandleDetailModal(w http.ResponseWriter, r *http.Request)
 		SizeBytes:        f.Size,
 		Checksum:         f.Checksum,
 		StorageElementID: f.StorageElementID,
-		SEName:           seName,
+		SEName:           findSENameFromMap(seInfoMapDetail, f.StorageElementID),
+		SEMode:           findSEModeFromMap(seInfoMapDetail, f.StorageElementID),
 		UploadedBy:       f.UploadedBy,
 		UploadedAt:       f.UploadedAt,
 		Description:      f.Description,
@@ -427,9 +429,16 @@ func (h *FilesHandler) HandleDelete(w http.ResponseWriter, r *http.Request) {
 func (h *FilesHandler) buildFilters(status, retention, seID, showDeleted, role string) repository.FileListFilters {
 	var filters repository.FileListFilters
 
-	if status != "" {
+	switch {
+	case status == "archived":
+		// Виртуальный статус "В архиве": файлы active в SE с mode=ar
+		activeStatus := "active"
+		arMode := "ar"
+		filters.Status = &activeStatus
+		filters.SEMode = &arMode
+	case status != "":
 		filters.Status = &status
-	} else if showDeleted != "true" || role != "admin" {
+	case showDeleted != "true" || role != "admin":
 		// По умолчанию показываем только активные файлы (если не включён showDeleted)
 		activeStatus := "active"
 		filters.Status = &activeStatus
@@ -446,34 +455,51 @@ func (h *FilesHandler) buildFilters(status, retention, seID, showDeleted, role s
 	return filters
 }
 
-// getSENames получает список SE с именами для фильтра.
-func (h *FilesHandler) getSENames(ctx context.Context) []pages.SEOption {
+// seInfo — информация о SE (имя и режим) для маппинга в файлах.
+type seInfo struct {
+	Name string
+	Mode string
+}
+
+// getSEInfo получает список SE для фильтра и map ID→seInfo для маппинга.
+func (h *FilesHandler) getSEInfo(ctx context.Context) (options []pages.SEOption, infoMap map[string]seInfo) {
 	ses, _, err := h.storageElemsSvc.List(ctx, nil, nil, "", 1000, 0)
 	if err != nil {
 		h.logger.Warn("Ошибка получения списка SE для фильтра",
 			slog.String("error", err.Error()),
 		)
-		return nil
+		return nil, nil
 	}
 
-	result := make([]pages.SEOption, 0, len(ses))
+	options = make([]pages.SEOption, 0, len(ses))
+	infoMap = make(map[string]seInfo, len(ses))
 	for _, se := range ses {
-		result = append(result, pages.SEOption{
+		options = append(options, pages.SEOption{
 			ID:   se.ID,
 			Name: se.Name,
 		})
+		infoMap[se.ID] = seInfo{Name: se.Name, Mode: se.Mode}
 	}
-	return result
+	return options, infoMap
 }
 
-// findSEName находит имя SE по ID.
-func (h *FilesHandler) findSEName(seList []pages.SEOption, seID string) string {
-	for _, se := range seList {
-		if se.ID == seID {
-			return se.Name
-		}
+// findSEName находит имя SE по ID в map.
+func findSENameFromMap(infoMap map[string]seInfo, seID string) string {
+	if info, ok := infoMap[seID]; ok {
+		return info.Name
 	}
-	return seID[:8] + "..." // Сокращённый UUID как fallback
+	if len(seID) > 8 {
+		return seID[:8] + "..."
+	}
+	return seID
+}
+
+// findSEMode находит режим SE по ID в map.
+func findSEModeFromMap(infoMap map[string]seInfo, seID string) string {
+	if info, ok := infoMap[seID]; ok {
+		return info.Mode
+	}
+	return ""
 }
 
 // renderAlert рендерит alert-компонент с вариантом "error".

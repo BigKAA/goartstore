@@ -83,7 +83,7 @@ spec:
               value: {{ $instance.indexRefreshInterval | quote }}
             - name: SE_JWKS_URL
               value: {{ include "se-test.jwksUrl" $ | quote }}
-            - name: SE_JWKS_CA_CERT
+            - name: SE_CA_CERT_PATH
               value: /certs/ca.crt
             - name: SE_TLS_CERT
               value: /certs/tls.crt
@@ -95,6 +95,8 @@ spec:
               value: {{ $.Values.seCommon.logFormat | quote }}
             - name: SE_MAX_FILE_SIZE
               value: {{ $.Values.seCommon.maxFileSize | quote }}
+            - name: SE_MAX_CAPACITY
+              value: {{ $.Values.seCommon.maxCapacity | quote }}
             - name: SE_GC_INTERVAL
               value: {{ $.Values.seCommon.gcInterval | quote }}
             - name: SE_RECONCILE_INTERVAL

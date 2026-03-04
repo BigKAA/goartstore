@@ -32,8 +32,6 @@ type Config struct {
 	StorageID string
 	// Путь к директории хранения файлов
 	DataDir string
-	// Путь к директории WAL
-	WALDir string
 	// Начальный режим работы (edit, rw, ro, ar)
 	Mode string
 	// Максимальный размер файла в байтах
@@ -87,10 +85,8 @@ type Config struct {
 	LogLevel slog.Level
 	// Формат логов (json, text)
 	LogFormat string
-	// Режим развёртывания: standalone или replicated
-	ReplicaMode string
-	// Интервал обновления индекса на follower (только replicated)
-	IndexRefreshInterval time.Duration
+	// Интервал синхронизации индекса между pod-ами (SE_INDEX_SYNC_INTERVAL)
+	IndexSyncInterval time.Duration
 	// Интервал проверки зависимостей topologymetrics
 	DephealthCheckInterval time.Duration
 	// Имя группы в метриках topologymetrics (SE_DEPHEALTH_GROUP)
@@ -102,13 +98,16 @@ type Config struct {
 	// Флаг isEntry: при true добавляет лейбл isentry=yes ко всем зависимостям (DEPHEALTH_ISENTRY)
 	DephealthIsEntry bool
 
-	// Таймаут graceful shutdown HTTP-сервера.
-	// Должен быть меньше K8s terminationGracePeriodSeconds (по умолчанию 30s),
-	// чтобы election.Stop() успел освободить NFS flock до SIGKILL.
+	// Таймаут graceful shutdown HTTP-сервера (по умолчанию 5s).
 	ShutdownTimeout time.Duration
-	// Интервал retry захвата flock для follower (только replicated mode).
-	// Влияет на скорость failover: меньше = быстрее обнаружение, но больше нагрузка на NFS.
-	ElectionRetryInterval time.Duration
+	// TTL lock-файла при upload (SE_UPLOAD_LOCK_TTL, по умолчанию 120s).
+	UploadLockTTL time.Duration
+	// Интервал синхронизации mode.json между pod-ами (SE_MODE_SYNC_INTERVAL, по умолчанию 10s).
+	ModeSyncInterval time.Duration
+
+	// Тип storage backend: "localfs" (default), "s3" (Phase 7).
+	// SE_STORAGE_BACKEND
+	StorageBackend string
 }
 
 // Load загружает конфигурацию из переменных окружения, валидирует
@@ -136,12 +135,6 @@ func Load() (*Config, error) {
 
 	// SE_DATA_DIR — обязательный
 	cfg.DataDir, err = getEnvRequired("SE_DATA_DIR")
-	if err != nil {
-		return nil, err
-	}
-
-	// SE_WAL_DIR — обязательный
-	cfg.WALDir, err = getEnvRequired("SE_WAL_DIR")
 	if err != nil {
 		return nil, err
 	}
@@ -277,16 +270,10 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("SE_LOG_FORMAT: недопустимое значение %q, допустимые: json, text", cfg.LogFormat)
 	}
 
-	// SE_REPLICA_MODE — режим развёртывания (по умолчанию standalone)
-	cfg.ReplicaMode = getEnvDefault("SE_REPLICA_MODE", "standalone")
-	if cfg.ReplicaMode != "standalone" && cfg.ReplicaMode != "replicated" {
-		return nil, fmt.Errorf("SE_REPLICA_MODE: недопустимое значение %q, допустимые: standalone, replicated", cfg.ReplicaMode)
-	}
-
-	// SE_INDEX_REFRESH_INTERVAL — интервал обновления индекса на follower (по умолчанию 30s)
-	cfg.IndexRefreshInterval, err = getEnvDuration("SE_INDEX_REFRESH_INTERVAL", 30*time.Second)
+	// SE_INDEX_SYNC_INTERVAL — интервал синхронизации индекса между pod-ами (по умолчанию 30s)
+	cfg.IndexSyncInterval, err = getEnvDuration("SE_INDEX_SYNC_INTERVAL", 30*time.Second)
 	if err != nil {
-		return nil, fmt.Errorf("SE_INDEX_REFRESH_INTERVAL: %w", err)
+		return nil, fmt.Errorf("SE_INDEX_SYNC_INTERVAL: %w", err)
 	}
 
 	// SE_DEPHEALTH_CHECK_INTERVAL — интервал проверки зависимостей (по умолчанию 15s)
@@ -311,20 +298,28 @@ func Load() (*Config, error) {
 	}
 
 	// SE_SHUTDOWN_TIMEOUT — таймаут graceful shutdown HTTP-сервера (по умолчанию 5s).
-	// Должен быть меньше K8s terminationGracePeriodSeconds, чтобы оставить время
-	// на освобождение NFS flock (election.Stop()) до SIGKILL.
 	cfg.ShutdownTimeout, err = getEnvDuration("SE_SHUTDOWN_TIMEOUT", 5*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("SE_SHUTDOWN_TIMEOUT: %w", err)
 	}
 
-	// SE_ELECTION_RETRY_INTERVAL — интервал retry захвата flock для follower (по умолчанию 5s).
-	// Влияет на скорость failover после смерти leader:
-	//   - Меньший интервал → быстрее failover, но выше нагрузка на NFS
-	//   - NFS v4 lease timeout (~90s по умолчанию) ограничивает минимальное время failover
-	cfg.ElectionRetryInterval, err = getEnvDuration("SE_ELECTION_RETRY_INTERVAL", 5*time.Second)
+	// SE_UPLOAD_LOCK_TTL — TTL lock-файла при upload (по умолчанию 120s).
+	cfg.UploadLockTTL, err = getEnvDuration("SE_UPLOAD_LOCK_TTL", 120*time.Second)
 	if err != nil {
-		return nil, fmt.Errorf("SE_ELECTION_RETRY_INTERVAL: %w", err)
+		return nil, fmt.Errorf("SE_UPLOAD_LOCK_TTL: %w", err)
+	}
+
+	// SE_MODE_SYNC_INTERVAL — интервал синхронизации mode.json между pod-ами (по умолчанию 10s).
+	cfg.ModeSyncInterval, err = getEnvDuration("SE_MODE_SYNC_INTERVAL", 10*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("SE_MODE_SYNC_INTERVAL: %w", err)
+	}
+
+	// SE_STORAGE_BACKEND — тип storage backend (по умолчанию "localfs").
+	cfg.StorageBackend = getEnvDefault("SE_STORAGE_BACKEND", "localfs")
+	validBackends := map[string]bool{"localfs": true}
+	if !validBackends[cfg.StorageBackend] {
+		return nil, fmt.Errorf("SE_STORAGE_BACKEND: неизвестное значение %q, поддерживаемые: localfs", cfg.StorageBackend)
 	}
 
 	return cfg, nil

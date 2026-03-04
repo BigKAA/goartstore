@@ -1,0 +1,201 @@
+# SE instances — все используют единый Deployment + ClusterIP Service + PVC.
+# Stateless: все pod-ы равноправны, координация через per-file lock.
+# При replicas > 1 PVC создаётся с RWX для shared storage.
+{{- range $instance := .Values.instances }}
+---
+# PVC для данных (файлы + attr.json + .locks/)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $instance.name }}-data
+  namespace: {{ $.Values.namespace }}
+  labels:
+    {{- include "artstore-se.labels" $ | nindent 4 }}
+    {{- include "artstore-se.se.selectorLabels" (dict "name" $instance.name "Release" $.Release) | nindent 4 }}
+spec:
+  accessModes:
+    {{- if gt (int ($instance.replicas | default 1)) 1 }}
+    - ReadWriteMany
+    {{- else }}
+    - ReadWriteOnce
+    {{- end }}
+  storageClassName: {{ $.Values.storageClass }}
+  resources:
+    requests:
+      storage: {{ $instance.dataSize }}
+---
+# ClusterIP Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $instance.name }}
+  namespace: {{ $.Values.namespace }}
+  labels:
+    {{- include "artstore-se.labels" $ | nindent 4 }}
+    {{- include "artstore-se.se.selectorLabels" (dict "name" $instance.name "Release" $.Release) | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "artstore-se.se.selectorLabels" (dict "name" $instance.name "Release" $.Release) | nindent 4 }}
+  ports:
+    - port: {{ $.Values.seCommon.port }}
+      targetPort: {{ $.Values.seCommon.port }}
+      name: https
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $instance.name }}
+  namespace: {{ $.Values.namespace }}
+  labels:
+    {{- include "artstore-se.labels" $ | nindent 4 }}
+    {{- include "artstore-se.se.selectorLabels" (dict "name" $instance.name "Release" $.Release) | nindent 4 }}
+spec:
+  replicas: {{ $instance.replicas | default 1 }}
+  {{- if eq (int ($instance.replicas | default 1)) 1 }}
+  strategy:
+    type: Recreate
+  {{- else }}
+  strategy:
+    type: RollingUpdate
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "artstore-se.se.selectorLabels" (dict "name" $instance.name "Release" $.Release) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "artstore-se.se.selectorLabels" (dict "name" $instance.name "Release" $.Release) | nindent 8 }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ $.Values.seCommon.port | quote }}
+        prometheus.io/path: "/metrics"
+        prometheus.io/scheme: "https"
+    spec:
+      {{- if $instance.initData }}
+      # InitContainer для предзагрузки данных на data-volume перед стартом SE
+      initContainers:
+        - name: init-data
+          image: alpine:3.19
+          command: ["/bin/sh", "/scripts/init-{{ $instance.initData.type }}.sh"]
+          env:
+            - name: DATA_DIR
+              value: /data
+            {{- if eq $instance.initData.type "ro-files" }}
+            - name: FILE_COUNT
+              value: {{ $instance.initData.fileCount | quote }}
+            - name: FILE_SIZE_KB
+              value: {{ $instance.initData.fileSizeKB | quote }}
+            {{- end }}
+            {{- if eq $instance.initData.type "ar-metadata" }}
+            - name: FILE_COUNT
+              value: {{ $instance.initData.fileCount | quote }}
+            - name: METADATA_SIZE
+              value: {{ $instance.initData.metadataSize | quote }}
+            {{- end }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: init-scripts
+              mountPath: /scripts
+              readOnly: true
+      {{- end }}
+      containers:
+        - name: storage-element
+          image: {{ include "artstore-se.seImage" $ }}
+          imagePullPolicy: {{ $.Values.imagePullPolicy }}
+          ports:
+            - containerPort: {{ $.Values.seCommon.port }}
+              name: https
+          env:
+            - name: SE_PORT
+              value: {{ $.Values.seCommon.port | quote }}
+            - name: SE_STORAGE_ID
+              value: {{ $instance.storageId | quote }}
+            - name: SE_DATA_DIR
+              value: /data
+            - name: SE_MODE
+              value: {{ $instance.mode | quote }}
+            - name: SE_JWKS_URL
+              value: {{ include "artstore-se.jwksUrl" $ | quote }}
+            - name: SE_CA_CERT_PATH
+              value: /certs/ca.crt
+            # TLS skip verify для dev/test (self-signed сертификаты)
+            - name: SE_TLS_SKIP_VERIFY
+              value: "true"
+            - name: SE_TLS_CERT
+              value: /certs/tls.crt
+            - name: SE_TLS_KEY
+              value: /certs/tls.key
+            - name: SE_LOG_LEVEL
+              value: {{ $.Values.seCommon.logLevel | quote }}
+            - name: SE_LOG_FORMAT
+              value: {{ $.Values.seCommon.logFormat | quote }}
+            - name: SE_MAX_FILE_SIZE
+              value: {{ $.Values.seCommon.maxFileSize | quote }}
+            - name: SE_MAX_CAPACITY
+              value: {{ $.Values.seCommon.maxCapacity | quote }}
+            - name: SE_GC_INTERVAL
+              value: {{ $.Values.seCommon.gcInterval | quote }}
+            - name: SE_RECONCILE_INTERVAL
+              value: {{ $.Values.seCommon.reconcileInterval | quote }}
+            # Stateless координация
+            - name: SE_UPLOAD_LOCK_TTL
+              value: {{ $.Values.seCommon.uploadLockTTL | quote }}
+            - name: SE_MODE_SYNC_INTERVAL
+              value: {{ $.Values.seCommon.modeSyncInterval | quote }}
+            - name: SE_INDEX_SYNC_INTERVAL
+              value: {{ $.Values.seCommon.indexSyncInterval | quote }}
+            # Dependency health
+            - name: DEPHEALTH_NAME
+              value: {{ $instance.name | quote }}
+            - name: SE_DEPHEALTH_CHECK_INTERVAL
+              value: {{ $.Values.seCommon.dephealthCheckInterval | quote }}
+            - name: SE_DEPHEALTH_GROUP
+              value: {{ $.Values.seCommon.dephealthGroup | quote }}
+            - name: SE_DEPHEALTH_DEP_NAME
+              value: {{ $.Values.seCommon.dephealthDepName | quote }}
+            {{- if $.Values.seCommon.dephealthIsEntry }}
+            - name: DEPHEALTH_ISENTRY
+              value: "true"
+            {{- end }}
+            - name: SE_SHUTDOWN_TIMEOUT
+              value: "5s"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: tls-certs
+              mountPath: /certs
+              readOnly: true
+          resources:
+            {{- toYaml $.Values.seCommon.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: {{ $.Values.seCommon.port }}
+              scheme: HTTPS
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: {{ $.Values.seCommon.port }}
+              scheme: HTTPS
+            initialDelaySeconds: 10
+            periodSeconds: 15
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ $instance.name }}-data
+        # TLS сертификаты из cert-manager (secret из artstore-infra)
+        - name: tls-certs
+          secret:
+            secretName: {{ $.Values.tls.secretName }}
+        {{- if $instance.initData }}
+        # Init-скрипты из ConfigMap (для initContainer)
+        - name: init-scripts
+          configMap:
+            name: se-init-scripts
+            defaultMode: 0755
+        {{- end }}
+{{- end }}

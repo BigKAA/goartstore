@@ -36,9 +36,9 @@ RUN apk add --no-cache ca-certificates
 # Копируем бинарник из builder
 COPY --from=builder /storage-element /usr/local/bin/storage-element
 
-# Создаём директории для данных и WAL
-RUN mkdir -p /data /wal /certs && \
-    chown -R appuser:appgroup /data /wal /certs
+# Создаём директории для данных и сертификатов
+RUN mkdir -p /data /certs && \
+    chown -R appuser:appgroup /data /certs
 
 # Переключаемся на непривилегированного пользователя
 USER appuser

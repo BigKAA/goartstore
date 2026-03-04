@@ -114,6 +114,8 @@ spec:
               value: {{ .Values.ingesterModule.dephealthGroup | quote }}
             - name: DEPHEALTH_ISENTRY
               value: "false"
+            - name: IM_TLS_SKIP_VERIFY
+              value: "true"
             # --- Graceful shutdown ---
             - name: IM_SHUTDOWN_TIMEOUT
               value: {{ .Values.ingesterModule.shutdownTimeout | quote }}

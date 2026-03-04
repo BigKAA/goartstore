@@ -38,24 +38,18 @@ func New(logger *slog.Logger) *Index {
 	}
 }
 
-// BuildFromDir строит индекс из attr.json файлов в указанной директории.
-// Вызывается при старте сервера. Заменяет текущее содержимое индекса.
-// После успешного построения индекс помечается как ready.
-func (idx *Index) BuildFromDir(dataDir string) error {
+// RebuildFromMetadata пересобирает индекс из переданных метаданных.
+// Не обращается к файловой системе — используется для декаплинга от пакета attr.
+// После успешной пересборки индекс помечается как ready.
+func (idx *Index) RebuildFromMetadata(metadatas []*model.FileMetadata) {
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
 
-	// Сканируем все attr.json файлы
-	metadatas, err := attr.ScanDir(dataDir)
-	if err != nil {
-		return fmt.Errorf("ошибка сканирования директории %s: %w", dataDir, err)
-	}
-
-	// Очищаем текущий индекс и заполняем новыми данными
 	idx.files = make(map[string]*model.FileMetadata, len(metadatas))
 	idx.totalActiveSize = 0
 	for _, meta := range metadatas {
-		idx.files[meta.FileID] = meta
+		copied := *meta
+		idx.files[meta.FileID] = &copied
 		if meta.Status == model.StatusActive {
 			idx.totalActiveSize += meta.Size
 		}
@@ -63,17 +57,30 @@ func (idx *Index) BuildFromDir(dataDir string) error {
 
 	idx.ready = true
 
-	idx.logger.Info("Индекс метаданных построен",
+	idx.logger.Info("Индекс метаданных пересобран",
 		slog.Int("files", len(idx.files)),
 		slog.Int64("total_active_size", idx.totalActiveSize),
-		slog.String("data_dir", dataDir),
 	)
+}
+
+// BuildFromDir строит индекс из attr.json файлов в указанной директории.
+// Deprecated: используйте RebuildFromMetadata + AttrStore.ScanAll().
+// Оставлен для обратной совместимости тестов.
+func (idx *Index) BuildFromDir(dataDir string) error {
+	// Сканируем все attr.json файлы
+	metadatas, err := attr.ScanDir(dataDir)
+	if err != nil {
+		return fmt.Errorf("ошибка сканирования директории %s: %w", dataDir, err)
+	}
+
+	idx.RebuildFromMetadata(metadatas)
 
 	return nil
 }
 
 // RebuildFromDir полностью пересобирает индекс из attr.json.
-// Аналогичен BuildFromDir, но используется при reconciliation.
+// Deprecated: используйте RebuildFromMetadata + AttrStore.ScanAll().
+// Оставлен для обратной совместимости тестов.
 func (idx *Index) RebuildFromDir(dataDir string) error {
 	return idx.BuildFromDir(dataDir)
 }

@@ -253,6 +253,10 @@ func (h *APIHandler) UpdateStorageElement(w http.ResponseWriter, r *http.Request
 			apierrors.Conflict(w, err.Error())
 			return
 		}
+		if errors.Is(err, service.ErrPriorityReadOnly) {
+			apierrors.WriteError(w, http.StatusUnprocessableEntity, apierrors.CodeValidationError, err.Error())
+			return
+		}
 		h.logger.Error("Ошибка обновления SE", "se_id", id, "error", err)
 		apierrors.InternalError(w, "Ошибка обновления Storage Element")
 		return

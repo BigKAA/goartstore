@@ -1,0 +1,242 @@
+<mxfile host="Claude Code" modified="2026-03-03T12:00:00.000Z" agent="Claude Code" version="24.0.0" etag="c4-component-se-v1" type="device">
+  <diagram id="c4-component-se" name="C4 Component — Storage Element">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1300" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Заголовок -->
+        <mxCell id="title" value="&lt;font style=&quot;font-size:20px&quot;&gt;&lt;b&gt;Storage Element — C4 Component Diagram&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:12px;color:#666666&quot;&gt;Внутренняя структура Storage Element: компоненты и их взаимодействие&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="1" vertex="1">
+          <mxGeometry x="450" y="10" width="580" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== ВНЕШНИЕ МОДУЛИ (сверху) ==================== -->
+
+        <mxCell id="ext_im" value="&lt;b&gt;Ingester Module&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#666&quot;&gt;Upload файлов&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=1;arcSize=8;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="160" y="90" width="160" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ext_qm" value="&lt;b&gt;Query Module&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#666&quot;&gt;Download файлов&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=1;arcSize=8;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="560" y="90" width="160" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ext_am" value="&lt;b&gt;Admin Module&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#666&quot;&gt;Sync, Health check&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=1;arcSize=8;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="960" y="90" width="160" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ext_kc" value="&lt;b&gt;Keycloak&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#666&quot;&gt;JWKS&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=1;arcSize=8;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="1340" y="90" width="120" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== BOUNDARY: Storage Element ==================== -->
+
+        <mxCell id="boundary" value="&lt;font style=&quot;font-size:14px;color:#82b366&quot;&gt;&lt;b&gt;Storage Element&lt;/b&gt; [Go, порт 8010]&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#82b366;strokeWidth=2;dashed=1;dashPattern=8 4;arcSize=4;verticalAlign=top;align=left;spacingLeft=10;spacingTop=5;" parent="1" vertex="1">
+          <mxGeometry x="60" y="190" width="1450" height="1020" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== HTTP Layer ==================== -->
+
+        <!-- HTTP Server -->
+        <mxCell id="http_server" value="&lt;font style=&quot;font-size:12px&quot;&gt;&lt;b&gt;HTTP Server&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#333&quot;&gt;net/http + chi router&lt;br&gt;Graceful shutdown&lt;br&gt;Порт: 8010&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;arcSize=8;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="560" y="230" width="200" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- JWT Middleware -->
+        <mxCell id="jwt_middleware" value="&lt;font style=&quot;font-size:12px&quot;&gt;&lt;b&gt;JWT Middleware&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#333&quot;&gt;RS256 валидация через JWKS&lt;br&gt;Извлечение claims: roles, scopes&lt;br&gt;Проверка audience&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;arcSize=8;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="1120" y="230" width="240" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Metrics Middleware -->
+        <mxCell id="metrics_mw" value="&lt;font style=&quot;font-size:12px&quot;&gt;&lt;b&gt;Metrics Middleware&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#333&quot;&gt;se_http_requests_total&lt;br&gt;se_http_request_duration&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;arcSize=8;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="160" y="230" width="220" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== API Handlers ==================== -->
+
+        <mxCell id="handlers_label" value="&lt;font style=&quot;font-size:11px;color:#555&quot;&gt;&lt;b&gt;API Handlers&lt;/b&gt;&lt;/font&gt;" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;" parent="1" vertex="1">
+          <mxGeometry x="100" y="350" width="120" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- Upload Handler -->
+        <mxCell id="handler_upload" value="&lt;b&gt;Upload Handler&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#333&quot;&gt;POST /files/upload&lt;br&gt;Multipart → temp → WAL → commit&lt;br&gt;Проверка mode (edit/rw)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=1.5;arcSize=8;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="100" y="390" width="220" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Download Handler -->
+        <mxCell id="handler_download" value="&lt;b&gt;Download Handler&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#333&quot;&gt;GET /files/{id}/download&lt;br&gt;Streaming, Range requests&lt;br&gt;Проверка mode (не ar)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=1.5;arcSize=8;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="370" y="390" width="220" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Metadata Handler -->
+        <mxCell id="handler_metadata" value="&lt;b&gt;Metadata Handler&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#333&quot;&gt;GET/PUT /files/{id}/metadata&lt;br&gt;GET /files (list)&lt;br&gt;DELETE /files/{id}&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=1.5;arcSize=8;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="640" y="390" width="220" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Mode Handler -->
+        <mxCell id="handler_mode" value="&lt;b&gt;Mode Handler&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#333&quot;&gt;GET /mode&lt;br&gt;POST /mode/transition&lt;br&gt;edit→rw→ro→ar lifecycle&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=1.5;arcSize=8;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="910" y="390" width="220" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Health Handler -->
+        <mxCell id="handler_health" value="&lt;b&gt;Health Handler&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#333&quot;&gt;GET /health/live&lt;br&gt;GET /health/ready&lt;br&gt;GET /metrics&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=1.5;arcSize=8;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="1180" y="390" width="200" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== СЕРВИСНЫЙ СЛОЙ ==================== -->
+
+        <mxCell id="services_label" value="&lt;font style=&quot;font-size:11px;color:#555&quot;&gt;&lt;b&gt;Services&lt;/b&gt;&lt;/font&gt;" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;" parent="1" vertex="1">
+          <mxGeometry x="100" y="520" width="120" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- File Service -->
+        <mxCell id="svc_file" value="&lt;font style=&quot;font-size:12px&quot;&gt;&lt;b&gt;File Service&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#333&quot;&gt;Бизнес-логика операций с файлами:&lt;br&gt;upload, download, metadata CRUD,&lt;br&gt;delete с проверкой mode&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;arcSize=8;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="160" y="560" width="260" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Mode Service -->
+        <mxCell id="svc_mode" value="&lt;font style=&quot;font-size:12px&quot;&gt;&lt;b&gt;Mode Service&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#333&quot;&gt;Управление режимами SE:&lt;br&gt;edit→rw→ro→ar transitions,&lt;br&gt;rollback (ro→rw, confirm=true)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;arcSize=8;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="500" y="560" width="260" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Replication Service -->
+        <mxCell id="svc_replication" value="&lt;font style=&quot;font-size:12px&quot;&gt;&lt;b&gt;Replication Engine&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#333&quot;&gt;Leader/Follower репликация:&lt;br&gt;flock leader election на NFS,&lt;br&gt;WAL-based sync между репликами&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;arcSize=8;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="840" y="560" width="260" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- dephealth -->
+        <mxCell id="svc_dephealth" value="&lt;font style=&quot;font-size:12px&quot;&gt;&lt;b&gt;DepHealth&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#333&quot;&gt;topologymetrics:&lt;br&gt;Keycloak JWKS, Storage FS&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;arcSize=8;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="1180" y="560" width="200" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== STORAGE LAYER ==================== -->
+
+        <mxCell id="storage_label" value="&lt;font style=&quot;font-size:11px;color:#555&quot;&gt;&lt;b&gt;Storage Layer&lt;/b&gt;&lt;/font&gt;" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;" parent="1" vertex="1">
+          <mxGeometry x="100" y="700" width="120" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- WAL (Write-Ahead Log) -->
+        <mxCell id="wal" value="&lt;font style=&quot;font-size:12px&quot;&gt;&lt;b&gt;WAL Engine&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#333&quot;&gt;Write-Ahead Log:&lt;br&gt;атомарность операций,&lt;br&gt;crash recovery, журнал&lt;br&gt;upload/update/delete операций&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;arcSize=8;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="100" y="740" width="240" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- Attr.json Handler -->
+        <mxCell id="attr_handler" value="&lt;font style=&quot;font-size:12px&quot;&gt;&lt;b&gt;Attr.json Handler&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#333&quot;&gt;Единственный источник истины:&lt;br&gt;чтение/запись *.attr.json,&lt;br&gt;in-memory index для поиска,&lt;br&gt;metadata validation&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;arcSize=8;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="400" y="740" width="260" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- GC (Garbage Collector) -->
+        <mxCell id="gc" value="&lt;font style=&quot;font-size:12px&quot;&gt;&lt;b&gt;GC (Garbage Collector)&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#333&quot;&gt;Удаление expired файлов&lt;br&gt;(TTL в edit mode),&lt;br&gt;очистка WAL записей,&lt;br&gt;periodic timer (1h default)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;arcSize=8;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="720" y="740" width="240" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- Reconcile -->
+        <mxCell id="reconcile" value="&lt;font style=&quot;font-size:12px&quot;&gt;&lt;b&gt;Reconcile&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#333&quot;&gt;Синхронизация:&lt;br&gt;attr.json ↔ файловая система,&lt;br&gt;обнаружение orphans,&lt;br&gt;восстановление индекса&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;arcSize=8;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="1020" y="740" width="240" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== METRICS ==================== -->
+
+        <mxCell id="prom_client" value="&lt;font style=&quot;font-size:12px&quot;&gt;&lt;b&gt;Prometheus Client&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#333&quot;&gt;se_files_total{status}&lt;br&gt;se_storage_bytes&lt;br&gt;se_operations_total{op,result}&lt;br&gt;se_http_requests_total&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;arcSize=8;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="100" y="900" width="240" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== ФАЙЛОВАЯ СИСТЕМА (внизу) ==================== -->
+
+        <mxCell id="ext_fs" value="&lt;font style=&quot;font-size:13px&quot;&gt;&lt;b&gt;Файловая система&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;color:#333&quot;&gt;NFS / PVC / Local Disk&lt;br&gt;&lt;br&gt;data/&lt;br&gt;├── {file_id}.data&lt;br&gt;├── {file_id}.attr.json&lt;br&gt;├── wal/&lt;br&gt;│   └── {timestamp}.wal&lt;br&gt;└── .lock (flock leader)&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;verticalAlign=middle;align=center;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="540" y="1060" width="280" height="200" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== СВЯЗИ ==================== -->
+
+        <!-- Внешние → HTTP Server -->
+        <mxCell id="rel_im_http" value="Upload" style="html=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6c8ebf;strokeWidth=1.5;fontSize=9;" parent="1" source="ext_im" target="http_server" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_qm_http" value="Download" style="html=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6c8ebf;strokeWidth=1.5;fontSize=9;" parent="1" source="ext_qm" target="http_server" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_am_http" value="Sync, Files list" style="html=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6c8ebf;strokeWidth=1.5;fontSize=9;" parent="1" source="ext_am" target="http_server" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Keycloak → JWT -->
+        <mxCell id="rel_kc_jwt" value="JWKS" style="html=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;strokeWidth=1.5;fontSize=9;" parent="1" source="ext_kc" target="jwt_middleware" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- HTTP Server → Handlers -->
+        <mxCell id="rel_http_upload" style="html=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;strokeWidth=1;exitX=0.2;exitY=1;exitDx=0;exitDy=0;" parent="1" source="http_server" target="handler_upload" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_http_download" style="html=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;strokeWidth=1;exitX=0.4;exitY=1;exitDx=0;exitDy=0;" parent="1" source="http_server" target="handler_download" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_http_meta" style="html=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;strokeWidth=1;exitX=0.6;exitY=1;exitDx=0;exitDy=0;" parent="1" source="http_server" target="handler_metadata" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_http_mode" style="html=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;strokeWidth=1;exitX=0.8;exitY=1;exitDx=0;exitDy=0;" parent="1" source="http_server" target="handler_mode" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Handlers → Services -->
+        <mxCell id="rel_h_upload_svc" style="html=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;strokeWidth=1;" parent="1" source="handler_upload" target="svc_file" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_h_download_svc" style="html=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;strokeWidth=1;" parent="1" source="handler_download" target="svc_file" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_h_meta_svc" style="html=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;strokeWidth=1;" parent="1" source="handler_metadata" target="svc_file" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_h_mode_svc" style="html=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;strokeWidth=1;" parent="1" source="handler_mode" target="svc_mode" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Services → Storage Layer -->
+        <mxCell id="rel_file_wal" style="html=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;strokeWidth=1;" parent="1" source="svc_file" target="wal" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_file_attr" style="html=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;strokeWidth=1;" parent="1" source="svc_file" target="attr_handler" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_repl_wal" style="html=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;strokeWidth=1;" parent="1" source="svc_replication" target="wal" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="970" y="690" />
+              <mxPoint x="220" y="690" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- GC, Reconcile connections -->
+        <mxCell id="rel_gc_attr" style="html=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;strokeWidth=1;" parent="1" source="gc" target="attr_handler" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_reconcile_attr" style="html=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;strokeWidth=1;" parent="1" source="reconcile" target="attr_handler" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Storage Layer → File System -->
+        <mxCell id="rel_wal_fs" style="html=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#666666;strokeWidth=1.5;" parent="1" source="wal" target="ext_fs" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_attr_fs" style="html=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#666666;strokeWidth=1.5;" parent="1" source="attr_handler" target="ext_fs" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_gc_fs" style="html=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#666666;strokeWidth=1.5;" parent="1" source="gc" target="ext_fs" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_reconcile_fs" style="html=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#666666;strokeWidth=1.5;" parent="1" source="reconcile" target="ext_fs" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== ЗАМЕТКИ ==================== -->
+
+        <mxCell id="note_modes" value="&lt;font style=&quot;font-size:9px&quot;&gt;&lt;b&gt;Режимы SE:&lt;/b&gt;&lt;br&gt;edit — черновики (TTL, GC)&lt;br&gt;rw — постоянное хранение&lt;br&gt;ro — только чтение&lt;br&gt;ar — архив (метаданные)&lt;br&gt;&lt;br&gt;&lt;b&gt;Переходы:&lt;/b&gt;&lt;br&gt;edit (locked) | rw→ro→ar&lt;br&gt;ro→rw (rollback, confirm)&lt;/font&gt;" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=14;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;spacingLeft=5;" parent="1" vertex="1">
+          <mxGeometry x="1300" y="890" width="180" height="160" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,0 +1,185 @@
+<mxfile host="Claude Code" modified="2026-03-03T12:00:00.000Z" agent="Claude Code" version="24.0.0" etag="seq-file-download-v1" type="device">
+  <diagram id="seq-file-download" name="Sequence — File Download">
+    <mxGraphModel dx="1600" dy="900" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Заголовок -->
+        <mxCell id="title" value="&lt;font style=&quot;font-size:16px&quot;&gt;&lt;b&gt;Sequence Diagram: File Download&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;color:#666&quot;&gt;Процесс скачивания файла через Query Module с кэшированием и lazy cleanup&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="1" vertex="1">
+          <mxGeometry x="300" y="10" width="560" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== УЧАСТНИКИ ==================== -->
+
+        <mxCell id="actor_client" value="&lt;b&gt;Client&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;Разработчик&lt;/font&gt;" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="60" y="80" width="120" height="1000" as="geometry" />
+        </mxCell>
+
+        <mxCell id="actor_gateway" value="&lt;b&gt;API Gateway&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;Envoy&lt;/font&gt;" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="260" y="80" width="120" height="1000" as="geometry" />
+        </mxCell>
+
+        <mxCell id="actor_qm" value="&lt;b&gt;Query Module&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;порт 8030&lt;/font&gt;" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="470" y="80" width="130" height="1000" as="geometry" />
+        </mxCell>
+
+        <mxCell id="actor_cache" value="&lt;b&gt;LRU Cache&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;in-memory&lt;/font&gt;" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="670" y="80" width="100" height="1000" as="geometry" />
+        </mxCell>
+
+        <mxCell id="actor_pg" value="&lt;b&gt;PostgreSQL&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;file_registry&lt;/font&gt;" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="850" y="80" width="110" height="1000" as="geometry" />
+        </mxCell>
+
+        <mxCell id="actor_am" value="&lt;b&gt;Admin Module&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;SE info&lt;/font&gt;" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="1040" y="80" width="120" height="1000" as="geometry" />
+        </mxCell>
+
+        <mxCell id="actor_se" value="&lt;b&gt;Storage Element&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;file data&lt;/font&gt;" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="1240" y="80" width="130" height="1000" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== СООБЩЕНИЯ ==================== -->
+
+        <!-- 1: Client → Gateway -->
+        <mxCell id="msg1" value="&lt;b&gt;1&lt;/b&gt; GET /query/files/{id}/download (JWT, Range)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="120" y="170" as="sourcePoint" />
+            <mxPoint x="320" y="170" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 2: Gateway → QM -->
+        <mxCell id="msg2" value="&lt;b&gt;2&lt;/b&gt; Forward" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="320" y="210" as="sourcePoint" />
+            <mxPoint x="535" y="210" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 3: QM → Cache: check -->
+        <mxCell id="msg3" value="&lt;b&gt;3&lt;/b&gt; Get(file_id)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="535" y="260" as="sourcePoint" />
+            <mxPoint x="720" y="260" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 3r: Cache MISS -->
+        <mxCell id="msg3r" value="MISS (или HIT → skip 4-5)" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=9;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="720" y="290" as="sourcePoint" />
+            <mxPoint x="535" y="290" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 4: QM → PG: SELECT file_registry -->
+        <mxCell id="msg4" value="&lt;b&gt;4&lt;/b&gt; SELECT * FROM file_registry WHERE id=$1" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="535" y="330" as="sourcePoint" />
+            <mxPoint x="905" y="330" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 4r: PG → QM: file info -->
+        <mxCell id="msg4r" value="{file_id, se_id, name, content_type, size, status}" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=9;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="905" y="365" as="sourcePoint" />
+            <mxPoint x="535" y="365" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 5: QM → AM: GET SE info -->
+        <mxCell id="msg5" value="&lt;b&gt;5&lt;/b&gt; GET /storage-elements/{se_id}" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="535" y="400" as="sourcePoint" />
+            <mxPoint x="1100" y="400" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 5r: AM → QM: SE URL -->
+        <mxCell id="msg5r" value="{id, url, mode, status}" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=9;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1100" y="435" as="sourcePoint" />
+            <mxPoint x="535" y="435" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- QM → Cache: put -->
+        <mxCell id="msg_cache_put" value="Cache.Put(file_id, info)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=9;fontColor=#555;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="535" y="470" as="sourcePoint" />
+            <mxPoint x="720" y="470" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 6: QM → SE: GET /files/{id}/download -->
+        <mxCell id="msg6" value="&lt;b&gt;6&lt;/b&gt; GET /files/{id}/download (SA JWT, Range)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="535" y="520" as="sourcePoint" />
+            <mxPoint x="1305" y="520" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 6r: SE → QM: 200 OK + stream -->
+        <mxCell id="msg6r" value="200 OK: binary stream (Content-Type, Content-Length)" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=9;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1305" y="560" as="sourcePoint" />
+            <mxPoint x="535" y="560" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 7: QM → Client: proxy stream -->
+        <mxCell id="msg7_qm_gw" value="200 OK: proxy stream" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=9;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="535" y="600" as="sourcePoint" />
+            <mxPoint x="320" y="600" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="msg7_gw_client" value="&lt;b&gt;7&lt;/b&gt; 200 OK: binary data" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=10;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="320" y="640" as="sourcePoint" />
+            <mxPoint x="120" y="640" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== ALT: 404 Lazy Cleanup ==================== -->
+
+        <mxCell id="alt_box" value="" style="shape=mxgraph.sequence.combined_fragment;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;strokeWidth=1;dashed=1;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="490" y="700" width="860" height="200" as="geometry" />
+        </mxCell>
+
+        <mxCell id="alt_label" value="&lt;font style=&quot;font-size:9px;color:#b85450&quot;&gt;&lt;b&gt;alt&lt;/b&gt; [SE returns 404 Not Found — Lazy Cleanup]&lt;/font&gt;" style="text;html=1;align=left;verticalAlign=top;strokeColor=none;fillColor=none;" parent="1" vertex="1">
+          <mxGeometry x="495" y="705" width="350" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- SE → QM: 404 -->
+        <mxCell id="msg_404" value="404 Not Found (файл удалён на SE)" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=9;fontColor=#b85450;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1305" y="750" as="sourcePoint" />
+            <mxPoint x="535" y="750" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- QM → PG: UPDATE status=deleted -->
+        <mxCell id="msg_cleanup" value="UPDATE file_registry SET status='deleted' WHERE id=$1" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=9;fontColor=#b85450;strokeColor=#b85450;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="535" y="790" as="sourcePoint" />
+            <mxPoint x="905" y="790" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- QM → Client: 404 -->
+        <mxCell id="msg_404_client" value="404 Not Found" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=9;fontColor=#b85450;strokeColor=#b85450;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="535" y="850" as="sourcePoint" />
+            <mxPoint x="120" y="850" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

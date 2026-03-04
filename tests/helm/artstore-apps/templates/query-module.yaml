@@ -106,6 +106,8 @@ spec:
             - name: QM_ADMIN_URL
               value: "http://admin-module.{{ .Values.namespace }}.svc.cluster.local:{{ .Values.adminModule.port }}"
             # --- OAuth2 (Client Credentials) ---
+            - name: QM_TOKEN_URL
+              value: "{{ include "artstore-apps.keycloakHttpUrl" . }}/realms/{{ .Values.queryModule.keycloakRealm }}/protocol/openid-connect/token"
             - name: QM_CLIENT_ID
               value: {{ .Values.queryModule.clientId | quote }}
             - name: QM_CLIENT_SECRET
@@ -122,6 +124,8 @@ spec:
               value: {{ .Values.queryModule.dephealthCheckInterval | quote }}
             - name: QM_DEPHEALTH_GROUP
               value: {{ .Values.queryModule.dephealthGroup | quote }}
+            - name: QM_TLS_SKIP_VERIFY
+              value: "true"
             # --- Graceful shutdown ---
             - name: QM_SHUTDOWN_TIMEOUT
               value: {{ .Values.queryModule.shutdownTimeout | quote }}

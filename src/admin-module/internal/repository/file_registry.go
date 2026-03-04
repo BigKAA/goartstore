@@ -37,6 +37,7 @@ type FileListFilters struct {
 	RetentionPolicy  *string
 	StorageElementID *string
 	UploadedBy       *string
+	SEMode           *string // Режим SE (для фильтрации файлов по mode SE, например "ar" для архивных)
 }
 
 // fileRegistryRepo — реализация FileRegistryRepository.
@@ -94,50 +95,61 @@ func (r *fileRegistryRepo) GetByID(ctx context.Context, fileID string) (*model.F
 	return f, nil
 }
 
-// buildFileWhere строит WHERE-условие и аргументы для фильтрации файлов.
-func buildFileWhere(filters FileListFilters, startArg int) (whereClause string, args []any) {
+// buildFileWhere строит WHERE-условие, JOIN и аргументы для фильтрации файлов.
+// Возвращает joinClause (пустой, если JOIN не нужен), whereClause и args.
+func buildFileWhere(filters FileListFilters, startArg int) (joinClause, whereClause string, args []any) {
 	var conditions []string
 	argNum := startArg
 
 	if filters.Status != nil {
-		conditions = append(conditions, fmt.Sprintf("status = $%d", argNum))
+		conditions = append(conditions, fmt.Sprintf("fr.status = $%d", argNum))
 		args = append(args, *filters.Status)
 		argNum++
 	}
 	if filters.RetentionPolicy != nil {
-		conditions = append(conditions, fmt.Sprintf("retention_policy = $%d", argNum))
+		conditions = append(conditions, fmt.Sprintf("fr.retention_policy = $%d", argNum))
 		args = append(args, *filters.RetentionPolicy)
 		argNum++
 	}
 	if filters.StorageElementID != nil {
-		conditions = append(conditions, fmt.Sprintf("storage_element_id = $%d", argNum))
+		conditions = append(conditions, fmt.Sprintf("fr.storage_element_id = $%d", argNum))
 		args = append(args, *filters.StorageElementID)
 		argNum++
 	}
 	if filters.UploadedBy != nil {
-		conditions = append(conditions, fmt.Sprintf("uploaded_by = $%d", argNum))
+		conditions = append(conditions, fmt.Sprintf("fr.uploaded_by = $%d", argNum))
 		args = append(args, *filters.UploadedBy)
+		argNum++
+	}
+
+	// Фильтр по режиму SE — требует JOIN с storage_elements
+	join := ""
+	if filters.SEMode != nil {
+		join = "JOIN storage_elements se ON se.id = fr.storage_element_id"
+		conditions = append(conditions, fmt.Sprintf("se.mode = $%d", argNum))
+		args = append(args, *filters.SEMode)
 	}
 
 	where := ""
 	if len(conditions) > 0 {
 		where = "WHERE " + strings.Join(conditions, " AND ")
 	}
-	return where, args
+	return join, where, args
 }
 
 func (r *fileRegistryRepo) List(ctx context.Context, filters FileListFilters, limit, offset int) ([]*model.FileRecord, error) {
-	where, args := buildFileWhere(filters, 1)
+	join, where, args := buildFileWhere(filters, 1)
 	argNum := len(args) + 1
 
 	query := fmt.Sprintf(`
-		SELECT file_id, original_filename, content_type, size, checksum,
-			storage_element_id, uploaded_by, uploaded_at, description, tags,
-			status, retention_policy, ttl_days, expires_at, created_at, updated_at
-		FROM file_registry
+		SELECT fr.file_id, fr.original_filename, fr.content_type, fr.size, fr.checksum,
+			fr.storage_element_id, fr.uploaded_by, fr.uploaded_at, fr.description, fr.tags,
+			fr.status, fr.retention_policy, fr.ttl_days, fr.expires_at, fr.created_at, fr.updated_at
+		FROM file_registry fr
 		%s
-		ORDER BY uploaded_at DESC
-		LIMIT $%d OFFSET $%d`, where, argNum, argNum+1)
+		%s
+		ORDER BY fr.uploaded_at DESC
+		LIMIT $%d OFFSET $%d`, join, where, argNum, argNum+1)
 
 	args = append(args, limit, offset)
 
@@ -259,8 +271,8 @@ func (r *fileRegistryRepo) MarkDeletedExcept(ctx context.Context, seID string, e
 }
 
 func (r *fileRegistryRepo) Count(ctx context.Context, filters FileListFilters) (int, error) {
-	where, args := buildFileWhere(filters, 1)
-	query := fmt.Sprintf(`SELECT COUNT(*) FROM file_registry %s`, where)
+	join, where, args := buildFileWhere(filters, 1)
+	query := fmt.Sprintf(`SELECT COUNT(*) FROM file_registry fr %s %s`, join, where)
 
 	var count int
 	err := r.db.QueryRow(ctx, query, args...).Scan(&count)

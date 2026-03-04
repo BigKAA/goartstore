@@ -1,0 +1,291 @@
+# Artstore — Quick Start docker-compose
+#
+# Запускает полную систему для разработки и тестирования:
+#   PostgreSQL 17, Keycloak 26.1, Admin Module, Storage Element,
+#   Ingester Module, Query Module.
+#
+# Использование:
+#   docker compose up -d
+#   docker compose ps        # проверить статус всех сервисов
+#   docker compose logs -f   # посмотреть логи
+#   docker compose down -v   # остановить и удалить volumes
+#
+# Порты:
+#   5432  — PostgreSQL
+#   8080  — Keycloak Admin Console (admin/admin)
+#   8000  — Admin Module (API + Admin UI)
+#   8010  — Storage Element (HTTPS, self-signed TLS)
+#   8020  — Ingester Module (Upload API)
+#   8030  — Query Module (Search + Download API)
+#
+# Первый запуск:
+#   1. docker compose up -d
+#   2. Дождаться готовности всех сервисов (docker compose ps)
+#   3. Зарегистрировать SE через Admin Module API:
+#      TOKEN=$(curl -s http://localhost:8080/realms/artstore/protocol/openid-connect/token \
+#        -d grant_type=client_credentials \
+#        -d client_id=artstore-admin-module \
+#        -d client_secret=admin-module-test-secret | jq -r .access_token)
+#      curl -X POST http://localhost:8000/api/v1/storage-elements \
+#        -H "Authorization: Bearer $TOKEN" \
+#        -H "Content-Type: application/json" \
+#        -d '{"id":"se-local-01","address":"https://storage-element:8010","mode":"edit","max_capacity":1073741824}'
+#   4. Открыть Admin UI: http://localhost:8000/admin/ (вход через Keycloak: admin/admin)
+#
+# Загрузка файла:
+#   TOKEN=$(curl -s http://localhost:8080/realms/artstore/protocol/openid-connect/token \
+#     -d grant_type=password -d client_id=artstore-test-user \
+#     -d client_secret=test-user-secret -d username=admin -d password=admin \
+#     -d scope="openid files:read files:write" | jq -r .access_token)
+#   curl -X POST http://localhost:8020/upload/v1/files \
+#     -H "Authorization: Bearer $TOKEN" \
+#     -F "file=@README.md" -F "ttl_days=30"
+
+services:
+  # ===========================================================================
+  # PostgreSQL 17 — общая БД для Admin Module и Query Module
+  # ===========================================================================
+  postgresql:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: artstore
+      POSTGRES_USER: artstore
+      POSTGRES_PASSWORD: artstore-dev-password
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U artstore"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # ===========================================================================
+  # Keycloak 26.1 — Identity Provider с кастомной темой Artstore
+  # Автоматически импортирует realm 'artstore' при первом запуске.
+  # ===========================================================================
+  keycloak:
+    image: harbor.kryukov.lan/library/keycloak-artstore:v26.1-1
+    command: start-dev --import-realm
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgresql:5432/artstore
+      KC_DB_USERNAME: artstore
+      KC_DB_PASSWORD: artstore-dev-password
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HTTP_PORT: 8080
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./deploy/keycloak/artstore-realm.json:/opt/keycloak/data/import/artstore-realm.json:ro
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '\"status\": \"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 10
+    restart: unless-stopped
+
+  # ===========================================================================
+  # Init Certs — генерация self-signed TLS-сертификатов для Storage Element
+  # Запускается один раз, создаёт сертификаты в shared volume.
+  # ===========================================================================
+  init-certs:
+    image: alpine:3.19
+    command: >
+      sh -c '
+        if [ -f /certs/tls.crt ] && [ -f /certs/tls.key ]; then
+          echo "Сертификаты уже существуют, пропускаем генерацию"
+          exit 0
+        fi
+        apk add --no-cache openssl > /dev/null 2>&1
+        echo "Генерация self-signed TLS-сертификатов для Storage Element..."
+        openssl req -x509 -newkey rsa:2048 -nodes \
+          -keyout /certs/tls.key \
+          -out /certs/tls.crt \
+          -days 365 \
+          -subj "/CN=storage-element" \
+          -addext "subjectAltName=DNS:storage-element,DNS:localhost,IP:127.0.0.1"
+        chmod 644 /certs/tls.crt /certs/tls.key
+        echo "Сертификаты созданы: /certs/tls.crt, /certs/tls.key"
+      '
+    volumes:
+      - se-certs:/certs
+
+  # ===========================================================================
+  # Admin Module — управление реестром файлов, SE, Service Accounts, Admin UI
+  # ===========================================================================
+  admin-module:
+    image: harbor.kryukov.lan/library/admin-module:latest
+    environment:
+      AM_PORT: "8000"
+      AM_LOG_LEVEL: debug
+      AM_LOG_FORMAT: json
+      # PostgreSQL
+      AM_DB_HOST: postgresql
+      AM_DB_PORT: "5432"
+      AM_DB_NAME: artstore
+      AM_DB_USER: artstore
+      AM_DB_PASSWORD: artstore-dev-password
+      AM_DB_SSL_MODE: disable
+      # Keycloak
+      AM_KEYCLOAK_URL: http://keycloak:8080
+      AM_KEYCLOAK_REALM: artstore
+      AM_KEYCLOAK_CLIENT_ID: artstore-admin-module
+      AM_KEYCLOAK_CLIENT_SECRET: admin-module-test-secret
+      # TLS (для соединений с SE)
+      AM_TLS_SKIP_VERIFY: "true"
+      # Фоновые задачи
+      AM_SYNC_INTERVAL: "1h"
+      AM_SYNC_PAGE_SIZE: "1000"
+      AM_SA_SYNC_INTERVAL: "15m"
+      # topologymetrics
+      AM_DEPHEALTH_CHECK_INTERVAL: "15s"
+      AM_DEPHEALTH_GROUP: admin-module
+      # Admin UI
+      AM_UI_ENABLED: "true"
+      AM_UI_OIDC_CLIENT_ID: artstore-admin-ui
+      AM_UI_SESSION_SECRET: "docker-compose-dev-session-secret"
+      # Для корректной работы UI — внешний URL Keycloak
+      AM_UI_KEYCLOAK_URL: http://localhost:8080
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ===========================================================================
+  # Storage Element — физическое хранение файлов (HTTPS, self-signed TLS)
+  # ===========================================================================
+  storage-element:
+    image: harbor.kryukov.lan/library/storage-element:latest
+    environment:
+      SE_PORT: "8010"
+      SE_LOG_LEVEL: debug
+      SE_LOG_FORMAT: json
+      # Storage
+      SE_STORAGE_ID: se-local-01
+      SE_DATA_DIR: /data
+      SE_MODE: edit
+      SE_MAX_FILE_SIZE: "1073741824"
+      SE_MAX_CAPACITY: "1073741824"
+      SE_REPLICA_MODE: standalone
+      # TLS
+      SE_TLS_CERT: /certs/tls.crt
+      SE_TLS_KEY: /certs/tls.key
+      # JWT — проверка токенов через Keycloak JWKS
+      SE_JWKS_URL: http://keycloak:8080/realms/artstore/protocol/openid-connect/certs
+      # Интервалы
+      SE_GC_INTERVAL: "1h"
+      SE_RECONCILE_INTERVAL: "6h"
+      SE_INDEX_SYNC_INTERVAL: "30s"
+      SE_MODE_SYNC_INTERVAL: "10s"
+      # topologymetrics
+      SE_DEPHEALTH_CHECK_INTERVAL: "15s"
+      SE_DEPHEALTH_GROUP: storage-element
+    ports:
+      - "8010:8010"
+    volumes:
+      - se-certs:/certs:ro
+      - se-data:/data
+    depends_on:
+      init-certs:
+        condition: service_completed_successfully
+      keycloak:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ===========================================================================
+  # Ingester Module — загрузка файлов (stateless, без БД)
+  # ===========================================================================
+  ingester-module:
+    image: harbor.kryukov.lan/library/ingester-module:latest
+    environment:
+      IM_PORT: "8020"
+      IM_LOG_LEVEL: debug
+      IM_LOG_FORMAT: json
+      # JWT — проверка токенов через Keycloak JWKS
+      IM_JWKS_URL: http://keycloak:8080/realms/artstore/protocol/openid-connect/certs
+      # Admin Module — для получения SE и регистрации файлов
+      IM_ADMIN_URL: http://admin-module:8000
+      # Keycloak OAuth2 — Client Credentials для Service Account
+      IM_TOKEN_URL: http://keycloak:8080/realms/artstore/protocol/openid-connect/token
+      IM_CLIENT_ID: artstore-ingester
+      IM_CLIENT_SECRET: ingester-test-secret
+      # TLS (для соединений с SE — self-signed)
+      IM_TLS_SKIP_VERIFY: "true"
+      # Upload
+      IM_MAX_FILE_SIZE: "104857600"
+      IM_DEFAULT_TTL_DAYS: "30"
+      IM_MAX_RETRIES: "3"
+      # topologymetrics
+      IM_DEPHEALTH_CHECK_INTERVAL: "15s"
+      IM_DEPHEALTH_GROUP: ingester-module
+    ports:
+      - "8020:8020"
+    depends_on:
+      admin-module:
+        condition: service_started
+      keycloak:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ===========================================================================
+  # Query Module — поиск и скачивание файлов
+  # ===========================================================================
+  query-module:
+    image: harbor.kryukov.lan/library/query-module:latest
+    environment:
+      QM_PORT: "8030"
+      QM_LOG_LEVEL: debug
+      QM_LOG_FORMAT: json
+      # PostgreSQL (shared БД с Admin Module)
+      QM_DB_HOST: postgresql
+      QM_DB_PORT: "5432"
+      QM_DB_NAME: artstore
+      QM_DB_USER: artstore
+      QM_DB_PASSWORD: artstore-dev-password
+      QM_DB_SSL_MODE: disable
+      # JWT — проверка токенов через Keycloak JWKS
+      QM_JWKS_URL: http://keycloak:8080/realms/artstore/protocol/openid-connect/certs
+      # Admin Module — для получения информации о файлах и SE
+      QM_ADMIN_URL: http://admin-module:8000
+      # Keycloak OAuth2 — Client Credentials для Service Account
+      QM_TOKEN_URL: http://keycloak:8080/realms/artstore/protocol/openid-connect/token
+      QM_CLIENT_ID: artstore-query
+      QM_CLIENT_SECRET: query-test-secret
+      # TLS (для соединений с SE — self-signed)
+      QM_TLS_SKIP_VERIFY: "true"
+      # topologymetrics
+      QM_DEPHEALTH_CHECK_INTERVAL: "15s"
+      QM_DEPHEALTH_GROUP: query-module
+    ports:
+      - "8030:8030"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      admin-module:
+        condition: service_started
+      keycloak:
+        condition: service_healthy
+    restart: unless-stopped
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  # PostgreSQL data
+  pgdata:
+  # Self-signed TLS сертификаты для Storage Element
+  se-certs:
+  # Storage Element данные (файлы)
+  se-data:

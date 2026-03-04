@@ -50,28 +50,14 @@ app.kubernetes.io/instance: {{ .Values.elementId }}
 {{- end }}
 
 {{/*
-Имя PVC для data (standalone)
+Имя PVC для data
 */}}
 {{- define "se.dataPvcName" -}}
 {{ include "se.fullname" . }}-data
 {{- end }}
 
 {{/*
-Имя PVC для WAL (standalone)
-*/}}
-{{- define "se.walPvcName" -}}
-{{ include "se.fullname" . }}-wal
-{{- end }}
-
-{{/*
-Имя shared PVC для data (replicated, RWX)
-*/}}
-{{- define "se.sharedDataPvcName" -}}
-{{ include "se.fullname" . }}-data-shared
-{{- end }}
-
-{{/*
-Общие env-переменные SE, используемые в deployment.yaml и statefulset.yaml
+Общие env-переменные SE
 */}}
 {{- define "se.envVars" -}}
 - name: SE_PORT
@@ -82,8 +68,6 @@ app.kubernetes.io/instance: {{ .Values.elementId }}
   value: {{ include "se.fullname" . | quote }}
 - name: SE_DATA_DIR
   value: "/data"
-- name: SE_WAL_DIR
-  value: "/wal"
 - name: SE_MODE
   value: {{ .Values.mode | quote }}
 - name: SE_MAX_FILE_SIZE
@@ -94,6 +78,12 @@ app.kubernetes.io/instance: {{ .Values.elementId }}
   value: {{ .Values.gcInterval | quote }}
 - name: SE_RECONCILE_INTERVAL
   value: {{ .Values.reconcileInterval | quote }}
+- name: SE_UPLOAD_LOCK_TTL
+  value: {{ .Values.uploadLockTTL | quote }}
+- name: SE_MODE_SYNC_INTERVAL
+  value: {{ .Values.modeSyncInterval | quote }}
+- name: SE_INDEX_SYNC_INTERVAL
+  value: {{ .Values.indexSyncInterval | quote }}
 - name: SE_JWKS_URL
   value: {{ .Values.jwksUrl | quote }}
 {{- if .Values.caCertPath }}
@@ -124,10 +114,6 @@ app.kubernetes.io/instance: {{ .Values.elementId }}
 {{- end }}
 - name: SE_SHUTDOWN_TIMEOUT
   value: {{ .Values.shutdownTimeout | quote }}
-{{- if eq .Values.replicaMode "replicated" }}
-- name: SE_ELECTION_RETRY_INTERVAL
-  value: {{ .Values.electionRetryInterval | quote }}
-{{- end }}
 {{- with .Values.timeouts }}
 {{- if .httpClient }}
 - name: SE_HTTP_CLIENT_TIMEOUT
@@ -161,13 +147,11 @@ app.kubernetes.io/instance: {{ .Values.elementId }}
 {{- end }}
 
 {{/*
-Общие volume mounts для data, WAL и TLS сертификатов
+Volume mounts для data и TLS сертификатов
 */}}
 {{- define "se.volumeMounts" -}}
 - name: data
   mountPath: /data
-- name: wal
-  mountPath: /wal
 - name: tls-certs
   mountPath: /certs
   readOnly: true

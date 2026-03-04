@@ -208,6 +208,11 @@ func (s *StorageElementService) Update(ctx context.Context, id string, name, url
 		return nil, fmt.Errorf("получение SE для обновления: %w", err)
 	}
 
+	// Валидация: priority нельзя менять для SE в режиме ro/ar
+	if priority != nil && (se.Mode == "ro" || se.Mode == "ar") {
+		return nil, ErrPriorityReadOnly
+	}
+
 	// Сохраняем старый URL для dephealth update (storageID стабилен)
 	oldURL := se.URL
 

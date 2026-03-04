@@ -1,0 +1,103 @@
+{{- if .Values.monitoring.dashboards.enabled }}
+{{/*
+Grafana dashboards provisioning через ConfigMaps.
+Grafana sidecar обнаруживает ConfigMaps по label и автоматически
+загружает JSON-файлы как dashboards.
+Каждый dashboard — отдельный ConfigMap для удобства управления.
+*/}}
+
+# --- Overview Dashboard ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "artstore.fullname" . }}-dashboard-overview
+  namespace: {{ include "artstore.namespace" . }}
+  labels:
+    {{- include "artstore.labels" . | nindent 4 }}
+    {{ .Values.monitoring.dashboards.label }}: {{ .Values.monitoring.dashboards.labelValue | quote }}
+  annotations:
+    grafana_folder: {{ .Values.monitoring.dashboards.folder | quote }}
+data:
+  artstore-overview.json: |-
+    {{- .Files.Get "dashboards/overview.json" | nindent 4 }}
+
+---
+# --- Admin Module Dashboard ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "artstore.fullname" . }}-dashboard-admin-module
+  namespace: {{ include "artstore.namespace" . }}
+  labels:
+    {{- include "artstore.labels" . | nindent 4 }}
+    {{ .Values.monitoring.dashboards.label }}: {{ .Values.monitoring.dashboards.labelValue | quote }}
+  annotations:
+    grafana_folder: {{ .Values.monitoring.dashboards.folder | quote }}
+data:
+  artstore-admin-module.json: |-
+    {{- .Files.Get "dashboards/admin-module.json" | nindent 4 }}
+
+---
+# --- Storage Element Dashboard ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "artstore.fullname" . }}-dashboard-storage-element
+  namespace: {{ include "artstore.namespace" . }}
+  labels:
+    {{- include "artstore.labels" . | nindent 4 }}
+    {{ .Values.monitoring.dashboards.label }}: {{ .Values.monitoring.dashboards.labelValue | quote }}
+  annotations:
+    grafana_folder: {{ .Values.monitoring.dashboards.folder | quote }}
+data:
+  artstore-storage-element.json: |-
+    {{- .Files.Get "dashboards/storage-element.json" | nindent 4 }}
+
+---
+# --- Ingester Module Dashboard ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "artstore.fullname" . }}-dashboard-ingester-module
+  namespace: {{ include "artstore.namespace" . }}
+  labels:
+    {{- include "artstore.labels" . | nindent 4 }}
+    {{ .Values.monitoring.dashboards.label }}: {{ .Values.monitoring.dashboards.labelValue | quote }}
+  annotations:
+    grafana_folder: {{ .Values.monitoring.dashboards.folder | quote }}
+data:
+  artstore-ingester-module.json: |-
+    {{- .Files.Get "dashboards/ingester-module.json" | nindent 4 }}
+
+---
+# --- Query Module Dashboard ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "artstore.fullname" . }}-dashboard-query-module
+  namespace: {{ include "artstore.namespace" . }}
+  labels:
+    {{- include "artstore.labels" . | nindent 4 }}
+    {{ .Values.monitoring.dashboards.label }}: {{ .Values.monitoring.dashboards.labelValue | quote }}
+  annotations:
+    grafana_folder: {{ .Values.monitoring.dashboards.folder | quote }}
+data:
+  artstore-query-module.json: |-
+    {{- .Files.Get "dashboards/query-module.json" | nindent 4 }}
+
+---
+# --- Dependency Topology Dashboard ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "artstore.fullname" . }}-dashboard-dependency-topology
+  namespace: {{ include "artstore.namespace" . }}
+  labels:
+    {{- include "artstore.labels" . | nindent 4 }}
+    {{ .Values.monitoring.dashboards.label }}: {{ .Values.monitoring.dashboards.labelValue | quote }}
+  annotations:
+    grafana_folder: {{ .Values.monitoring.dashboards.folder | quote }}
+data:
+  artstore-dependency-topology.json: |-
+    {{- .Files.Get "dashboards/dependency-topology.json" | nindent 4 }}
+{{- end }}

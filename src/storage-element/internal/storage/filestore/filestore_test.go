@@ -2,6 +2,7 @@ package filestore
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
@@ -10,6 +11,9 @@ import (
 	"strings"
 	"testing"
 )
+
+// ctx — общий контекст для тестов.
+var ctx = context.Background()
 
 // TestNew_CreatesDirectory проверяет создание директории данных.
 func TestNew_CreatesDirectory(t *testing.T) {
@@ -43,7 +47,7 @@ func TestSaveFile(t *testing.T) {
 	content := []byte("Hello, World! Тестовые данные для проверки.")
 	reader := bytes.NewReader(content)
 
-	result, err := fs.SaveFile(reader, "test-photo.jpg", "admin")
+	result, err := fs.SaveFile(ctx, reader, "test-photo.jpg", "admin")
 	if err != nil {
 		t.Fatalf("ошибка сохранения: %v", err)
 	}
@@ -65,15 +69,18 @@ func TestSaveFile(t *testing.T) {
 		t.Error("файл не найден на диске")
 	}
 
-	// Проверяем формат имени файла
+	// Проверяем формат пути: YYYY/MM/DD/filename
+	if !strings.Contains(result.StoragePath, "/") {
+		t.Errorf("путь должен содержать date-based иерархию: %s", result.StoragePath)
+	}
 	if !strings.Contains(result.StoragePath, "test-photo") {
-		t.Errorf("имя файла должно содержать оригинальное имя: %s", result.StoragePath)
+		t.Errorf("путь должен содержать оригинальное имя: %s", result.StoragePath)
 	}
 	if !strings.Contains(result.StoragePath, "admin") {
-		t.Errorf("имя файла должно содержать имя пользователя: %s", result.StoragePath)
+		t.Errorf("путь должен содержать имя пользователя: %s", result.StoragePath)
 	}
 	if !strings.HasSuffix(result.StoragePath, ".jpg") {
-		t.Errorf("имя файла должно сохранять расширение: %s", result.StoragePath)
+		t.Errorf("путь должен сохранять расширение: %s", result.StoragePath)
 	}
 
 	// Проверяем содержимое
@@ -93,7 +100,7 @@ func TestSaveFile_NoExtension(t *testing.T) {
 		t.Fatalf("ошибка создания FileStore: %v", err)
 	}
 
-	result, err := fs.SaveFile(bytes.NewReader([]byte("data")), "README", "user1")
+	result, err := fs.SaveFile(ctx, bytes.NewReader([]byte("data")), "README", "user1")
 	if err != nil {
 		t.Fatalf("ошибка сохранения: %v", err)
 	}
@@ -111,7 +118,7 @@ func TestSaveFile_NoTmpFile(t *testing.T) {
 		t.Fatalf("ошибка создания FileStore: %v", err)
 	}
 
-	result, err := fs.SaveFile(bytes.NewReader([]byte("data")), "file.txt", "user")
+	result, err := fs.SaveFile(ctx, bytes.NewReader([]byte("data")), "file.txt", "user")
 	if err != nil {
 		t.Fatalf("ошибка сохранения: %v", err)
 	}
@@ -129,7 +136,7 @@ func TestSaveFile_EmptyFile(t *testing.T) {
 		t.Fatalf("ошибка создания FileStore: %v", err)
 	}
 
-	result, err := fs.SaveFile(bytes.NewReader(nil), "empty.txt", "user")
+	result, err := fs.SaveFile(ctx, bytes.NewReader(nil), "empty.txt", "user")
 	if err != nil {
 		t.Fatalf("ошибка сохранения: %v", err)
 	}
@@ -147,13 +154,13 @@ func TestReadFile(t *testing.T) {
 	}
 
 	content := []byte("read test data")
-	result, err := fs.SaveFile(bytes.NewReader(content), "read-test.txt", "user")
+	result, err := fs.SaveFile(ctx, bytes.NewReader(content), "read-test.txt", "user")
 	if err != nil {
 		t.Fatalf("ошибка сохранения: %v", err)
 	}
 
 	// Чтение
-	f, err := fs.ReadFile(result.StoragePath)
+	f, err := fs.ReadFile(ctx, result.StoragePath)
 	if err != nil {
 		t.Fatalf("ошибка открытия для чтения: %v", err)
 	}
@@ -176,7 +183,7 @@ func TestReadFile_NotFound(t *testing.T) {
 		t.Fatalf("ошибка создания FileStore: %v", err)
 	}
 
-	_, err = fs.ReadFile("nonexistent.txt")
+	_, err = fs.ReadFile(ctx, "nonexistent.txt")
 	if err == nil {
 		t.Error("ожидалась ошибка для несуществующего файла")
 	}
@@ -189,18 +196,22 @@ func TestDeleteFile(t *testing.T) {
 		t.Fatalf("ошибка создания FileStore: %v", err)
 	}
 
-	result, err := fs.SaveFile(bytes.NewReader([]byte("delete me")), "delete.txt", "user")
+	result, err := fs.SaveFile(ctx, bytes.NewReader([]byte("delete me")), "delete.txt", "user")
 	if err != nil {
 		t.Fatalf("ошибка сохранения: %v", err)
 	}
 
 	// Удаление
-	if err := fs.DeleteFile(result.StoragePath); err != nil {
+	if err := fs.DeleteFile(ctx, result.StoragePath); err != nil {
 		t.Fatalf("ошибка удаления: %v", err)
 	}
 
 	// Проверяем, что файл удалён
-	if fs.FileExists(result.StoragePath) {
+	exists, err := fs.FileExists(ctx, result.StoragePath)
+	if err != nil {
+		t.Fatalf("ошибка проверки существования: %v", err)
+	}
+	if exists {
 		t.Error("файл должен быть удалён")
 	}
 }
@@ -212,7 +223,7 @@ func TestDeleteFile_NotFound(t *testing.T) {
 		t.Fatalf("ошибка создания FileStore: %v", err)
 	}
 
-	if err := fs.DeleteFile("nonexistent.txt"); err != nil {
+	if err := fs.DeleteFile(ctx, "nonexistent.txt"); err != nil {
 		t.Errorf("удаление несуществующего файла не должно быть ошибкой: %v", err)
 	}
 }
@@ -225,18 +236,26 @@ func TestFileExists(t *testing.T) {
 	}
 
 	// Не существует
-	if fs.FileExists("no-file.txt") {
+	exists, err := fs.FileExists(ctx, "no-file.txt")
+	if err != nil {
+		t.Fatalf("ошибка проверки: %v", err)
+	}
+	if exists {
 		t.Error("файл не должен существовать")
 	}
 
 	// Создаём файл
-	result, err := fs.SaveFile(bytes.NewReader([]byte("exists")), "exists.txt", "user")
+	result, err := fs.SaveFile(ctx, bytes.NewReader([]byte("exists")), "exists.txt", "user")
 	if err != nil {
 		t.Fatalf("ошибка сохранения: %v", err)
 	}
 
 	// Существует
-	if !fs.FileExists(result.StoragePath) {
+	exists, err = fs.FileExists(ctx, result.StoragePath)
+	if err != nil {
+		t.Fatalf("ошибка проверки: %v", err)
+	}
+	if !exists {
 		t.Error("файл должен существовать")
 	}
 }
@@ -249,12 +268,12 @@ func TestFileSize(t *testing.T) {
 	}
 
 	content := []byte("size check data - 123")
-	result, err := fs.SaveFile(bytes.NewReader(content), "size.txt", "user")
+	result, err := fs.SaveFile(ctx, bytes.NewReader(content), "size.txt", "user")
 	if err != nil {
 		t.Fatalf("ошибка сохранения: %v", err)
 	}
 
-	size, err := fs.FileSize(result.StoragePath)
+	size, err := fs.FileSize(ctx, result.StoragePath)
 	if err != nil {
 		t.Fatalf("ошибка получения размера: %v", err)
 	}
@@ -272,12 +291,12 @@ func TestComputeChecksum(t *testing.T) {
 	}
 
 	content := []byte("checksum verification data")
-	result, err := fs.SaveFile(bytes.NewReader(content), "check.bin", "user")
+	result, err := fs.SaveFile(ctx, bytes.NewReader(content), "check.bin", "user")
 	if err != nil {
 		t.Fatalf("ошибка сохранения: %v", err)
 	}
 
-	checksum, err := fs.ComputeChecksum(result.StoragePath)
+	checksum, err := fs.ComputeChecksum(ctx, result.StoragePath)
 	if err != nil {
 		t.Fatalf("ошибка вычисления checksum: %v", err)
 	}
@@ -288,19 +307,44 @@ func TestComputeChecksum(t *testing.T) {
 	}
 }
 
-// TestGenerateStorageName проверяет генерацию имени файла.
-func TestGenerateStorageName(t *testing.T) {
-	name := generateStorageName("My Photo.jpg", "admin")
+// TestGenerateStoragePath проверяет генерацию пути файла с date-based иерархией.
+func TestGenerateStoragePath(t *testing.T) {
+	path := generateStoragePath("My Photo.jpg", "admin")
 
-	if !strings.HasSuffix(name, ".jpg") {
-		t.Errorf("должно сохраняться расширение .jpg: %s", name)
+	// Путь должен содержать разделитель каталогов (date prefix)
+	if !strings.Contains(path, "/") {
+		t.Errorf("путь должен содержать дату YYYY/MM/DD: %s", path)
 	}
-	if !strings.Contains(name, "admin") {
-		t.Errorf("должно содержать имя пользователя: %s", name)
+
+	// Проверяем формат date-prefix: YYYY/MM/DD/filename
+	parts := strings.SplitN(path, "/", 4) // год/месяц/день/имя
+	if len(parts) != 4 {
+		t.Fatalf("ожидался формат YYYY/MM/DD/filename, получено %d частей: %s", len(parts), path)
 	}
-	// Имя файла не должно содержать пробелы
-	if strings.Contains(name, " ") {
-		t.Errorf("не должно содержать пробелов: %s", name)
+
+	// Год — 4 цифры
+	if len(parts[0]) != 4 {
+		t.Errorf("год должен быть 4 цифры: %s", parts[0])
+	}
+	// Месяц — 2 цифры
+	if len(parts[1]) != 2 {
+		t.Errorf("месяц должен быть 2 цифры: %s", parts[1])
+	}
+	// День — 2 цифры
+	if len(parts[2]) != 2 {
+		t.Errorf("день должен быть 2 цифры: %s", parts[2])
+	}
+
+	// Имя файла (последняя часть) — стандартные проверки
+	filename := parts[3]
+	if !strings.HasSuffix(filename, ".jpg") {
+		t.Errorf("должно сохраняться расширение .jpg: %s", filename)
+	}
+	if !strings.Contains(filename, "admin") {
+		t.Errorf("должно содержать имя пользователя: %s", filename)
+	}
+	if strings.Contains(filename, " ") {
+		t.Errorf("имя файла не должно содержать пробелов: %s", filename)
 	}
 }
 
@@ -326,16 +370,23 @@ func TestSanitize(t *testing.T) {
 	}
 }
 
-// TestFullPath проверяет формирование полного пути.
+// TestFullPath проверяет формирование полного пути (плоский и иерархический).
 func TestFullPath(t *testing.T) {
 	fs, err := New(t.TempDir())
 	if err != nil {
 		t.Fatalf("ошибка создания FileStore: %v", err)
 	}
 
+	// Плоский путь (обратная совместимость)
 	fullPath := fs.FullPath("test.txt")
 	expected := filepath.Join(fs.DataDir(), "test.txt")
+	if fullPath != expected {
+		t.Errorf("ожидалось %s, получено %s", expected, fullPath)
+	}
 
+	// Иерархический путь YYYY/MM/DD/filename
+	fullPath = fs.FullPath("2026/03/01/photo_admin_20260301_abc12345.jpg")
+	expected = filepath.Join(fs.DataDir(), "2026/03/01/photo_admin_20260301_abc12345.jpg")
 	if fullPath != expected {
 		t.Errorf("ожидалось %s, получено %s", expected, fullPath)
 	}

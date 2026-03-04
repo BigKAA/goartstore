@@ -40,4 +40,7 @@ type FileRecord struct {
 	CreatedAt time.Time
 	// UpdatedAt — время последнего обновления
 	UpdatedAt time.Time
+	// SEMode — режим Storage Element (edit, rw, ro, ar).
+	// Виртуальное поле, заполняемое через JOIN с storage_elements.
+	SEMode string
 }

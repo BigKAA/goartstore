@@ -16,4 +16,6 @@ var (
 	ErrIDPUnavailable = errors.New("identity provider недоступен")
 	// ErrValidation — ошибка валидации входных данных.
 	ErrValidation = errors.New("ошибка валидации")
+	// ErrPriorityReadOnly — попытка изменить priority для SE в режиме ro/ar.
+	ErrPriorityReadOnly = errors.New("приоритет записи нельзя изменить для SE в режиме ro/ar")
 )

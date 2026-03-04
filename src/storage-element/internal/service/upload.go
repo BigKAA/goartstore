@@ -1,8 +1,12 @@
 // Пакет service — бизнес-логика Storage Element.
-// upload.go — сервис загрузки файлов с WAL-транзакциями.
+// upload.go — сервис загрузки файлов.
+//
+// Stateless архитектура: per-file lock с TTL защищает файл
+// от преждевременного GC/Reconcile/Delete во время upload-а.
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,13 +17,11 @@ import (
 
 	apierrors "github.com/bigkaa/goartstore/storage-element/internal/api/errors"
 	"github.com/bigkaa/goartstore/storage-element/internal/api/middleware"
+	"github.com/bigkaa/goartstore/storage-element/internal/backend"
 	"github.com/bigkaa/goartstore/storage-element/internal/config"
 	"github.com/bigkaa/goartstore/storage-element/internal/domain/mode"
 	"github.com/bigkaa/goartstore/storage-element/internal/domain/model"
-	"github.com/bigkaa/goartstore/storage-element/internal/storage/attr"
-	"github.com/bigkaa/goartstore/storage-element/internal/storage/filestore"
 	"github.com/bigkaa/goartstore/storage-element/internal/storage/index"
-	"github.com/bigkaa/goartstore/storage-element/internal/storage/wal"
 )
 
 // UploadParams — параметры загрузки файла.
@@ -58,46 +60,51 @@ func (e *UploadError) Error() string {
 
 // UploadService — сервис загрузки файлов.
 type UploadService struct {
-	cfg       *config.Config
-	walEngine *wal.WAL
-	store     *filestore.FileStore
-	idx       *index.Index
-	sm        *mode.StateMachine
-	logger    *slog.Logger
+	cfg    *config.Config
+	files  backend.FileStore
+	attrs  backend.AttrStore
+	idx    *index.Index
+	sm     *mode.StateMachine
+	locks  backend.LockStore
+	logger *slog.Logger
 }
 
 // NewUploadService создаёт сервис загрузки файлов.
 func NewUploadService(
 	cfg *config.Config,
-	walEngine *wal.WAL,
-	store *filestore.FileStore,
+	files backend.FileStore,
+	attrs backend.AttrStore,
 	idx *index.Index,
 	sm *mode.StateMachine,
+	locks backend.LockStore,
 	logger *slog.Logger,
 ) *UploadService {
 	return &UploadService{
-		cfg:       cfg,
-		walEngine: walEngine,
-		store:     store,
-		idx:       idx,
-		sm:        sm,
-		logger:    logger.With(slog.String("component", "upload_service")),
+		cfg:    cfg,
+		files:  files,
+		attrs:  attrs,
+		idx:    idx,
+		sm:     sm,
+		locks:  locks,
+		logger: logger.With(slog.String("component", "upload_service")),
 	}
 }
 
-// Upload загружает файл в хранилище с WAL-транзакцией.
+// Upload загружает файл в хранилище.
 //
-// Поток:
+// Pipeline (stateless, per-file lock):
 //  1. Проверка mode (edit/rw)
-//  2. Проверка размера файла
-//  3. WAL StartTransaction
+//  2. Проверка размера файла и capacity
+//  3. locks.Acquire(fileID)
 //  4. SaveFile (streaming + SHA-256)
-//  5. WriteAttrFile
+//  5. attrs.Write (point of no return)
 //  6. index.Add
-//  7. WAL Commit
+//  7. locks.Release(fileID) — в defer
 //
-// При ошибке — cleanup (удаление файла, attr.json) + WAL Rollback.
+// При ошибке — release lock + cleanup (удаление файла, attr.json).
 func (s *UploadService) Upload(params UploadParams) (*UploadResult, *UploadError) {
+	ctx := context.Background()
+
 	// 1. Проверяем допустимость операции upload в текущем режиме
 	if !s.sm.CanPerform(mode.OpUpload) {
 		return nil, &UploadError{
@@ -128,43 +135,45 @@ func (s *UploadService) Upload(params UploadParams) (*UploadResult, *UploadError
 		}
 	}
 
-	// 3. Генерируем file_id
+	// 3. Генерируем file_id и захватываем lock
 	fileID := uuid.New().String()
 
-	// 4. WAL StartTransaction
-	walEntry, err := s.walEngine.StartTransaction(wal.OpFileCreate, fileID)
-	if err != nil {
-		s.logger.Error("Ошибка создания WAL-транзакции", slog.String("error", err.Error()))
+	if err := s.locks.Acquire(ctx, fileID); err != nil {
+		s.logger.Error("Ошибка захвата lock для файла",
+			slog.String("file_id", fileID),
+			slog.String("error", err.Error()),
+		)
 		return nil, &UploadError{
 			StatusCode: 500,
 			Code:       apierrors.CodeInternalError,
-			Message:    "Внутренняя ошибка при создании транзакции",
+			Message:    "Ошибка захвата lock для файла",
 		}
 	}
 
-	// Cleanup при ошибке
-	var savedResult *filestore.SaveResult
-	rollback := func() {
-		// Удаляем файл если был сохранён
-		if savedResult != nil {
-			_ = s.store.DeleteFile(savedResult.StoragePath)
-			// Удаляем attr.json
-			attrPath := attr.AttrFilePath(s.store.FullPath(savedResult.StoragePath))
-			_ = attr.Delete(attrPath)
-		}
-		// Откатываем WAL
-		if rbErr := s.walEngine.Rollback(walEntry.TransactionID); rbErr != nil {
-			s.logger.Error("Ошибка отката WAL",
-				slog.String("tx_id", walEntry.TransactionID),
-				slog.String("error", rbErr.Error()),
+	// defer release lock — гарантированная очистка при любом исходе
+	defer func() {
+		if relErr := s.locks.Release(ctx, fileID); relErr != nil {
+			s.logger.Warn("Ошибка освобождения lock (TTL подстрахует)",
+				slog.String("file_id", fileID),
+				slog.String("error", relErr.Error()),
 			)
 		}
+	}()
+
+	// Cleanup при ошибке (удаление частично записанных файлов)
+	var savedResult *backend.SaveResult
+	cleanup := func() {
+		if savedResult != nil {
+			_ = s.files.DeleteFile(ctx, savedResult.StoragePath)
+			_ = s.attrs.Delete(ctx, savedResult.StoragePath)
+		}
 	}
 
-	// 5. SaveFile (streaming + SHA-256)
-	savedResult, err = s.store.SaveFile(params.Reader, params.OriginalFilename, params.UploadedBy)
+	// 4. SaveFile (streaming + SHA-256)
+	var err error
+	savedResult, err = s.files.SaveFile(ctx, params.Reader, params.OriginalFilename, params.UploadedBy)
 	if err != nil {
-		rollback()
+		cleanup()
 		s.logger.Error("Ошибка сохранения файла",
 			slog.String("file_id", fileID),
 			slog.String("error", err.Error()),
@@ -176,7 +185,7 @@ func (s *UploadService) Upload(params UploadParams) (*UploadResult, *UploadError
 		}
 	}
 
-	// 6. Определяем retention policy из режима
+	// 5. Определяем retention policy из режима
 	retentionPolicy := model.RetentionPermanent
 	var ttlDays *int
 	var expiresAt *time.Time
@@ -188,11 +197,11 @@ func (s *UploadService) Upload(params UploadParams) (*UploadResult, *UploadError
 		expiresAt = &exp
 	}
 
-	// 7. Парсим теги
+	// 6. Парсим теги
 	var tags []string
 	if params.TagsJSON != "" {
 		if err := json.Unmarshal([]byte(params.TagsJSON), &tags); err != nil {
-			rollback()
+			cleanup()
 			return nil, &UploadError{
 				StatusCode: 400,
 				Code:       apierrors.CodeValidationError,
@@ -201,7 +210,7 @@ func (s *UploadService) Upload(params UploadParams) (*UploadResult, *UploadError
 		}
 	}
 
-	// 8. Формируем метаданные
+	// 7. Формируем метаданные
 	now := time.Now().UTC()
 	metadata := &model.FileMetadata{
 		FileID:           fileID,
@@ -220,10 +229,9 @@ func (s *UploadService) Upload(params UploadParams) (*UploadResult, *UploadError
 		Description:      params.Description,
 	}
 
-	// 9. Записываем attr.json
-	attrPath := attr.AttrFilePath(s.store.FullPath(savedResult.StoragePath))
-	if err := attr.Write(attrPath, metadata); err != nil {
-		rollback()
+	// 8. Записываем attr.json через AttrStore (point of no return)
+	if err := s.attrs.Write(ctx, savedResult.StoragePath, metadata); err != nil {
+		cleanup()
 		s.logger.Error("Ошибка записи attr.json",
 			slog.String("file_id", fileID),
 			slog.String("error", err.Error()),
@@ -235,20 +243,10 @@ func (s *UploadService) Upload(params UploadParams) (*UploadResult, *UploadError
 		}
 	}
 
-	// 10. Добавляем в индекс
+	// 9. Добавляем в индекс
 	s.idx.Add(metadata)
 
-	// 11. WAL Commit
-	if err := s.walEngine.Commit(walEntry.TransactionID); err != nil {
-		s.logger.Error("Ошибка коммита WAL (данные сохранены)",
-			slog.String("tx_id", walEntry.TransactionID),
-			slog.String("file_id", fileID),
-			slog.String("error", err.Error()),
-		)
-		// Данные уже записаны, коммит WAL — best effort
-	}
-
-	// 12. Обновляем метрики
+	// 10. Обновляем метрики
 	middleware.OperationsTotal.WithLabelValues("upload", "success").Inc()
 	middleware.FilesTotal.WithLabelValues(string(model.StatusActive)).Inc()
 
@@ -261,5 +259,6 @@ func (s *UploadService) Upload(params UploadParams) (*UploadResult, *UploadError
 		slog.String("retention", string(retentionPolicy)),
 	)
 
+	// Lock освобождается через defer
 	return &UploadResult{Metadata: metadata}, nil
 }

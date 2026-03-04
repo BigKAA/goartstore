@@ -26,8 +26,8 @@ func TestBuildSearchWhere_StatusOnly(t *testing.T) {
 	params := SearchParams{Status: &status}
 	where, args := buildSearchWhere(params, 1)
 
-	if !strings.Contains(where, "status = $1") {
-		t.Errorf("where = %q, ожидалось содержание 'status = $1'", where)
+	if !strings.Contains(where, "fr.status = $1") {
+		t.Errorf("where = %q, ожидалось содержание 'fr.status = $1'", where)
 	}
 	if len(args) != 1 {
 		t.Errorf("args count = %d, ожидался 1", len(args))
@@ -67,7 +67,7 @@ func TestBuildSearchWhere_QueryExact(t *testing.T) {
 	}
 	where, args := buildSearchWhere(params, 1)
 
-	if !strings.Contains(where, "LOWER(original_filename) = LOWER($1)") {
+	if !strings.Contains(where, "LOWER(fr.original_filename) = LOWER($1)") {
 		t.Errorf("where = %q, ожидался LOWER exact match", where)
 	}
 	if args[0] != "exact-file.txt" {
@@ -81,8 +81,8 @@ func TestBuildSearchWhere_Tags(t *testing.T) {
 	params := SearchParams{Tags: &tags}
 	where, args := buildSearchWhere(params, 1)
 
-	if !strings.Contains(where, "tags @> $1") {
-		t.Errorf("where = %q, ожидался tags @> $1", where)
+	if !strings.Contains(where, "fr.tags @> $1") {
+		t.Errorf("where = %q, ожидался fr.tags @> $1", where)
 	}
 	if len(args) != 1 {
 		t.Errorf("args count = %d, ожидался 1", len(args))
@@ -113,11 +113,11 @@ func TestBuildSearchWhere_SizeRange(t *testing.T) {
 	}
 	where, args := buildSearchWhere(params, 1)
 
-	if !strings.Contains(where, "size >= $1") {
-		t.Errorf("where = %q, ожидался size >= $1", where)
+	if !strings.Contains(where, "fr.size >= $1") {
+		t.Errorf("where = %q, ожидался fr.size >= $1", where)
 	}
-	if !strings.Contains(where, "size <= $2") {
-		t.Errorf("where = %q, ожидался size <= $2", where)
+	if !strings.Contains(where, "fr.size <= $2") {
+		t.Errorf("where = %q, ожидался fr.size <= $2", where)
 	}
 	if len(args) != 2 {
 		t.Errorf("args count = %d, ожидался 2", len(args))
@@ -154,8 +154,8 @@ func TestBuildSearchWhere_StartArgOffset(t *testing.T) {
 	// Начинаем с $5 (как если WHERE добавляется после других параметров)
 	where, args := buildSearchWhere(params, 5)
 
-	if !strings.Contains(where, "status = $5") {
-		t.Errorf("where = %q, ожидался status = $5", where)
+	if !strings.Contains(where, "fr.status = $5") {
+		t.Errorf("where = %q, ожидался fr.status = $5", where)
 	}
 	if len(args) != 1 {
 		t.Errorf("args count = %d, ожидался 1", len(args))
@@ -167,33 +167,33 @@ func TestBuildSearchWhere_StartArgOffset(t *testing.T) {
 // TestBuildOrderBy_Default проверяет сортировку по умолчанию.
 func TestBuildOrderBy_Default(t *testing.T) {
 	orderBy := buildOrderBy("", "")
-	if orderBy != "ORDER BY uploaded_at DESC" {
-		t.Errorf("orderBy = %q, ожидался 'ORDER BY uploaded_at DESC'", orderBy)
+	if orderBy != "ORDER BY fr.uploaded_at DESC" {
+		t.Errorf("orderBy = %q, ожидался 'ORDER BY fr.uploaded_at DESC'", orderBy)
 	}
 }
 
 // TestBuildOrderBy_ByFilename проверяет сортировку по имени файла.
 func TestBuildOrderBy_ByFilename(t *testing.T) {
 	orderBy := buildOrderBy("original_filename", "asc")
-	if orderBy != "ORDER BY original_filename ASC" {
-		t.Errorf("orderBy = %q, ожидался 'ORDER BY original_filename ASC'", orderBy)
+	if orderBy != "ORDER BY fr.original_filename ASC" {
+		t.Errorf("orderBy = %q, ожидался 'ORDER BY fr.original_filename ASC'", orderBy)
 	}
 }
 
 // TestBuildOrderBy_BySize проверяет сортировку по размеру.
 func TestBuildOrderBy_BySize(t *testing.T) {
 	orderBy := buildOrderBy("size", "desc")
-	if orderBy != "ORDER BY size DESC" {
-		t.Errorf("orderBy = %q, ожидался 'ORDER BY size DESC'", orderBy)
+	if orderBy != "ORDER BY fr.size DESC" {
+		t.Errorf("orderBy = %q, ожидался 'ORDER BY fr.size DESC'", orderBy)
 	}
 }
 
 // TestBuildOrderBy_InvalidField проверяет безопасность whitelist.
 func TestBuildOrderBy_InvalidField(t *testing.T) {
-	// SQL-инъекция через sort field — должен fallback на uploaded_at
+	// SQL-инъекция через sort field — должен fallback на fr.uploaded_at
 	orderBy := buildOrderBy("'; DROP TABLE files; --", "asc")
-	if !strings.Contains(orderBy, "uploaded_at") {
-		t.Errorf("orderBy = %q, ожидался fallback на uploaded_at", orderBy)
+	if !strings.Contains(orderBy, "fr.uploaded_at") {
+		t.Errorf("orderBy = %q, ожидался fallback на fr.uploaded_at", orderBy)
 	}
 }
 

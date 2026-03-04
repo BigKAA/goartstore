@@ -1,6 +1,6 @@
-{{- if eq .Values.replicaMode "standalone" }}
-# Deployment для standalone режима Storage Element
-# Один pod, стратегия Recreate (данные на PVC)
+# Deployment для Storage Element
+# Stateless: все pod-ы равноправны, координация через per-file lock
+# Поддерживает replicas > 1 при shared PVC (RWX)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -8,9 +8,14 @@ metadata:
   labels:
     {{- include "se.labels" . | nindent 4 }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.replicas | default 1 }}
+  {{- if eq (int (.Values.replicas | default 1)) 1 }}
   strategy:
     type: Recreate
+  {{- else }}
+  strategy:
+    type: RollingUpdate
+  {{- end }}
   selector:
     matchLabels:
       {{- include "se.selectorLabels" . | nindent 6 }}
@@ -18,13 +23,16 @@ spec:
     metadata:
       labels:
         {{- include "se.selectorLabels" . | nindent 8 }}
-      {{- if .Values.metrics.enabled }}
       annotations:
+        {{- if .Values.metrics.enabled }}
         prometheus.io/scrape: "true"
         prometheus.io/port: {{ .Values.port | quote }}
         prometheus.io/path: {{ .Values.metrics.path | quote }}
         prometheus.io/scheme: {{ .Values.metrics.scheme | quote }}
-      {{- end }}
+        {{- end }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
     spec:
       containers:
         - name: storage-element
@@ -36,8 +44,6 @@ spec:
               protocol: TCP
           env:
             {{- include "se.envVars" . | nindent 12 }}
-            - name: SE_REPLICA_MODE
-              value: "standalone"
           volumeMounts:
             {{- include "se.volumeMounts" . | nindent 12 }}
           {{- include "se.probes" . | nindent 10 }}
@@ -47,10 +53,6 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: {{ include "se.dataPvcName" . }}
-        - name: wal
-          persistentVolumeClaim:
-            claimName: {{ include "se.walPvcName" . }}
         - name: tls-certs
           secret:
             secretName: {{ include "se.tlsSecretName" . }}
-{{- end }}

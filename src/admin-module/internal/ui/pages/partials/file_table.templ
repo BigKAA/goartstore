@@ -96,7 +96,7 @@ templ FileTableBody(data FileTableData) {
 								<span class="text-text-muted text-xs">{ pages.FileFormatTimeFn(f.UploadedAt) }</span>
 							</td>
 							<td class="px-4 py-3">
-								@components.Badge(pages.FileStatusVariantFn(f.Status), pages.FileStatusLabelFn(f.Status))
+								@components.Badge(pages.FileEffectiveStatusVariantFn(f.Status, f.SEMode), pages.FileEffectiveStatusLabelFn(f.Status, f.SEMode))
 							</td>
 							<td class="px-4 py-3 text-right">
 								<div class="flex items-center justify-end gap-1">
@@ -113,7 +113,7 @@ templ FileTableBody(data FileTableData) {
 											<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
 										</svg>
 									</button>
-									if data.Role == "admin" && f.Status == "active" {
+									if data.Role == "admin" && f.Status == "active" && !pages.IsArchivedFileFn(f.Status, f.SEMode) {
 										<!-- Редактировать -->
 										<button
 											class="p-1.5 text-text-muted hover:text-status-info transition-colors rounded-button hover:bg-bg-hover"

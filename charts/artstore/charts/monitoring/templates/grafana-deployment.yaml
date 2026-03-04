@@ -1,0 +1,117 @@
+{{- if and .Values.enabled .Values.grafana.enabled }}
+# Grafana Deployment — визуализация метрик Artstore
+# Sidecar контейнер k8s-sidecar автоматически обнаруживает ConfigMaps
+# с label grafana_dashboard и загружает dashboards.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "monitoring.fullname" . }}-grafana
+  labels:
+    {{- include "monitoring.grafana.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "monitoring.grafana.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "monitoring.grafana.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/provisioning: {{ include (print $.Template.BasePath "/grafana-provisioning.yaml") . | sha256sum }}
+    spec:
+      containers:
+        # Grafana — основной контейнер
+        - name: grafana
+          image: {{ .Values.grafana.image }}
+          imagePullPolicy: {{ .Values.grafana.imagePullPolicy }}
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: {{ .Values.grafana.adminUser | quote }}
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              value: {{ .Values.grafana.adminPassword | quote }}
+            {{- if .Values.grafana.anonymousEnabled }}
+            - name: GF_AUTH_ANONYMOUS_ENABLED
+              value: "true"
+            - name: GF_AUTH_ANONYMOUS_ORG_ROLE
+              value: {{ .Values.grafana.anonymousRole | quote }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.grafana.port }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.grafana.resources | nindent 12 }}
+          volumeMounts:
+            - name: datasources
+              mountPath: /etc/grafana/provisioning/datasources
+            - name: dashboard-providers
+              mountPath: /etc/grafana/provisioning/dashboards
+            - name: dashboards
+              mountPath: /var/lib/grafana/dashboards/artstore
+
+        # k8s-sidecar — автообнаружение dashboards из ConfigMaps
+        - name: dashboard-sidecar
+          image: {{ .Values.grafana.sidecar.image }}
+          imagePullPolicy: {{ .Values.grafana.imagePullPolicy }}
+          env:
+            - name: LABEL
+              value: {{ .Values.grafana.sidecar.dashboardLabel | quote }}
+            - name: LABEL_VALUE
+              value: {{ .Values.grafana.sidecar.dashboardLabelValue | quote }}
+            - name: FOLDER
+              value: /var/lib/grafana/dashboards/artstore
+            - name: NAMESPACE
+              value: {{ .Release.Namespace }}
+            - name: RESOURCE
+              value: configmap
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          volumeMounts:
+            - name: dashboards
+              mountPath: /var/lib/grafana/dashboards/artstore
+
+      volumes:
+        - name: datasources
+          configMap:
+            name: {{ include "monitoring.fullname" . }}-grafana-datasources
+        - name: dashboard-providers
+          configMap:
+            name: {{ include "monitoring.fullname" . }}-grafana-providers
+        - name: dashboards
+          emptyDir: {}
+---
+# Service для доступа к Grafana
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "monitoring.fullname" . }}-grafana
+  labels:
+    {{- include "monitoring.grafana.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.grafana.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "monitoring.grafana.selectorLabels" . | nindent 4 }}
+{{- end }}

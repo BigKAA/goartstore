@@ -83,7 +83,11 @@ templ SETableBody(data SETableData) {
 								})
 							</td>
 							<td class="px-4 py-3 text-center">
-								<span class="text-text-secondary">{ strconv.Itoa(se.Priority) }</span>
+								if se.Mode == "ro" || se.Mode == "ar" {
+									<span class="text-text-muted">—</span>
+								} else {
+									<span class="text-text-secondary">{ strconv.Itoa(se.Priority) }</span>
+								}
 							</td>
 							<td class="px-4 py-3 text-right">
 								<span class="text-text-secondary">{ strconv.Itoa(se.FileCount) }</span>

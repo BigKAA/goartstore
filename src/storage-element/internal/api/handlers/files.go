@@ -12,11 +12,10 @@ import (
 	"github.com/bigkaa/goartstore/storage-element/internal/api/errors"
 	"github.com/bigkaa/goartstore/storage-element/internal/api/generated"
 	"github.com/bigkaa/goartstore/storage-element/internal/api/middleware"
+	"github.com/bigkaa/goartstore/storage-element/internal/backend"
 	"github.com/bigkaa/goartstore/storage-element/internal/domain/mode"
 	"github.com/bigkaa/goartstore/storage-element/internal/domain/model"
 	"github.com/bigkaa/goartstore/storage-element/internal/service"
-	"github.com/bigkaa/goartstore/storage-element/internal/storage/attr"
-	"github.com/bigkaa/goartstore/storage-element/internal/storage/filestore"
 	"github.com/bigkaa/goartstore/storage-element/internal/storage/index"
 )
 
@@ -24,25 +23,31 @@ import (
 type FilesHandler struct {
 	uploadSvc   *service.UploadService
 	downloadSvc *service.DownloadService
-	store       *filestore.FileStore
+	files       backend.FileStore
+	attrs       backend.AttrStore
 	idx         *index.Index
 	sm          *mode.StateMachine
+	locks       backend.LockStore
 }
 
 // NewFilesHandler создаёт обработчик файловых endpoints.
 func NewFilesHandler(
 	uploadSvc *service.UploadService,
 	downloadSvc *service.DownloadService,
-	store *filestore.FileStore,
+	files backend.FileStore,
+	attrs backend.AttrStore,
 	idx *index.Index,
 	sm *mode.StateMachine,
+	locks backend.LockStore,
 ) *FilesHandler {
 	return &FilesHandler{
 		uploadSvc:   uploadSvc,
 		downloadSvc: downloadSvc,
-		store:       store,
+		files:       files,
+		attrs:       attrs,
 		idx:         idx,
 		sm:          sm,
+		locks:       locks,
 	}
 }
 
@@ -187,6 +192,8 @@ func (h *FilesHandler) GetFileMetadata(w http.ResponseWriter, _ *http.Request, f
 // UpdateFileMetadata обрабатывает PATCH /api/v1/files/{file_id}.
 // Обновляет description и/или tags.
 func (h *FilesHandler) UpdateFileMetadata(w http.ResponseWriter, r *http.Request, fileId generated.FileId) { //nolint:revive // имя fileId задано сгенерированным интерфейсом
+	ctx := r.Context()
+
 	// Проверяем допустимость update
 	if !h.sm.CanPerform(mode.OpUpdate) {
 		errors.ModeNotAllowed(w, fmt.Sprintf("Обновление метаданных недоступно в режиме %s", h.sm.CurrentMode()))
@@ -227,9 +234,8 @@ func (h *FilesHandler) UpdateFileMetadata(w http.ResponseWriter, r *http.Request
 		meta.Tags = *req.Tags
 	}
 
-	// Записываем обновлённый attr.json
-	attrPath := attr.AttrFilePath(h.store.FullPath(meta.StoragePath))
-	if err := attr.Write(attrPath, meta); err != nil {
+	// Записываем обновлённый attr.json через AttrStore
+	if err := h.attrs.Write(ctx, meta.StoragePath, meta); err != nil {
 		errors.InternalError(w, "Ошибка обновления метаданных на диске")
 		return
 	}
@@ -250,7 +256,12 @@ func (h *FilesHandler) UpdateFileMetadata(w http.ResponseWriter, r *http.Request
 // DeleteFile обрабатывает DELETE /api/v1/files/{file_id}.
 // Soft delete: помечает файл как deleted (физическое удаление — GC).
 // Доступно только в режиме edit.
-func (h *FilesHandler) DeleteFile(w http.ResponseWriter, _ *http.Request, fileId generated.FileId) { //nolint:revive // имя fileId задано сгенерированным интерфейсом
+//
+// Если файл в данный момент загружается (lock активен) — возвращает 409 Conflict
+// с кодом FILE_UPLOAD_IN_PROGRESS. Клиент должен повторить DELETE после завершения upload-а.
+func (h *FilesHandler) DeleteFile(w http.ResponseWriter, r *http.Request, fileId generated.FileId) { //nolint:revive // имя fileId задано сгенерированным интерфейсом
+	ctx := r.Context()
+
 	// Проверяем допустимость delete
 	if !h.sm.CanPerform(mode.OpDelete) {
 		errors.ModeNotAllowed(w, fmt.Sprintf("Удаление файлов недоступно в режиме %s", h.sm.CurrentMode()))
@@ -270,12 +281,21 @@ func (h *FilesHandler) DeleteFile(w http.ResponseWriter, _ *http.Request, fileId
 		return
 	}
 
+	// Проверяем lock: если файл загружается — 409 Conflict
+	if locked, lockInfo, _ := h.locks.IsLocked(ctx, meta.FileID); locked {
+		errors.WriteError(w, http.StatusConflict,
+			errors.CodeFileUploadInProgress,
+			fmt.Sprintf("Невозможно удалить файл %s: upload в процессе (holder: %s, expires_at: %s)",
+				fileId.String(), lockInfo.Holder, lockInfo.ExpiresAt().Format("2006-01-02T15:04:05Z")),
+		)
+		return
+	}
+
 	// Помечаем как deleted (soft delete)
 	meta.Status = model.StatusDeleted
 
-	// Записываем обновлённый attr.json
-	attrPath := attr.AttrFilePath(h.store.FullPath(meta.StoragePath))
-	if err := attr.Write(attrPath, meta); err != nil {
+	// Записываем обновлённый attr.json через AttrStore
+	if err := h.attrs.Write(ctx, meta.StoragePath, meta); err != nil {
 		errors.InternalError(w, "Ошибка обновления метаданных на диске")
 		return
 	}

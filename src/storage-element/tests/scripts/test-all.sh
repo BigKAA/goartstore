@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==========================================================================
-# test-all.sh — Запуск всех тестовых групп (тесты 1-30)
+# test-all.sh — Запуск всех тестовых групп (тесты 1-26)
 #
 # Последовательно запускает все тестовые скрипты, собирает итоги.
 # Exit code: 0 если все группы пройдены, 1 при наличии ошибок.
@@ -11,7 +11,6 @@
 #
 # Использование:
 #   ./test-all.sh                          # Все группы
-#   ./test-all.sh --skip-replica           # Без тестов replica (19-22)
 #   ./test-all.sh --skip-gc               # Без GC тестов (25-26, экономит ~45s)
 # ==========================================================================
 set -uo pipefail
@@ -21,18 +20,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # ==========================================================================
 # Разбор аргументов
 # ==========================================================================
-SKIP_REPLICA=false
 SKIP_GC=false
 
 for arg in "$@"; do
     case "$arg" in
-        --skip-replica) SKIP_REPLICA=true ;;
         --skip-gc)      SKIP_GC=true ;;
         --help|-h)
-            echo "Использование: ./test-all.sh [--skip-replica] [--skip-gc]"
+            echo "Использование: ./test-all.sh [--skip-gc]"
             echo ""
             echo "Опции:"
-            echo "  --skip-replica  Пропустить тесты replica (19-22)"
             echo "  --skip-gc       Пропустить тесты GC (25-26, экономит ~45s ожидания)"
             exit 0
             ;;
@@ -95,11 +91,6 @@ echo ""
 run_group "${SCRIPT_DIR}/test-smoke.sh"        "Smoke"          "1-3"
 run_group "${SCRIPT_DIR}/test-files.sh"         "Files"          "4-11"
 run_group "${SCRIPT_DIR}/test-modes.sh"         "Modes"          "12-18"
-
-if [[ "$SKIP_REPLICA" == "false" ]]; then
-    run_group "${SCRIPT_DIR}/test-replica.sh"   "Replica"        "19-22"
-fi
-
 run_group "${SCRIPT_DIR}/test-data.sh"          "Data"           "23-24"
 
 if [[ "$SKIP_GC" == "false" ]]; then
@@ -117,9 +108,6 @@ echo -e "${BLUE}========================================================${NC}"
 echo ""
 
 SKIPPED=""
-if [[ "$SKIP_REPLICA" == "true" ]]; then
-    SKIPPED="${SKIPPED} Replica(19-22)"
-fi
 if [[ "$SKIP_GC" == "true" ]]; then
     SKIPPED="${SKIPPED} GC(25-26)"
 fi

@@ -200,13 +200,15 @@ templ SEDetail(data SEDetailData) {
 							@components.StatusBadge(data.Status)
 						</div>
 					</div>
-					<div>
-						<p class="text-text-muted text-xs uppercase tracking-wide mb-1">{ i18n.T(ctx, "se_detail.priority") }</p>
-						<p class="text-text-primary">
-							{ strconv.Itoa(data.Priority) }
-							<span class="text-text-muted text-xs ml-1">({ i18n.T(ctx, "se_detail.priority_help") })</span>
-						</p>
-					</div>
+					if data.Mode == "edit" || data.Mode == "rw" {
+						<div>
+							<p class="text-text-muted text-xs uppercase tracking-wide mb-1">{ i18n.T(ctx, "se_detail.priority") }</p>
+							<p class="text-text-primary">
+								{ strconv.Itoa(data.Priority) }
+								<span class="text-text-muted text-xs ml-1">({ i18n.T(ctx, "se_detail.priority_help") })</span>
+							</p>
+						</div>
+					}
 					<div>
 						<p class="text-text-muted text-xs uppercase tracking-wide mb-1">{ i18n.T(ctx, "se_detail.created") }</p>
 						<p class="text-text-secondary">{ seDetailFmtTime(data.CreatedAt) }</p>

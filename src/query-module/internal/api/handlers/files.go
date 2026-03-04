@@ -47,6 +47,14 @@ func (h *APIHandler) handleGetFileMetadata(w http.ResponseWriter, r *http.Reques
 		ExpiresAt:        record.ExpiresAt,
 	}
 
+	// Добавляем storage_element_id и se_mode (из JOIN с storage_elements)
+	seID := parseUUID(record.StorageElementID)
+	resp.StorageElementId = &seID
+	if record.SEMode != "" {
+		mode := generated.FileMetadataSeMode(record.SEMode)
+		resp.SeMode = &mode
+	}
+
 	writeJSON(w, http.StatusOK, resp)
 }
 
@@ -68,6 +76,8 @@ func (h *APIHandler) handleDownloadFile(w http.ResponseWriter, r *http.Request, 
 			apierrors.NotFound(w, "Файл не найден")
 		case errors.Is(err, service.ErrFileDeleted):
 			apierrors.NotFound(w, "Файл не найден на Storage Element (удалён)")
+		case errors.Is(err, service.ErrFileArchived):
+			apierrors.FileArchived(w, "Файл находится в архивном хранилище и недоступен для скачивания")
 		default:
 			h.logger.Error("Ошибка скачивания файла",
 				slog.String("file_id", fileID.String()),

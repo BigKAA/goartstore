@@ -146,7 +146,7 @@ func fileRecordsToSearchItems(records []*model.FileRecord) []generated.SearchRes
 
 // fileRecordToSearchItem конвертирует одну domain-запись в API SearchResultItem.
 func fileRecordToSearchItem(r *model.FileRecord) generated.SearchResultItem {
-	return generated.SearchResultItem{
+	item := generated.SearchResultItem{
 		FileId:           parseUUID(r.FileID),
 		OriginalFilename: r.OriginalFilename,
 		ContentType:      r.ContentType,
@@ -161,4 +161,14 @@ func fileRecordToSearchItem(r *model.FileRecord) generated.SearchResultItem {
 		TtlDays:          r.TTLDays,
 		ExpiresAt:        r.ExpiresAt,
 	}
+
+	// Добавляем storage_element_id и se_mode (из JOIN с storage_elements)
+	seID := parseUUID(r.StorageElementID)
+	item.StorageElementId = &seID
+	if r.SEMode != "" {
+		mode := generated.SearchResultItemSeMode(r.SEMode)
+		item.SeMode = &mode
+	}
+
+	return item
 }

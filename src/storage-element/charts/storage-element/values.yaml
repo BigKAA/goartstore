@@ -1,5 +1,5 @@
 # Основные настройки экземпляра Storage Element
-# По умолчанию — standalone режим (Deployment)
+# Stateless: все экземпляры равноправны, координация через per-file lock
 
 # Уникальный идентификатор экземпляра SE
 elementId: se-01
@@ -10,11 +10,8 @@ port: 8010
 # Начальный режим работы: edit, rw, ro, ar
 mode: rw
 
-# Режим деплоя: standalone (Deployment) или replicated (StatefulSet)
-replicaMode: standalone
-
-# Количество реплик (используется только в replicated режиме)
-replicas: 2
+# Количество реплик (при replicas > 1 PVC создаётся с RWX)
+replicas: 1
 
 # --- Образ контейнера ---
 registry: harbor.kryukov.lan
@@ -40,7 +37,15 @@ logFormat: json
 gcInterval: "1h"
 reconcileInterval: "6h"
 maxFileSize: "1073741824"  # 1GB
-maxCapacity: "10737418240"  # 10GB — сконфигурированный лимит ёмкости SE (не должен превышать dataSize)
+maxCapacity: "10737418240"  # 10GB — сконфигурированный лимит ёмкости SE
+
+# --- Stateless координация ---
+# TTL lock-файла при upload (crash recovery через TTL expiry + GC cleanup)
+uploadLockTTL: "120s"
+# Интервал синхронизации mode.json между pod-ами
+modeSyncInterval: "10s"
+# Интервал пересборки in-memory индекса (обнаружение файлов от других pod-ов)
+indexSyncInterval: "30s"
 
 # --- Таймауты HTTP-клиентов и сервера ---
 # Опциональные — если не заданы, используются defaults из Go config.
@@ -54,9 +59,6 @@ maxCapacity: "10737418240"  # 10GB — сконфигурированный ли
 #   jwtLeeway: "5s"             # SE_JWT_LEEWAY
 
 # --- Graceful shutdown ---
-# Таймаут graceful shutdown HTTP-сервера.
-# Должен быть меньше K8s terminationGracePeriodSeconds (30s по умолчанию),
-# чтобы election.Stop() успел освободить NFS flock до SIGKILL.
 shutdownTimeout: "5s"
 
 # --- Dependency health (topologymetrics) ---
@@ -65,19 +67,9 @@ dephealthGroup: "storage-element"
 dephealthDepName: "admin-jwks"
 dephealthIsEntry: false
 
-# --- Index refresh (только replicated mode) ---
-indexRefreshInterval: "30s"
-
-# --- Leader election (только replicated mode) ---
-# Интервал retry захвата flock для follower.
-# Влияет на скорость failover после смерти leader.
-# NFS v4 lease timeout (~90s по умолчанию) ограничивает минимальное время failover.
-electionRetryInterval: "5s"
-
 # --- Хранилище ---
 storageClass: nfs-client
 dataSize: 2Gi
-walSize: 1Gi
 
 # --- TLS (cert-manager) ---
 tls:
@@ -118,6 +110,10 @@ httproute:
   hostname: "se-01.kryukov.lan"
   pathPrefixes:
     - /api/v1
+
+# --- Дополнительные annotations для pods ---
+# Произвольные annotations, добавляемые к pods (помимо Prometheus)
+podAnnotations: {}
 
 # --- Prometheus метрики ---
 metrics:

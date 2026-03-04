@@ -1,46 +1,42 @@
 // system.go — обработчик GET /api/v1/info (информация о Storage Element).
 // Публичный endpoint (без аутентификации) для service discovery и мониторинга.
+//
+// Stateless архитектура: роли (leader/follower) и replica_mode удалены.
+// Все экземпляры SE равноправны.
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
 	"github.com/bigkaa/goartstore/storage-element/internal/api/generated"
+	"github.com/bigkaa/goartstore/storage-element/internal/backend"
 	"github.com/bigkaa/goartstore/storage-element/internal/config"
 	"github.com/bigkaa/goartstore/storage-element/internal/domain/mode"
 	"github.com/bigkaa/goartstore/storage-element/internal/storage/index"
 )
 
-// RoleProvider — интерфейс для получения текущей роли экземпляра SE.
-// Используется в system и health handlers для динамического определения роли.
-type RoleProvider interface {
-	CurrentRole() string
-	IsLeader() bool
-	LeaderAddr() string
-}
-
 // SystemHandler — обработчик системных endpoints.
 type SystemHandler struct {
-	cfg          *config.Config
-	sm           *mode.StateMachine
-	idx          *index.Index
-	roleProvider RoleProvider
+	cfg   *config.Config
+	sm    *mode.StateMachine
+	idx   *index.Index
+	files backend.FileStore
 }
 
 // NewSystemHandler создаёт обработчик системных endpoints.
-// roleProvider — провайдер роли (nil для standalone).
 func NewSystemHandler(
 	cfg *config.Config,
 	sm *mode.StateMachine,
 	idx *index.Index,
-	roleProvider RoleProvider,
+	files backend.FileStore,
 ) *SystemHandler {
 	return &SystemHandler{
-		cfg:          cfg,
-		sm:           sm,
-		idx:          idx,
-		roleProvider: roleProvider,
+		cfg:   cfg,
+		sm:    sm,
+		idx:   idx,
+		files: files,
 	}
 }
 
@@ -62,28 +58,24 @@ func (h *SystemHandler) GetStorageInfo(w http.ResponseWriter, _ *http.Request) {
 		status = generated.StorageInfoStatusMaintenance
 	}
 
-	// Вычисляем ёмкость из сконфигурированного лимита и индекса
+	// Вычисляем ёмкость: доступное место через FileStore.AvailableSpace
 	usedBytes := h.idx.TotalActiveSize()
 	availableBytes := h.cfg.MaxCapacity - usedBytes
 	if availableBytes < 0 {
 		availableBytes = 0
 	}
+
+	// Дополнительно проверяем реальное доступное место на FS
+	if fsAvailable, err := h.files.AvailableSpace(context.Background()); err == nil {
+		if fsAvailable < availableBytes {
+			availableBytes = fsAvailable
+		}
+	}
+
 	capacity := generated.CapacityInfo{
 		TotalBytes:     h.cfg.MaxCapacity,
 		UsedBytes:      usedBytes,
 		AvailableBytes: availableBytes,
-	}
-
-	// Режим развёртывания
-	replicaMode := generated.StorageInfoReplicaModeStandalone
-	if h.cfg.ReplicaMode == "replicated" {
-		replicaMode = generated.StorageInfoReplicaModeReplicated
-	}
-
-	// Роль — определяется через RoleProvider (dynamic в replicated mode)
-	role := generated.StorageInfoRoleStandalone
-	if h.roleProvider != nil {
-		role = generated.StorageInfoRole(h.roleProvider.CurrentRole())
 	}
 
 	resp := generated.StorageInfo{
@@ -93,8 +85,6 @@ func (h *SystemHandler) GetStorageInfo(w http.ResponseWriter, _ *http.Request) {
 		Version:           config.Version,
 		AllowedOperations: apiOps,
 		Capacity:          capacity,
-		ReplicaMode:       &replicaMode,
-		Role:              &role,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

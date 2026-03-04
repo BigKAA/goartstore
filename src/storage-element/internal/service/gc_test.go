@@ -1,6 +1,8 @@
 package service
 
 import (
+	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -8,13 +10,15 @@ import (
 	"time"
 
 	"github.com/bigkaa/goartstore/storage-element/internal/domain/model"
+	"github.com/bigkaa/goartstore/storage-element/internal/lockfile"
 	"github.com/bigkaa/goartstore/storage-element/internal/storage/attr"
 	"github.com/bigkaa/goartstore/storage-element/internal/storage/filestore"
 	"github.com/bigkaa/goartstore/storage-element/internal/storage/index"
 )
 
 // setupGCTestEnv создаёт тестовое окружение для GC тестов.
-func setupGCTestEnv(t *testing.T) (string, *filestore.FileStore, *index.Index) {
+// Возвращает: dir, store, attrStore, idx, lockMgr.
+func setupGCTestEnv(t *testing.T) (string, *filestore.FileStore, *attr.Store, *index.Index, *lockfile.LockManager) {
 	t.Helper()
 
 	dir := t.TempDir()
@@ -23,23 +27,37 @@ func setupGCTestEnv(t *testing.T) (string, *filestore.FileStore, *index.Index) {
 		t.Fatalf("Ошибка создания FileStore: %v", err)
 	}
 
+	attrStore := attr.NewStore(dir)
+
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 	idx := index.New(logger)
 
-	return dir, store, idx
+	lockMgr := lockfile.NewLockManager(dir, 120*time.Second, "test-host")
+	if err := lockMgr.EnsureDir(); err != nil {
+		t.Fatalf("Ошибка создания директории lock-файлов: %v", err)
+	}
+
+	return dir, store, attrStore, idx, lockMgr
 }
 
 // createTestFile создаёт тестовый файл и attr.json, добавляет в индекс.
+// StoragePath может содержать иерархический путь YYYY/MM/DD/filename —
+// промежуточные каталоги создаются автоматически.
 func createTestFile(t *testing.T, dir string, meta *model.FileMetadata) {
 	t.Helper()
 
-	// Создаём файл данных
+	// Создаём промежуточные каталоги (YYYY/MM/DD/) если нужно
 	filePath := filepath.Join(dir, meta.StoragePath)
+	if err := os.MkdirAll(filepath.Dir(filePath), 0o750); err != nil {
+		t.Fatalf("Ошибка создания каталога для тестового файла: %v", err)
+	}
+
+	// Создаём файл данных
 	if err := os.WriteFile(filePath, []byte("test data"), 0o640); err != nil {
 		t.Fatalf("Ошибка создания тестового файла: %v", err)
 	}
 
-	// Создаём attr.json
+	// Создаём attr.json (attr.Write уже содержит MkdirAll)
 	attrPath := attr.AttrFilePath(filePath)
 	if err := attr.Write(attrPath, meta); err != nil {
 		t.Fatalf("Ошибка создания attr.json: %v", err)
@@ -47,10 +65,10 @@ func createTestFile(t *testing.T, dir string, meta *model.FileMetadata) {
 }
 
 func TestGCRunOnce_NoFilesToProcess(t *testing.T) {
-	_, store, idx := setupGCTestEnv(t)
+	_, store, attrStore, idx, lockMgr := setupGCTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
-	gc := NewGCService(store, idx, time.Hour, logger)
+	gc := NewGCService(store, attrStore, idx, lockMgr, time.Hour, logger)
 	result := gc.RunOnce()
 
 	if result.ExpiredCount != 0 {
@@ -65,7 +83,7 @@ func TestGCRunOnce_NoFilesToProcess(t *testing.T) {
 }
 
 func TestGCRunOnce_MarkExpired(t *testing.T) {
-	dir, store, idx := setupGCTestEnv(t)
+	dir, store, attrStore, idx, lockMgr := setupGCTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Создаём файл с истёкшим TTL
@@ -74,7 +92,7 @@ func TestGCRunOnce_MarkExpired(t *testing.T) {
 	meta := &model.FileMetadata{
 		FileID:           "expired-1",
 		OriginalFilename: "expired.txt",
-		StoragePath:      "expired.txt",
+		StoragePath:      "2026/01/15/expired.txt",
 		ContentType:      "text/plain",
 		Size:             9,
 		Checksum:         "abc",
@@ -93,7 +111,7 @@ func TestGCRunOnce_MarkExpired(t *testing.T) {
 	permanentMeta := &model.FileMetadata{
 		FileID:           "permanent-1",
 		OriginalFilename: "permanent.txt",
-		StoragePath:      "permanent.txt",
+		StoragePath:      "2026/02/20/permanent.txt",
 		ContentType:      "text/plain",
 		Size:             9,
 		Checksum:         "def",
@@ -106,7 +124,7 @@ func TestGCRunOnce_MarkExpired(t *testing.T) {
 	createTestFile(t, dir, permanentMeta)
 	idx.Add(permanentMeta)
 
-	gc := NewGCService(store, idx, time.Hour, logger)
+	gc := NewGCService(store, attrStore, idx, lockMgr, time.Hour, logger)
 	result := gc.RunOnce()
 
 	if result.ExpiredCount != 1 {
@@ -133,14 +151,15 @@ func TestGCRunOnce_MarkExpired(t *testing.T) {
 }
 
 func TestGCRunOnce_DeleteFiles(t *testing.T) {
-	dir, store, idx := setupGCTestEnv(t)
+	dir, store, attrStore, idx, lockMgr := setupGCTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	ctx := context.Background()
 
 	// Создаём файл со статусом deleted
 	meta := &model.FileMetadata{
 		FileID:           "deleted-1",
 		OriginalFilename: "deleted.txt",
-		StoragePath:      "deleted.txt",
+		StoragePath:      "2026/02/10/deleted.txt",
 		ContentType:      "text/plain",
 		Size:             9,
 		Checksum:         "abc",
@@ -153,7 +172,7 @@ func TestGCRunOnce_DeleteFiles(t *testing.T) {
 	createTestFile(t, dir, meta)
 	idx.Add(meta)
 
-	gc := NewGCService(store, idx, time.Hour, logger)
+	gc := NewGCService(store, attrStore, idx, lockMgr, time.Hour, logger)
 	result := gc.RunOnce()
 
 	if result.DeletedCount != 1 {
@@ -166,19 +185,86 @@ func TestGCRunOnce_DeleteFiles(t *testing.T) {
 	}
 
 	// Проверяем, что файл удалён с диска
-	if store.FileExists("deleted.txt") {
+	exists, err := store.FileExists(ctx, "2026/02/10/deleted.txt")
+	if err != nil {
+		t.Fatalf("Ошибка проверки существования: %v", err)
+	}
+	if exists {
 		t.Errorf("Файл deleted.txt не удалён с диска")
 	}
 
 	// Проверяем, что attr.json удалён
-	attrPath := attr.AttrFilePath(filepath.Join(dir, "deleted.txt"))
-	if _, err := os.Stat(attrPath); !os.IsNotExist(err) {
+	attrPath := attr.AttrFilePath(filepath.Join(dir, "2026/02/10/deleted.txt"))
+	if _, statErr := os.Stat(attrPath); !os.IsNotExist(statErr) {
 		t.Errorf("attr.json не удалён: %s", attrPath)
 	}
 }
 
+func TestGCRunOnce_DeleteSkipsLockedFile(t *testing.T) {
+	dir, store, attrStore, idx, lockMgr := setupGCTestEnv(t)
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	ctx := context.Background()
+
+	// Создаём файл со статусом deleted, но с активным lock
+	meta := &model.FileMetadata{
+		FileID:           "locked-del-1",
+		OriginalFilename: "locked_del.txt",
+		StoragePath:      "2026/02/10/locked_del.txt",
+		ContentType:      "text/plain",
+		Size:             9,
+		Checksum:         "abc",
+		UploadedBy:       "test",
+		UploadedAt:       time.Now().UTC(),
+		Status:           model.StatusDeleted,
+		RetentionPolicy:  model.RetentionPermanent,
+	}
+
+	createTestFile(t, dir, meta)
+	idx.Add(meta)
+
+	// Захватываем lock для этого файла
+	if err := lockMgr.Acquire(ctx, "locked-del-1"); err != nil {
+		t.Fatalf("Ошибка захвата lock: %v", err)
+	}
+
+	gc := NewGCService(store, attrStore, idx, lockMgr, time.Hour, logger)
+	result := gc.RunOnce()
+
+	// Файл НЕ должен быть удалён (lock активен)
+	if result.DeletedCount != 0 {
+		t.Errorf("DeletedCount: хотели 0 (locked), получили %d", result.DeletedCount)
+	}
+	if result.SkippedLocked != 1 {
+		t.Errorf("SkippedLocked: хотели 1, получили %d", result.SkippedLocked)
+	}
+
+	// Файл остался в индексе
+	if m := idx.Get("locked-del-1"); m == nil {
+		t.Error("Файл locked-del-1 удалён из индекса, но lock был активен")
+	}
+
+	// Файл остался на диске
+	exists, err := store.FileExists(ctx, "2026/02/10/locked_del.txt")
+	if err != nil {
+		t.Fatalf("Ошибка проверки существования: %v", err)
+	}
+	if !exists {
+		t.Error("Файл locked_del.txt удалён с диска, но lock был активен")
+	}
+
+	// Освобождаем lock и повторяем GC
+	if err := lockMgr.Release(ctx, "locked-del-1"); err != nil {
+		t.Fatalf("Ошибка освобождения lock: %v", err)
+	}
+
+	result2 := gc.RunOnce()
+	if result2.DeletedCount != 1 {
+		t.Errorf("DeletedCount после release: хотели 1, получили %d", result2.DeletedCount)
+	}
+}
+
 func TestGCRunOnce_ActiveNotExpired_Untouched(t *testing.T) {
-	dir, store, idx := setupGCTestEnv(t)
+	dir, store, attrStore, idx, lockMgr := setupGCTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Файл temporary, но TTL ещё не истёк
@@ -187,7 +273,7 @@ func TestGCRunOnce_ActiveNotExpired_Untouched(t *testing.T) {
 	meta := &model.FileMetadata{
 		FileID:           "active-1",
 		OriginalFilename: "active.txt",
-		StoragePath:      "active.txt",
+		StoragePath:      "2026/03/01/active.txt",
 		ContentType:      "text/plain",
 		Size:             9,
 		Checksum:         "abc",
@@ -202,7 +288,7 @@ func TestGCRunOnce_ActiveNotExpired_Untouched(t *testing.T) {
 	createTestFile(t, dir, meta)
 	idx.Add(meta)
 
-	gc := NewGCService(store, idx, time.Hour, logger)
+	gc := NewGCService(store, attrStore, idx, lockMgr, time.Hour, logger)
 	result := gc.RunOnce()
 
 	if result.ExpiredCount != 0 {
@@ -220,7 +306,7 @@ func TestGCRunOnce_ActiveNotExpired_Untouched(t *testing.T) {
 }
 
 func TestGCRunOnce_CombinedExpiredAndDeleted(t *testing.T) {
-	dir, store, idx := setupGCTestEnv(t)
+	dir, store, attrStore, idx, lockMgr := setupGCTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// 1. Expired файл
@@ -229,7 +315,7 @@ func TestGCRunOnce_CombinedExpiredAndDeleted(t *testing.T) {
 	expiredMeta := &model.FileMetadata{
 		FileID:           "exp-1",
 		OriginalFilename: "exp.txt",
-		StoragePath:      "exp.txt",
+		StoragePath:      "2026/01/15/exp.txt",
 		ContentType:      "text/plain",
 		Size:             9,
 		Checksum:         "abc",
@@ -247,7 +333,7 @@ func TestGCRunOnce_CombinedExpiredAndDeleted(t *testing.T) {
 	deletedMeta := &model.FileMetadata{
 		FileID:           "del-1",
 		OriginalFilename: "del.txt",
-		StoragePath:      "del.txt",
+		StoragePath:      "2026/02/10/del.txt",
 		ContentType:      "text/plain",
 		Size:             9,
 		Checksum:         "def",
@@ -263,7 +349,7 @@ func TestGCRunOnce_CombinedExpiredAndDeleted(t *testing.T) {
 	activeMeta := &model.FileMetadata{
 		FileID:           "act-1",
 		OriginalFilename: "active.txt",
-		StoragePath:      "active.txt",
+		StoragePath:      "2026/03/01/active.txt",
 		ContentType:      "text/plain",
 		Size:             9,
 		Checksum:         "ghi",
@@ -275,7 +361,7 @@ func TestGCRunOnce_CombinedExpiredAndDeleted(t *testing.T) {
 	createTestFile(t, dir, activeMeta)
 	idx.Add(activeMeta)
 
-	gc := NewGCService(store, idx, time.Hour, logger)
+	gc := NewGCService(store, attrStore, idx, lockMgr, time.Hour, logger)
 	result := gc.RunOnce()
 
 	if result.ExpiredCount != 1 {
@@ -313,14 +399,14 @@ func TestGCRunOnce_CombinedExpiredAndDeleted(t *testing.T) {
 }
 
 func TestGCRunOnce_DeleteMissingFile_NoError(t *testing.T) {
-	_, store, idx := setupGCTestEnv(t)
+	_, store, attrStore, idx, lockMgr := setupGCTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Файл deleted, но физически не существует на диске
 	meta := &model.FileMetadata{
 		FileID:           "ghost-1",
 		OriginalFilename: "ghost.txt",
-		StoragePath:      "nonexistent.txt",
+		StoragePath:      "2026/01/01/nonexistent.txt",
 		ContentType:      "text/plain",
 		Size:             100,
 		Checksum:         "abc",
@@ -331,7 +417,7 @@ func TestGCRunOnce_DeleteMissingFile_NoError(t *testing.T) {
 	}
 	idx.Add(meta)
 
-	gc := NewGCService(store, idx, time.Hour, logger)
+	gc := NewGCService(store, attrStore, idx, lockMgr, time.Hour, logger)
 	result := gc.RunOnce()
 
 	// DeleteFile возвращает nil для несуществующих файлов, поэтому удаление успешно
@@ -344,13 +430,13 @@ func TestGCRunOnce_DeleteMissingFile_NoError(t *testing.T) {
 }
 
 func TestGCRunOnce_ConcurrentSafety(t *testing.T) {
-	dir, store, idx := setupGCTestEnv(t)
+	dir, store, attrStore, idx, lockMgr := setupGCTestEnv(t)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
-	// Создаём несколько deleted файлов
+	// Создаём несколько deleted файлов в иерархической структуре
 	for i := 0; i < 5; i++ {
 		id := "del-" + string(rune('a'+i))
-		sp := "delfile_" + string(rune('a'+i)) + ".txt"
+		sp := fmt.Sprintf("2026/02/%02d/delfile_%s.txt", 10+i, string(rune('a'+i)))
 		meta := &model.FileMetadata{
 			FileID:           id,
 			OriginalFilename: sp,
@@ -367,7 +453,7 @@ func TestGCRunOnce_ConcurrentSafety(t *testing.T) {
 		idx.Add(meta)
 	}
 
-	gc := NewGCService(store, idx, time.Hour, logger)
+	gc := NewGCService(store, attrStore, idx, lockMgr, time.Hour, logger)
 
 	// Запускаем RunOnce из нескольких горутин — не должно быть паники
 	done := make(chan struct{}, 3)

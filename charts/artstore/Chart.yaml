@@ -1,0 +1,49 @@
+apiVersion: v2
+name: artstore
+description: >-
+  Artstore — распределённое файловое хранилище с микросервисной архитектурой.
+  Umbrella chart для развёртывания всех компонентов системы.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/bigkaa/goartstore
+maintainers:
+  - name: Artur Kryukov
+keywords:
+  - artstore
+  - storage
+  - microservices
+  - file-storage
+
+# Зависимости — subcharts модулей системы.
+# file:// пути относительны к директории этого Chart.yaml.
+# PostgreSQL и Keycloak — опциональные (для dev/test);
+# в production используются внешние сервисы.
+dependencies:
+  # --- Модули Artstore ---
+  - name: admin-module
+    version: "0.3.0"
+    repository: "file://../../src/admin-module/charts/admin-module"
+    condition: admin-module.enabled
+
+  - name: storage-element
+    version: "0.3.0"
+    repository: "file://../../src/storage-element/charts/storage-element"
+    condition: storage-element.enabled
+
+  - name: ingester-module
+    version: "0.1.0"
+    repository: "file://../../src/ingester-module/charts/ingester-module"
+    condition: ingester-module.enabled
+
+  - name: query-module
+    version: "0.1.0"
+    repository: "file://../../src/query-module/charts/query-module"
+    condition: query-module.enabled
+
+  # --- Встроенный мониторинг (опциональный, для dev/test) ---
+  - name: monitoring
+    version: "0.1.0"
+    repository: "file://charts/monitoring"
+    alias: monitoring-stack
+    condition: monitoring-stack.enabled

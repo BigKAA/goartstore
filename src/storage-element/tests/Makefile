@@ -2,14 +2,14 @@
 # Makefile для интеграционного тестирования Storage Element в Kubernetes
 #
 # Оркестрирует полный цикл: сборка образов → деплой тестовой среды →
-# port-forward → запуск 30 интеграционных тестов → очистка.
+# port-forward → запуск 26 интеграционных тестов → очистка.
 #
 # Использование:
 #   make help                  — Справка
 #   make docker-build          — Собрать и запушить образы SE + JWKS Mock
 #   make test-env-up           — Развернуть тестовую среду в K8s
 #   make port-forward-start    — Запустить port-forward ко всем сервисам
-#   make test-all              — Запустить все 30 тестов
+#   make test-all              — Запустить все 26 тестов
 #   make test-env-down         — Удалить тестовую среду
 # =============================================================================
 
@@ -17,8 +17,8 @@
 # Переменные
 # -----------------------------------------------------------------------------
 DOCKER_REGISTRY ?= harbor.kryukov.lan/library
-SE_TAG          ?= v0.1.0-1
-MOCK_TAG        ?= v0.1.0-1
+SE_TAG          ?= v0.3.0-2
+MOCK_TAG        ?= v1.0.0-1
 NAMESPACE       ?= se-test
 HELM_CHART      := helm/se-test
 HELM_RELEASE    := se-test
@@ -62,7 +62,7 @@ export CURL_OPTS      := -k -s --connect-timeout 5
 .PHONY: help docker-build docker-build-se docker-build-mock docker-push-se docker-push-mock \
         test-env-up test-env-status test-env-logs test-env-down \
         port-forward-start port-forward-stop port-forward-status \
-        test-smoke test-files test-modes test-replica test-data test-gc test-errors test-all \
+        test-smoke test-files test-modes test-data test-gc test-errors test-all \
         clean
 
 # -----------------------------------------------------------------------------
@@ -97,11 +97,10 @@ help:
 	@echo "  test-smoke           Тесты 1-3:   Health, info, metrics"
 	@echo "  test-files           Тесты 4-11:  Upload, download, CRUD"
 	@echo "  test-modes           Тесты 12-18: Режимы и переходы"
-	@echo "  test-replica         Тесты 19-22: Leader/follower, failover"
 	@echo "  test-data            Тесты 23-24: Инициализированные данные"
 	@echo "  test-gc              Тесты 25-26: GC и reconciliation"
 	@echo "  test-errors          Тесты 27-30: Ошибки авторизации"
-	@echo "  test-all             Все 30 тестов"
+	@echo "  test-all             Все 26 тестов"
 	@echo ""
 	@echo "Очистка:"
 	@echo "  clean                Удалить тестовую среду + локальные образы"
@@ -301,11 +300,6 @@ test-modes:
 	@chmod +x $(SCRIPTS_DIR)/test-modes.sh
 	@$(SCRIPTS_DIR)/test-modes.sh
 
-## test-replica: Тесты 19-22 — Leader/follower election, proxy, failover
-test-replica:
-	@chmod +x $(SCRIPTS_DIR)/test-replica.sh
-	@$(SCRIPTS_DIR)/test-replica.sh
-
 ## test-data: Тесты 23-24 — Проверка инициализированных данных
 test-data:
 	@chmod +x $(SCRIPTS_DIR)/test-data.sh
@@ -321,7 +315,7 @@ test-errors:
 	@chmod +x $(SCRIPTS_DIR)/test-errors.sh
 	@$(SCRIPTS_DIR)/test-errors.sh
 
-## test-all: Запустить все 30 тестов
+## test-all: Запустить все 26 тестов
 test-all:
 	@chmod +x $(SCRIPTS_DIR)/test-all.sh
 	@$(SCRIPTS_DIR)/test-all.sh

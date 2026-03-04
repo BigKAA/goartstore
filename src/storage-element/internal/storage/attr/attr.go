@@ -7,6 +7,7 @@ package attr
 import (
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -119,24 +120,51 @@ func Delete(path string) error {
 	return nil
 }
 
-// ScanDir сканирует директорию и возвращает все файлы метаданных.
-// Не рекурсивный — сканирует только указанную директорию.
+// ScanDir рекурсивно сканирует директорию и возвращает все файлы метаданных.
+// Обходит иерархическую структуру YYYY/MM/DD/ с помощью filepath.WalkDir.
+// Пропускает скрытые каталоги (.locks/), mode.json и symlink-каталоги.
 // Используется при построении in-memory индекса при старте.
 func ScanDir(dir string) ([]*model.FileMetadata, error) {
-	pattern := filepath.Join(dir, "*"+AttrSuffix)
-	matches, err := filepath.Glob(pattern)
-	if err != nil {
-		return nil, fmt.Errorf("ошибка сканирования директории %s: %w", dir, err)
-	}
-
 	var result []*model.FileMetadata
-	for _, path := range matches {
+
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Пропускаем скрытые каталоги (.locks/ и пр.)
+		if d.IsDir() {
+			name := d.Name()
+			if strings.HasPrefix(name, ".") && path != dir {
+				return filepath.SkipDir
+			}
+			// Не следуем за symlink-каталогами
+			if d.Type()&fs.ModeSymlink != 0 {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// Пропускаем mode.json в корне
+		if d.Name() == "mode.json" {
+			return nil
+		}
+
+		// Обрабатываем только *.attr.json файлы
+		if !IsAttrFile(path) {
+			return nil
+		}
+
 		meta, err := Read(path)
 		if err != nil {
 			// Пропускаем невалидные attr.json, логируем проблему
-			continue
+			return nil
 		}
 		result = append(result, meta)
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("ошибка рекурсивного сканирования директории %s: %w", dir, err)
 	}
 
 	return result, nil

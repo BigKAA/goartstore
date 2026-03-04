@@ -49,6 +49,9 @@ data:
   IM_CA_CERT_PATH: "/certs/ca.crt"
   IM_SE_CA_CERT_PATH: "/certs/ca.crt"
   {{- end }}
+  {{- if .Values.tls.skipVerify }}
+  IM_TLS_SKIP_VERIFY: "true"
+  {{- end }}
   # --- Dependency health (topologymetrics) ---
   DEPHEALTH_NAME: {{ include "im.fullname" . | quote }}
   IM_DEPHEALTH_CHECK_INTERVAL: {{ .Values.dephealth.checkInterval | quote }}

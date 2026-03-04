@@ -35,6 +35,8 @@ data:
   {{- if .Values.adminModule.timeout }}
   QM_ADMIN_TIMEOUT: {{ .Values.adminModule.timeout | quote }}
   {{- end }}
+  # --- OAuth2 Token URL ---
+  QM_TOKEN_URL: {{ .Values.oauth.tokenUrl | quote }}
   # --- SE Download ---
   {{- if .Values.seDownload }}
   {{- if .Values.seDownload.timeout }}
@@ -57,6 +59,9 @@ data:
   {{- if .Values.tls.caSecret }}
   QM_CA_CERT_PATH: "/certs/ca.crt"
   QM_SE_CA_CERT_PATH: "/certs/ca.crt"
+  {{- end }}
+  {{- if .Values.tls.skipVerify }}
+  QM_TLS_SKIP_VERIFY: "true"
   {{- end }}
   # --- Dependency health (topologymetrics) ---
   DEPHEALTH_NAME: {{ include "qm.fullname" . | quote }}

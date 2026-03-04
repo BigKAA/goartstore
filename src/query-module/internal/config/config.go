@@ -48,6 +48,8 @@ type Config struct {
 	// Путь к CA-сертификату для TLS-соединений (опционально).
 	// Используется для JWKS и Admin Module HTTP-клиента.
 	CACertPath string
+	// Пропускать проверку TLS-сертификатов при health check (только для dev!)
+	TLSSkipVerify bool
 
 	// --- JWT/JWKS ---
 
@@ -76,6 +78,8 @@ type Config struct {
 
 	// --- Keycloak OAuth2 (Client Credentials для SA) ---
 
+	// URL Keycloak token endpoint для client_credentials grant
+	TokenURL string
 	// Client ID для client_credentials grant
 	ClientID string
 	// Client Secret для client_credentials grant
@@ -214,6 +218,12 @@ func Load() (*Config, error) {
 	// QM_CA_CERT_PATH — путь к CA-сертификату (опционально)
 	cfg.CACertPath = getEnvDefault("QM_CA_CERT_PATH", "")
 
+	// QM_TLS_SKIP_VERIFY — пропускать TLS-проверку (по умолчанию false, только для dev)
+	cfg.TLSSkipVerify, err = getEnvBool("QM_TLS_SKIP_VERIFY", false)
+	if err != nil {
+		return nil, fmt.Errorf("QM_TLS_SKIP_VERIFY: %w", err)
+	}
+
 	// --- JWT/JWKS ---
 
 	// QM_JWKS_URL — обязательный (URL JWKS endpoint Keycloak)
@@ -270,6 +280,13 @@ func Load() (*Config, error) {
 	}
 
 	// --- Keycloak OAuth2 ---
+
+	// QM_TOKEN_URL — URL Keycloak token endpoint (обязательный)
+	cfg.TokenURL, err = getEnvRequired("QM_TOKEN_URL")
+	if err != nil {
+		return nil, err
+	}
+	cfg.TokenURL = strings.TrimRight(cfg.TokenURL, "/")
 
 	// QM_CLIENT_ID — Client ID для client_credentials grant (обязательный)
 	cfg.ClientID, err = getEnvRequired("QM_CLIENT_ID")

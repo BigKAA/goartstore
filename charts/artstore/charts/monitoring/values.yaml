@@ -1,0 +1,75 @@
+# Monitoring subchart — значения по умолчанию
+#
+# Prometheus: сбор метрик Artstore pods через kubernetes_sd_configs.
+# Grafana: pre-provisioned dashboards из ConfigMaps, anonymous access для dev.
+
+# Включение/выключение subchart целиком
+enabled: false
+
+# =============================================================================
+# Prometheus
+# =============================================================================
+prometheus:
+  enabled: true
+
+  image: prom/prometheus:v3.2.1
+  imagePullPolicy: IfNotPresent
+
+  # Ресурсы
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # Размер PVC для хранения метрик
+  storage:
+    size: 2Gi
+    storageClass: ""
+
+  # Retention период
+  retention: 7d
+
+  # Интервал скрейпинга
+  scrapeInterval: 15s
+
+  # Порт сервиса
+  port: 9090
+
+# =============================================================================
+# Grafana
+# =============================================================================
+grafana:
+  enabled: true
+
+  image: grafana/grafana:11.5.2
+  imagePullPolicy: IfNotPresent
+
+  # Ресурсы
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+  # Порт сервиса
+  port: 3000
+
+  # Anonymous access (для dev — не нужен логин)
+  anonymousEnabled: true
+  anonymousRole: Viewer
+
+  # Credentials (fallback если anonymous отключён)
+  adminUser: admin
+  adminPassword: admin
+
+  # k8s-sidecar для автообнаружения dashboards из ConfigMaps
+  sidecar:
+    image: kiwigrid/k8s-sidecar:1.28.0
+    # Label и значение для обнаружения ConfigMaps с dashboards
+    dashboardLabel: grafana_dashboard
+    dashboardLabelValue: "1"
