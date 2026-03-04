@@ -1,0 +1,445 @@
+package pages
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/bigkaa/goartstore/demo-client/internal/gateway"
+	"github.com/bigkaa/goartstore/demo-client/internal/service"
+	"github.com/bigkaa/goartstore/demo-client/internal/ui/components"
+	"github.com/bigkaa/goartstore/demo-client/internal/ui/i18n"
+	"github.com/bigkaa/goartstore/demo-client/internal/ui/layouts"
+)
+
+// UploadPageData — данные для рендера страницы загрузки.
+type UploadPageData struct {
+	MaxUploadSize int64 // Максимальный размер файла
+}
+
+// Upload — полная страница загрузки файлов.
+templ Upload(data UploadPageData) {
+	@layouts.Page(layouts.PageParams{
+		Title:     i18n.T(ctx, "upload.title"),
+		ActiveNav: "upload",
+	}) {
+		<div class="max-w-4xl mx-auto">
+			<h1 class="text-2xl font-bold text-text-primary mb-6">{ i18n.T(ctx, "upload.title") }</h1>
+
+			<!-- Переключатель Single / Batch -->
+			<div x-data="{ mode: 'single' }" class="space-y-6">
+				<!-- Табы -->
+				<div class="flex border-b border-border-subtle">
+					<button
+						type="button"
+						x-on:click="mode = 'single'"
+						x-bind:class="mode === 'single' ? 'border-accent-primary text-accent-primary' : 'border-transparent text-text-secondary hover:text-text-primary hover:border-border-subtle'"
+						class="px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px"
+					>
+						{ i18n.T(ctx, "upload.single") }
+					</button>
+					<button
+						type="button"
+						x-on:click="mode = 'batch'"
+						x-bind:class="mode === 'batch' ? 'border-accent-primary text-accent-primary' : 'border-transparent text-text-secondary hover:text-text-primary hover:border-border-subtle'"
+						class="px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px"
+					>
+						{ i18n.T(ctx, "upload.batch") }
+					</button>
+				</div>
+
+				<!-- Форма одиночной загрузки -->
+				<div x-show="mode === 'single'" x-transition>
+					@uploadForm(data.MaxUploadSize, false)
+				</div>
+
+				<!-- Форма пакетной загрузки -->
+				<div x-show="mode === 'batch'" x-transition>
+					@uploadForm(data.MaxUploadSize, true)
+				</div>
+
+				<!-- Контейнер для результата (заполняется через HTMX) -->
+				<div id="upload-result"></div>
+			</div>
+		</div>
+	}
+}
+
+// uploadForm — форма загрузки (single или batch).
+templ uploadForm(maxUploadSize int64, isBatch bool) {
+	<form
+		if isBatch {
+			hx-post="/upload/batch"
+		} else {
+			hx-post="/upload/single"
+		}
+		hx-target="#upload-result"
+		hx-swap="innerHTML"
+		hx-encoding="multipart/form-data"
+		x-data={ uploadFormData() }
+		x-init={ fetchCsrfToken() }
+		class="card space-y-6"
+	>
+		<!-- CSRF-токен -->
+		<input type="hidden" name="_csrf_token" x-bind:value="csrfToken"/>
+
+		<!-- Зона выбора файлов -->
+		<div>
+			<label class="block text-sm font-medium text-text-primary mb-2">
+				if isBatch {
+					{ i18n.T(ctx, "upload.select_files") }
+				} else {
+					{ i18n.T(ctx, "upload.select_file") }
+				}
+			</label>
+			<div
+				class="relative border-2 border-dashed border-border-subtle rounded-card p-8 text-center hover:border-accent-primary/50 transition-colors cursor-pointer"
+				x-on:dragover.prevent="$el.classList.add('border-accent-primary', 'bg-accent-primary/5')"
+				x-on:dragleave.prevent="$el.classList.remove('border-accent-primary', 'bg-accent-primary/5')"
+				x-on:drop.prevent={ dropHandler(isBatch) }
+			>
+				<!-- Иконка загрузки -->
+				<svg class="mx-auto h-12 w-12 text-text-muted mb-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"></path>
+				</svg>
+				<p class="text-sm text-text-secondary mb-1">
+					if isBatch {
+						{ i18n.T(ctx, "upload.select_files") }
+					} else {
+						{ i18n.T(ctx, "upload.select_file") }
+					}
+				</p>
+				<p class="text-xs text-text-muted">
+					{ i18n.T(ctx, "upload.drag_drop") }
+					<span class="text-text-muted ml-1">
+						(max { formatMaxSize(maxUploadSize) })
+					</span>
+				</p>
+				<input
+					type="file"
+					if isBatch {
+						name="files"
+						multiple
+					} else {
+						name="file"
+					}
+					x-on:change={ fileChangeHandler(isBatch) }
+					class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+				/>
+			</div>
+
+			<!-- Список выбранных файлов -->
+			<div x-show="selectedFiles.length > 0" class="mt-3 space-y-2">
+				<template x-for="(file, index) in selectedFiles" :key="index">
+					<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated text-sm">
+						<div class="flex items-center gap-2 min-w-0">
+							<svg class="w-4 h-4 text-text-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"></path>
+							</svg>
+							<span class="text-text-primary truncate" x-text="file.name"></span>
+							<span class="text-text-muted flex-shrink-0" x-text="formatFileSize(file.size)"></span>
+						</div>
+						if isBatch {
+							<button type="button" x-on:click="removeFile(index)" class="text-text-muted hover:text-status-error transition-colors flex-shrink-0 ml-2">
+								<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path>
+								</svg>
+							</button>
+						}
+					</div>
+				</template>
+			</div>
+		</div>
+
+		<!-- Описание -->
+		<div>
+			<label for="description" class="block text-sm font-medium text-text-primary mb-2">
+				{ i18n.T(ctx, "upload.description") }
+			</label>
+			<textarea
+				id="description"
+				name="description"
+				rows="3"
+				placeholder={ i18n.T(ctx, "upload.description_placeholder") }
+				class="input-field w-full resize-none"
+			></textarea>
+		</div>
+
+		<!-- Теги -->
+		<div>
+			<label class="block text-sm font-medium text-text-primary mb-2">
+				{ i18n.T(ctx, "upload.tags") }
+			</label>
+			@components.TagInput(components.TagInputParams{
+				Name: "tags",
+				Tags: []string{},
+			})
+		</div>
+
+		<!-- Retention Policy -->
+		<div x-data="{ retention: 'temporary' }">
+			<label class="block text-sm font-medium text-text-primary mb-3">
+				{ i18n.T(ctx, "upload.retention") }
+			</label>
+			<div class="flex gap-6">
+				<!-- Temporary -->
+				<label class="flex items-center gap-2 cursor-pointer">
+					<input
+						type="radio"
+						name="retention_policy"
+						value="temporary"
+						x-model="retention"
+						checked
+						class="w-4 h-4 text-accent-primary border-border-subtle focus:ring-accent-primary/50"
+					/>
+					<span class="text-sm text-text-primary">{ i18n.T(ctx, "upload.retention.temporary") }</span>
+				</label>
+				<!-- Permanent -->
+				<label class="flex items-center gap-2 cursor-pointer">
+					<input
+						type="radio"
+						name="retention_policy"
+						value="permanent"
+						x-model="retention"
+						class="w-4 h-4 text-accent-primary border-border-subtle focus:ring-accent-primary/50"
+					/>
+					<span class="text-sm text-text-primary">{ i18n.T(ctx, "upload.retention.permanent") }</span>
+				</label>
+			</div>
+
+			<!-- TTL Days (только для temporary) -->
+			<div x-show="retention === 'temporary'" x-transition class="mt-4">
+				<label for="ttl_days" class="block text-sm font-medium text-text-primary mb-2">
+					{ i18n.T(ctx, "upload.ttl_days") }
+				</label>
+				<input
+					type="number"
+					id="ttl_days"
+					name="ttl_days"
+					value="30"
+					min="1"
+					max="365"
+					class="input-field w-32"
+				/>
+				<p class="text-xs text-text-muted mt-1">
+					{ i18n.T(ctx, "upload.ttl_days_hint") }
+				</p>
+			</div>
+		</div>
+
+		<!-- Кнопка загрузки -->
+		<div class="flex justify-end pt-2">
+			@components.Button(components.ButtonParams{
+				Label:   submitLabel(isBatch, ctx),
+				Variant: components.ButtonPrimary,
+				Size:    components.ButtonSizeLG,
+				Type:    "submit",
+				Icon:    "M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5",
+			})
+		</div>
+	</form>
+}
+
+// UploadResultPartial — partial: результат успешной загрузки файла.
+templ UploadResultPartial(result *gateway.UploadResult) {
+	<div class="space-y-4">
+		@components.Toast(components.ToastParams{
+			Variant: components.ToastSuccess,
+			Title:   i18n.T(ctx, "upload.result.success"),
+			Message: result.OriginalFilename,
+		})
+
+		<!-- Карточка с деталями загрузки -->
+		<div class="card">
+			<h3 class="text-sm font-semibold text-text-primary mb-4">{ i18n.T(ctx, "upload.result.success") }</h3>
+			<div class="space-y-3">
+				<!-- File ID -->
+				<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">
+					<span class="text-sm text-text-secondary">{ i18n.T(ctx, "upload.result.file_id") }</span>
+					<div class="flex items-center gap-2">
+						<span class="text-sm font-mono text-text-primary">{ result.FileID }</span>
+						@components.CopyButton(components.CopyButtonParams{
+							Value: result.FileID,
+							Size:  "sm",
+						})
+					</div>
+				</div>
+				<!-- Имя файла -->
+				<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">
+					<span class="text-sm text-text-secondary">{ i18n.T(ctx, "file_detail.filename") }</span>
+					<span class="text-sm text-text-primary">{ result.OriginalFilename }</span>
+				</div>
+				<!-- Размер -->
+				<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">
+					<span class="text-sm text-text-secondary">{ i18n.T(ctx, "file_detail.size") }</span>
+					<span class="text-sm font-mono text-text-primary">{ formatUploadSize(result.Size) }</span>
+				</div>
+				<!-- Контрольная сумма -->
+				<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">
+					<span class="text-sm text-text-secondary">{ i18n.T(ctx, "upload.result.checksum") }</span>
+					<span class="text-sm font-mono text-text-primary truncate max-w-[200px]" title={ result.Checksum }>{ result.Checksum }</span>
+				</div>
+				<!-- Хранилище -->
+				<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">
+					<span class="text-sm text-text-secondary">{ i18n.T(ctx, "upload.result.storage") }</span>
+					<span class="text-sm font-mono text-text-primary">{ result.StorageElementID }</span>
+				</div>
+				<!-- Retention -->
+				<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">
+					<span class="text-sm text-text-secondary">{ i18n.T(ctx, "upload.retention") }</span>
+					@components.RetentionBadge(result.RetentionPolicy)
+				</div>
+				if result.TTLDays != nil {
+					<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">
+						<span class="text-sm text-text-secondary">{ i18n.T(ctx, "upload.ttl_days") }</span>
+						<span class="text-sm text-text-primary">{ fmt.Sprintf("%d", *result.TTLDays) }</span>
+					</div>
+				}
+			</div>
+		</div>
+	</div>
+}
+
+// BatchProgressPartial — partial: итог batch-загрузки.
+templ BatchProgressPartial(summary service.BatchUploadSummary) {
+	<div class="space-y-4">
+		<!-- Сводка -->
+		<div class="card">
+			<h3 class="text-sm font-semibold text-text-primary mb-4">{ i18n.T(ctx, "upload.batch") }</h3>
+			<div class="grid grid-cols-3 gap-4 mb-4">
+				<div class="text-center py-3 rounded-lg bg-bg-elevated">
+					<p class="text-2xl font-bold text-text-primary">{ fmt.Sprintf("%d", summary.Total) }</p>
+					<p class="text-xs text-text-muted">{ i18n.Tf(ctx, "upload.batch.total", summary.Total) }</p>
+				</div>
+				<div class="text-center py-3 rounded-lg bg-status-success/10">
+					<p class="text-2xl font-bold text-status-success">{ fmt.Sprintf("%d", summary.Success) }</p>
+					<p class="text-xs text-text-muted">{ i18n.Tf(ctx, "upload.batch.success", summary.Success) }</p>
+				</div>
+				<div class="text-center py-3 rounded-lg bg-status-error/10">
+					<p class="text-2xl font-bold text-status-error">{ fmt.Sprintf("%d", summary.Failed) }</p>
+					<p class="text-xs text-text-muted">{ i18n.Tf(ctx, "upload.batch.failed", summary.Failed) }</p>
+				</div>
+			</div>
+
+			<!-- Детали по каждому файлу -->
+			<div class="space-y-2">
+				for _, r := range summary.Results {
+					<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">
+						<div class="flex items-center gap-2 min-w-0">
+							<svg class="w-4 h-4 text-text-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"></path>
+							</svg>
+							<span class="text-sm text-text-primary truncate">{ r.Filename }</span>
+						</div>
+						if r.Error != nil {
+							<div class="flex items-center gap-1.5">
+								<svg class="w-4 h-4 text-status-error" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path>
+								</svg>
+								<span class="text-xs text-status-error">{ r.Error.Error() }</span>
+							</div>
+						} else {
+							<div class="flex items-center gap-2">
+								<svg class="w-4 h-4 text-status-success" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"></path>
+								</svg>
+								<span class="text-xs font-mono text-text-muted">{ r.Result.FileID }</span>
+								@components.CopyButton(components.CopyButtonParams{
+									Value: r.Result.FileID,
+									Size:  "sm",
+								})
+							</div>
+						}
+					</div>
+				}
+			</div>
+		</div>
+	</div>
+}
+
+// --- Вспомогательные функции ---
+
+// submitLabel — текст кнопки Submit в зависимости от режима.
+func submitLabel(isBatch bool, ctx context.Context) string {
+	if isBatch {
+		return i18n.T(ctx, "upload.submit_batch")
+	}
+	return i18n.T(ctx, "upload.submit")
+}
+
+// uploadFormData — Alpine.js x-data для формы загрузки.
+func uploadFormData() string {
+	return `{
+		csrfToken: '',
+		selectedFiles: [],
+		formatFileSize(bytes) {
+			if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(1) + ' ГБ';
+			if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' МБ';
+			if (bytes >= 1024) return (bytes / 1024).toFixed(1) + ' КБ';
+			return bytes + ' Б';
+		},
+		removeFile(index) {
+			this.selectedFiles.splice(index, 1);
+		}
+	}`
+}
+
+// fetchCsrfToken — Alpine.js x-init для получения CSRF-токена.
+func fetchCsrfToken() string {
+	return `fetch('/csrf-token').then(r => r.json()).then(d => csrfToken = d.token)`
+}
+
+// fileChangeHandler — обработчик выбора файлов (Alpine.js).
+func fileChangeHandler(isBatch bool) string {
+	if isBatch {
+		return `selectedFiles = Array.from($event.target.files)`
+	}
+	return `selectedFiles = $event.target.files[0] ? [{ name: $event.target.files[0].name, size: $event.target.files[0].size }] : []`
+}
+
+// dropHandler — обработчик drag & drop (Alpine.js).
+func dropHandler(isBatch bool) string {
+	base := `$el.classList.remove('border-accent-primary', 'bg-accent-primary/5');`
+	if isBatch {
+		return base + `
+			let input = $el.querySelector('input[type="file"]');
+			input.files = $event.dataTransfer.files;
+			selectedFiles = Array.from($event.dataTransfer.files);`
+	}
+	return base + `
+		let input = $el.querySelector('input[type="file"]');
+		let dt = new DataTransfer();
+		dt.items.add($event.dataTransfer.files[0]);
+		input.files = dt.files;
+		selectedFiles = [{ name: $event.dataTransfer.files[0].name, size: $event.dataTransfer.files[0].size }];`
+}
+
+// formatMaxSize — форматирование максимального размера для отображения.
+func formatMaxSize(size int64) string {
+	const gb = 1024 * 1024 * 1024
+	const mb = 1024 * 1024
+
+	if size >= gb {
+		return fmt.Sprintf("%.0f ГБ", float64(size)/float64(gb))
+	}
+	return fmt.Sprintf("%.0f МБ", float64(size)/float64(mb))
+}
+
+// formatUploadSize — форматирование размера загруженного файла.
+func formatUploadSize(size int64) string {
+	const (
+		kb = 1024
+		mb = 1024 * kb
+		gb = 1024 * mb
+	)
+
+	switch {
+	case size >= gb:
+		return fmt.Sprintf("%.1f ГБ", float64(size)/float64(gb))
+	case size >= mb:
+		return fmt.Sprintf("%.1f МБ", float64(size)/float64(mb))
+	case size >= kb:
+		return fmt.Sprintf("%.1f КБ", float64(size)/float64(kb))
+	default:
+		return fmt.Sprintf("%d Б", size)
+	}
+}

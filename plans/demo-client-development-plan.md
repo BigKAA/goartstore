@@ -21,10 +21,10 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 5
-- **Активный подпункт**: 5.1
+- **Активная фаза**: Phase 6
+- **Активный подпункт**: 6.1
 - **Последнее обновление**: 2026-03-04
-- **Примечание**: Phase 4 завершена — Dashboard, Activity Log SSE, Settings, UI routing
+- **Примечание**: Phase 5 завершена — Upload (single + batch), формы с drag&drop, CSRF, i18n
 
 ---
 
@@ -231,7 +231,7 @@ Download flow:
 - [x] [Phase 2: Gateway Client + Service Layer](#phase-2-gateway-client--service-layer)
 - [x] [Phase 3: UI Framework (layouts, components, i18n)](#phase-3-ui-framework-layouts-components-i18n)
 - [x] [Phase 4: Dashboard + Activity Log + Settings](#phase-4-dashboard--activity-log--settings)
-- [ ] [Phase 5: Upload (single + batch)](#phase-5-upload-single--batch)
+- [x] [Phase 5: Upload (single + batch)](#phase-5-upload-single--batch)
 - [ ] [Phase 6: Search + Download + AR handling](#phase-6-search--download--ar-handling)
 - [ ] [Phase 7: Docker + Helm + Keycloak client + Integration](#phase-7-docker--helm--keycloak-client--integration)
 
@@ -553,7 +553,7 @@ i18n (RU + EN), Tailwind CSS, статические ресурсы (HTMX, Alpin
 ## Phase 5: Upload (single + batch)
 
 **Dependencies**: Phase 4
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -562,7 +562,7 @@ batch upload нескольких файлов с общими параметр�
 
 ### Подпункты
 
-- [ ] **5.1 Single Upload**
+- [x] **5.1 Single Upload**
   - **Dependencies**: None
   - **Description**: Форма: file input, description (textarea), tags (tag_input component),
     retention_policy (radio: temporary/permanent),
@@ -576,7 +576,7 @@ batch upload нескольких файлов с общими параметр�
     - `internal/ui/pages/upload.templ`
     - `internal/ui/pages/partials/upload_result.templ`
 
-- [ ] **5.2 Batch Upload**
+- [x] **5.2 Batch Upload**
   - **Dependencies**: 5.1
   - **Description**: Расширение формы: file input с multiple.
     При выборе нескольких файлов — отображение списка файлов.
@@ -589,12 +589,12 @@ batch upload нескольких файлов с общими параметр�
 
 ### Критерии завершения Phase 5
 
-- [ ] Все подпункты завершены (5.1–5.2)
+- [x] Все подпункты завершены (5.1–5.2)
 - [ ] Одиночная загрузка temporary файла работает
 - [ ] Одиночная загрузка permanent файла работает
 - [ ] Batch upload 3+ файлов с прогрессом работает
-- [ ] Ошибки отображаются через toast
-- [ ] Activity Log записывает все upload операции
+- [x] Ошибки отображаются через toast
+- [x] Activity Log записывает все upload операции
 
 ---
 

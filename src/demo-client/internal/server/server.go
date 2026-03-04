@@ -59,6 +59,7 @@ type ReadinessChecker interface {
 // Deps — зависимости сервера для UI-маршрутов.
 type Deps struct {
 	DashboardSvc *service.DashboardService
+	UploadSvc    *service.UploadService
 	ActivityLog  *activity.Log
 }
 
@@ -120,9 +121,11 @@ func registerUIRoutes(router chi.Router, cfg *config.Config, deps Deps, logger *
 	dashboardH := handlers.NewDashboardHandler(deps.DashboardSvc, logger.With("handler", "dashboard"))
 	activityH := handlers.NewActivityHandler(deps.ActivityLog, logger.With("handler", "activity"))
 	settingsH := handlers.NewSettingsHandler(cfg, deps.DashboardSvc, logger.With("handler", "settings"))
+	uploadH := handlers.NewUploadHandler(deps.UploadSvc, cfg, logger.With("handler", "upload"))
 
 	// --- Страницы ---
 	router.Get("/", dashboardH.Page)
+	router.Get("/upload", uploadH.Page)
 	router.Get("/settings", settingsH.Page)
 
 	// --- Partials (HTMX) ---
@@ -135,6 +138,8 @@ func registerUIRoutes(router chi.Router, cfg *config.Config, deps Deps, logger *
 
 	// --- Actions ---
 	router.Post("/set-language", handlers.SetLanguage)
+	router.Post("/upload/single", uploadH.HandleSingle)
+	router.Post("/upload/batch", uploadH.HandleBatch)
 }
 
 // Router — доступ к chi router (для тестов или расширений).
