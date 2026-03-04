@@ -35,7 +35,7 @@
 - [x] [Phase 6: Grafana dashboards + AlertManager rules](#phase-6-grafana-dashboards--alertmanager-rules)
 - [x] [Phase 7: Operations Guide (EN + RU)](#phase-7-operations-guide-en--ru)
 - [x] [Phase 8: Umbrella Helm chart](#phase-8-umbrella-helm-chart)
-- [ ] [Phase 9: docker-compose + Monitoring subchart](#phase-9-docker-compose--monitoring-subchart)
+- [x] [Phase 9: docker-compose + Monitoring subchart](#phase-9-docker-compose--monitoring-subchart)
 
 ---
 
