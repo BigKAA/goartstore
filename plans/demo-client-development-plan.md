@@ -21,10 +21,10 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 1
-- **Активный подпункт**: 1.1
+- **Активная фаза**: Phase 2
+- **Активный подпункт**: 2.1
 - **Последнее обновление**: 2026-03-04
-- **Примечание**: План создан, ожидает утверждения
+- **Примечание**: Phase 1 завершена — каркас, конфиг, Token Manager, HTTP-сервер
 
 ---
 
@@ -227,7 +227,7 @@ Download flow:
 
 ## Оглавление
 
-- [ ] [Phase 1: Каркас проекта + конфигурация + Token Manager](#phase-1-каркас-проекта--конфигурация--token-manager)
+- [x] [Phase 1: Каркас проекта + конфигурация + Token Manager](#phase-1-каркас-проекта--конфигурация--token-manager)
 - [ ] [Phase 2: Gateway Client + Service Layer](#phase-2-gateway-client--service-layer)
 - [ ] [Phase 3: UI Framework (layouts, components, i18n)](#phase-3-ui-framework-layouts-components-i18n)
 - [ ] [Phase 4: Dashboard + Activity Log + Settings](#phase-4-dashboard--activity-log--settings)
@@ -251,7 +251,7 @@ Prometheus метрики. Паттерны полностью повторяю�
 
 ### Подпункты
 
-- [ ] **1.1 Инициализация Go-проекта + Makefile**
+- [x] **1.1 Инициализация Go-проекта + Makefile**
   - **Dependencies**: None
   - **Description**: `go mod init`, структура директорий, cmd/demo-client/main.go (заглушка).
     Module path: `github.com/bigkaa/goartstore/demo-client`.
@@ -266,7 +266,7 @@ Prometheus метрики. Паттерны полностью повторяю�
   - **Links**:
     - `src/admin-module/Makefile` — референс
 
-- [ ] **1.2 Конфигурация (config.go)**
+- [x] **1.2 Конфигурация (config.go)**
   - **Dependencies**: 1.1
   - **Description**: Загрузка DC_ env-переменных. Паттерн как в AM:
     `getEnvRequired`, `getEnvDefault`, `getEnvDuration`, `getEnvBool`, `getEnvInt`.
@@ -281,7 +281,7 @@ Prometheus метрики. Паттерны полностью повторяю�
   - **Links**:
     - `src/admin-module/internal/config/config.go` — референс
 
-- [ ] **1.3 Token Manager**
+- [x] **1.3 Token Manager**
   - **Dependencies**: 1.2
   - **Description**: Client Credentials flow → Keycloak token endpoint.
     Background goroutine для auto-refresh. Atomic read/write токена.
@@ -291,7 +291,7 @@ Prometheus метрики. Паттерны полностью повторяю�
   - **Creates**:
     - `internal/token/manager.go`
 
-- [ ] **1.4 HTTP-сервер + health + metrics + security middleware**
+- [x] **1.4 HTTP-сервер + health + metrics + security middleware**
   - **Dependencies**: 1.2, 1.3
   - **Description**: Chi router, graceful shutdown (SIGINT/SIGTERM).
     Health endpoints: `/health/live` (always OK), `/health/ready` (token valid + Gateway reachable).
@@ -306,7 +306,7 @@ Prometheus метрики. Паттерны полностью повторяю�
   - **Links**:
     - `src/admin-module/internal/server/server.go` — референс
 
-- [ ] **1.5 main.go — сборка компонентов**
+- [x] **1.5 main.go — сборка компонентов**
   - **Dependencies**: 1.2, 1.3, 1.4
   - **Description**: Инициализация: config.Load() → Token Manager start →
     HTTP server start. Graceful shutdown в обратном порядке.
@@ -316,12 +316,12 @@ Prometheus метрики. Паттерны полностью повторяю�
 
 ### Критерии завершения Phase 1
 
-- [ ] Все подпункты завершены (1.1–1.5)
-- [ ] `go build ./cmd/demo-client/` компилируется без ошибок
-- [ ] `go test ./...` проходит
+- [x] Все подпункты завершены (1.1–1.5)
+- [x] `go build ./cmd/demo-client/` компилируется без ошибок
+- [x] `go test ./...` проходит
 - [ ] Token Manager получает JWT от Keycloak (ручной тест)
-- [ ] `/health/live` возвращает 200
-- [ ] `/metrics` возвращает Prometheus метрики
+- [x] `/health/live` возвращает 200
+- [x] `/metrics` возвращает Prometheus метрики
 
 ---
 
