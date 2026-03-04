@@ -57,24 +57,24 @@ templ Search(data SearchPageData) {
 								hx-target="#search-results"
 								hx-swap="innerHTML"
 								hx-trigger="keyup changed delay:500ms"
-								hx-include="#search-filters"
+								hx-include="#search-mode, #search-filters"
 							/>
 						</div>
 
 						<!-- Режим поиска -->
 						<div class="flex-shrink-0">
-							<select
-								name="mode"
-								class="select-field"
-								hx-get="/search/results"
-								hx-target="#search-results"
-								hx-swap="innerHTML"
-								hx-include="#search-filters"
-							>
-								<option value="fulltext">{ i18n.T(ctx, "filter.fulltext") }</option>
-								<option value="partial">{ i18n.T(ctx, "filter.partial") }</option>
-								<option value="exact">{ i18n.T(ctx, "filter.exact") }</option>
-							</select>
+													<select
+							id="search-mode"
+							name="mode"
+							class="select-field"
+							hx-get="/search/results"
+							hx-target="#search-results"
+							hx-swap="innerHTML"
+							hx-include="#search-query, #search-filters"
+						>
+							<option value="partial">{ i18n.T(ctx, "filter.partial") }</option>
+							<option value="exact">{ i18n.T(ctx, "filter.exact") }</option>
+						</select>
 						</div>
 
 						<!-- Кнопка поиска -->
@@ -85,7 +85,7 @@ templ Search(data SearchPageData) {
 								hx-get="/search/results"
 								hx-target="#search-results"
 								hx-swap="innerHTML"
-								hx-include="#search-filters"
+								hx-include="#search-query, #search-mode, #search-filters"
 							>
 								{ i18n.T(ctx, "btn.search") }
 							</button>
@@ -213,7 +213,7 @@ templ searchFilters() {
 				hx-get="/search/results"
 				hx-target="#search-results"
 				hx-swap="innerHTML"
-				hx-include="#search-filters, #search-query"
+				hx-include="#search-filters, #search-query, #search-mode"
 			>
 				{ i18n.T(ctx, "btn.apply") }
 			</button>

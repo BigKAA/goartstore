@@ -186,14 +186,19 @@ func buildSearchWhere(params SearchParams, startArg int) (whereClause string, ar
 	argNum := startArg
 
 	// Фильтр по query (поиск по имени файла)
+	// normalize(NFC) — для корректного сравнения кириллицы:
+	// macOS сохраняет имена файлов в NFD (й = и + ◌̆), а браузер отправляет NFC (й = одна буква).
+	// Без нормализации ILIKE не сопоставит разные байтовые представления одного символа.
 	if params.Query != nil && *params.Query != "" {
 		if params.Mode == "exact" {
 			// Exact: case-insensitive точное совпадение
-			conditions = append(conditions, fmt.Sprintf("LOWER(fr.original_filename) = LOWER($%d)", argNum))
+			conditions = append(conditions, fmt.Sprintf(
+				"LOWER(normalize(fr.original_filename, NFC)) = LOWER(normalize($%d, NFC))", argNum))
 			args = append(args, *params.Query)
 		} else {
 			// Partial (по умолчанию): ILIKE подстрока
-			conditions = append(conditions, fmt.Sprintf("fr.original_filename ILIKE $%d", argNum))
+			conditions = append(conditions, fmt.Sprintf(
+				"normalize(fr.original_filename, NFC) ILIKE normalize($%d, NFC)", argNum))
 			args = append(args, "%"+*params.Query+"%")
 		}
 		argNum++
@@ -201,14 +206,16 @@ func buildSearchWhere(params SearchParams, startArg int) (whereClause string, ar
 
 	// Фильтр по filename (всегда partial match — ILIKE)
 	if params.Filename != nil && *params.Filename != "" {
-		conditions = append(conditions, fmt.Sprintf("fr.original_filename ILIKE $%d", argNum))
+		conditions = append(conditions, fmt.Sprintf(
+			"normalize(fr.original_filename, NFC) ILIKE normalize($%d, NFC)", argNum))
 		args = append(args, "%"+*params.Filename+"%")
 		argNum++
 	}
 
 	// Фильтр по расширению файла (exact match по суффиксу)
 	if params.FileExtension != nil && *params.FileExtension != "" {
-		conditions = append(conditions, fmt.Sprintf("fr.original_filename ILIKE $%d", argNum))
+		conditions = append(conditions, fmt.Sprintf(
+			"normalize(fr.original_filename, NFC) ILIKE normalize($%d, NFC)", argNum))
 		args = append(args, "%."+*params.FileExtension)
 		argNum++
 	}

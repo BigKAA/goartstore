@@ -300,7 +300,7 @@ func csrfMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
 
 // csrfTokenHandler — GET /csrf-token — генерация CSRF-токена и установка cookie.
 func csrfTokenHandler() http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
 		tokenBytes := make([]byte, 32)
 		if _, err := rand.Read(tokenBytes); err != nil {
 			http.Error(w, "internal error", http.StatusInternalServerError)
@@ -308,12 +308,15 @@ func csrfTokenHandler() http.HandlerFunc {
 		}
 		csrfToken := hex.EncodeToString(tokenBytes)
 
+		// Определяем Secure flag: true если запрос пришёл по HTTPS
+		isSecure := r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
+
 		http.SetCookie(w, &http.Cookie{
 			Name:     "_csrf_token",
 			Value:    csrfToken,
 			Path:     "/",
 			HttpOnly: true,
-			Secure:   true,
+			Secure:   isSecure,
 			SameSite: http.SameSiteStrictMode,
 		})
 

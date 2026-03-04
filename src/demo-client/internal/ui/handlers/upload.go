@@ -3,6 +3,8 @@
 package handlers
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -35,9 +37,34 @@ func NewUploadHandler(svc *service.UploadService, cfg *config.Config, logger *sl
 }
 
 // Page — GET /upload — рендер страницы загрузки файлов.
+// Генерирует CSRF-токен на стороне сервера и устанавливает cookie.
+// Это исключает race condition при двойном JS fetch (две формы на одной странице).
 func (h *UploadHandler) Page(w http.ResponseWriter, r *http.Request) {
+	// Генерируем CSRF-токен
+	tokenBytes := make([]byte, 32)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		h.logger.Error("ошибка генерации CSRF-токена", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	csrfToken := hex.EncodeToString(tokenBytes)
+
+	// Определяем Secure flag: true если запрос пришёл по HTTPS
+	isSecure := r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
+
+	// Устанавливаем CSRF-cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "_csrf_token",
+		Value:    csrfToken,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   isSecure,
+		SameSite: http.SameSiteStrictMode,
+	})
+
 	err := pages.Upload(pages.UploadPageData{
 		MaxUploadSize: h.maxUploadSize,
+		CSRFToken:     csrfToken,
 	}).Render(r.Context(), w)
 	if err != nil {
 		h.logger.Error("ошибка рендера Upload", "error", err)

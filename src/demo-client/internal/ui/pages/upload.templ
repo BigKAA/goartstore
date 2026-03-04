@@ -13,7 +13,8 @@ import (
 
 // UploadPageData — данные для рендера страницы загрузки.
 type UploadPageData struct {
-	MaxUploadSize int64 // Максимальный размер файла
+	MaxUploadSize int64  // Максимальный размер файла
+	CSRFToken     string // CSRF-токен (генерируется сервером)
 }
 
 // Upload — полная страница загрузки файлов.
@@ -49,12 +50,12 @@ templ Upload(data UploadPageData) {
 
 				<!-- Форма одиночной загрузки -->
 				<div x-show="mode === 'single'" x-transition>
-					@uploadForm(data.MaxUploadSize, false)
+					@uploadForm(data.MaxUploadSize, data.CSRFToken, false)
 				</div>
 
 				<!-- Форма пакетной загрузки -->
 				<div x-show="mode === 'batch'" x-transition>
-					@uploadForm(data.MaxUploadSize, true)
+					@uploadForm(data.MaxUploadSize, data.CSRFToken, true)
 				</div>
 
 				<!-- Контейнер для результата (заполняется через HTMX) -->
@@ -65,7 +66,7 @@ templ Upload(data UploadPageData) {
 }
 
 // uploadForm — форма загрузки (single или batch).
-templ uploadForm(maxUploadSize int64, isBatch bool) {
+templ uploadForm(maxUploadSize int64, csrfToken string, isBatch bool) {
 	<form
 		if isBatch {
 			hx-post="/upload/batch"
@@ -76,11 +77,10 @@ templ uploadForm(maxUploadSize int64, isBatch bool) {
 		hx-swap="innerHTML"
 		hx-encoding="multipart/form-data"
 		x-data={ uploadFormData() }
-		x-init={ fetchCsrfToken() }
 		class="card space-y-6"
 	>
-		<!-- CSRF-токен -->
-		<input type="hidden" name="_csrf_token" x-bind:value="csrfToken"/>
+		<!-- CSRF-токен (генерируется сервером, исключает race condition при двойном fetch) -->
+		<input type="hidden" name="_csrf_token" value={ csrfToken }/>
 
 		<!-- Зона выбора файлов -->
 		<div>
@@ -369,7 +369,6 @@ func submitLabel(isBatch bool, ctx context.Context) string {
 // uploadFormData — Alpine.js x-data для формы загрузки.
 func uploadFormData() string {
 	return `{
-		csrfToken: '',
 		selectedFiles: [],
 		formatFileSize(bytes) {
 			if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(1) + ' ГБ';
@@ -381,11 +380,6 @@ func uploadFormData() string {
 			this.selectedFiles.splice(index, 1);
 		}
 	}`
-}
-
-// fetchCsrfToken — Alpine.js x-init для получения CSRF-токена.
-func fetchCsrfToken() string {
-	return `fetch('/csrf-token').then(r => r.json()).then(d => csrfToken = d.token)`
 }
 
 // fileChangeHandler — обработчик выбора файлов (Alpine.js).

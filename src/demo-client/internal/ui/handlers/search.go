@@ -182,7 +182,7 @@ func (h *SearchHandler) parseSearchParams(r *http.Request) gateway.SearchRequest
 		params.SortOrder = "desc"
 	}
 	if params.Mode == "" {
-		params.Mode = "fulltext"
+		params.Mode = "partial"
 	}
 
 	return params
