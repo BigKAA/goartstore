@@ -1,0 +1,10 @@
+# Бинарники
+bin/
+demo-client
+
+# Tailwind CSS (генерируется)
+internal/ui/static/css/output.css
+
+# IDE
+.idea/
+.vscode/
