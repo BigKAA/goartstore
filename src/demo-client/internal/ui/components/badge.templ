@@ -1,0 +1,139 @@
+package components
+
+// BadgeVariant — вариант оформления бейджа
+type BadgeVariant string
+
+const (
+	// Статусы здоровья сервисов
+	BadgeHealthy   BadgeVariant = "healthy"
+	BadgeUnhealthy BadgeVariant = "unhealthy"
+
+	// Retention policy
+	BadgeTemporary BadgeVariant = "temporary"
+	BadgePermanent BadgeVariant = "permanent"
+
+	// Режимы SE
+	BadgeModeEdit BadgeVariant = "mode-edit"
+	BadgeModeRW   BadgeVariant = "mode-rw"
+	BadgeModeRO   BadgeVariant = "mode-ro"
+	BadgeModeAR   BadgeVariant = "mode-ar"
+
+	// Статусы файлов
+	BadgeFileActive   BadgeVariant = "file-active"
+	BadgeFileArchived BadgeVariant = "file-archived"
+	BadgeFileDeleted  BadgeVariant = "file-deleted"
+	BadgeFileExpired  BadgeVariant = "file-expired"
+
+	// Общие
+	BadgeSuccess BadgeVariant = "success"
+	BadgeWarning BadgeVariant = "warning"
+	BadgeError   BadgeVariant = "error"
+	BadgeInfo    BadgeVariant = "info"
+	BadgeNeutral BadgeVariant = "neutral"
+)
+
+// badgeStyles — CSS-классы для каждого варианта бейджа
+var badgeStyles = map[BadgeVariant]string{
+	BadgeHealthy:      "bg-status-success/20 text-status-success",
+	BadgeUnhealthy:    "bg-status-error/20 text-status-error",
+	BadgeTemporary:    "bg-retention-temporary/20 text-retention-temporary",
+	BadgePermanent:    "bg-retention-permanent/20 text-retention-permanent",
+	BadgeModeEdit:     "bg-mode-edit/20 text-mode-edit",
+	BadgeModeRW:       "bg-mode-rw/20 text-mode-rw",
+	BadgeModeRO:       "bg-mode-ro/20 text-mode-ro",
+	BadgeModeAR:       "bg-mode-ar/20 text-mode-ar",
+	BadgeFileActive:   "bg-status-success/20 text-status-success",
+	BadgeFileArchived: "bg-mode-ar/20 text-mode-ar",
+	BadgeFileDeleted:  "bg-status-error/20 text-status-error",
+	BadgeFileExpired:  "bg-status-warning/20 text-status-warning",
+	BadgeSuccess:      "bg-status-success/20 text-status-success",
+	BadgeWarning:      "bg-status-warning/20 text-status-warning",
+	BadgeError:        "bg-status-error/20 text-status-error",
+	BadgeInfo:         "bg-status-info/20 text-status-info",
+	BadgeNeutral:      "bg-bg-elevated text-text-secondary",
+}
+
+// Badge — бейдж статуса/режима с цветовой индикацией.
+// Маленький округлённый элемент с полупрозрачным фоном и цветным текстом.
+templ Badge(variant BadgeVariant, label string) {
+	<span class={ "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium", badgeClasses(variant) }>
+		<!-- Индикатор-точка для статусных бейджей -->
+		if variant == BadgeHealthy || variant == BadgeUnhealthy {
+			<span class={ "w-1.5 h-1.5 rounded-full mr-1.5", badgeDotClass(variant) }></span>
+		}
+		{ label }
+	</span>
+}
+
+// HealthBadge — бейдж статуса здоровья (автоматический выбор)
+templ HealthBadge(healthy bool) {
+	if healthy {
+		@Badge(BadgeHealthy, "Healthy")
+	} else {
+		@Badge(BadgeUnhealthy, "Unhealthy")
+	}
+}
+
+// RetentionBadge — бейдж retention policy
+templ RetentionBadge(retention string) {
+	switch retention {
+		case "temporary":
+			@Badge(BadgeTemporary, "temporary")
+		case "permanent":
+			@Badge(BadgePermanent, "permanent")
+		default:
+			@Badge(BadgeNeutral, retention)
+	}
+}
+
+// ModeBadge — бейдж SE-режима (автоматический выбор варианта по строке режима)
+templ ModeBadge(mode string) {
+	switch mode {
+		case "edit":
+			@Badge(BadgeModeEdit, "edit")
+		case "rw":
+			@Badge(BadgeModeRW, "rw")
+		case "ro":
+			@Badge(BadgeModeRO, "ro")
+		case "ar":
+			@Badge(BadgeModeAR, "ar")
+		default:
+			@Badge(BadgeNeutral, mode)
+	}
+}
+
+// FileStatusBadge — бейдж статуса файла
+templ FileStatusBadge(status string) {
+	switch status {
+		case "active":
+			@Badge(BadgeFileActive, "active")
+		case "archived":
+			@Badge(BadgeFileArchived, "archived")
+		case "deleted":
+			@Badge(BadgeFileDeleted, "deleted")
+		case "expired":
+			@Badge(BadgeFileExpired, "expired")
+		default:
+			@Badge(BadgeNeutral, status)
+	}
+}
+
+// badgeClasses — CSS-классы для варианта бейджа
+func badgeClasses(variant BadgeVariant) string {
+	if classes, ok := badgeStyles[variant]; ok {
+		return classes
+	}
+	return badgeStyles[BadgeNeutral]
+}
+
+// badgeDotClass — CSS-класс точки-индикатора для статусного бейджа
+func badgeDotClass(variant BadgeVariant) string {
+	switch variant {
+	case BadgeHealthy:
+		return "bg-status-success"
+	case BadgeUnhealthy:
+		return "bg-status-error"
+	default:
+		return "bg-text-muted"
+	}
+}

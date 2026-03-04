@@ -1,0 +1,60 @@
+package layouts
+
+import "github.com/bigkaa/goartstore/demo-client/internal/ui/i18n"
+
+// HeaderParams — параметры верхней панели
+type HeaderParams struct {
+	Title string // Заголовок текущей страницы
+}
+
+// Header — верхняя панель: заголовок страницы, переключатель языка.
+// Demo Client не имеет аутентификации пользователей (работает через SA),
+// поэтому нет имени пользователя и кнопки logout.
+templ Header(params HeaderParams) {
+	<header class="sticky top-0 z-20 flex items-center justify-between h-16 px-6 bg-bg-surface/80 backdrop-blur-sm border-b border-border-subtle">
+		<!-- Заголовок страницы -->
+		<h1 class="text-xl font-semibold text-text-primary truncate">
+			{ params.Title }
+		</h1>
+
+		<!-- Переключатель языка -->
+		<div class="flex items-center space-x-4">
+			@langSwitcher()
+		</div>
+	</header>
+}
+
+// langSwitcher — переключатель языка EN/RU в виде двух кнопок-табов.
+// Текущий язык подсвечивается. При клике отправляет POST /set-language.
+templ langSwitcher() {
+	<div class="flex items-center space-x-1 bg-bg-elevated rounded-lg p-0.5">
+		<!-- English -->
+		<form method="POST" action="/set-language">
+			<input type="hidden" name="lang" value="en"/>
+			<button
+				type="submit"
+				if i18n.LangFromContext(ctx) == "en" {
+					class="px-2 py-1 text-xs font-medium rounded-md bg-accent-primary/20 text-accent-primary transition-colors"
+				} else {
+					class="px-2 py-1 text-xs font-medium rounded-md text-text-muted hover:text-text-primary transition-colors"
+				}
+			>
+				EN
+			</button>
+		</form>
+		<!-- Русский -->
+		<form method="POST" action="/set-language">
+			<input type="hidden" name="lang" value="ru"/>
+			<button
+				type="submit"
+				if i18n.LangFromContext(ctx) == "ru" {
+					class="px-2 py-1 text-xs font-medium rounded-md bg-accent-primary/20 text-accent-primary transition-colors"
+				} else {
+					class="px-2 py-1 text-xs font-medium rounded-md text-text-muted hover:text-text-primary transition-colors"
+				}
+			>
+				RU
+			</button>
+		</form>
+	</div>
+}

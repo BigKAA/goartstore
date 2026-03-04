@@ -1,0 +1,107 @@
+package components
+
+// ToastVariant — вариант оформления toast-уведомления
+type ToastVariant string
+
+const (
+	ToastSuccess ToastVariant = "success"
+	ToastWarning ToastVariant = "warning"
+	ToastError   ToastVariant = "error"
+	ToastInfo    ToastVariant = "info"
+)
+
+// ToastParams — параметры toast-уведомления
+type ToastParams struct {
+	Variant ToastVariant // Тип: success, warning, error, info
+	Title   string       // Заголовок (опционально)
+	Message string       // Текст уведомления
+}
+
+// Toast — всплывающее уведомление с автоматическим скрытием.
+// Использует Alpine.js для анимации и автоматического dismiss через 5 секунд.
+templ Toast(params ToastParams) {
+	<div
+		x-data="{ show: true }"
+		x-show="show"
+		x-init="setTimeout(() => show = false, 5000)"
+		x-transition:enter="transform ease-out duration-300 transition"
+		x-transition:enter-start="translate-y-2 opacity-0"
+		x-transition:enter-end="translate-y-0 opacity-100"
+		x-transition:leave="transition ease-in duration-200"
+		x-transition:leave-start="opacity-100"
+		x-transition:leave-end="opacity-0"
+		class={ toastClasses(params.Variant) }
+		role="alert"
+	>
+		<!-- Иконка -->
+		<div class="flex-shrink-0">
+			@toastIcon(params.Variant)
+		</div>
+
+		<!-- Текст -->
+		<div class="flex-1 ml-3">
+			if params.Title != "" {
+				<p class="text-sm font-medium">{ params.Title }</p>
+			}
+			<p class={ toastMessageClass(params.Title) }>{ params.Message }</p>
+		</div>
+
+		<!-- Кнопка закрытия -->
+		<button
+			x-on:click="show = false"
+			class="flex-shrink-0 ml-3 text-current opacity-50 hover:opacity-100 transition-opacity"
+		>
+			<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+				<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path>
+			</svg>
+		</button>
+	</div>
+}
+
+// toastClasses — CSS-классы контейнера toast
+func toastClasses(variant ToastVariant) string {
+	base := "flex items-start p-4 rounded-card border shadow-lg"
+
+	switch variant {
+	case ToastSuccess:
+		return base + " bg-status-success/10 border-status-success/30 text-status-success"
+	case ToastWarning:
+		return base + " bg-status-warning/10 border-status-warning/30 text-status-warning"
+	case ToastError:
+		return base + " bg-status-error/10 border-status-error/30 text-status-error"
+	case ToastInfo:
+		return base + " bg-status-info/10 border-status-info/30 text-status-info"
+	default:
+		return base + " bg-bg-surface border-border-subtle text-text-primary"
+	}
+}
+
+// toastMessageClass — класс текста сообщения
+func toastMessageClass(title string) string {
+	if title != "" {
+		return "text-sm mt-1 opacity-90"
+	}
+	return "text-sm"
+}
+
+// toastIcon — иконка toast по типу
+templ toastIcon(variant ToastVariant) {
+	switch variant {
+		case ToastSuccess:
+			<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+				<path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+			</svg>
+		case ToastWarning:
+			<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+				<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"></path>
+			</svg>
+		case ToastError:
+			<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+				<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"></path>
+			</svg>
+		default:
+			<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+				<path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"></path>
+			</svg>
+	}
+}

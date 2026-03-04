@@ -1,0 +1,62 @@
+package components
+
+import "github.com/bigkaa/goartstore/demo-client/internal/ui/i18n"
+
+// CopyButtonParams — параметры кнопки копирования
+type CopyButtonParams struct {
+	Value string // Значение для копирования в буфер обмена
+	Size  string // Размер: "sm", "md" (по умолчанию)
+}
+
+// CopyButton — кнопка копирования текста в буфер обмена.
+// Использует Alpine.js + navigator.clipboard API.
+// После копирования показывает "Скопировано!" на 2 секунды.
+templ CopyButton(params CopyButtonParams) {
+	<button
+		x-data="{ copied: false }"
+		x-on:click={ "navigator.clipboard.writeText('" + params.Value + "').then(() => { copied = true; setTimeout(() => copied = false, 2000) })" }
+		class={ copyButtonClasses(params.Size) }
+		type="button"
+	>
+		<!-- Иконка: clipboard (до копирования) -->
+		<template x-if="!copied">
+			<span class="flex items-center gap-1">
+				<svg class={ copyIconSize(params.Size) } fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"></path>
+				</svg>
+				<span>{ i18n.T(ctx, "btn.copy") }</span>
+			</span>
+		</template>
+
+		<!-- Иконка: check (после копирования) -->
+		<template x-if="copied">
+			<span class="flex items-center gap-1 text-status-success">
+				<svg class={ copyIconSize(params.Size) } fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"></path>
+				</svg>
+				<span>{ i18n.T(ctx, "btn.copied") }</span>
+			</span>
+		</template>
+	</button>
+}
+
+// copyButtonClasses — CSS-классы кнопки копирования
+func copyButtonClasses(size string) string {
+	base := "inline-flex items-center font-medium text-text-secondary hover:text-accent-primary transition-colors"
+	switch size {
+	case "sm":
+		return base + " px-1.5 py-0.5 text-xs gap-0.5"
+	default:
+		return base + " px-2 py-1 text-sm gap-1"
+	}
+}
+
+// copyIconSize — размер иконки для кнопки копирования
+func copyIconSize(size string) string {
+	switch size {
+	case "sm":
+		return "w-3.5 h-3.5"
+	default:
+		return "w-4 h-4"
+	}
+}

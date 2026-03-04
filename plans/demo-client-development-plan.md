@@ -21,10 +21,10 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 3
-- **Активный подпункт**: 3.1
+- **Активная фаза**: Phase 4
+- **Активный подпункт**: 4.1
 - **Последнее обновление**: 2026-03-04
-- **Примечание**: Phase 2 завершена — Gateway Client, Activity Log, Service Layer, unit-тесты
+- **Примечание**: Phase 3 завершена — UI Framework (layouts, components, i18n, static resources)
 
 ---
 
@@ -229,7 +229,7 @@ Download flow:
 
 - [x] [Phase 1: Каркас проекта + конфигурация + Token Manager](#phase-1-каркас-проекта--конфигурация--token-manager)
 - [x] [Phase 2: Gateway Client + Service Layer](#phase-2-gateway-client--service-layer)
-- [ ] [Phase 3: UI Framework (layouts, components, i18n)](#phase-3-ui-framework-layouts-components-i18n)
+- [x] [Phase 3: UI Framework (layouts, components, i18n)](#phase-3-ui-framework-layouts-components-i18n)
 - [ ] [Phase 4: Dashboard + Activity Log + Settings](#phase-4-dashboard--activity-log--settings)
 - [ ] [Phase 5: Upload (single + batch)](#phase-5-upload-single--batch)
 - [ ] [Phase 6: Search + Download + AR handling](#phase-6-search--download--ar-handling)
@@ -415,7 +415,7 @@ Activity Log (in-memory ring buffer) для записи всех API-вызов
 ## Phase 3: UI Framework (layouts, components, i18n)
 
 **Dependencies**: Phase 1
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -425,7 +425,7 @@ i18n (RU + EN), Tailwind CSS, статические ресурсы (HTMX, Alpin
 
 ### Подпункты
 
-- [ ] **3.1 Статические ресурсы + Tailwind + embed**
+- [x] **3.1 Статические ресурсы + Tailwind + embed**
   - **Dependencies**: None
   - **Description**: Скачать и разместить JS-библиотеки:
     - `htmx.min.js` (HTMX 2.x) — динамические обновления UI
@@ -445,7 +445,7 @@ i18n (RU + EN), Tailwind CSS, статические ресурсы (HTMX, Alpin
   - **Links**:
     - `src/admin-module/internal/ui/static/` — референс embed.go
 
-- [ ] **3.2 i18n (RU + EN)**
+- [x] **3.2 i18n (RU + EN)**
   - **Dependencies**: None
   - **Description**: Копировать паттерн из AM: Bundle, T(), Tf(), LangFromContext().
     Middleware для определения языка (cookie → Accept-Language → default "ru").
@@ -457,7 +457,7 @@ i18n (RU + EN), Tailwind CSS, статические ресурсы (HTMX, Alpin
     - `internal/ui/i18n/locales/ru.json`
     - `internal/ui/i18n/locales/en.json`
 
-- [ ] **3.3 Layouts (base, page, sidebar)**
+- [x] **3.3 Layouts (base, page, sidebar)**
   - **Dependencies**: 3.1, 3.2
   - **Description**: Base layout (HTML5 shell, head, JS-подключения).
     Page layout (sidebar + main content area).
@@ -468,7 +468,7 @@ i18n (RU + EN), Tailwind CSS, статические ресурсы (HTMX, Alpin
     - `internal/ui/layouts/page.templ`
     - `internal/ui/layouts/sidebar.templ`
 
-- [ ] **3.4 Reusable Components**
+- [x] **3.4 Reusable Components**
   - **Dependencies**: 3.1
   - **Description**: Компоненты из Admin Module адаптированные для Demo Client:
     button, badge, toast, modal, data_table, pagination, stat_card,
@@ -479,10 +479,10 @@ i18n (RU + EN), Tailwind CSS, статические ресурсы (HTMX, Alpin
 
 ### Критерии завершения Phase 3
 
-- [ ] Все подпункты завершены (3.1–3.4)
-- [ ] `templ generate` выполняется без ошибок
-- [ ] Tailwind CSS компилируется
-- [ ] i18n: все ключи есть в обоих локалях (ru.json, en.json)
+- [x] Все подпункты завершены (3.1–3.4)
+- [x] `templ generate` выполняется без ошибок
+- [x] Tailwind CSS компилируется
+- [x] i18n: все ключи есть в обоих локалях (ru.json, en.json)
 
 ---
 
