@@ -16,7 +16,7 @@ import (
 // DashboardPageData — данные для рендера Dashboard.
 type DashboardPageData struct {
 	Health         map[string]gateway.HealthStatus
-	Token          token.TokenStatus
+	Token          token.Status
 	Stats          service.FileStats
 	RecentActivity []activity.Entry
 	Lang           string
@@ -152,7 +152,7 @@ templ healthRow(name string, status gateway.HealthStatus) {
 }
 
 // TokenStatusPartial — partial: статус SA-токена для HTMX обновления.
-templ TokenStatusPartial(ts token.TokenStatus) {
+templ TokenStatusPartial(ts token.Status) {
 	<div class="space-y-3">
 		<!-- Статус валидности -->
 		<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">

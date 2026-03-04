@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -17,7 +18,7 @@ func (c *Client) Search(params SearchRequest) (*SearchResponse, error) {
 	}
 
 	url := c.baseURL + "/query/api/v1/search"
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("ошибка создания HTTP запроса: %w", err)
 	}

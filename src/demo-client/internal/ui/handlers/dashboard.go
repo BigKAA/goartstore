@@ -39,6 +39,7 @@ func (h *DashboardHandler) Page(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("ошибка рендера Dashboard", "error", err)
 		http.Error(w, "render error", http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -50,6 +51,7 @@ func (h *DashboardHandler) HealthPartial(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		h.logger.Error("ошибка рендера health partial", "error", err)
 		http.Error(w, "render error", http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -61,5 +63,6 @@ func (h *DashboardHandler) TokenPartial(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		h.logger.Error("ошибка рендера token partial", "error", err)
 		http.Error(w, "render error", http.StatusInternalServerError)
+		return
 	}
 }

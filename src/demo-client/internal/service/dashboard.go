@@ -33,7 +33,7 @@ type DashboardData struct {
 	// Health — статусы backend-сервисов.
 	Health map[string]gateway.HealthStatus
 	// Token — информация о текущем SA токене.
-	Token token.TokenStatus
+	Token token.Status
 	// Stats — статистика по файлам.
 	Stats FileStats
 	// RecentActivity — последние записи Activity Log.
@@ -85,7 +85,7 @@ func (s *DashboardService) GetHealth() map[string]gateway.HealthStatus {
 }
 
 // GetTokenInfo возвращает информацию о текущем SA токене.
-func (s *DashboardService) GetTokenInfo() token.TokenStatus {
+func (s *DashboardService) GetTokenInfo() token.Status {
 	return s.tokenMgr.TokenInfo()
 }
 

@@ -1,0 +1,40 @@
+# Docker Compose для локальной разработки Demo Client
+# Demo Client подключается к внешнему API Gateway (artstore.kryukov.lan)
+# и Keycloak для получения SA-токена.
+
+services:
+  demo-client:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: dev
+    ports:
+      - "8080:8080"
+    environment:
+      # --- Сервер ---
+      DC_PORT: "8080"
+      DC_LOG_LEVEL: "debug"
+      DC_LOG_FORMAT: "text"
+
+      # --- OAuth / Token Manager ---
+      # URL Keycloak token endpoint для Client Credentials flow
+      DC_TOKEN_URL: "https://artstore.kryukov.lan/keycloak/realms/artstore/protocol/openid-connect/token"
+      DC_CLIENT_ID: "artstore-demo-client"
+      DC_CLIENT_SECRET: "demo-client-test-secret"
+      DC_SCOPES: "files:read files:write"
+      DC_TOKEN_REFRESH_BEFORE: "30s"
+
+      # --- API Gateway ---
+      DC_GATEWAY_URL: "https://artstore.kryukov.lan"
+      DC_REQUEST_TIMEOUT: "30s"
+      DC_UPLOAD_TIMEOUT: "300s"
+      DC_MAX_UPLOAD_SIZE: "1073741824"
+
+      # --- TLS ---
+      # Путь к CA-сертификату (если Gateway/Keycloak используют self-signed CA)
+      # DC_CA_CERT_PATH: "/certs/ca.crt"
+
+      # --- Activity Log ---
+      DC_ACTIVITY_LOG_SIZE: "100"
+    restart: unless-stopped

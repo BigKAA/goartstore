@@ -45,7 +45,7 @@ func main() {
 
 	// 3. Инициализация i18n
 	bundle := i18n.Init(logger.With("component", "i18n"))
-	if err := i18n.LoadFromEmbedFS(bundle, logger.With("component", "i18n")); err != nil {
+	if err = i18n.LoadFromEmbedFS(bundle, logger.With("component", "i18n")); err != nil {
 		logger.Error("ошибка загрузки i18n", "error", err)
 		os.Exit(1)
 	}
@@ -114,9 +114,10 @@ func main() {
 		ActivityLog:  activityLog,
 	})
 
-	if err := srv.Run(); err != nil {
+	if err = srv.Run(); err != nil {
 		logger.Error("ошибка HTTP-сервера", "error", err)
-		os.Exit(1)
+		tokenMgr.Stop()
+		return
 	}
 }
 

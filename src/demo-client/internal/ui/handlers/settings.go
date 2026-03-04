@@ -41,6 +41,7 @@ func (h *SettingsHandler) Page(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("ошибка рендера Settings", "error", err)
 		http.Error(w, "render error", http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -52,5 +53,6 @@ func (h *SettingsHandler) HealthPartial(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		h.logger.Error("ошибка рендера settings health partial", "error", err)
 		http.Error(w, "render error", http.StatusInternalServerError)
+		return
 	}
 }

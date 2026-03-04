@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 )
@@ -22,7 +23,7 @@ func (c *Client) HealthCheck() map[string]HealthStatus {
 // checkHealth выполняет health-check по указанному пути.
 func (c *Client) checkHealth(path string) HealthStatus {
 	url := c.baseURL + path
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return HealthStatus{Status: "error", Ready: false}
 	}
@@ -35,10 +36,10 @@ func (c *Client) checkHealth(path string) HealthStatus {
 	}
 	defer resp.Body.Close()
 
-	switch {
-	case resp.StatusCode == http.StatusOK:
+	switch resp.StatusCode {
+	case http.StatusOK:
 		return HealthStatus{Status: "ok", Ready: true}
-	case resp.StatusCode == http.StatusServiceUnavailable:
+	case http.StatusServiceUnavailable:
 		return HealthStatus{
 			Status: fmt.Sprintf("unavailable (HTTP %d)", resp.StatusCode),
 			Ready:  false,

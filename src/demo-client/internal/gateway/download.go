@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"context"
 	"fmt"
 	"mime"
 	"net/http"
@@ -16,7 +17,7 @@ import (
 // При HTTP 404 возвращает ErrNotFound.
 func (c *Client) Download(fileID string) (*DownloadResponse, error) {
 	url := c.baseURL + "/query/api/v1/files/" + fileID + "/download"
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка создания HTTP запроса: %w", err)
 	}

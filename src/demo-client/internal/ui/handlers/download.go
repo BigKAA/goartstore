@@ -112,5 +112,6 @@ func (h *DownloadHandler) renderArchivedModal(w http.ResponseWriter, r *http.Req
 	if err != nil {
 		h.logger.Error("ошибка рендера archived modal", "error", err)
 		http.Error(w, "render error", http.StatusInternalServerError)
+		return
 	}
 }

@@ -201,7 +201,7 @@ func (s *Server) Run() error {
 
 // healthLiveHandler — GET /health/live — всегда 200 (liveness probe).
 func healthLiveHandler() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
@@ -210,7 +210,7 @@ func healthLiveHandler() http.HandlerFunc {
 
 // healthReadyHandler — GET /health/ready — 200 если токен валиден.
 func healthReadyHandler(tokenMgr ReadinessChecker) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
 		if !tokenMgr.IsReady() {
@@ -276,14 +276,14 @@ func csrfMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
 			}
 
 			// Проверяем CSRF-токен
-			token := r.Header.Get("X-CSRF-Token")
-			if token == "" {
-				token = r.FormValue("_csrf_token")
+			csrfToken := r.Header.Get("X-CSRF-Token")
+			if csrfToken == "" {
+				csrfToken = r.FormValue("_csrf_token")
 			}
 
 			// Получаем ожидаемый токен из cookie
 			cookie, err := r.Cookie("_csrf_token")
-			if err != nil || cookie.Value == "" || token == "" || cookie.Value != token {
+			if err != nil || cookie.Value == "" || csrfToken == "" || cookie.Value != csrfToken {
 				logger.Warn("CSRF-проверка не пройдена",
 					"path", path,
 					"method", r.Method,
@@ -300,7 +300,7 @@ func csrfMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
 
 // csrfTokenHandler — GET /csrf-token — генерация CSRF-токена и установка cookie.
 func csrfTokenHandler() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, _ *http.Request) {
 		tokenBytes := make([]byte, 32)
 		if _, err := rand.Read(tokenBytes); err != nil {
 			http.Error(w, "internal error", http.StatusInternalServerError)
@@ -398,7 +398,7 @@ func normalizePath(path string) string {
 			continue
 		}
 		// Числовые ID
-		if len(part) > 0 {
+		if part != "" {
 			allDigits := true
 			for _, c := range part {
 				if c < '0' || c > '9' {

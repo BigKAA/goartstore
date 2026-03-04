@@ -43,8 +43,8 @@ var (
 	ErrValidation = errors.New("validation error")
 )
 
-// GatewayError оборачивает типизированную ошибку с дополнительным контекстом от API.
-type GatewayError struct {
+// Error оборачивает типизированную ошибку с дополнительным контекстом от API.
+type Error struct {
 	// Err — базовая типизированная ошибка (ErrNotFound, ErrFileArchived и т.д.)
 	Err error
 	// Code — код ошибки от API (например, "FILE_ARCHIVED", "NOT_FOUND")
@@ -56,7 +56,7 @@ type GatewayError struct {
 }
 
 // Error возвращает строковое представление ошибки.
-func (e *GatewayError) Error() string {
+func (e *Error) Error() string {
 	if e.Message != "" {
 		return fmt.Sprintf("%s: %s (HTTP %d)", e.Code, e.Message, e.StatusCode)
 	}
@@ -64,7 +64,7 @@ func (e *GatewayError) Error() string {
 }
 
 // Unwrap возвращает базовую типизированную ошибку для проверки через errors.Is().
-func (e *GatewayError) Unwrap() error {
+func (e *Error) Unwrap() error {
 	return e.Err
 }
 
@@ -98,7 +98,7 @@ func mapHTTPError(statusCode int, apiErr *ErrorResponse) error {
 		baseErr = fmt.Errorf("unexpected HTTP status %d", statusCode)
 	}
 
-	return &GatewayError{
+	return &Error{
 		Err:        baseErr,
 		Code:       code,
 		Message:    message,

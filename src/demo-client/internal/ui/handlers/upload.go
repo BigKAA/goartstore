@@ -42,6 +42,7 @@ func (h *UploadHandler) Page(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("ошибка рендера Upload", "error", err)
 		http.Error(w, "render error", http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -78,6 +79,7 @@ func (h *UploadHandler) HandleSingle(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("ошибка рендера upload result", "error", err)
 		http.Error(w, "render error", http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -121,7 +123,7 @@ func (h *UploadHandler) HandleBatch(w http.ResponseWriter, r *http.Request) {
 	// Закрываем все файлы
 	for _, fh := range files {
 		if f, err := fh.Open(); err == nil {
-			f.Close()
+			_ = f.Close()
 		}
 	}
 
@@ -130,6 +132,7 @@ func (h *UploadHandler) HandleBatch(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("ошибка рендера batch progress", "error", err)
 		http.Error(w, "render error", http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -195,6 +198,7 @@ func (h *UploadHandler) renderError(w http.ResponseWriter, r *http.Request, msg 
 	if err != nil {
 		h.logger.Error("ошибка рендера toast", "error", err)
 		http.Error(w, "render error", http.StatusInternalServerError)
+		return
 	}
 }
 

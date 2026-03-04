@@ -1,0 +1,66 @@
+# Demo Client — Helm chart values
+# Stateless HTTP-сервис, TLS termination на API Gateway
+
+# --- Образ контейнера ---
+registry: harbor.kryukov.lan
+image: library/demo-client
+tag: latest
+imagePullPolicy: IfNotPresent
+
+# --- Реплики ---
+replicas: 1
+
+# --- Сервер ---
+port: 8080
+logLevel: info
+logFormat: json
+
+# --- OAuth / Token Manager ---
+token:
+  url: ""              # обязательный: Keycloak token endpoint URL
+  clientId: ""         # обязательный: Client ID для Client Credentials flow
+  clientSecret: ""     # обязательный: Client Secret
+  scopes: "files:read files:write"
+  refreshBefore: "30s" # обновлять токен за N секунд до истечения
+
+# --- API Gateway ---
+gateway:
+  url: ""              # обязательный: URL API Gateway (например, https://artstore.kryukov.lan)
+  requestTimeout: "30s"
+  uploadTimeout: "300s"
+  maxUploadSize: "1073741824"  # 1GB
+
+# --- TLS ---
+tls:
+  # Существующий Secret с CA-сертификатом для TLS-соединений
+  # Если задан — монтируется в /certs и DC_CA_CERT_PATH=/certs/ca.crt
+  caSecret: ""
+
+# --- Activity Log ---
+activityLogSize: "100"
+
+# --- Graceful shutdown ---
+shutdownTimeout: "5s"
+
+# --- HTTPRoute (Gateway API) ---
+httproute:
+  enabled: false
+  gatewayName: eg
+  gatewayNamespace: envoy-gateway-system
+  hostname: "demoartstore.kryukov.lan"
+  pathPrefixes:
+    - /
+
+# --- Prometheus метрики ---
+metrics:
+  enabled: true
+  path: /metrics
+
+# --- Ресурсы контейнера ---
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi

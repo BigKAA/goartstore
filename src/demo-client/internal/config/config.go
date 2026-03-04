@@ -16,28 +16,30 @@ import (
 var Version = "dev"
 
 // Config — конфигурация Demo Client.
+//
+//nolint:gosec // G101: struct field names, not credentials
 type Config struct {
 	// --- Сервер ---
-	Port             int           `json:"port"`              // DC_PORT (default: 8080)
-	LogLevel         slog.Level    `json:"log_level"`         // DC_LOG_LEVEL (default: info)
-	LogFormat        string        `json:"log_format"`        // DC_LOG_FORMAT: json/text (default: json)
-	ShutdownTimeout  time.Duration `json:"shutdown_timeout"`  // DC_SHUTDOWN_TIMEOUT (default: 15s)
-	HTTPReadTimeout  time.Duration `json:"http_read_timeout"` // DC_HTTP_READ_TIMEOUT (default: 30s)
-	HTTPWriteTimeout time.Duration `json:"http_write_timeout"`// DC_HTTP_WRITE_TIMEOUT (default: 60s)
-	HTTPIdleTimeout  time.Duration `json:"http_idle_timeout"` // DC_HTTP_IDLE_TIMEOUT (default: 120s)
+	Port             int           `json:"port"`               // DC_PORT (default: 8080)
+	LogLevel         slog.Level    `json:"log_level"`          // DC_LOG_LEVEL (default: info)
+	LogFormat        string        `json:"log_format"`         // DC_LOG_FORMAT: json/text (default: json)
+	ShutdownTimeout  time.Duration `json:"shutdown_timeout"`   // DC_SHUTDOWN_TIMEOUT (default: 15s)
+	HTTPReadTimeout  time.Duration `json:"http_read_timeout"`  // DC_HTTP_READ_TIMEOUT (default: 30s)
+	HTTPWriteTimeout time.Duration `json:"http_write_timeout"` // DC_HTTP_WRITE_TIMEOUT (default: 60s)
+	HTTPIdleTimeout  time.Duration `json:"http_idle_timeout"`  // DC_HTTP_IDLE_TIMEOUT (default: 120s)
 
 	// --- OAuth / Token ---
-	TokenURL           string        `json:"token_url"`             // DC_TOKEN_URL (обязательный)
-	ClientID           string        `json:"client_id"`             // DC_CLIENT_ID (обязательный)
-	ClientSecret       string        `json:"client_secret"`         // DC_CLIENT_SECRET (обязательный)
-	Scopes             []string      `json:"scopes"`                // DC_SCOPES (default: "files:read files:write")
-	TokenRefreshBefore time.Duration `json:"token_refresh_before"`  // DC_TOKEN_REFRESH_BEFORE (default: 30s)
+	TokenURL           string        `json:"token_url"`            // DC_TOKEN_URL (обязательный)
+	ClientID           string        `json:"client_id"`            // DC_CLIENT_ID (обязательный)
+	ClientSecret       string        `json:"client_secret"`        // DC_CLIENT_SECRET (обязательный)
+	Scopes             []string      `json:"scopes"`               // DC_SCOPES (default: "files:read files:write")
+	TokenRefreshBefore time.Duration `json:"token_refresh_before"` // DC_TOKEN_REFRESH_BEFORE (default: 30s)
 
 	// --- Gateway ---
-	GatewayURL        string        `json:"gateway_url"`         // DC_GATEWAY_URL (обязательный)
-	RequestTimeout    time.Duration `json:"request_timeout"`     // DC_REQUEST_TIMEOUT (default: 30s)
-	UploadTimeout     time.Duration `json:"upload_timeout"`      // DC_UPLOAD_TIMEOUT (default: 300s)
-	MaxUploadSize     int64         `json:"max_upload_size"`     // DC_MAX_UPLOAD_SIZE (default: 1073741824, 1GB)
+	GatewayURL     string        `json:"gateway_url"`     // DC_GATEWAY_URL (обязательный)
+	RequestTimeout time.Duration `json:"request_timeout"` // DC_REQUEST_TIMEOUT (default: 30s)
+	UploadTimeout  time.Duration `json:"upload_timeout"`  // DC_UPLOAD_TIMEOUT (default: 300s)
+	MaxUploadSize  int64         `json:"max_upload_size"` // DC_MAX_UPLOAD_SIZE (default: 1073741824, 1GB)
 
 	// --- TLS ---
 	CACertPath string `json:"ca_cert_path"` // DC_CA_CERT_PATH (опционально)
@@ -214,19 +216,6 @@ func getEnvDuration(key string, defaultVal time.Duration) (time.Duration, error)
 		return 0, fmt.Errorf("некорректная длительность: %s=%q", key, val)
 	}
 	return d, nil
-}
-
-// getEnvBool — bool из env (true/false/1/0).
-func getEnvBool(key string, defaultVal bool) (bool, error) {
-	val := os.Getenv(key)
-	if val == "" {
-		return defaultVal, nil
-	}
-	b, err := strconv.ParseBool(val)
-	if err != nil {
-		return false, fmt.Errorf("некорректное bool значение: %s=%q", key, val)
-	}
-	return b, nil
 }
 
 // parseLogLevel — парсинг уровня логирования из строки.

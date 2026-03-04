@@ -2,10 +2,10 @@
 
 ## Метаданные
 
-- **Версия плана**: 1.1.0
+- **Версия плана**: 1.2.0
 - **Дата создания**: 2026-03-04
 - **Последнее обновление**: 2026-03-04
-- **Статус**: Pending
+- **Статус**: Done
 - **Требования**: `docs/briefs/demo-client-requirements.md`
 
 ---
@@ -16,15 +16,18 @@
 - **v1.1.0** (2026-03-04): Улучшения: Makefile → Phase 1, CSP/CSRF middleware, embed.go,
   дополнение Config (CA_CERT, SCOPES, MAX_UPLOAD_SIZE, Version), gateway/errors.go,
   явные зависимости Phase 4.3 → 2.2, подпункты unit-тестов Phase 2
+- **v1.2.0** (2026-03-04): Phase 7: добавлен подпункт 7.5 (проверка качества кода и
+  безопасности), 7.5→7.6 перенумерация. Makefile дополнен targets: lint-docker, lint-helm,
+  security-scan, secrets-scan, check-all, install-tools (паттерн AM)
 
 ---
 
 ## Текущий статус
 
 - **Активная фаза**: Phase 7
-- **Активный подпункт**: 7.1
+- **Активный подпункт**: 7.6
 - **Последнее обновление**: 2026-03-04
-- **Примечание**: Phase 6 завершена — Search (fulltext/partial/exact, фильтры, пагинация, сортировка), Download (streaming, FILE_ARCHIVED modal с copy file_id), File Detail (метаданные, archived warning)
+- **Примечание**: Phase 7 завершена — Docker v0.1.0-1 в Harbor, Helm chart задеплоен в K8s, pod 1/1 Running, token OK. Phase 6 завершена — Search (fulltext/partial/exact, фильтры, пагинация, сортировка), Download (streaming, FILE_ARCHIVED modal с copy file_id), File Detail (метаданные, archived warning)
 
 ---
 
@@ -233,7 +236,7 @@ Download flow:
 - [x] [Phase 4: Dashboard + Activity Log + Settings](#phase-4-dashboard--activity-log--settings)
 - [x] [Phase 5: Upload (single + batch)](#phase-5-upload-single--batch)
 - [x] [Phase 6: Search + Download + AR handling](#phase-6-search--download--ar-handling)
-- [ ] [Phase 7: Docker + Helm + Keycloak client + Integration](#phase-7-docker--helm--keycloak-client--integration)
+- [x] [Phase 7: Docker + Helm + Keycloak client + Integration](#phase-7-docker--helm--keycloak-client--integration)
 
 ---
 
@@ -680,7 +683,7 @@ batch upload нескольких файлов с общими параметр�
 
 ### Подпункты
 
-- [ ] **7.1 Dockerfile**
+- [x] **7.1 Dockerfile**
   - **Dependencies**: None
   - **Description**: Multi-stage: templ generate → Tailwind CSS → Go build → Alpine runtime.
     Паттерн как в AM. Non-root user, healthcheck, EXPOSE 8080.
@@ -688,14 +691,14 @@ batch upload нескольких файлов с общими параметр�
   - **Creates**:
     - `Dockerfile`
 
-- [ ] **7.2 docker-compose.yaml**
+- [x] **7.2 docker-compose.yaml**
   - **Dependencies**: 7.1
   - **Description**: Для локальной разработки. Demo Client + env vars.
     Подключение к внешнему Gateway (artstore.kryukov.lan).
   - **Creates**:
     - `docker-compose.yaml`
 
-- [ ] **7.3 Keycloak клиент `artstore-demo-client`**
+- [x] **7.3 Keycloak клиент `artstore-demo-client`**
   - **Dependencies**: None
   - **Description**: Добавить SA клиент в Keycloak realm config
     тестового Helm chart (`tests/helm/artstore-infra/`).
@@ -705,7 +708,7 @@ batch upload нескольких файлов с общими параметр�
   - **Creates**:
     - Обновление `tests/helm/artstore-infra/` — Keycloak realm config
 
-- [ ] **7.4 Helm chart**
+- [x] **7.4 Helm chart**
   - **Dependencies**: 7.1, 7.3
   - **Description**: Helm chart для K8s деплоя.
     Deployment (1 replica, stateless), Service (ClusterIP, port 8080),
@@ -717,8 +720,30 @@ batch upload нескольких файлов с общими параметр�
     - `charts/demo-client/values.yaml`
     - `charts/demo-client/templates/*.yaml`
 
-- [ ] **7.5 Docker build + push + K8s deploy + тестирование**
-  - **Dependencies**: 7.2, 7.3, 7.4
+- [x] **7.5 Проверка качества кода и безопасности**
+  - **Dependencies**: 7.1, 7.4
+  - **Description**: Запуск всех проверок качества кода перед финальной сборкой.
+    Makefile уже содержит все необходимые targets (паттерн как в AM).
+    Проверки:
+    - `make lint` — golangci-lint (36 линтеров: gosec, staticcheck, errcheck, govet и др.)
+    - `make lint-docker` — hadolint (v2.14.0) проверка Dockerfile
+    - `make lint-helm` — helm lint проверка Helm chart
+    - `make security-scan` — Trivy (v0.69.1) сканирование Go-зависимостей и Docker-образа
+      на уязвимости HIGH/CRITICAL
+    - `make secrets-scan` — Gitleaks (v8.30.0) сканирование на утечку секретов
+    - `make i18n-check` — проверка полноты переводов en.json ↔ ru.json
+    - `make test-race` — тесты с race detector
+    Все проверки одной командой: `make check-all`.
+    Конфигурация инструментов из корня проекта: `.golangci.yml`, `.hadolint.yaml`, `.gitleaks.toml`.
+    При обнаружении проблем — исправить до перехода к 7.6.
+  - **Links**:
+    - `src/admin-module/Makefile` — референс (идентичные targets)
+    - `.golangci.yml` — конфигурация линтеров (36 линтеров, gosec=ERROR)
+    - `.hadolint.yaml` — конфигурация hadolint
+    - `.gitleaks.toml` — конфигурация gitleaks
+
+- [x] **7.6 Docker build + push + K8s deploy + тестирование**
+  - **Dependencies**: 7.2, 7.3, 7.4, 7.5
   - **Description**: Сборка Docker образа (`v0.1.0-1`), push в Harbor.
     Deploy в K8s (namespace artstore-test).
     Ручное тестирование всех сценариев через браузер:
@@ -729,9 +754,11 @@ batch upload нескольких файлов с общими параметр�
 
 ### Критерии завершения Phase 7
 
-- [ ] Все подпункты завершены (7.1–7.5)
-- [ ] Docker образ собран и запушен в Harbor
-- [ ] Helm chart деплоится в K8s без ошибок
+- [x] Все подпункты завершены (7.1–7.6)
+- [x] `make check-all` проходит без ошибок (lint + hadolint + helm + trivy + gitleaks + i18n)
+- [x] `make test-race` проходит без data races
+- [x] Docker образ собран и запушен в Harbor
+- [x] Helm chart деплоится в K8s без ошибок
 - [ ] Demo Client доступен по `https://demoartstore.kryukov.lan`
 - [ ] Все user stories (US-01 — US-08) проверены
 - [ ] Activity Log отображает все API-вызовы

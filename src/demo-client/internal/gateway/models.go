@@ -101,7 +101,10 @@ type FileInfo struct {
 // Содержит reader для потоковой передачи и метаданные ответа.
 type DownloadResponse struct {
 	// Body — поток данных файла (вызывающий обязан закрыть).
-	Body interface{ Read([]byte) (int, error); Close() error }
+	Body interface {
+		Read([]byte) (int, error)
+		Close() error
+	}
 	// ContentType — MIME-тип файла.
 	ContentType string
 	// ContentLength — размер файла в байтах.

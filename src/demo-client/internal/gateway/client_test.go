@@ -159,8 +159,8 @@ func TestHTTPErrorMapping(t *testing.T) {
 				t.Errorf("ожидалась ошибка %v, получена %v", tt.wantErr, err)
 			}
 
-			// Проверяем, что GatewayError содержит код и сообщение.
-			var gwErr *GatewayError
+			// Проверяем, что Error содержит код и сообщение.
+			var gwErr *Error
 			if errors.As(err, &gwErr) {
 				if gwErr.Code != tt.errorCode {
 					t.Errorf("ожидался код '%s', получен '%s'", tt.errorCode, gwErr.Code)
@@ -169,7 +169,7 @@ func TestHTTPErrorMapping(t *testing.T) {
 					t.Errorf("ожидался HTTP %d, получен %d", tt.statusCode, gwErr.StatusCode)
 				}
 			} else {
-				t.Errorf("ошибка не является GatewayError: %T", err)
+				t.Errorf("ошибка не является Error: %T", err)
 			}
 		})
 	}
@@ -477,7 +477,7 @@ func TestErrorResponseWithoutJSON(t *testing.T) {
 	}
 
 	// Ошибка должна быть, даже без JSON body.
-	var gwErr *GatewayError
+	var gwErr *Error
 	if errors.As(err, &gwErr) {
 		if gwErr.StatusCode != 500 {
 			t.Errorf("ожидался HTTP 500, получен %d", gwErr.StatusCode)

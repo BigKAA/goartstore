@@ -24,7 +24,7 @@ import (
 // DashboardPageData — данные для рендера Dashboard.
 type DashboardPageData struct {
 	Health         map[string]gateway.HealthStatus
-	Token          token.TokenStatus
+	Token          token.Status
 	Stats          service.FileStats
 	RecentActivity []activity.Entry
 	Lang           string
@@ -413,7 +413,7 @@ func healthRow(name string, status gateway.HealthStatus) templ.Component {
 }
 
 // TokenStatusPartial — partial: статус SA-токена для HTMX обновления.
-func TokenStatusPartial(ts token.TokenStatus) templ.Component {
+func TokenStatusPartial(ts token.Status) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {

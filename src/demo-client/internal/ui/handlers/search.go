@@ -41,6 +41,7 @@ func (h *SearchHandler) Page(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("ошибка рендера Search", "error", err)
 		http.Error(w, "render error", http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -85,6 +86,7 @@ func (h *SearchHandler) HandleSearch(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("ошибка рендера search results", "error", err)
 		http.Error(w, "render error", http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -121,6 +123,7 @@ func (h *SearchHandler) FileDetail(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("ошибка рендера file detail", "error", err)
 		http.Error(w, "render error", http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -159,7 +162,7 @@ func (h *SearchHandler) parseSearchParams(r *http.Request) gateway.SearchRequest
 		}
 	}
 
-	// Размер (байты)
+	// Фильтр по размеру файла в байтах
 	if minStr := q.Get("size_from"); minStr != "" {
 		if v, err := strconv.ParseInt(minStr, 10, 64); err == nil && v > 0 {
 			params.MinSize = &v

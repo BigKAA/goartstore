@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "dc.fullname" . }}
+  labels:
+    {{- include "dc.labels" . | nindent 4 }}
+data:
+  # --- Сервер ---
+  DC_PORT: {{ .Values.port | quote }}
+  DC_LOG_LEVEL: {{ .Values.logLevel | quote }}
+  DC_LOG_FORMAT: {{ .Values.logFormat | quote }}
+  DC_SHUTDOWN_TIMEOUT: {{ .Values.shutdownTimeout | quote }}
+
+  # --- OAuth / Token Manager ---
+  DC_TOKEN_URL: {{ .Values.token.url | quote }}
+  DC_SCOPES: {{ .Values.token.scopes | quote }}
+  DC_TOKEN_REFRESH_BEFORE: {{ .Values.token.refreshBefore | quote }}
+
+  # --- API Gateway ---
+  DC_GATEWAY_URL: {{ .Values.gateway.url | quote }}
+  DC_REQUEST_TIMEOUT: {{ .Values.gateway.requestTimeout | quote }}
+  DC_UPLOAD_TIMEOUT: {{ .Values.gateway.uploadTimeout | quote }}
+  DC_MAX_UPLOAD_SIZE: {{ .Values.gateway.maxUploadSize | quote }}
+
+  # --- TLS ---
+  {{- if .Values.tls.caSecret }}
+  DC_CA_CERT_PATH: "/certs/ca.crt"
+  {{- end }}
+
+  # --- Activity Log ---
+  DC_ACTIVITY_LOG_SIZE: {{ .Values.activityLogSize | quote }}

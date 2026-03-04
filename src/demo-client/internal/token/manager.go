@@ -3,7 +3,7 @@
 //
 // Фоновая горутина обновляет токен до истечения срока действия.
 // Потокобезопасное чтение текущего токена через GetToken().
-package token
+package token //nolint:revive // package name is intentional and does not conflict in practice
 
 import (
 	"context"
@@ -32,11 +32,11 @@ var tokenRefreshesTotal = promauto.NewCounterVec(
 	[]string{"status"}, // success / error
 )
 
-// TokenStatus — информация о текущем состоянии токена (для UI).
-type TokenStatus struct {
+// Status — информация о текущем состоянии токена (для UI).
+type Status struct {
 	Valid    bool      `json:"valid"`     // Токен валиден (не истёк)
-	Expiry  time.Time `json:"expiry"`    // Время истечения
-	ClientID string   `json:"client_id"` // ID клиента
+	Expiry   time.Time `json:"expiry"`    // Время истечения
+	ClientID string    `json:"client_id"` // ID клиента
 }
 
 // tokenData — внутреннее хранилище токена (atomic).
@@ -48,10 +48,10 @@ type tokenData struct {
 // Manager — Token Manager для Client Credentials flow.
 type Manager struct {
 	// Конфигурация
-	tokenURL     string
-	clientID     string
-	clientSecret string
-	scopes       []string
+	tokenURL      string
+	clientID      string
+	clientSecret  string
+	scopes        []string
 	refreshBefore time.Duration
 
 	// HTTP-клиент для запросов к Keycloak
@@ -68,8 +68,8 @@ type Manager struct {
 
 // tokenResponse — ответ Keycloak на запрос токена.
 type tokenResponse struct {
-	AccessToken string `json:"access_token"`
-	ExpiresIn   int    `json:"expires_in"` // секунды до истечения
+	AccessToken string `json:"access_token"` //nolint:gosec // G117: field name matches pattern but holds JWT token data
+	ExpiresIn   int    `json:"expires_in"`   // секунды до истечения
 	TokenType   string `json:"token_type"`
 }
 
@@ -123,12 +123,12 @@ func (m *Manager) GetToken() string {
 }
 
 // TokenInfo — информация о токене для отображения в UI.
-func (m *Manager) TokenInfo() TokenStatus {
+func (m *Manager) TokenInfo() Status {
 	data := m.current.Load()
 	if data == nil {
-		return TokenStatus{ClientID: m.clientID}
+		return Status{ClientID: m.clientID}
 	}
-	return TokenStatus{
+	return Status{
 		Valid:    time.Now().Before(data.expiry),
 		Expiry:   data.expiry,
 		ClientID: m.clientID,
@@ -227,7 +227,7 @@ func (m *Manager) refreshToken(ctx context.Context) error {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	// Выполняем запрос
-	resp, err := m.httpClient.Do(req)
+	resp, err := m.httpClient.Do(req) //nolint:gosec // G704: URL is from validated config
 	if err != nil {
 		return fmt.Errorf("запрос к token endpoint: %w", err)
 	}

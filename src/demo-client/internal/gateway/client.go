@@ -116,7 +116,7 @@ func (c *Client) doRequest(req *http.Request, useUploadClient bool) (*http.Respo
 		"url", req.URL.String(),
 	)
 
-	resp, err := client.Do(req)
+	resp, err := client.Do(req) //nolint:gosec // G704: URL is constructed from validated config
 	duration := time.Since(start).Seconds()
 
 	if err != nil {
@@ -147,7 +147,7 @@ func (c *Client) doRequest(req *http.Request, useUploadClient bool) (*http.Respo
 }
 
 // handleErrorResponse обрабатывает HTTP-ответ с кодом ошибки (>= 400).
-// Парсит JSON тело ответа и маппит в типизированную GatewayError.
+// Парсит JSON тело ответа и маппит в типизированную Error.
 func (c *Client) handleErrorResponse(resp *http.Response) error {
 	defer resp.Body.Close()
 
@@ -219,7 +219,7 @@ func isUUIDLike(s string) bool {
 			if c != '-' {
 				return false
 			}
-		} else if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+		} else if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') {
 			return false
 		}
 	}
@@ -228,7 +228,7 @@ func isUUIDLike(s string) bool {
 
 // isNumericID проверяет, является ли сегмент числовым идентификатором.
 func isNumericID(s string) bool {
-	if len(s) == 0 {
+	if s == "" {
 		return false
 	}
 	for _, c := range s {

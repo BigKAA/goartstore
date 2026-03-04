@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,7 +11,7 @@ import (
 // GET /query/api/v1/files/{fileID}
 func (c *Client) GetMetadata(fileID string) (*FileInfo, error) {
 	url := c.baseURL + "/query/api/v1/files/" + fileID
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка создания HTTP запроса: %w", err)
 	}

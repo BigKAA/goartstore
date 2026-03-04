@@ -1,0 +1,15 @@
+apiVersion: v2
+name: demo-client
+description: >-
+  Helm chart для Demo Client — демонстрационный веб-интерфейс Artstore.
+  Загрузка, поиск и скачивание файлов через API Gateway.
+  Stateless Deployment + ClusterIP Service + HTTPRoute.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - artstore
+  - demo-client
+  - web-ui
+maintainers:
+  - name: Artur Kryukov

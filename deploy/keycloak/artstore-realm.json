@@ -524,6 +524,51 @@
       ]
     },
     {
+      "clientId": "artstore-demo-client",
+      "name": "Demo Client",
+      "description": "Artstore Demo Client — демонстрационный веб-интерфейс для загрузки, поиска и скачивания файлов",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "demo-client-test-secret",
+      "redirectUris": [],
+      "webOrigins": [],
+      "bearerOnly": false,
+      "consentRequired": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "publicClient": false,
+      "frontchannelLogout": false,
+      "protocol": "openid-connect",
+      "attributes": {
+        "access.token.lifespan": "300",
+        "client.secret.creation.time": "0"
+      },
+      "fullScopeAllowed": false,
+      "defaultClientScopes": [
+        "files:read",
+        "files:write"
+      ],
+      "optionalClientScopes": [],
+      "protocolMappers": [
+        {
+          "name": "client_id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usersessionmodel-note-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.session.note": "client_id",
+            "claim.name": "client_id",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
       "clientId": "artstore-admin-ui",
       "name": "Admin UI",
       "description": "Artstore Admin UI — веб-интерфейс администратора (public client, PKCE)",
