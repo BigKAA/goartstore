@@ -41,6 +41,8 @@ cp DEVELOPMENT_PLAN_TEMPLATE.md DEVELOPMENT_PLAN.md
 - Интеграция
 - Тестирование
 - Deployment
+- Documentation
+- Commit
 
 ### 4. Разбейте фазы на подпункты
 
@@ -190,6 +192,9 @@ AI использует эту секцию для определения точ
   - **Dependencies**: X.Z (или None)
   - **Description**: Детальное описание задачи
   - **Creates**:
+    - `file1.go`
+    - `file2.yaml`
+  - **Edited**
     - `file1.go`
     - `file2.yaml`
   - **Links**:
@@ -498,5 +503,5 @@ Phase 7: Deployment (3-4 часа)
 
 ---
 
-**Версия руководства**: 1.0.0
-**Последнее обновление**: 2026-02-10
+**Версия руководства**: 1.0.1
+**Последнее обновление**: 2026-03-06
