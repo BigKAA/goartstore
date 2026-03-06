@@ -96,11 +96,11 @@ Artstore обеспечивает комплексную наблюдаемос�
 |---------|-----|-------|----------|
 | `se_http_requests_total` | Counter | method, path, status | HTTP-запросы SE |
 | `se_http_request_duration_seconds` | Histogram | method, path | Задержка HTTP SE |
-| `se_files_total` | Gauge | status | Количество файлов по статусу (active, deleted, expired) |
+| `se_files_total` | Gauge | — | Общее количество файлов |
 | `se_storage_bytes` | Gauge | — | Общий объём хранимых данных |
 | `se_operations_total` | Counter | operation, result | Количество операций (upload, download, delete, update) |
 | `se_gc_runs_total` | Counter | — | Количество запусков GC |
-| `se_gc_files_deleted_total` | Counter | — | Файлы, удалённые GC |
+| `se_gc_files_removed_total` | Counter | — | Файлы, удалённые GC |
 | `se_gc_files_expired_total` | Counter | — | Файлы с истёкшим сроком, обработанные GC |
 | `se_gc_duration_seconds` | Histogram | — | Время выполнения GC |
 | `se_index_sync_runs_total` | Counter | — | Количество перестроений индекса |

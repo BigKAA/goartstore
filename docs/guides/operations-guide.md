@@ -96,11 +96,11 @@ Every module registers these metrics with its own prefix (`am_`, `se_`, `im_`, `
 |--------|------|--------|-------------|
 | `se_http_requests_total` | Counter | method, path, status | SE HTTP requests |
 | `se_http_request_duration_seconds` | Histogram | method, path | SE HTTP latency |
-| `se_files_total` | Gauge | status | File count by status (active, deleted, expired) |
+| `se_files_total` | Gauge | — | Total file count |
 | `se_storage_bytes` | Gauge | — | Total bytes stored |
 | `se_operations_total` | Counter | operation, result | Operations count (upload, download, delete, update) |
 | `se_gc_runs_total` | Counter | — | GC execution count |
-| `se_gc_files_deleted_total` | Counter | — | Files deleted by GC |
+| `se_gc_files_removed_total` | Counter | — | Files removed by GC |
 | `se_gc_files_expired_total` | Counter | — | Files expired by GC |
 | `se_gc_duration_seconds` | Histogram | — | GC execution time |
 | `se_index_sync_runs_total` | Counter | — | Index rebuild count |
@@ -321,7 +321,7 @@ The overview dashboard provides a single-pane-of-glass view of the entire Artsto
 | **Request Rate** | Stacked RPS by module | Baseline traffic patterns. Sudden spikes or drops indicate anomalies |
 | **Request Rate** | Error Rate (% 5xx) | Should stay below 5%. Sustained elevation triggers `ArtstoreHighErrorRate` |
 | **Latency** | p50 / p95 / p99 | p95 < 500ms typical. p99 > 2s for AM or > 3s for QM search triggers alerts |
-| **Storage** | Files by Status | Monitor `active` vs `deleted` ratio. Growing `deleted` may indicate GC issues |
+| **Storage** | File Count | Monitor total file count per SE. Unexpected drops may indicate GC issues |
 | **Storage** | Storage Usage | Track growth trend. Plan SE additions before reaching capacity |
 | **Storage** | SE Operations (stacked) | Breakdown: upload, download, delete, update. Upload drops may indicate SE issues |
 

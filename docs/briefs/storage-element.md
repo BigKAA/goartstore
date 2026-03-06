@@ -38,8 +38,8 @@ PostgreSQL файловый реестр (Admin Module) — вторичный �
 - `permanent` — файлы без срока хранения
 
 **Встроенный GC** — SE самостоятельно удаляет expired файлы по TTL
-из `attr.json`. Физическое удаление — soft delete (статус `deleted`
-в `attr.json`), затем очистка GC.
+из `attr.json`. GC выполняет hard delete — физическое удаление файла
+и его `attr.json` с диска.
 
 **In-memory индекс метаданных** — при старте SE сканирует все `*.attr.json`
 и строит в памяти `map[file_id]FileMetadata`. Индекс обеспечивает быструю
@@ -228,7 +228,7 @@ rw ──► ro ──► ar
 | `GET` | `/api/v1/files` | Список файлов (пагинация, фильтр по status) | все |
 | `GET` | `/api/v1/files/{file_id}` | Метаданные файла | все |
 | `PATCH` | `/api/v1/files/{file_id}` | Обновление метаданных (description, tags) | `edit`, `rw` |
-| `DELETE` | `/api/v1/files/{file_id}` | Удаление файла (soft delete) | `edit` |
+| `DELETE` | `/api/v1/files/{file_id}` | Удаление файла (hard delete) | `edit` |
 | `GET` | `/api/v1/files/{file_id}/download` | Скачивание файла (streaming, Range requests) | `edit`, `rw`, `ro` |
 
 ### System (1 endpoint)
@@ -325,7 +325,7 @@ SE предоставляет endpoint `GET /api/v1/files` для синхрон
    - Если файл есть в реестре — обновить метаданные
    - Если файла нет в реестре — добавить запись
 4. Файлы в реестре, привязанные к этому SE, но отсутствующие в ответе SE —
-   пометить как `deleted`
+   удалить запись из реестра
 
 ### Восстановление после сбоя PostgreSQL
 

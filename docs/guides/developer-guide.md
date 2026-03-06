@@ -658,7 +658,7 @@ All filters are optional. When multiple filters are provided, they are combined 
 | `tags` | string[] | File must contain ALL specified tags |
 | `uploaded_by` | string | Username or client_id of the uploader |
 | `retention_policy` | string | `temporary` or `permanent` |
-| `status` | string | `active` (default), `expired`, or `deleted` |
+| `status` | string | Not used (removed) |
 | `min_size` | integer | Minimum file size in bytes |
 | `max_size` | integer | Maximum file size in bytes |
 | `uploaded_after` | string | ISO 8601 datetime lower bound |
@@ -1050,7 +1050,7 @@ Authorization: Bearer <token>
 |-----------|------|---------|-------------|
 | `limit` | integer | 20 | Results per page (1-1000) |
 | `offset` | integer | 0 | Results to skip |
-| `status` | string | — | Filter by status: `active`, `deleted`, `archived` |
+| `status` | string | — | Not used (removed) |
 | `retention_policy` | string | — | Filter: `temporary` or `permanent` |
 | `storage_element_id` | UUID | — | Filter by SE |
 | `uploaded_by` | string | — | Filter by uploader |
@@ -1118,7 +1118,7 @@ Authorization: Bearer <token>
 
 **Response**: `204 No Content`
 
-> **Note**: This is a soft delete. The file status is set to `deleted` in the registry. Physical file removal is handled by the SE garbage collector.
+> **Note**: This is a hard delete. The file record is permanently removed from the registry.
 
 **curl**:
 

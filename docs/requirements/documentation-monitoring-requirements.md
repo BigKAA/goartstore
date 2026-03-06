@@ -596,7 +596,7 @@ podAnnotations:
 
 **Storage Element — бизнес-метрики:**
 
-- `se_files_total{status}` — количество файлов (active/deleted)
+- `se_files_total` — общее количество файлов
 - `se_storage_bytes` — использованное место
 - `se_operations_total{operation, result}` — операции (upload/delete/replicate)
 

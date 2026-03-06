@@ -38,7 +38,7 @@ Query Module (QM) — read-only сервис для поиска и скачив
 
 ### 2.4 Ленивая очистка реестра
 
-- Если SE вернул 404 при download → QM обновляет `status='deleted'` в PostgreSQL
+- Если SE вернул 404 при download → QM удаляет запись файла из PostgreSQL
 - Возвращает 404 клиенту
 - Инвалидирует запись в LRU cache для этого file_id
 
@@ -98,7 +98,7 @@ Prometheus-метрики:
 ### 3.3 Shared PostgreSQL
 
 - QM использует **ту же БД**, что и Admin Module
-- QM **только читает** таблицу `file_registry` (и пишет `status='deleted'` при lazy cleanup)
+- QM **только читает** таблицу `file_registry` (и удаляет записи при lazy cleanup)
 - QM управляет своими миграциями — **только индексы для поиска по атрибутам** (с `IF NOT EXISTS`)
 - Миграции AM должны быть выполнены до миграций QM (зависимость при деплое)
 

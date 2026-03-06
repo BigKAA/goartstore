@@ -936,11 +936,11 @@ Manage all registered Storage Elements:
 
 Browse and manage the file registry:
 
-- File table with metadata: name, size, content type, SE location, retention policy, status, upload date
-- Filters: by status (active/deleted/expired), retention policy, SE, content type
+- File table with metadata: name, size, content type, SE location, retention policy, upload date
+- Filters: by retention policy, SE, content type
 - Search: by filename (substring match)
 - File detail modal with full metadata
-- Soft delete (admin role only): marks file as deleted in the registry
+- Hard delete (admin role only): removes the file record from the registry
 
 ![Admin UI: Files List](images/ui-files-list.png)
 *Figure 6.6 — File registry with filters*

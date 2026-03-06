@@ -658,7 +658,7 @@ Authorization: Bearer <token>
 | `tags` | string[] | Файл должен содержать ВСЕ указанные теги |
 | `uploaded_by` | string | Имя пользователя или client_id загрузившего |
 | `retention_policy` | string | `temporary` или `permanent` |
-| `status` | string | `active` (по умолчанию), `expired` или `deleted` |
+| `status` | string | Не используется (удалён) |
 | `min_size` | integer | Минимальный размер файла в байтах |
 | `max_size` | integer | Максимальный размер файла в байтах |
 | `uploaded_after` | string | Нижняя граница даты в формате ISO 8601 |
@@ -1050,7 +1050,7 @@ Authorization: Bearer <token>
 |----------|-----|-------------|----------|
 | `limit` | integer | 20 | Результатов на страницу (1-1000) |
 | `offset` | integer | 0 | Пропускаемых результатов |
-| `status` | string | — | Фильтр по статусу: `active`, `deleted`, `archived` |
+| `status` | string | — | Не используется (удалён) |
 | `retention_policy` | string | — | Фильтр: `temporary` или `permanent` |
 | `storage_element_id` | UUID | — | Фильтр по SE |
 | `uploaded_by` | string | — | Фильтр по загрузившему |

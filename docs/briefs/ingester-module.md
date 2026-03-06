@@ -229,7 +229,7 @@ Ingester не использует PostgreSQL, Redis или файловую с�
 
 Удаление файлов доступно только для SE в режиме `edit` (temporary файлы).
 Ingester проксирует запрос: получает URL SE из Admin Module, выполняет
-soft-delete на SE, затем обновляет реестр Admin Module.
+hard delete на SE, затем удаляет запись из реестра Admin Module.
 
 ### Успешный сценарий
 

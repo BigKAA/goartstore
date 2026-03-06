@@ -397,7 +397,7 @@ SA управляются параллельно: можно создать в K
 | `GET` | `/api/v1/files` | Список файлов (фильтры: status, retention, SE, uploaded_by) | SA `files:read`, `admin`, `readonly` |
 | `GET` | `/api/v1/files/{file_id}` | Метаданные файла | SA `files:read`, `admin`, `readonly` |
 | `PUT` | `/api/v1/files/{file_id}` | Обновление метаданных | SA `files:write`, `admin` |
-| `DELETE` | `/api/v1/files/{file_id}` | Soft delete | SA `files:write`, `admin` |
+| `DELETE` | `/api/v1/files/{file_id}` | Hard delete (удаление записи) | SA `files:write`, `admin` |
 
 ### IdP Status (2 endpoints)
 
@@ -435,7 +435,7 @@ Admin Module запускает фоновую задачу, которая с �
       - Если файл есть в реестре — обновить метаданные (status, tags, description)
       - Если файла нет в реестре — добавить запись
    d. Файлы в реестре, привязанные к этому SE, но отсутствующие в ответе —
-      пометить как `deleted`
+      удалить запись из реестра
    e. Обновить `last_sync_at` и `last_file_sync_at`
 
 ### Периодическая синхронизация SA с Keycloak
@@ -545,7 +545,7 @@ realm). Admin Module не создаёт пользователей.
 | # | Механизм | Триггер | Описание |
 |---|----------|---------|----------|
 | 1 | Периодический | Таймер (`AM_SYNC_INTERVAL`) | Фоновая задача, все SE параллельно |
-| 2 | Ленивая очистка | 404 от SE при скачивании | Query Module помечает файл как `deleted` |
+| 2 | Ленивая очистка | 404 от SE при скачивании | Query Module удаляет запись файла из реестра |
 | 3 | Ручной | Администратор из UI | `POST /storage-elements/{id}/sync` |
 | 4 | Full sync | Регистрация SE / восстановление из backup | Автоматически при `POST /storage-elements` |
 
@@ -558,7 +558,7 @@ realm). Admin Module не создаёт пользователей.
   - `files_on_se` — общее количество файлов на SE
   - `files_added` — новых файлов добавлено в реестр
   - `files_updated` — файлов обновлено
-  - `files_marked_deleted` — файлов помечено как deleted
+  - `files_removed` — файлов удалено из реестра
   - `started_at`, `completed_at` — временные метки
 
 ### Восстановление после сбоя PostgreSQL

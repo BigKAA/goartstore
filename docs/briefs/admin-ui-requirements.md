@@ -147,13 +147,12 @@ UI встраивается непосредственно в бинарник A
 |----|-----------|-----------|
 | FR-F1 | Таблица файлов: имя, размер, тип (content_type), SE, uploaded_by, дата, статус | P0 |
 | FR-F2 | Пагинация | P0 |
-| FR-F3 | Фильтры: status (active/deleted/expired), retention (permanent/temporary), SE, content_type | P0 |
+| FR-F3 | Фильтры: retention (permanent/temporary), SE, content_type | P0 |
 | FR-F4 | Поиск по имени файла | P0 |
 | FR-F5 | Сортировка: имя, размер, дата | P1 |
 | FR-F6 | Modal с метаданными файла (все поля: checksum, tags, description и т.д.) | P0 |
 | FR-F7 | Редактирование метаданных (description, tags) — только admin | P1 |
-| FR-F8 | Soft delete с подтверждением — только admin | P0 |
-| FR-F9 | Переключатель «показать удалённые» — только admin | P1 |
+| FR-F8 | Hard delete с подтверждением — только admin | P0 |
 | FR-F10 | Роль: readonly — просмотр; admin — редактирование, удаление | P0 |
 
 **Примечание**: Скачивание содержимого файлов — задача Query Module. В v1 файловый
