@@ -153,18 +153,6 @@ templ searchFilters() {
 				</select>
 			</div>
 
-			<!-- Status -->
-			<div>
-				<label class="block text-xs font-medium text-text-secondary uppercase tracking-wide mb-1">
-					{ i18n.T(ctx, "filter.status") }
-				</label>
-				<select name="status" class="select-field w-full">
-					<option value="">{ i18n.T(ctx, "filter.all_statuses") }</option>
-					<option value="active">{ i18n.T(ctx, "filter.active") }</option>
-					<option value="archived">{ i18n.T(ctx, "filter.archived") }</option>
-				</select>
-			</div>
-
 			<!-- Extension -->
 			<div>
 				<label class="block text-xs font-medium text-text-secondary uppercase tracking-wide mb-1">
@@ -538,11 +526,6 @@ templ FileDetailPartial(file *gateway.FileInfo) {
 						<span class="text-sm text-text-primary">{ *file.ExpiresAt }</span>
 					</div>
 				}
-				<!-- Статус -->
-				<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">
-					<span class="text-sm text-text-secondary">{ i18n.T(ctx, "file_detail.status") }</span>
-					@components.FileStatusBadge(file.Status)
-				</div>
 				<!-- Storage Element -->
 				<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-elevated">
 					<span class="text-sm text-text-secondary">{ i18n.T(ctx, "file_detail.storage_element") }</span>
@@ -573,7 +556,7 @@ templ FileDetailPartial(file *gateway.FileInfo) {
 				>
 					{ i18n.T(ctx, "btn.close") }
 				</button>
-				if file.SEMode == "edit" && file.Status == "active" {
+				if file.SEMode == "edit" {
 					@deleteFileButton(file)
 				}
 				if file.SEMode != "ar" {

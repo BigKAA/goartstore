@@ -29,7 +29,6 @@ type UploadResult struct {
 	UploadedAt       time.Time `json:"uploaded_at"`
 	Description      *string   `json:"description,omitempty"`
 	Tags             []string  `json:"tags"`
-	Status           string    `json:"status"`
 	StorageElementID string    `json:"storage_element_id"`
 	RetentionPolicy  string    `json:"retention_policy"`
 	TTLDays          *int      `json:"ttl_days,omitempty"`
@@ -55,7 +54,6 @@ type SearchRequest struct {
 	Tags            []string `json:"tags,omitempty"`
 	UploadedBy      string   `json:"uploaded_by,omitempty"`
 	RetentionPolicy string   `json:"retention_policy,omitempty"`
-	Status          string   `json:"status,omitempty"`
 	MinSize         *int64   `json:"min_size,omitempty"`
 	MaxSize         *int64   `json:"max_size,omitempty"`
 	UploadedAfter   string   `json:"uploaded_after,omitempty"`
@@ -87,7 +85,6 @@ type FileInfo struct {
 	UploadedAt       time.Time `json:"uploaded_at"`
 	Description      *string   `json:"description,omitempty"`
 	Tags             []string  `json:"tags"`
-	Status           string    `json:"status"`
 	RetentionPolicy  string    `json:"retention_policy"`
 	TTLDays          *int      `json:"ttl_days,omitempty"`
 	ExpiresAt        *string   `json:"expires_at,omitempty"`

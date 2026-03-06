@@ -17,10 +17,10 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 6
-- **Активный подпункт**: 6.1
+- **Активная фаза**: Phase 7
+- **Активный подпункт**: 7.1
 - **Последнее обновление**: 2026-03-06
-- **Примечание**: Phases 1-5 завершены
+- **Примечание**: Phases 1-6 завершены
 
 ---
 
@@ -42,7 +42,7 @@
 - [x] [Phase 3: Admin Module](#phase-3-admin-module)
 - [x] [Phase 4: Query Module](#phase-4-query-module)
 - [x] [Phase 5: Ingester Module](#phase-5-ingester-module)
-- [ ] [Phase 6: Demo Client](#phase-6-demo-client)
+- [x] [Phase 6: Demo Client](#phase-6-demo-client)
 - [ ] [Phase 7: Интеграционные тесты и сборка](#phase-7-интеграционные-тесты-и-сборка)
 
 ---
@@ -448,7 +448,7 @@
 ## Phase 6: Demo Client
 
 **Dependencies**: Phase 4, Phase 5
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -456,7 +456,7 @@
 
 ### Подпункты
 
-- [ ] **6.1 Gateway-модели**
+- [x] **6.1 Gateway-модели**
   - **Dependencies**: None
   - **Description**:
     - Убрать `Status` из `UploadResult`, `SearchRequest`, `FileInfo`
@@ -464,7 +464,7 @@
   - **Modifies**:
     - `src/demo-client/internal/gateway/models.go`
 
-- [ ] **6.2 Поиск**
+- [x] **6.2 Поиск**
   - **Dependencies**: 6.1
   - **Description**:
     - Убрать dropdown "Активные/Архивные" из фильтров поиска
@@ -474,7 +474,7 @@
     - `src/demo-client/internal/ui/pages/search.templ`
     - `src/demo-client/internal/ui/handlers/search.go`
 
-- [ ] **6.3 Dashboard**
+- [x] **6.3 Dashboard**
   - **Dependencies**: 6.1
   - **Description**:
     - Убрать 3 отдельных запроса (active/expired/deleted) → 1 запрос (все файлы)
@@ -484,7 +484,7 @@
     - `src/demo-client/internal/service/dashboard.go`
     - `src/demo-client/internal/ui/pages/dashboard.templ`
 
-- [ ] **6.4 Компоненты и badge**
+- [x] **6.4 Компоненты и badge**
   - **Dependencies**: 6.1
   - **Description**:
     - Убрать `FileStatusBadge` (или переделать на badge SE mode)
@@ -493,7 +493,7 @@
   - **Modifies**:
     - `src/demo-client/internal/ui/components/badge.templ` (или `badge_templ.go`)
 
-- [ ] **6.5 i18n**
+- [x] **6.5 i18n**
   - **Dependencies**: 6.2, 6.3, 6.4
   - **Description**:
     - Убрать ключи `filter.active`, `filter.archived`, `filter.all_statuses`
@@ -505,11 +505,11 @@
 
 ### Критерии завершения Phase 6
 
-- [ ] Все подпункты завершены (6.1–6.5)
-- [ ] `go build ./...` проходит без ошибок
-- [ ] UI не показывает статусы файлов
-- [ ] Dashboard с одним запросом
-- [ ] Архивность отображается через SE mode
+- [x] Все подпункты завершены (6.1–6.5)
+- [x] `go build ./...` проходит без ошибок
+- [x] UI не показывает статусы файлов
+- [x] Dashboard с одним запросом
+- [x] Архивность отображается через SE mode
 
 ---
 

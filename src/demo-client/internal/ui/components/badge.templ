@@ -18,12 +18,6 @@ const (
 	BadgeModeRO   BadgeVariant = "mode-ro"
 	BadgeModeAR   BadgeVariant = "mode-ar"
 
-	// Статусы файлов
-	BadgeFileActive   BadgeVariant = "file-active"
-	BadgeFileArchived BadgeVariant = "file-archived"
-	BadgeFileDeleted  BadgeVariant = "file-deleted"
-	BadgeFileExpired  BadgeVariant = "file-expired"
-
 	// Общие
 	BadgeSuccess BadgeVariant = "success"
 	BadgeWarning BadgeVariant = "warning"
@@ -42,10 +36,6 @@ var badgeStyles = map[BadgeVariant]string{
 	BadgeModeRW:       "bg-mode-rw/20 text-mode-rw",
 	BadgeModeRO:       "bg-mode-ro/20 text-mode-ro",
 	BadgeModeAR:       "bg-mode-ar/20 text-mode-ar",
-	BadgeFileActive:   "bg-status-success/20 text-status-success",
-	BadgeFileArchived: "bg-mode-ar/20 text-mode-ar",
-	BadgeFileDeleted:  "bg-status-error/20 text-status-error",
-	BadgeFileExpired:  "bg-status-warning/20 text-status-warning",
 	BadgeSuccess:      "bg-status-success/20 text-status-success",
 	BadgeWarning:      "bg-status-warning/20 text-status-warning",
 	BadgeError:        "bg-status-error/20 text-status-error",
@@ -99,22 +89,6 @@ templ ModeBadge(mode string) {
 			@Badge(BadgeModeAR, "ar")
 		default:
 			@Badge(BadgeNeutral, mode)
-	}
-}
-
-// FileStatusBadge — бейдж статуса файла
-templ FileStatusBadge(status string) {
-	switch status {
-		case "active":
-			@Badge(BadgeFileActive, "active")
-		case "archived":
-			@Badge(BadgeFileArchived, "archived")
-		case "deleted":
-			@Badge(BadgeFileDeleted, "deleted")
-		case "expired":
-			@Badge(BadgeFileExpired, "expired")
-		default:
-			@Badge(BadgeNeutral, status)
 	}
 }
 

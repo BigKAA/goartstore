@@ -45,9 +45,6 @@ type FileStats struct {
 	Total     int
 	Temporary int
 	Permanent int
-	Active    int
-	Expired   int
-	Deleted   int
 }
 
 // GetDashboardData собирает все данные для дашборда.
@@ -90,22 +87,20 @@ func (s *DashboardService) GetTokenInfo() token.Status {
 }
 
 // getFileStats собирает статистику по файлам через search API.
-// Выполняет несколько запросов с разными фильтрами для подсчёта.
+// Выполняет запросы для подсчёта общего количества, temporary и permanent файлов.
 func (s *DashboardService) getFileStats() FileStats {
 	stats := FileStats{}
 
-	// Общее количество файлов (active).
+	// Общее количество файлов.
 	if resp, err := s.gw.Search(gateway.SearchRequest{
-		Status: "active",
-		Limit:  1,
+		Limit: 1,
 	}); err == nil {
-		stats.Active = resp.Total
+		stats.Total = resp.Total
 	}
 
 	// Temporary файлы.
 	if resp, err := s.gw.Search(gateway.SearchRequest{
 		RetentionPolicy: "temporary",
-		Status:          "active",
 		Limit:           1,
 	}); err == nil {
 		stats.Temporary = resp.Total
@@ -114,38 +109,15 @@ func (s *DashboardService) getFileStats() FileStats {
 	// Permanent файлы.
 	if resp, err := s.gw.Search(gateway.SearchRequest{
 		RetentionPolicy: "permanent",
-		Status:          "active",
 		Limit:           1,
 	}); err == nil {
 		stats.Permanent = resp.Total
 	}
 
-	// Expired файлы.
-	if resp, err := s.gw.Search(gateway.SearchRequest{
-		Status: "expired",
-		Limit:  1,
-	}); err == nil {
-		stats.Expired = resp.Total
-	}
-
-	// Deleted файлы.
-	if resp, err := s.gw.Search(gateway.SearchRequest{
-		Status: "deleted",
-		Limit:  1,
-	}); err == nil {
-		stats.Deleted = resp.Total
-	}
-
-	// Total = Active + Expired + Deleted.
-	stats.Total = stats.Active + stats.Expired + stats.Deleted
-
 	s.logger.Debug("статистика файлов",
 		"total", stats.Total,
-		"active", stats.Active,
 		"temporary", stats.Temporary,
 		"permanent", stats.Permanent,
-		"expired", stats.Expired,
-		"deleted", stats.Deleted,
 	)
 
 	// Записываем в Activity Log.

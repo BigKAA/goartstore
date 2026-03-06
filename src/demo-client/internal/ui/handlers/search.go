@@ -201,7 +201,6 @@ func (h *SearchHandler) parseSearchParams(r *http.Request) gateway.SearchRequest
 		Filename:        strings.TrimSpace(q.Get("filename")),
 		FileExtension:   strings.TrimSpace(q.Get("extension")),
 		RetentionPolicy: q.Get("retention"),
-		Status:          q.Get("status"),
 		Mode:            q.Get("mode"),
 		UploadedAfter:   q.Get("date_from"),
 		UploadedBefore:  q.Get("date_to"),

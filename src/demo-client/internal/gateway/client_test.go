@@ -267,7 +267,6 @@ func TestUploadMultipart(t *testing.T) {
 			FileID:           "new-file-id",
 			OriginalFilename: "test.txt",
 			Size:             11,
-			Status:           "active",
 		})
 	}))
 	defer server.Close()
@@ -378,7 +377,6 @@ func TestGetMetadata(t *testing.T) {
 			OriginalFilename: "document.pdf",
 			ContentType:      "application/pdf",
 			Size:             1024000,
-			Status:           "active",
 			RetentionPolicy:  "permanent",
 			SEMode:           "rw",
 		})
