@@ -46,9 +46,8 @@ type SEFileMetadata struct {
 	Size             int64    `json:"size"`
 	Checksum         string   `json:"checksum"`
 	UploadedBy       string   `json:"uploaded_by"`
-	UploadedAt       string   `json:"uploaded_at"`
-	Status           string   `json:"status"`
-	RetentionPolicy  string   `json:"retention_policy"`
+	UploadedAt      string `json:"uploaded_at"`
+	RetentionPolicy string `json:"retention_policy"`
 	TTLDays          *int     `json:"ttl_days,omitempty"`
 	ExpiresAt        *string  `json:"expires_at,omitempty"`
 	Description      *string  `json:"description,omitempty"`

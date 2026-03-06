@@ -40,7 +40,7 @@ templ FileTableBody(data FileTableData) {
 						<th class="px-4 py-3 font-medium">
 							@filePartialColSort("uploaded_at", i18n.T(ctx, "files.table.upload_date"), data.SortKey, data.SortDir)
 						</th>
-						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "files.table.status") }</th>
+						<th class="px-4 py-3 font-medium">Retention</th>
 						<th class="px-4 py-3 font-medium text-right">{ i18n.T(ctx, "files.table.actions") }</th>
 					</tr>
 				</thead>
@@ -96,7 +96,7 @@ templ FileTableBody(data FileTableData) {
 								<span class="text-text-muted text-xs">{ pages.FileFormatTimeFn(f.UploadedAt) }</span>
 							</td>
 							<td class="px-4 py-3">
-								@components.Badge(pages.FileEffectiveStatusVariantFn(f.Status, f.SEMode), pages.FileEffectiveStatusLabelFn(f.Status, f.SEMode))
+								@components.Badge(pages.FileRetentionVariantFn(f.RetentionPolicy), pages.FileRetentionLabelFn(f.RetentionPolicy))
 							</td>
 							<td class="px-4 py-3 text-right">
 								<div class="flex items-center justify-end gap-1">
@@ -113,7 +113,7 @@ templ FileTableBody(data FileTableData) {
 											<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
 										</svg>
 									</button>
-									if data.Role == "admin" && f.Status == "active" && !pages.IsArchivedFileFn(f.Status, f.SEMode) {
+									if data.Role == "admin" && !pages.IsArchivedSEFn(f.SEMode) {
 										<!-- Редактировать -->
 										<button
 											class="p-1.5 text-text-muted hover:text-status-info transition-colors rounded-button hover:bg-bg-hover"

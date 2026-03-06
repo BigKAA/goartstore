@@ -18,10 +18,9 @@ type FileListItem struct {
 	SizeBytes        int64
 	StorageElementID string
 	SEName           string // Имя SE (для отображения)
-	SEMode           string // Режим SE (edit, rw, ro, ar) — для виртуального статуса "В архиве"
+	SEMode           string // Режим SE (edit, rw, ro, ar)
 	UploadedBy       string
 	UploadedAt       time.Time
-	Status           string // active, deleted, expired
 	RetentionPolicy  string // permanent, temporary
 }
 
@@ -33,12 +32,10 @@ type SEOption struct {
 
 // FileListFilters — текущие значения фильтров файлов.
 type FileListFilters struct {
-	Status      string // Фильтр по статусу (пустая строка = active по умолчанию)
 	Retention   string // Фильтр по retention policy
 	SEID        string // Фильтр по Storage Element
 	ContentType string // Фильтр по MIME-типу (группа или точный)
 	Search      string // Поисковый запрос по имени файла
-	ShowDeleted bool   // Показать удалённые (admin only)
 }
 
 // FileListData — данные для страницы списка файлов.
@@ -91,34 +88,6 @@ func fileFormatTime(t time.Time) string {
 	return t.Format("02.01.2006 15:04")
 }
 
-// fileStatusBadge возвращает вариант бейджа для статуса файла.
-func fileStatusLabel(status string) string {
-	switch status {
-	case "active":
-		return "Active"
-	case "deleted":
-		return "Deleted"
-	case "expired":
-		return "Expired"
-	default:
-		return status
-	}
-}
-
-// fileStatusVariant возвращает вариант бейджа для статуса файла.
-func fileStatusVariant(status string) components.BadgeVariant {
-	switch status {
-	case "active":
-		return components.BadgeSuccess
-	case "deleted":
-		return components.BadgeError
-	case "expired":
-		return components.BadgeWarning
-	default:
-		return components.BadgeNeutral
-	}
-}
-
 // fileRetentionLabel возвращает метку retention policy.
 func fileRetentionLabel(policy string) string {
 	switch policy {
@@ -140,25 +109,9 @@ func fileContentTypeShort(ct string) string {
 	return ct
 }
 
-// isArchivedFile — файл считается "В архиве", если он active и находится в SE с mode=ar.
-func isArchivedFile(status, seMode string) bool {
-	return status == "active" && seMode == "ar"
-}
-
-// fileEffectiveStatusLabel возвращает метку с учётом виртуального статуса "В архиве".
-func fileEffectiveStatusLabel(status, seMode string) string {
-	if isArchivedFile(status, seMode) {
-		return "Archived"
-	}
-	return fileStatusLabel(status)
-}
-
-// fileEffectiveStatusVariant возвращает вариант бейджа с учётом виртуального статуса "В архиве".
-func fileEffectiveStatusVariant(status, seMode string) components.BadgeVariant {
-	if isArchivedFile(status, seMode) {
-		return components.BadgeArchived
-	}
-	return fileStatusVariant(status)
+// isArchivedSE — SE находится в архивном режиме (mode=ar).
+func isArchivedSE(seMode string) bool {
+	return seMode == "ar"
 }
 
 // --- Экспортированные функции для использования в partials ---
@@ -173,29 +126,19 @@ func FileFormatTimeFn(t time.Time) string {
 	return fileFormatTime(t)
 }
 
-// FileStatusLabelFn — экспортированная обёртка fileStatusLabel для partials.
-func FileStatusLabelFn(status string) string {
-	return fileStatusLabel(status)
+// IsArchivedSEFn — экспортированная проверка архивного режима SE.
+func IsArchivedSEFn(seMode string) bool {
+	return isArchivedSE(seMode)
 }
 
-// FileStatusVariantFn — экспортированная обёртка fileStatusVariant для partials.
-func FileStatusVariantFn(status string) components.BadgeVariant {
-	return fileStatusVariant(status)
+// FileRetentionVariantFn — экспортированная обёртка для partials.
+func FileRetentionVariantFn(policy string) components.BadgeVariant {
+	return fileRetentionVariant(policy)
 }
 
-// FileEffectiveStatusLabelFn — экспортированная обёртка с учётом виртуального статуса "В архиве".
-func FileEffectiveStatusLabelFn(status, seMode string) string {
-	return fileEffectiveStatusLabel(status, seMode)
-}
-
-// FileEffectiveStatusVariantFn — экспортированная обёртка с учётом виртуального статуса "В архиве".
-func FileEffectiveStatusVariantFn(status, seMode string) components.BadgeVariant {
-	return fileEffectiveStatusVariant(status, seMode)
-}
-
-// IsArchivedFileFn — экспортированная проверка виртуального статуса "В архиве".
-func IsArchivedFileFn(status, seMode string) bool {
-	return isArchivedFile(status, seMode)
+// FileRetentionLabelFn — экспортированная обёртка для partials.
+func FileRetentionLabelFn(policy string) string {
+	return fileRetentionLabel(policy)
 }
 
 // FileList — страница списка файлов с фильтрами, поиском, сортировкой и пагинацией.
@@ -227,27 +170,7 @@ templ FileList(data FileListData) {
 		<div class="mb-4">
 			<div
 				class="flex flex-wrap items-end gap-3 bg-bg-surface rounded-card p-4 border border-border-subtle"
-				x-data={ fmt.Sprintf("{ showDeleted: %t }", data.Filters.ShowDeleted) }
 			>
-				<!-- Фильтр по статусу -->
-				<div class="flex-shrink-0">
-					<label class="block text-xs font-medium text-text-muted mb-1">{ i18n.T(ctx, "files.filter.status") }</label>
-					<select
-						name="status"
-						class="bg-bg-elevated text-text-primary text-sm rounded-button border border-border-default px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary"
-						hx-get="/admin/partials/file-table"
-						hx-target="#file-table-container"
-						hx-swap="innerHTML"
-						hx-include="closest .flex"
-					>
-						<option value="" selected?={ data.Filters.Status == "" }>{ i18n.T(ctx, "files.filter.all_statuses") }</option>
-						<option value="active" selected?={ data.Filters.Status == "active" }>{ i18n.T(ctx, "files.filter.active") }</option>
-						<option value="deleted" selected?={ data.Filters.Status == "deleted" }>{ i18n.T(ctx, "files.filter.deleted") }</option>
-						<option value="expired" selected?={ data.Filters.Status == "expired" }>{ i18n.T(ctx, "files.filter.expired") }</option>
-					<option value="archived" selected?={ data.Filters.Status == "archived" }>{ i18n.T(ctx, "files.filter.archived") }</option>
-					</select>
-				</div>
-
 				<!-- Фильтр по retention -->
 				<div class="flex-shrink-0">
 					<label class="block text-xs font-medium text-text-muted mb-1">{ i18n.T(ctx, "files.filter.retention") }</label>
@@ -319,31 +242,6 @@ templ FileList(data FileListData) {
 						hx-include="closest .flex"
 					/>
 				</div>
-
-				<!-- Toggle: показать удалённые (admin only) -->
-				if data.Role == "admin" {
-					<div class="flex-shrink-0 flex items-center gap-2 pb-0.5">
-						<input
-							type="hidden"
-							name="show_deleted"
-							x-bind:value="showDeleted.toString()"
-						/>
-						<button
-							type="button"
-							class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-accent-primary focus:ring-offset-2 focus:ring-offset-bg-base"
-							x-bind:class="showDeleted ? 'bg-accent-primary' : 'bg-bg-elevated'"
-							x-on:click="showDeleted = !showDeleted; $nextTick(() => { htmx.trigger(document.querySelector('[name=status]'), 'change') })"
-							role="switch"
-							x-bind:aria-checked="showDeleted.toString()"
-						>
-							<span
-								class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-								x-bind:class="showDeleted ? 'translate-x-4' : 'translate-x-0'"
-							></span>
-						</button>
-						<span class="text-xs text-text-muted">{ i18n.T(ctx, "files.filter.show_deleted") }</span>
-					</div>
-				}
 			</div>
 		</div>
 
@@ -373,7 +271,7 @@ templ fileTableContent(data FileListData) {
 						<th class="px-4 py-3 font-medium">
 							@fileColSort("uploaded_at", i18n.T(ctx, "files.table.upload_date"), data.SortKey, data.SortDir)
 						</th>
-						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "files.table.status") }</th>
+						<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "files.table.retention") }</th>
 						<th class="px-4 py-3 font-medium text-right">{ i18n.T(ctx, "files.table.actions") }</th>
 					</tr>
 				</thead>
@@ -430,7 +328,7 @@ templ fileTableContent(data FileListData) {
 								<span class="text-text-muted text-xs">{ fileFormatTime(f.UploadedAt) }</span>
 							</td>
 							<td class="px-4 py-3">
-								@components.Badge(fileEffectiveStatusVariant(f.Status, f.SEMode), fileEffectiveStatusLabel(f.Status, f.SEMode))
+								@components.Badge(fileRetentionVariant(f.RetentionPolicy), fileRetentionLabel(f.RetentionPolicy))
 							</td>
 							<td class="px-4 py-3 text-right">
 								<div class="flex items-center justify-end gap-1">
@@ -447,7 +345,7 @@ templ fileTableContent(data FileListData) {
 											<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
 										</svg>
 									</button>
-									if data.Role == "admin" && f.Status == "active" && !isArchivedFile(f.Status, f.SEMode) {
+									if data.Role == "admin" && !isArchivedSE(f.SEMode) {
 										<!-- Редактировать -->
 										<button
 											class="p-1.5 text-text-muted hover:text-status-info transition-colors rounded-button hover:bg-bg-hover"
@@ -492,6 +390,18 @@ templ fileTableContent(data FileListData) {
 			TargetID:    "file-table-container",
 		})
 	</div>
+}
+
+// fileRetentionVariant возвращает вариант бейджа для retention policy.
+func fileRetentionVariant(policy string) components.BadgeVariant {
+	switch policy {
+	case "permanent":
+		return components.BadgeInfo
+	case "temporary":
+		return components.BadgeWarning
+	default:
+		return components.BadgeNeutral
+	}
 }
 
 // fileColSort — кнопка сортировки в заголовке колонки.

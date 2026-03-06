@@ -111,10 +111,9 @@ func (h *StorageElementsHandler) HandleList(w http.ResponseWriter, r *http.Reque
 		}
 
 		// Подсчитываем файлы SE
-		activeStatus := statusActive
+		seIDCopy := se.ID
 		filters := repository.FileListFilters{
-			StorageElementID: &se.ID,
-			Status:           &activeStatus,
+			StorageElementID: &seIDCopy,
 		}
 		_, fileCount, fErr := h.filesSvc.List(ctx, filters, 0, 0)
 		if fErr != nil {
@@ -233,10 +232,9 @@ func (h *StorageElementsHandler) HandleTablePartial(w http.ResponseWriter, r *ht
 			LastSyncAt:    se.LastSyncAt,
 		}
 
-		activeStatus := statusActive
+		seIDCopy2 := se.ID
 		filters := repository.FileListFilters{
-			StorageElementID: &se.ID,
-			Status:           &activeStatus,
+			StorageElementID: &seIDCopy2,
 		}
 		_, fileCount, fErr := h.filesSvc.List(ctx, filters, 0, 0)
 		if fErr == nil {
@@ -435,15 +433,13 @@ func (h *StorageElementsHandler) HandleDelete(w http.ResponseWriter, r *http.Req
 	id := chi.URLParam(r, "id")
 
 	// Проверяем наличие файлов
-	activeStatus := statusActive
 	filters := repository.FileListFilters{
 		StorageElementID: &id,
-		Status:           &activeStatus,
 	}
 	_, fileCount, fErr := h.filesSvc.List(ctx, filters, 0, 0)
 	if fErr == nil && fileCount > 0 {
 		h.renderAlert(w, r,
-			"Невозможно удалить SE: есть "+strconv.Itoa(fileCount)+" активных файлов. Сначала удалите файлы.")
+			"Невозможно удалить SE: есть "+strconv.Itoa(fileCount)+" файлов. Сначала удалите файлы.")
 		return
 	}
 
@@ -556,15 +552,13 @@ func (h *StorageElementsHandler) HandleDetail(w http.ResponseWriter, r *http.Req
 	}
 
 	// Подсчёт файлов
-	activeStatus := statusActive
-	filters := repository.FileListFilters{
+	detailFilters := repository.FileListFilters{
 		StorageElementID: &id,
-		Status:           &activeStatus,
 	}
-	_, fileCount, _ := h.filesSvc.List(ctx, filters, 0, 0)
+	_, fileCount, _ := h.filesSvc.List(ctx, detailFilters, 0, 0)
 
 	// Получаем список файлов для первой страницы
-	fileList, _, _ := h.filesSvc.List(ctx, filters, 20, 0)
+	fileList, _, _ := h.filesSvc.List(ctx, detailFilters, 20, 0)
 
 	fileItems := make([]pages.SEFileItem, 0, len(fileList))
 	for _, f := range fileList {
@@ -575,7 +569,6 @@ func (h *StorageElementsHandler) HandleDetail(w http.ResponseWriter, r *http.Req
 			SizeBytes:        f.Size,
 			UploadedBy:       f.UploadedBy,
 			UploadedAt:       f.UploadedAt,
-			Status:           f.Status,
 		})
 	}
 
@@ -623,14 +616,12 @@ func (h *StorageElementsHandler) HandleFilesPartial(w http.ResponseWriter, r *ht
 
 	const filesPageSize = 20
 
-	activeStatus := statusActive
-	filters := repository.FileListFilters{
+	partialFilters := repository.FileListFilters{
 		StorageElementID: &id,
-		Status:           &activeStatus,
 	}
 
 	offset := (page - 1) * filesPageSize
-	fileList, totalFiles, err := h.filesSvc.List(ctx, filters, filesPageSize, offset)
+	fileList, totalFiles, err := h.filesSvc.List(ctx, partialFilters, filesPageSize, offset)
 	if err != nil {
 		h.logger.Error("Ошибка получения файлов SE (partial)",
 			slog.String("se_id", id),
@@ -647,7 +638,6 @@ func (h *StorageElementsHandler) HandleFilesPartial(w http.ResponseWriter, r *ht
 			SizeBytes:        f.Size,
 			UploadedBy:       f.UploadedBy,
 			UploadedAt:       f.UploadedAt,
-			Status:           f.Status,
 		})
 	}
 

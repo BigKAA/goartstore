@@ -145,10 +145,8 @@ func (h *DashboardHandler) collectSEMetrics(ctx context.Context, data *pages.Das
 func (h *DashboardHandler) collectFilesPerSE(ctx context.Context, data *pages.DashboardData) {
 	for i := range data.StorageElements {
 		seID := data.StorageElements[i].ID
-		activeStatus := statusActive
 		filters := repository.FileListFilters{
 			StorageElementID: &seID,
-			Status:           &activeStatus,
 		}
 		_, count, err := h.filesSvc.List(ctx, filters, 0, 0)
 		if err != nil {
@@ -162,23 +160,21 @@ func (h *DashboardHandler) collectFilesPerSE(ctx context.Context, data *pages.Da
 	}
 }
 
-// collectFileMetrics собирает метрики файлов: всего, по статусу, по retention.
+// collectFileMetrics собирает метрики файлов: всего, по retention.
 func (h *DashboardHandler) collectFileMetrics(ctx context.Context, data *pages.DashboardData) {
-	// Общее число активных файлов
-	activeStatus := statusActive
-	_, totalActive, err := h.filesSvc.List(ctx, repository.FileListFilters{Status: &activeStatus}, 0, 0)
+	// Общее число файлов
+	_, totalFiles, err := h.filesSvc.List(ctx, repository.FileListFilters{}, 0, 0)
 	if err != nil {
-		h.logger.Error("Ошибка подсчёта активных файлов",
+		h.logger.Error("Ошибка подсчёта файлов",
 			slog.String("error", err.Error()),
 		)
 		return
 	}
-	data.FilesTotal = totalActive
+	data.FilesTotal = totalFiles
 
 	// Файлы permanent
 	permanentPolicy := "permanent"
 	_, permCount, err := h.filesSvc.List(ctx, repository.FileListFilters{
-		Status:          &activeStatus,
 		RetentionPolicy: &permanentPolicy,
 	}, 0, 0)
 	if err != nil {

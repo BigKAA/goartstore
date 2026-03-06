@@ -1,5 +1,5 @@
 // files.go — обработчики /api/v1/files endpoints.
-// Файловый реестр: регистрация, список, получение, обновление, soft delete.
+// Файловый реестр: регистрация, список, получение, обновление, hard delete.
 package handlers
 
 import (
@@ -92,9 +92,8 @@ func (h *APIHandler) RegisterFile(w http.ResponseWriter, r *http.Request) {
 		Checksum:         req.Checksum,
 		StorageElementID: req.StorageElementId.String(),
 		UploadedBy:       uploadedBy,
-		UploadedAt:       time.Now().UTC(),
-		Status:           "active",
-		RetentionPolicy:  string(req.RetentionPolicy),
+		UploadedAt:      time.Now().UTC(),
+		RetentionPolicy: string(req.RetentionPolicy),
 		TTLDays:          req.TtlDays,
 	}
 
@@ -152,10 +151,6 @@ func (h *APIHandler) ListFiles(w http.ResponseWriter, r *http.Request, params ge
 
 	// Формируем фильтры
 	filters := repository.FileListFilters{}
-	if params.Status != nil {
-		s := string(*params.Status)
-		filters.Status = &s
-	}
 	if params.RetentionPolicy != nil {
 		s := string(*params.RetentionPolicy)
 		filters.RetentionPolicy = &s
@@ -234,7 +229,7 @@ func (h *APIHandler) GetFile(w http.ResponseWriter, r *http.Request, fileId gene
 }
 
 // UpdateFile — PUT /api/v1/files/{file_id}.
-// Обновляет метаданные файла (description, tags, status).
+// Обновляет метаданные файла (description, tags).
 // Доступ: admin или SA с scope files:write.
 func (h *APIHandler) UpdateFile(w http.ResponseWriter, r *http.Request, fileId generated.FileId) { //nolint:revive // имя из сгенерированного интерфейса oapi-codegen
 	claims := middleware.ClaimsFromContext(r.Context())
@@ -265,13 +260,7 @@ func (h *APIHandler) UpdateFile(w http.ResponseWriter, r *http.Request, fileId g
 		return
 	}
 
-	var status *string
-	if req.Status != nil {
-		s := string(*req.Status)
-		status = &s
-	}
-
-	f, err := h.files.Update(r.Context(), fileId.String(), req.Description, req.Tags, status)
+	f, err := h.files.Update(r.Context(), fileId.String(), req.Description, req.Tags)
 	if err != nil {
 		if errors.Is(err, service.ErrNotFound) {
 			apierrors.NotFound(w, "Файл не найден")
@@ -286,7 +275,7 @@ func (h *APIHandler) UpdateFile(w http.ResponseWriter, r *http.Request, fileId g
 }
 
 // DeleteFile — DELETE /api/v1/files/{file_id}.
-// Soft delete файла (status → deleted).
+// Физическое удаление записи файла из реестра (hard delete).
 // Доступ: admin или SA с scope files:write.
 func (h *APIHandler) DeleteFile(w http.ResponseWriter, r *http.Request, fileId generated.FileId) { //nolint:revive // имя из сгенерированного интерфейса oapi-codegen
 	claims := middleware.ClaimsFromContext(r.Context())
@@ -336,9 +325,8 @@ func mapFileRecord(f *model.FileRecord) generated.FileRecord {
 		Checksum:         f.Checksum,
 		StorageElementId: uuid.MustParse(f.StorageElementID),
 		UploadedBy:       f.UploadedBy,
-		UploadedAt:       f.UploadedAt,
-		Status:           generated.FileRecordStatus(f.Status),
-		RetentionPolicy:  generated.FileRecordRetentionPolicy(f.RetentionPolicy),
+		UploadedAt:      f.UploadedAt,
+		RetentionPolicy: generated.FileRecordRetentionPolicy(f.RetentionPolicy),
 	}
 
 	result.Description = f.Description

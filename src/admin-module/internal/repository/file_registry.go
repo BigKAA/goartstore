@@ -21,19 +21,18 @@ type FileRegistryRepository interface {
 	List(ctx context.Context, filters FileListFilters, limit, offset int) ([]*model.FileRecord, error)
 	// Update обновляет метаданные файла.
 	Update(ctx context.Context, f *model.FileRecord) error
-	// Delete выполняет soft delete (status → deleted).
+	// Delete физически удаляет запись файла из БД.
 	Delete(ctx context.Context, fileID string) error
 	// BatchUpsert вставляет или обновляет массив файлов (для sync).
 	BatchUpsert(ctx context.Context, files []*model.FileRecord) (added, updated int, err error)
-	// MarkDeletedExcept помечает файлы SE как deleted, кроме указанных.
-	MarkDeletedExcept(ctx context.Context, seID string, existingIDs []string) (int, error)
+	// DeleteExcept удаляет записи файлов SE, кроме указанных в existingIDs.
+	DeleteExcept(ctx context.Context, seID string, existingIDs []string) (int, error)
 	// Count возвращает количество файлов с фильтрацией.
 	Count(ctx context.Context, filters FileListFilters) (int, error)
 }
 
 // FileListFilters — фильтры для списка файлов.
 type FileListFilters struct {
-	Status           *string
 	RetentionPolicy  *string
 	StorageElementID *string
 	UploadedBy       *string
@@ -53,15 +52,15 @@ func NewFileRegistryRepository(db DBTX) FileRegistryRepository {
 func (r *fileRegistryRepo) Register(ctx context.Context, f *model.FileRecord) error {
 	query := `
 		INSERT INTO file_registry (file_id, original_filename, content_type, size, checksum,
-			storage_element_id, uploaded_by, uploaded_at, description, tags, status,
+			storage_element_id, uploaded_by, uploaded_at, description, tags,
 			retention_policy, ttl_days, expires_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		RETURNING created_at, updated_at`
 
 	err := r.db.QueryRow(ctx, query,
 		f.FileID, f.OriginalFilename, f.ContentType, f.Size, f.Checksum,
 		f.StorageElementID, f.UploadedBy, f.UploadedAt, f.Description, f.Tags,
-		f.Status, f.RetentionPolicy, f.TTLDays, f.ExpiresAt,
+		f.RetentionPolicy, f.TTLDays, f.ExpiresAt,
 	).Scan(&f.CreatedAt, &f.UpdatedAt)
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -76,7 +75,7 @@ func (r *fileRegistryRepo) GetByID(ctx context.Context, fileID string) (*model.F
 	query := `
 		SELECT file_id, original_filename, content_type, size, checksum,
 			storage_element_id, uploaded_by, uploaded_at, description, tags,
-			status, retention_policy, ttl_days, expires_at, created_at, updated_at
+			retention_policy, ttl_days, expires_at, created_at, updated_at
 		FROM file_registry
 		WHERE file_id = $1`
 
@@ -84,7 +83,7 @@ func (r *fileRegistryRepo) GetByID(ctx context.Context, fileID string) (*model.F
 	err := r.db.QueryRow(ctx, query, fileID).Scan(
 		&f.FileID, &f.OriginalFilename, &f.ContentType, &f.Size, &f.Checksum,
 		&f.StorageElementID, &f.UploadedBy, &f.UploadedAt, &f.Description, &f.Tags,
-		&f.Status, &f.RetentionPolicy, &f.TTLDays, &f.ExpiresAt, &f.CreatedAt, &f.UpdatedAt,
+		&f.RetentionPolicy, &f.TTLDays, &f.ExpiresAt, &f.CreatedAt, &f.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -101,11 +100,6 @@ func buildFileWhere(filters FileListFilters, startArg int) (joinClause, whereCla
 	var conditions []string
 	argNum := startArg
 
-	if filters.Status != nil {
-		conditions = append(conditions, fmt.Sprintf("fr.status = $%d", argNum))
-		args = append(args, *filters.Status)
-		argNum++
-	}
 	if filters.RetentionPolicy != nil {
 		conditions = append(conditions, fmt.Sprintf("fr.retention_policy = $%d", argNum))
 		args = append(args, *filters.RetentionPolicy)
@@ -144,7 +138,7 @@ func (r *fileRegistryRepo) List(ctx context.Context, filters FileListFilters, li
 	query := fmt.Sprintf(`
 		SELECT fr.file_id, fr.original_filename, fr.content_type, fr.size, fr.checksum,
 			fr.storage_element_id, fr.uploaded_by, fr.uploaded_at, fr.description, fr.tags,
-			fr.status, fr.retention_policy, fr.ttl_days, fr.expires_at, fr.created_at, fr.updated_at
+			fr.retention_policy, fr.ttl_days, fr.expires_at, fr.created_at, fr.updated_at
 		FROM file_registry fr
 		%s
 		%s
@@ -165,7 +159,7 @@ func (r *fileRegistryRepo) List(ctx context.Context, filters FileListFilters, li
 		if err := rows.Scan(
 			&f.FileID, &f.OriginalFilename, &f.ContentType, &f.Size, &f.Checksum,
 			&f.StorageElementID, &f.UploadedBy, &f.UploadedAt, &f.Description, &f.Tags,
-			&f.Status, &f.RetentionPolicy, &f.TTLDays, &f.ExpiresAt, &f.CreatedAt, &f.UpdatedAt,
+			&f.RetentionPolicy, &f.TTLDays, &f.ExpiresAt, &f.CreatedAt, &f.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("ошибка сканирования файла: %w", err)
 		}
@@ -177,13 +171,13 @@ func (r *fileRegistryRepo) List(ctx context.Context, filters FileListFilters, li
 func (r *fileRegistryRepo) Update(ctx context.Context, f *model.FileRecord) error {
 	query := `
 		UPDATE file_registry
-		SET description = $2, tags = $3, status = $4,
-			retention_policy = $5, ttl_days = $6, expires_at = $7
+		SET description = $2, tags = $3,
+			retention_policy = $4, ttl_days = $5, expires_at = $6
 		WHERE file_id = $1
 		RETURNING updated_at`
 
 	err := r.db.QueryRow(ctx, query,
-		f.FileID, f.Description, f.Tags, f.Status,
+		f.FileID, f.Description, f.Tags,
 		f.RetentionPolicy, f.TTLDays, f.ExpiresAt,
 	).Scan(&f.UpdatedAt)
 	if err != nil {
@@ -195,11 +189,9 @@ func (r *fileRegistryRepo) Update(ctx context.Context, f *model.FileRecord) erro
 	return nil
 }
 
+// Delete физически удаляет запись файла из БД (hard delete).
 func (r *fileRegistryRepo) Delete(ctx context.Context, fileID string) error {
-	query := `
-		UPDATE file_registry
-		SET status = 'deleted'
-		WHERE file_id = $1 AND status != 'deleted'`
+	query := `DELETE FROM file_registry WHERE file_id = $1`
 
 	tag, err := r.db.Exec(ctx, query, fileID)
 	if err != nil {
@@ -222,24 +214,23 @@ func (r *fileRegistryRepo) BatchUpsert(ctx context.Context, files []*model.FileR
 	for _, f := range files {
 		query := `
 			INSERT INTO file_registry (file_id, original_filename, content_type, size, checksum,
-				storage_element_id, uploaded_by, uploaded_at, description, tags, status,
+				storage_element_id, uploaded_by, uploaded_at, description, tags,
 				retention_policy, ttl_days, expires_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 			ON CONFLICT (file_id) DO UPDATE SET
 				original_filename = EXCLUDED.original_filename,
 				content_type = EXCLUDED.content_type,
 				size = EXCLUDED.size,
 				checksum = EXCLUDED.checksum,
 				description = EXCLUDED.description,
-				tags = EXCLUDED.tags,
-				status = EXCLUDED.status
+				tags = EXCLUDED.tags
 			RETURNING (xmax = 0) AS is_insert`
 
 		var isInsert bool
 		err := r.db.QueryRow(ctx, query,
 			f.FileID, f.OriginalFilename, f.ContentType, f.Size, f.Checksum,
 			f.StorageElementID, f.UploadedBy, f.UploadedAt, f.Description, f.Tags,
-			f.Status, f.RetentionPolicy, f.TTLDays, f.ExpiresAt,
+			f.RetentionPolicy, f.TTLDays, f.ExpiresAt,
 		).Scan(&isInsert)
 		if err != nil {
 			return added, updated, fmt.Errorf("ошибка upsert файла %s: %w", f.FileID, err)
@@ -253,19 +244,17 @@ func (r *fileRegistryRepo) BatchUpsert(ctx context.Context, files []*model.FileR
 	return added, updated, nil
 }
 
-// MarkDeletedExcept помечает файлы SE как deleted, кроме указанных в existingIDs.
-// Возвращает количество помеченных файлов.
-func (r *fileRegistryRepo) MarkDeletedExcept(ctx context.Context, seID string, existingIDs []string) (int, error) {
+// DeleteExcept удаляет записи файлов SE, кроме указанных в existingIDs.
+// Возвращает количество удалённых записей.
+func (r *fileRegistryRepo) DeleteExcept(ctx context.Context, seID string, existingIDs []string) (int, error) {
 	query := `
-		UPDATE file_registry
-		SET status = 'deleted'
+		DELETE FROM file_registry
 		WHERE storage_element_id = $1
-			AND status != 'deleted'
 			AND file_id != ALL($2)`
 
 	tag, err := r.db.Exec(ctx, query, seID, existingIDs)
 	if err != nil {
-		return 0, fmt.Errorf("ошибка пометки удалённых файлов: %w", err)
+		return 0, fmt.Errorf("ошибка удаления устаревших файлов: %w", err)
 	}
 	return int(tag.RowsAffected()), nil
 }

@@ -34,9 +34,6 @@ const (
 	BadgeInfo        BadgeVariant = "info"
 	BadgeNeutral     BadgeVariant = "neutral"
 	BadgeMaintenance BadgeVariant = "maintenance"
-
-	// Виртуальный статус файла — "В архиве" (файл в SE с mode=ar)
-	BadgeArchived BadgeVariant = "archived"
 )
 
 // badgeStyles — CSS-классы для каждого варианта бейджа
@@ -56,7 +53,6 @@ var badgeStyles = map[BadgeVariant]string{
 	BadgeError:       "bg-status-error/20 text-status-error",
 	BadgeInfo:        "bg-status-info/20 text-status-info",
 	BadgeNeutral:     "bg-bg-elevated text-text-secondary",
-	BadgeArchived:    "bg-mode-ar/20 text-mode-ar",
 }
 
 // Badge — бейдж статуса/роли/режима с цветовой индикацией.
@@ -131,7 +127,7 @@ func Badge(variant BadgeVariant, label string) templ.Component {
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/badge.templ`, Line: 62, Col: 9}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/badge.templ`, Line: 59, Col: 9}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {

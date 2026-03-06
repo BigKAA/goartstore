@@ -1,7 +1,7 @@
 // Пакет handlers — HTTP-обработчики Admin UI.
 // Файл files.go — обработчики страниц файлового реестра:
 // список файлов (с фильтрацией, поиском, пагинацией, сортировкой),
-// детальный просмотр, редактирование, soft delete.
+// детальный просмотр, редактирование, hard delete.
 package handlers
 
 import (
@@ -55,7 +55,6 @@ func (h *FilesHandler) HandleList(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	// Извлекаем параметры фильтрации из query string
-	status := r.URL.Query().Get("status")
 	retention := r.URL.Query().Get("retention")
 	seID := r.URL.Query().Get("se")
 	contentType := r.URL.Query().Get("content_type")
@@ -63,7 +62,6 @@ func (h *FilesHandler) HandleList(w http.ResponseWriter, r *http.Request) {
 	pageStr := r.URL.Query().Get("page")
 	sortKey := r.URL.Query().Get("sort")
 	sortDir := r.URL.Query().Get("order")
-	showDeleted := r.URL.Query().Get("show_deleted")
 
 	// Парсинг номера страницы
 	page := 1
@@ -80,7 +78,7 @@ func (h *FilesHandler) HandleList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Подготовка фильтров для сервиса
-	filters := h.buildFilters(status, retention, seID, showDeleted, session.Role)
+	filters := h.buildFilters(retention, seID)
 
 	// Получаем список файлов
 	offset := (page - 1) * filePageSize
@@ -105,7 +103,6 @@ func (h *FilesHandler) HandleList(w http.ResponseWriter, r *http.Request) {
 			StorageElementID: f.StorageElementID,
 			UploadedBy:       f.UploadedBy,
 			UploadedAt:       f.UploadedAt,
-			Status:           f.Status,
 			RetentionPolicy:  f.RetentionPolicy,
 		}
 
@@ -144,12 +141,10 @@ func (h *FilesHandler) HandleList(w http.ResponseWriter, r *http.Request) {
 		Items:    items,
 		SEList:   seList,
 		Filters: pages.FileListFilters{
-			Status:      status,
 			Retention:   retention,
 			SEID:        seID,
 			ContentType: contentType,
 			Search:      search,
-			ShowDeleted: showDeleted == "true",
 		},
 		SortKey:    sortKey,
 		SortDir:    sortDir,
@@ -181,7 +176,6 @@ func (h *FilesHandler) HandleTablePartial(w http.ResponseWriter, r *http.Request
 	}
 
 	// Извлекаем параметры
-	status := r.URL.Query().Get("status")
 	retention := r.URL.Query().Get("retention")
 	seID := r.URL.Query().Get("se")
 	contentType := r.URL.Query().Get("content_type")
@@ -189,7 +183,6 @@ func (h *FilesHandler) HandleTablePartial(w http.ResponseWriter, r *http.Request
 	pageStr := r.URL.Query().Get("page")
 	sortKey := r.URL.Query().Get("sort")
 	sortDir := r.URL.Query().Get("order")
-	showDeleted := r.URL.Query().Get("show_deleted")
 
 	page := 1
 	if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
@@ -203,7 +196,7 @@ func (h *FilesHandler) HandleTablePartial(w http.ResponseWriter, r *http.Request
 		sortDir = "desc"
 	}
 
-	filters := h.buildFilters(status, retention, seID, showDeleted, role)
+	filters := h.buildFilters(retention, seID)
 
 	offset := (page - 1) * filePageSize
 	files, total, err := h.filesSvc.List(ctx, filters, filePageSize, offset)
@@ -225,7 +218,6 @@ func (h *FilesHandler) HandleTablePartial(w http.ResponseWriter, r *http.Request
 			StorageElementID: f.StorageElementID,
 			UploadedBy:       f.UploadedBy,
 			UploadedAt:       f.UploadedAt,
-			Status:           f.Status,
 			RetentionPolicy:  f.RetentionPolicy,
 		}
 
@@ -310,7 +302,6 @@ func (h *FilesHandler) HandleDetailModal(w http.ResponseWriter, r *http.Request)
 		UploadedAt:       f.UploadedAt,
 		Description:      f.Description,
 		Tags:             f.Tags,
-		Status:           f.Status,
 		RetentionPolicy:  f.RetentionPolicy,
 		TTLDays:          f.TTLDays,
 		ExpiresAt:        f.ExpiresAt,
@@ -376,7 +367,7 @@ func (h *FilesHandler) HandleUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	_, err := h.filesSvc.Update(ctx, id, &description, &tags, nil)
+	_, err := h.filesSvc.Update(ctx, id, &description, &tags)
 	if err != nil {
 		h.logger.Warn("Ошибка обновления файла",
 			slog.String("file_id", id),
@@ -398,7 +389,7 @@ func (h *FilesHandler) HandleUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// HandleDelete обрабатывает DELETE /admin/partials/file-delete/{id} — soft delete файла.
+// HandleDelete обрабатывает DELETE /admin/partials/file-delete/{id} — hard delete файла.
 func (h *FilesHandler) HandleDelete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	id := chi.URLParam(r, "id")
@@ -426,23 +417,8 @@ func (h *FilesHandler) HandleDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 // buildFilters формирует фильтры для запроса к сервису.
-func (h *FilesHandler) buildFilters(status, retention, seID, showDeleted, role string) repository.FileListFilters {
+func (h *FilesHandler) buildFilters(retention, seID string) repository.FileListFilters {
 	var filters repository.FileListFilters
-
-	switch {
-	case status == "archived":
-		// Виртуальный статус "В архиве": файлы active в SE с mode=ar
-		activeStatus := "active"
-		arMode := "ar"
-		filters.Status = &activeStatus
-		filters.SEMode = &arMode
-	case status != "":
-		filters.Status = &status
-	case showDeleted != "true" || role != "admin":
-		// По умолчанию показываем только активные файлы (если не включён showDeleted)
-		activeStatus := "active"
-		filters.Status = &activeStatus
-	}
 
 	if retention != "" {
 		filters.RetentionPolicy = &retention

@@ -6,7 +6,7 @@
 // SyncOne выполняет полную синхронизацию одного SE:
 //  1. GET /api/v1/info → обновить mode/status/capacity в БД
 //  2. Постраничный GET /api/v1/files → batch upsert в file_registry
-//  3. Пометить отсутствующие файлы как deleted
+//  3. Удалить из реестра файлы, отсутствующие на SE
 //  4. Обновить last_sync_at, last_file_sync_at
 //
 // Prometheus-метрики:
@@ -192,7 +192,7 @@ func (s *StorageSyncService) SyncAll(ctx context.Context) ([]*model.SyncResult, 
 // 1. Запрос актуальной информации (mode, status, capacity)
 // 2. Постраничная загрузка списка файлов
 // 3. Batch upsert в файловый реестр
-// 4. Пометка отсутствующих файлов как deleted
+// 4. Удаление из реестра файлов, отсутствующих на SE
 // 5. Обновление timestamps
 func (s *StorageSyncService) SyncOne(ctx context.Context, seID string) (*model.SyncResult, error) {
 	startedAt := time.Now().UTC()
@@ -292,10 +292,10 @@ func (s *StorageSyncService) SyncOne(ctx context.Context, seID string) (*model.S
 		}
 	}
 
-	// 5. Пометить отсутствующие файлы как deleted
-	markedDeleted, err := s.fileRepo.MarkDeletedExcept(ctx, seID, allFileIDs)
+	// 5. Удалить из реестра файлы, отсутствующие на SE
+	filesDeleted, err := s.fileRepo.DeleteExcept(ctx, seID, allFileIDs)
 	if err != nil {
-		return nil, fmt.Errorf("пометка удалённых файлов SE %s: %w", seID, err)
+		return nil, fmt.Errorf("удаление устаревших файлов SE %s: %w", seID, err)
 	}
 
 	// 6. Обновляем timestamps SE
@@ -312,14 +312,14 @@ func (s *StorageSyncService) SyncOne(ctx context.Context, seID string) (*model.S
 	syncDuration.WithLabelValues(seID).Observe(duration)
 	syncFilesTotal.WithLabelValues(seID, "added").Add(float64(totalAdded))
 	syncFilesTotal.WithLabelValues(seID, "updated").Add(float64(totalUpdated))
-	syncFilesTotal.WithLabelValues(seID, "deleted").Add(float64(markedDeleted))
+	syncFilesTotal.WithLabelValues(seID, "removed").Add(float64(filesDeleted))
 
 	result := &model.SyncResult{
-		StorageElementID:   seID,
-		FilesOnSE:          totalFilesOnSE,
-		FilesAdded:         totalAdded,
-		FilesUpdated:       totalUpdated,
-		FilesMarkedDeleted: markedDeleted,
+		StorageElementID: seID,
+		FilesOnSE:        totalFilesOnSE,
+		FilesAdded:       totalAdded,
+		FilesUpdated:     totalUpdated,
+		FilesDeleted:     filesDeleted,
 		StartedAt:          startedAt,
 		CompletedAt:        completedAt,
 	}
@@ -329,7 +329,7 @@ func (s *StorageSyncService) SyncOne(ctx context.Context, seID string) (*model.S
 		slog.Int("files_on_se", totalFilesOnSE),
 		slog.Int("files_added", totalAdded),
 		slog.Int("files_updated", totalUpdated),
-		slog.Int("files_deleted", markedDeleted),
+		slog.Int("files_deleted", filesDeleted),
 		slog.String("duration", fmt.Sprintf("%.2fs", duration)),
 	)
 
@@ -354,9 +354,8 @@ func seFileToRecord(f seclient.SEFileMetadata, seID string) (*model.FileRecord, 
 		UploadedBy:       f.UploadedBy,
 		UploadedAt:       uploadedAt,
 		Description:      f.Description,
-		Tags:             f.Tags,
-		Status:           f.Status,
-		RetentionPolicy:  f.RetentionPolicy,
+		Tags:            f.Tags,
+		RetentionPolicy: f.RetentionPolicy,
 		TTLDays:          f.TTLDays,
 	}
 

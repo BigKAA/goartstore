@@ -330,7 +330,6 @@ func TestFileRegistryCRUD(t *testing.T) {
 		StorageElementID: seID,
 		UploadedBy:       "ingester-sa",
 		UploadedAt:       time.Now().UTC(),
-		Status:           "active",
 		RetentionPolicy:  "permanent",
 	}
 
@@ -365,19 +364,19 @@ func TestFileRegistryCRUD(t *testing.T) {
 		t.Fatalf("Update() ошибка: %v", err)
 	}
 
-	// Delete (soft)
+	// Delete (hard delete)
 	if err := fileRepo.Delete(ctx, fileID); err != nil {
 		t.Fatalf("Delete() ошибка: %v", err)
 	}
-	deleted, _ := fileRepo.GetByID(ctx, fileID)
-	if deleted.Status != "deleted" {
-		t.Errorf("После Delete: Status = %q, хотели %q", deleted.Status, "deleted")
+	_, err = fileRepo.GetByID(ctx, fileID)
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("После Delete ожидали ErrNotFound, получили: %v", err)
 	}
 }
 
-// --- Тесты BatchUpsert и MarkDeletedExcept ---
+// --- Тесты BatchUpsert и DeleteExcept ---
 
-func TestBatchUpsertAndMarkDeleted(t *testing.T) {
+func TestBatchUpsertAndDeleteExcept(t *testing.T) {
 	pool := setupTestDB(t)
 	ctx := context.Background()
 	seRepo := NewStorageElementRepository(pool)
@@ -397,13 +396,13 @@ func TestBatchUpsertAndMarkDeleted(t *testing.T) {
 	files := []*model.FileRecord{
 		{FileID: uuid.New().String(), OriginalFilename: "f1.txt", ContentType: "text/plain",
 			Size: 100, Checksum: "sha256:f1", StorageElementID: seID,
-			UploadedBy: "ingester", UploadedAt: time.Now().UTC(), Status: "active", RetentionPolicy: "permanent"},
+			UploadedBy: "ingester", UploadedAt: time.Now().UTC(), RetentionPolicy: "permanent"},
 		{FileID: uuid.New().String(), OriginalFilename: "f2.txt", ContentType: "text/plain",
 			Size: 200, Checksum: "sha256:f2", StorageElementID: seID,
-			UploadedBy: "ingester", UploadedAt: time.Now().UTC(), Status: "active", RetentionPolicy: "permanent"},
+			UploadedBy: "ingester", UploadedAt: time.Now().UTC(), RetentionPolicy: "permanent"},
 		{FileID: uuid.New().String(), OriginalFilename: "f3.txt", ContentType: "text/plain",
 			Size: 300, Checksum: "sha256:f3", StorageElementID: seID,
-			UploadedBy: "ingester", UploadedAt: time.Now().UTC(), Status: "active", RetentionPolicy: "permanent"},
+			UploadedBy: "ingester", UploadedAt: time.Now().UTC(), RetentionPolicy: "permanent"},
 	}
 
 	added, updated, err := fileRepo.BatchUpsert(ctx, files)
@@ -424,20 +423,20 @@ func TestBatchUpsertAndMarkDeleted(t *testing.T) {
 		t.Errorf("Повторный BatchUpsert: added=%d, updated=%d; хотели added=0, updated=1", added2, updated2)
 	}
 
-	// MarkDeletedExcept — оставляем только первые 2 файла
+	// DeleteExcept — оставляем только первые 2 файла, третий удаляется
 	existingIDs := []string{files[0].FileID, files[1].FileID}
-	marked, err := fileRepo.MarkDeletedExcept(ctx, seID, existingIDs)
+	deleted, err := fileRepo.DeleteExcept(ctx, seID, existingIDs)
 	if err != nil {
-		t.Fatalf("MarkDeletedExcept() ошибка: %v", err)
+		t.Fatalf("DeleteExcept() ошибка: %v", err)
 	}
-	if marked != 1 {
-		t.Errorf("MarkDeletedExcept помечено %d, хотели 1", marked)
+	if deleted != 1 {
+		t.Errorf("DeleteExcept удалено %d, хотели 1", deleted)
 	}
 
-	// Проверяем, что третий файл помечен как deleted
-	f3, _ := fileRepo.GetByID(ctx, files[2].FileID)
-	if f3.Status != "deleted" {
-		t.Errorf("Файл f3 status = %q, хотели %q", f3.Status, "deleted")
+	// Проверяем, что третий файл физически удалён
+	_, err = fileRepo.GetByID(ctx, files[2].FileID)
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("После DeleteExcept ожидали ErrNotFound для f3, получили: %v", err)
 	}
 }
 

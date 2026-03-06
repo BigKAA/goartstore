@@ -18,12 +18,11 @@ type FileDetailData struct {
 	Checksum         string
 	StorageElementID string
 	SEName           string
-	SEMode           string // Режим SE (edit, rw, ro, ar) — для виртуального статуса "В архиве"
+	SEMode           string // Режим SE (edit, rw, ro, ar) — для определения архивного SE
 	UploadedBy       string
 	UploadedAt       time.Time
 	Description      *string
 	Tags             []string
-	Status           string
 	RetentionPolicy  string
 	TTLDays          *int
 	ExpiresAt        *time.Time
@@ -47,13 +46,12 @@ templ FileDetailContent(data FileDetailData) {
 			</button>
 		</div>
 
-		<!-- Имя файла и статус -->
+		<!-- Имя файла -->
 		<div class="flex items-center gap-3 mb-4 pb-4 border-b border-border-subtle">
 			<div class="flex-1 min-w-0">
 				<h4 class="text-base font-medium text-text-primary truncate">{ data.OriginalFilename }</h4>
 				<span class="text-xs text-text-muted font-mono">{ data.ID }</span>
 			</div>
-			@components.Badge(pages.FileEffectiveStatusVariantFn(data.Status, data.SEMode), pages.FileEffectiveStatusLabelFn(data.Status, data.SEMode))
 		</div>
 
 		<!-- Метаданные в две колонки -->
@@ -137,8 +135,8 @@ templ FileDetailContent(data FileDetailData) {
 			</div>
 		}
 
-		<!-- Info notice для архивных файлов -->
-		if pages.IsArchivedFileFn(data.Status, data.SEMode) {
+		<!-- Info notice для файлов в архивном SE -->
+		if pages.IsArchivedSEFn(data.SEMode) {
 			<div class="mt-4 pt-4 border-t border-border-subtle">
 				<div class="flex items-start gap-2 p-3 rounded-button bg-mode-ar/10 text-mode-ar text-sm">
 					<svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -149,8 +147,8 @@ templ FileDetailContent(data FileDetailData) {
 			</div>
 		}
 
-		<!-- Кнопки действий (admin only, не для архивных файлов) -->
-		if data.Role == "admin" && data.Status == "active" && !pages.IsArchivedFileFn(data.Status, data.SEMode) {
+		<!-- Кнопки действий (admin only, не для файлов в архивном SE) -->
+		if data.Role == "admin" && !pages.IsArchivedSEFn(data.SEMode) {
 			<div class="flex items-center justify-end gap-3 mt-4 pt-4 border-t border-border-subtle">
 				<button
 					class="inline-flex items-center px-4 py-2 text-sm font-medium text-text-primary bg-bg-elevated rounded-button border border-border-default hover:bg-bg-hover transition-colors gap-1.5"

@@ -77,20 +77,6 @@ const (
 	FileRecordRetentionPolicyTemporary FileRecordRetentionPolicy = "temporary"
 )
 
-// Defines values for FileRecordStatus.
-const (
-	FileRecordStatusActive  FileRecordStatus = "active"
-	FileRecordStatusDeleted FileRecordStatus = "deleted"
-	FileRecordStatusExpired FileRecordStatus = "expired"
-)
-
-// Defines values for FileRecordUpdateStatus.
-const (
-	FileRecordUpdateStatusActive  FileRecordUpdateStatus = "active"
-	FileRecordUpdateStatusDeleted FileRecordUpdateStatus = "deleted"
-	FileRecordUpdateStatusExpired FileRecordUpdateStatus = "expired"
-)
-
 // Defines values for FileRegisterRequestRetentionPolicy.
 const (
 	FileRegisterRequestRetentionPolicyPermanent FileRegisterRequestRetentionPolicy = "permanent"
@@ -208,13 +194,6 @@ const (
 	StorageElementStatusOnline      StorageElementStatus = "online"
 )
 
-// Defines values for ListFilesParamsStatus.
-const (
-	ListFilesParamsStatusActive  ListFilesParamsStatus = "active"
-	ListFilesParamsStatusDeleted ListFilesParamsStatus = "deleted"
-	ListFilesParamsStatusExpired ListFilesParamsStatus = "expired"
-)
-
 // Defines values for ListFilesParamsRetentionPolicy.
 const (
 	Permanent ListFilesParamsRetentionPolicy = "permanent"
@@ -223,8 +202,8 @@ const (
 
 // Defines values for ListServiceAccountsParamsStatus.
 const (
-	Active    ListServiceAccountsParamsStatus = "active"
-	Suspended ListServiceAccountsParamsStatus = "suspended"
+	ListServiceAccountsParamsStatusActive    ListServiceAccountsParamsStatus = "active"
+	ListServiceAccountsParamsStatusSuspended ListServiceAccountsParamsStatus = "suspended"
 )
 
 // Defines values for ListStorageElementsParamsMode.
@@ -392,7 +371,6 @@ type FileRecord struct {
 	OriginalFilename string                    `json:"original_filename"`
 	RetentionPolicy  FileRecordRetentionPolicy `json:"retention_policy"`
 	Size             int64                     `json:"size"`
-	Status           FileRecordStatus          `json:"status"`
 	StorageElementId openapi_types.UUID        `json:"storage_element_id"`
 	Tags             *[]string                 `json:"tags,omitempty"`
 	TtlDays          *int                      `json:"ttl_days"`
@@ -403,9 +381,6 @@ type FileRecord struct {
 
 // FileRecordRetentionPolicy defines model for FileRecord.RetentionPolicy.
 type FileRecordRetentionPolicy string
-
-// FileRecordStatus defines model for FileRecord.Status.
-type FileRecordStatus string
 
 // FileRecordListResponse defines model for FileRecordListResponse.
 type FileRecordListResponse struct {
@@ -418,13 +393,9 @@ type FileRecordListResponse struct {
 
 // FileRecordUpdate defines model for FileRecordUpdate.
 type FileRecordUpdate struct {
-	Description *string                 `json:"description,omitempty"`
-	Status      *FileRecordUpdateStatus `json:"status,omitempty"`
-	Tags        *[]string               `json:"tags,omitempty"`
+	Description *string   `json:"description,omitempty"`
+	Tags        *[]string `json:"tags,omitempty"`
 }
-
-// FileRecordUpdateStatus defines model for FileRecordUpdate.Status.
-type FileRecordUpdateStatus string
 
 // FileRegisterRequest Регистрация файла (от Ingester)
 type FileRegisterRequest struct {
@@ -714,12 +685,12 @@ type StorageElementUpdate struct {
 // SyncResponse Результат синхронизации SE
 type SyncResponse struct {
 	FileSync struct {
-		CompletedAt        time.Time `json:"completed_at"`
-		FilesAdded         int       `json:"files_added"`
-		FilesMarkedDeleted int       `json:"files_marked_deleted"`
-		FilesOnSe          int       `json:"files_on_se"`
-		FilesUpdated       int       `json:"files_updated"`
-		StartedAt          time.Time `json:"started_at"`
+		CompletedAt  time.Time `json:"completed_at"`
+		FilesAdded   int       `json:"files_added"`
+		FilesOnSe    int       `json:"files_on_se"`
+		FilesRemoved int       `json:"files_removed"`
+		FilesUpdated int       `json:"files_updated"`
+		StartedAt    time.Time `json:"started_at"`
 	} `json:"file_sync"`
 
 	// StorageElement Зарегистрированный Storage Element
@@ -773,9 +744,6 @@ type ListFilesParams struct {
 	// Offset Смещение от начала списка
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
 
-	// Status Фильтр по статусу
-	Status *ListFilesParamsStatus `form:"status,omitempty" json:"status,omitempty"`
-
 	// RetentionPolicy Фильтр по политике хранения
 	RetentionPolicy *ListFilesParamsRetentionPolicy `form:"retention_policy,omitempty" json:"retention_policy,omitempty"`
 
@@ -785,9 +753,6 @@ type ListFilesParams struct {
 	// UploadedBy Фильтр по загрузившему
 	UploadedBy *string `form:"uploaded_by,omitempty" json:"uploaded_by,omitempty"`
 }
-
-// ListFilesParamsStatus defines parameters for ListFiles.
-type ListFilesParamsStatus string
 
 // ListFilesParamsRetentionPolicy defines parameters for ListFiles.
 type ListFilesParamsRetentionPolicy string

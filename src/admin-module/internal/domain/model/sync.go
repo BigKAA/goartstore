@@ -27,8 +27,8 @@ type SyncResult struct {
 	FilesAdded int
 	// FilesUpdated — файлов обновлено
 	FilesUpdated int
-	// FilesMarkedDeleted — файлов помечено как deleted
-	FilesMarkedDeleted int
+	// FilesDeleted — файлов удалено из реестра (отсутствуют на SE)
+	FilesDeleted int
 	// StartedAt — время начала синхронизации
 	StartedAt time.Time
 	// CompletedAt — время завершения синхронизации

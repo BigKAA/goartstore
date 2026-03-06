@@ -114,7 +114,7 @@ templ SESyncSuccess(result *model.SyncResult) {
 	@components.Alert(components.AlertParams{
 		Variant:     components.AlertSuccess,
 		Title:       i18n.T(ctx, "se_edit.sync_done.title"),
-		Message:     fmt.Sprintf(i18n.T(ctx, "se_edit.sync_done.message"), result.FilesOnSE, result.FilesAdded, result.FilesUpdated, result.FilesMarkedDeleted),
+		Message:     fmt.Sprintf(i18n.T(ctx, "se_edit.sync_done.message"), result.FilesOnSE, result.FilesAdded, result.FilesUpdated, result.FilesDeleted),
 		Dismissible: true,
 	})
 	<script>

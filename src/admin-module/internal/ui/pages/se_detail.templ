@@ -18,7 +18,6 @@ type SEFileItem struct {
 	SizeBytes        int64
 	UploadedBy       string
 	UploadedAt       time.Time
-	Status           string
 }
 
 // SEDetailData — данные для страницы деталей SE.
@@ -255,13 +254,12 @@ templ seDetailFilesTable(data SEDetailData) {
 					<th class="px-4 py-3 font-medium text-right">{ i18n.T(ctx, "se_detail.file_table.size") }</th>
 					<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "se_detail.file_table.uploaded") }</th>
 					<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "se_detail.file_table.by") }</th>
-					<th class="px-4 py-3 font-medium">{ i18n.T(ctx, "se_detail.file_table.status") }</th>
-				</tr>
+					</tr>
 			</thead>
 			<tbody class="divide-y divide-border-subtle">
 				if len(data.Files) == 0 {
 					<tr>
-						<td colspan="6" class="px-4 py-8 text-center text-text-muted">
+						<td colspan="5" class="px-4 py-8 text-center text-text-muted">
 							{ i18n.T(ctx, "se_detail.file_table.empty") }
 						</td>
 					</tr>
@@ -284,9 +282,6 @@ templ seDetailFilesTable(data SEDetailData) {
 						</td>
 						<td class="px-4 py-3">
 							<span class="text-text-secondary text-xs">{ f.UploadedBy }</span>
-						</td>
-						<td class="px-4 py-3">
-							@components.StatusBadge(f.Status)
 						</td>
 					</tr>
 				}

@@ -345,7 +345,7 @@ func (h *APIHandler) SyncStorageElement(w http.ResponseWriter, r *http.Request, 
 	resp.FileSync.FilesOnSe = syncResult.FilesOnSE
 	resp.FileSync.FilesAdded = syncResult.FilesAdded
 	resp.FileSync.FilesUpdated = syncResult.FilesUpdated
-	resp.FileSync.FilesMarkedDeleted = syncResult.FilesMarkedDeleted
+	resp.FileSync.FilesRemoved = syncResult.FilesDeleted
 	resp.FileSync.StartedAt = syncResult.StartedAt
 	resp.FileSync.CompletedAt = syncResult.CompletedAt
 

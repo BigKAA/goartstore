@@ -1,5 +1,5 @@
 // file_registry.go — сервис файлового реестра.
-// CRUD файлов: регистрация, получение, обновление, soft delete.
+// CRUD файлов: регистрация, получение, обновление, hard delete.
 package service
 
 import (
@@ -12,9 +12,6 @@ import (
 	"github.com/bigkaa/goartstore/admin-module/internal/domain/model"
 	"github.com/bigkaa/goartstore/admin-module/internal/repository"
 )
-
-// Константа статуса файла по умолчанию.
-const statusActive = "active"
 
 // FileRegistryService — сервис файлового реестра.
 type FileRegistryService struct {
@@ -49,9 +46,6 @@ func (s *FileRegistryService) Register(ctx context.Context, f *model.FileRecord)
 	}
 
 	// Устанавливаем значения по умолчанию
-	if f.Status == "" {
-		f.Status = statusActive
-	}
 	if f.UploadedAt.IsZero() {
 		f.UploadedAt = time.Now().UTC()
 	}
@@ -106,8 +100,8 @@ func (s *FileRegistryService) Get(ctx context.Context, fileID string) (*model.Fi
 	return f, nil
 }
 
-// Update обновляет метаданные файла (description, tags, status).
-func (s *FileRegistryService) Update(ctx context.Context, fileID string, description *string, tags *[]string, status *string) (*model.FileRecord, error) {
+// Update обновляет метаданные файла (description, tags).
+func (s *FileRegistryService) Update(ctx context.Context, fileID string, description *string, tags *[]string) (*model.FileRecord, error) {
 	// Получаем текущий файл
 	f, err := s.fileRepo.GetByID(ctx, fileID)
 	if err != nil {
@@ -124,9 +118,6 @@ func (s *FileRegistryService) Update(ctx context.Context, fileID string, descrip
 	if tags != nil {
 		f.Tags = *tags
 	}
-	if status != nil {
-		f.Status = *status
-	}
 
 	// Обновляем в БД
 	if err := s.fileRepo.Update(ctx, f); err != nil {
@@ -140,16 +131,16 @@ func (s *FileRegistryService) Update(ctx context.Context, fileID string, descrip
 	return f, nil
 }
 
-// Delete выполняет soft delete файла (status → deleted).
+// Delete физически удаляет запись файла из БД (hard delete).
 func (s *FileRegistryService) Delete(ctx context.Context, fileID string) error {
 	if err := s.fileRepo.Delete(ctx, fileID); err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			return ErrNotFound
 		}
-		return fmt.Errorf("soft delete файла: %w", err)
+		return fmt.Errorf("удаление файла: %w", err)
 	}
 
-	s.logger.Info("Файл помечен как удалённый",
+	s.logger.Info("Файл удалён из реестра",
 		slog.String("file_id", fileID),
 	)
 

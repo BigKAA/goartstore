@@ -25,8 +25,6 @@ type FileRecord struct {
 	Description *string
 	// Tags — теги файла
 	Tags []string
-	// Status — статус (active, deleted, expired)
-	Status string
 	// RetentionPolicy — политика хранения (permanent, temporary)
 	RetentionPolicy string
 	// TTLDays — время жизни в днях (для temporary)

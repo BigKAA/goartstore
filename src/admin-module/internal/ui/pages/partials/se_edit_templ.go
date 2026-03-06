@@ -382,7 +382,7 @@ func SESyncSuccess(result *model.SyncResult) templ.Component {
 		templ_7745c5c3_Err = components.Alert(components.AlertParams{
 			Variant:     components.AlertSuccess,
 			Title:       i18n.T(ctx, "se_edit.sync_done.title"),
-			Message:     fmt.Sprintf(i18n.T(ctx, "se_edit.sync_done.message"), result.FilesOnSE, result.FilesAdded, result.FilesUpdated, result.FilesMarkedDeleted),
+			Message:     fmt.Sprintf(i18n.T(ctx, "se_edit.sync_done.message"), result.FilesOnSE, result.FilesAdded, result.FilesUpdated, result.FilesDeleted),
 			Dismissible: true,
 		}).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
