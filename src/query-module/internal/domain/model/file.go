@@ -5,7 +5,7 @@ package model
 import "time"
 
 // FileRecord — запись файла в реестре file_registry.
-// QM использует эту модель только для чтения (+ hard delete при lazy cleanup).
+// QM использует эту модель только для чтения (+ hard delete при 404 от SE).
 // Структура полностью совместима с Admin Module FileRecord.
 type FileRecord struct {
 	// FileID — UUID файла (задаётся при загрузке через Admin Module)

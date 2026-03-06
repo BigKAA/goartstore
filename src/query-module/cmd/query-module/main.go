@@ -1,7 +1,7 @@
 // main.go — точка входа Query Module.
 // Загружает конфигурацию, подключается к PostgreSQL, применяет миграции (индексы),
 // инициализирует JWT middleware, создаёт repository/cache/service/handlers и HTTP-сервер.
-// Поддерживает proxy download с lazy cleanup и мониторинг зависимостей (topologymetrics).
+// Поддерживает proxy download с hard delete при 404 и мониторинг зависимостей (topologymetrics).
 package main //nolint:cyclop // main — точка входа, высокая сложность обусловлена инициализацией компонентов
 
 import (

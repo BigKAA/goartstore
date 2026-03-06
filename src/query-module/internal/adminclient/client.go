@@ -159,7 +159,7 @@ func (c *Client) GetStorageElement(ctx context.Context, seID string) (*SEInfo, e
 
 // DeleteFile удаляет файл через Admin Module API (hard delete).
 // DELETE /api/v1/files/{file_id}
-// Используется при lazy cleanup в QM — когда SE возвращает 404.
+// Используется при hard delete в QM — когда SE возвращает 404.
 func (c *Client) DeleteFile(ctx context.Context, fileID string) error {
 	reqURL := fmt.Sprintf("%s/api/v1/files/%s", c.adminURL, fileID)
 

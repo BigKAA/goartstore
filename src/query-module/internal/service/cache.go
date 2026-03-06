@@ -57,7 +57,7 @@ func (c *CacheService) Set(fileID string, record *model.FileRecord) {
 	c.cache.Add(fileID, record)
 }
 
-// Delete удаляет запись из кэша (инвалидация при lazy cleanup).
+// Delete удаляет запись из кэша (инвалидация при hard delete).
 func (c *CacheService) Delete(fileID string) {
 	c.cache.Remove(fileID)
 }

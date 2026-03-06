@@ -142,7 +142,7 @@ Every module registers these metrics with its own prefix (`am_`, `se_`, `im_`, `
 | `qm_active_downloads` | Gauge | — | Currently in-progress downloads |
 | `qm_cache_hits_total` | Counter | — | File cache hits |
 | `qm_cache_misses_total` | Counter | — | File cache misses |
-| `qm_lazy_cleanup_total` | Counter | — | 404-triggered cache cleanups |
+| `qm_hard_delete_total` | Counter | — | 404-triggered hard deletes (AM + DB + cache) |
 
 #### Dependency Health Metrics (`app_`) — topologymetrics
 
@@ -410,7 +410,7 @@ Focused on search performance, download throughput, and cache efficiency.
 
 | Row | Panel | Description |
 |-----|-------|-------------|
-| **Overview** | Active Downloads, Search RPS, Download RPS, Cache Hit Rate, Bytes Transferred, Lazy Cleanup | Summary stats |
+| **Overview** | Active Downloads, Search RPS, Download RPS, Cache Hit Rate, Bytes Transferred, Hard Delete (404) | Summary stats |
 | **Search** | Search Rate | Queries per second over time |
 | **Search** | Search Duration (p50/p95/p99) | PostgreSQL FTS performance |
 | **Download** | Downloads by Status | success, error, not_found breakdown |
@@ -425,7 +425,7 @@ Focused on search performance, download throughput, and cache efficiency.
 
 - Cache Hit Rate < 30% → consider increasing `QM_CACHE_MAX_SIZE` or `QM_CACHE_TTL`
 - Search p99 > 3s → check PostgreSQL FTS indexes (`files_fts_idx`), query complexity
-- `qm_lazy_cleanup_total` increasing → files deleted from SE but still cached in QM
+- `qm_hard_delete_total` increasing → files missing on SE, QM performs hard delete (AM + DB + cache invalidation)
 - Download errors increasing → check SE availability and AM file registry
 
 ### 2.7 Dependency Topology Dashboard

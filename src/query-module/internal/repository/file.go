@@ -55,14 +55,14 @@ type SearchParams struct {
 }
 
 // FileRepository — интерфейс доступа к файлам в file_registry.
-// QM использует read-only операции + Delete для lazy cleanup (hard delete).
+// QM использует read-only операции + Delete для hard delete при 404 от SE.
 type FileRepository interface {
 	// GetByID возвращает файл по UUID.
 	GetByID(ctx context.Context, fileID string) (*model.FileRecord, error)
 	// Search выполняет поиск файлов по фильтрам.
 	// Возвращает: список файлов, общее количество, ошибка.
 	Search(ctx context.Context, params SearchParams) ([]*model.FileRecord, int, error)
-	// Delete физически удаляет запись файла из БД (lazy cleanup при 404 от SE).
+	// Delete физически удаляет запись файла из БД (hard delete при 404 от SE).
 	Delete(ctx context.Context, fileID string) error
 }
 
@@ -157,7 +157,7 @@ func (r *fileRepo) Search(ctx context.Context, params SearchParams) ([]*model.Fi
 }
 
 // Delete физически удаляет запись файла из БД (hard delete).
-// Используется при lazy cleanup когда SE возвращает 404 — файл физически отсутствует.
+// Используется при hard delete когда SE возвращает 404 — файл физически отсутствует.
 func (r *fileRepo) Delete(ctx context.Context, fileID string) error {
 	query := `DELETE FROM file_registry WHERE file_id = $1`
 

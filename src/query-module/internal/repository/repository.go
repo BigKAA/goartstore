@@ -1,6 +1,6 @@
 // Пакет repository — слой доступа к данным PostgreSQL для Query Module.
 // QM — read-only потребитель таблицы file_registry (owned by Admin Module),
-// за исключением hard delete при lazy cleanup (Delete).
+// за исключением hard delete при 404 от SE (Delete).
 // Все запросы — чистый SQL через pgx, без ORM.
 package repository
 

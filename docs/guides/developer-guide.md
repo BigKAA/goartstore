@@ -842,7 +842,7 @@ File download is handled by the **Query Module**, which acts as a proxy between 
 ![Download Sequence](images/seq-file-download.png)
 *Figure 5.2 — Download sequence with caching and SE interaction*
 
-> **Lazy cleanup**: If the SE returns HTTP 404 during download, the Query Module automatically marks the file as `deleted` in the registry.
+> **Hard delete on 404**: If the SE returns HTTP 404 during download, the Query Module performs a hard delete — removes the file via Admin Module API, deletes the record from the local DB, and invalidates the cache.
 
 ### 5.2 Download Endpoint
 

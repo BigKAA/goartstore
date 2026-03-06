@@ -1,6 +1,6 @@
 // download.go — сервис proxy download файлов из Storage Elements.
 // Полный pipeline: FileRecord (cache/DB) → SE URL (Admin Module) → streaming download.
-// Поддержка HTTP Range requests, ленивая очистка при 404 от SE.
+// Поддержка HTTP Range requests, hard delete при 404 от SE.
 package service
 
 import (
@@ -50,9 +50,9 @@ var (
 		Help: "Количество активных (in-progress) proxy downloads.",
 	})
 
-	lazyCleanupTotal = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "qm_lazy_cleanup_total",
-		Help: "Количество операций lazy cleanup (файл не найден на SE → hard delete).",
+	hardDeleteTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "qm_hard_delete_total",
+		Help: "Количество операций hard delete (файл не найден на SE → удаление из AM + БД + кэша).",
 	})
 )
 
@@ -88,7 +88,7 @@ func NewDownloadService(
 //  1. Получить FileRecord (из кэша или БД)
 //  2. Получить SE URL из Admin Module (по storage_element_id)
 //  3. Запросить файл у SE (пробросить Range header)
-//  4. Если SE вернул 404 → lazy cleanup (hard delete из AM + QM DB + инвалидация кэша)
+//  4. Если SE вернул 404 → hard delete (удаление из AM + QM DB + инвалидация кэша)
 //  5. Streaming copy в ResponseWriter с пробросом заголовков
 //
 // Возвращает ошибку только при невосстановимых проблемах. При 404 от SE
@@ -138,15 +138,15 @@ func (ds *DownloadService) Download(ctx context.Context, w http.ResponseWriter, 
 	}
 	defer resp.Body.Close()
 
-	// 4. SE вернул 404 → lazy cleanup (hard delete)
+	// 4. SE вернул 404 → hard delete (AM + БД + кэш)
 	if resp.StatusCode == http.StatusNotFound {
-		ds.logger.Warn("Файл не найден на SE, выполняется lazy cleanup (hard delete)",
+		ds.logger.Warn("Файл не найден на SE, выполняется hard delete",
 			slog.String("file_id", fileID),
 			slog.String("se_id", record.StorageElementID),
 			slog.String("se_url", seInfo.URL),
 		)
-		ds.lazyCleanup(ctx, fileID)
-		downloadsTotal.WithLabelValues("lazy_cleanup").Inc()
+		ds.hardDeleteOnNotFound(ctx, fileID)
+		downloadsTotal.WithLabelValues("hard_delete").Inc()
 		return ErrNotFound
 	}
 
@@ -210,14 +210,14 @@ func (ds *DownloadService) getFileRecord(ctx context.Context, fileID string) (*m
 	return record, nil
 }
 
-// lazyCleanup выполняет hard delete файла: удаляет из AM, из локальной БД и инвалидирует кэш.
+// hardDeleteOnNotFound выполняет hard delete файла: удаляет из AM, из локальной БД и инвалидирует кэш.
 // Выполняется при 404 от SE — файл физически отсутствует на SE.
-func (ds *DownloadService) lazyCleanup(ctx context.Context, fileID string) {
-	lazyCleanupTotal.Inc()
+func (ds *DownloadService) hardDeleteOnNotFound(ctx context.Context, fileID string) {
+	hardDeleteTotal.Inc()
 
 	// 1. Удаляем файл через Admin Module API (hard delete)
 	if err := ds.adminClient.DeleteFile(ctx, fileID); err != nil {
-		ds.logger.Error("Lazy cleanup: ошибка удаления файла через AM",
+		ds.logger.Error("Hard delete: ошибка удаления файла через AM",
 			slog.String("file_id", fileID),
 			slog.String("error", err.Error()),
 		)
@@ -226,7 +226,7 @@ func (ds *DownloadService) lazyCleanup(ctx context.Context, fileID string) {
 
 	// 2. Удаляем запись из локальной БД
 	if err := ds.fileRepo.Delete(ctx, fileID); err != nil {
-		ds.logger.Error("Lazy cleanup: ошибка удаления записи из БД",
+		ds.logger.Error("Hard delete: ошибка удаления записи из БД",
 			slog.String("file_id", fileID),
 			slog.String("error", err.Error()),
 		)
@@ -235,7 +235,7 @@ func (ds *DownloadService) lazyCleanup(ctx context.Context, fileID string) {
 	// 3. Инвалидируем кэш
 	ds.cache.Delete(fileID)
 
-	ds.logger.Info("Lazy cleanup завершён: файл удалён (hard delete)",
+	ds.logger.Info("Hard delete завершён: файл удалён",
 		slog.String("file_id", fileID),
 	)
 }

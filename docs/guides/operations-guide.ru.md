@@ -142,7 +142,7 @@ Artstore обеспечивает комплексную наблюдаемос�
 | `qm_active_downloads` | Gauge | — | Текущие активные скачивания |
 | `qm_cache_hits_total` | Counter | — | Попадания в кэш файлов |
 | `qm_cache_misses_total` | Counter | — | Промахи кэша файлов |
-| `qm_lazy_cleanup_total` | Counter | — | Очистки кэша по 404-ответам |
+| `qm_hard_delete_total` | Counter | — | Hard delete по 404-ответам (AM + БД + кэш) |
 
 #### Метрики здоровья зависимостей (`app_`) — topologymetrics
 
@@ -410,7 +410,7 @@ data:
 
 | Строка | Панель | Описание |
 |--------|--------|----------|
-| **Overview** | Active Downloads, Search RPS, Download RPS, Cache Hit Rate, Bytes Transferred, Lazy Cleanup | Сводная статистика |
+| **Overview** | Active Downloads, Search RPS, Download RPS, Cache Hit Rate, Bytes Transferred, Hard Delete (404) | Сводная статистика |
 | **Search** | Search Rate | Запросов в секунду во времени |
 | **Search** | Search Duration (p50/p95/p99) | Производительность PostgreSQL FTS |
 | **Download** | Downloads по Status | Разбивка success, error, not_found |
@@ -425,7 +425,7 @@ data:
 
 - Cache Hit Rate < 30% → рассмотрите увеличение `QM_CACHE_MAX_SIZE` или `QM_CACHE_TTL`
 - Search p99 > 3с → проверьте индексы PostgreSQL FTS (`files_fts_idx`), сложность запросов
-- `qm_lazy_cleanup_total` растёт → файлы удалены из SE, но всё ещё в кэше QM
+- `qm_hard_delete_total` растёт → файлы отсутствуют на SE, QM выполняет hard delete (AM + БД + инвалидация кэша)
 - Рост ошибок скачивания → проверьте доступность SE и реестр файлов AM
 
 ### 2.7 Дашборд Dependency Topology

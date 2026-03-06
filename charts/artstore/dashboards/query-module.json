@@ -242,11 +242,11 @@
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
         "textMode": "auto"
       },
-      "title": "Lazy Cleanup Rate",
+      "title": "Hard Delete Rate",
       "type": "stat",
       "targets": [
         {
-          "expr": "rate(qm_lazy_cleanup_total{namespace=\"$namespace\"}[$interval])",
+          "expr": "rate(qm_hard_delete_total{namespace=\"$namespace\"}[$interval])",
           "legendFormat": "",
           "refId": "A"
         }

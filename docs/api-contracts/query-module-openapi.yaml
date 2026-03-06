@@ -353,7 +353,7 @@ paths:
         - Гистограммы размеров скачанных файлов
         - LRU cache hit/miss ratio
         - Количество активных соединений к SE
-        - Счётчик ленивых очисток реестра (lazy cleanup при 404 от SE)
+        - Счётчик hard delete операций (при 404 от SE → удаление из AM + БД + кэша)
         - Метрики зависимостей topologymetrics (app_dependency_health,
           app_dependency_latency_seconds, app_dependency_status,
           app_dependency_status_detail)

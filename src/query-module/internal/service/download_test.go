@@ -200,8 +200,8 @@ func TestDownloadService_RangeRequest(t *testing.T) {
 	}
 }
 
-// TestDownloadService_LazyCleanup проверяет lazy cleanup (hard delete) при 404 от SE.
-func TestDownloadService_LazyCleanup(t *testing.T) {
+// TestDownloadService_HardDeleteOnNotFound проверяет hard delete при 404 от SE.
+func TestDownloadService_HardDeleteOnNotFound(t *testing.T) {
 	deleteCalled := false
 
 	// Mock SE — возвращает 404
@@ -241,7 +241,7 @@ func TestDownloadService_LazyCleanup(t *testing.T) {
 	}
 
 	if !deleteCalled {
-		t.Error("Delete не был вызван (lazy cleanup)")
+		t.Error("Delete не был вызван (hard delete при 404)")
 	}
 }
 
@@ -360,7 +360,7 @@ func TestDownloadService_SEError(t *testing.T) {
 	// Тоже допустимо — SE вернул ошибку
 }
 
-// TestDownloadService_CacheInvalidation проверяет инвалидацию кэша при lazy cleanup.
+// TestDownloadService_CacheInvalidation проверяет инвалидацию кэша при hard delete.
 func TestDownloadService_CacheInvalidation(t *testing.T) {
 	getByIDCount := 0
 
@@ -403,7 +403,7 @@ func TestDownloadService_CacheInvalidation(t *testing.T) {
 		t.Fatalf("Первый Download ошибка: %v", err)
 	}
 
-	// Второй download — 404, lazy cleanup инвалидирует кэш
+	// Второй download — 404, hard delete инвалидирует кэш
 	rec2 := httptest.NewRecorder()
 	_ = svc.Download(context.Background(), rec2, "file-1", "")
 
