@@ -42,7 +42,7 @@ info:
     ```
 
     Удаление возможно только для файлов на SE в режиме `edit`.
-    SE выполняет soft-delete (файл помечается как удалённый, физически удаляется GC).
+    SE выполняет физическое удаление файла (hard delete).
 
     ### Ограничения
 
@@ -259,8 +259,7 @@ paths:
         4. Возвращает 204 No Content клиенту
 
         Удаление возможно только для файлов на SE в режиме `edit`.
-        SE выполняет soft-delete: файл помечается как удалённый и
-        физически удаляется встроенным GC.
+        SE выполняет физическое удаление файла (hard delete).
       operationId: deleteFile
       security:
         - bearerAuth: [files:write]
@@ -527,7 +526,6 @@ components:
         - uploaded_by
         - uploaded_at
         - retention_policy
-        - status
       properties:
         file_id:
           type: string
@@ -571,11 +569,6 @@ components:
             type: string
           description: Теги файла
           example: ["logo", "draft", "v2"]
-        status:
-          type: string
-          enum: [active]
-          description: Статус файла (всегда `active` при загрузке)
-          example: active
         storage_element_id:
           type: string
           format: uuid

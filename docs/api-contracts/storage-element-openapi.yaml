@@ -40,7 +40,7 @@ info:
     Все остальные обратные переходы запрещены.
 
     ### Retention Policy
-    - `temporary` — файлы с TTL, автоматически удаляются встроенным GC по истечении срока
+    - `temporary` — файлы с TTL, автоматически удаляются встроенным GC при истечении срока
     - `permanent` — файлы без срока хранения
 
     ### Аутентификация
@@ -222,12 +222,12 @@ paths:
             type: integer
             minimum: 0
             default: 0
-        - name: status
+        - name: retention_policy
           in: query
-          description: Фильтр по статусу файла
+          description: Фильтр по политике хранения
           schema:
             type: string
-            enum: [active, expired, deleted]
+            enum: [temporary, permanent]
       responses:
         "200":
           description: Список файлов
@@ -328,8 +328,8 @@ paths:
       tags: [files]
       summary: Удаление файла
       description: |
-        Помечает файл как удалённый (soft delete через обновление статуса
-        в `*.attr.json`). Физическое удаление выполняется встроенным GC.
+        Физически удаляет файл: binary файл, `*.attr.json` и запись
+        из in-memory индекса. Операция необратима.
 
         **Доступно в режимах:** `edit`
       operationId: deleteFile
@@ -339,7 +339,7 @@ paths:
         - $ref: "#/components/parameters/FileId"
       responses:
         "204":
-          description: Файл помечен как удалённый
+          description: Файл физически удалён
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -776,9 +776,7 @@ paths:
                 example: |
                   # HELP se_files_total Общее количество файлов
                   # TYPE se_files_total gauge
-                  se_files_total{status="active"} 1523
-                  se_files_total{status="expired"} 42
-                  se_files_total{status="deleted"} 7
+                  se_files_total 1523
 
 # ---------------------------------------------------------------------------
 # Компоненты (Components)
@@ -879,7 +877,6 @@ components:
         - checksum
         - uploaded_by
         - uploaded_at
-        - status
         - retention_policy
       properties:
         file_id:
@@ -925,15 +922,6 @@ components:
             type: string
           description: Теги файла (опционально)
           example: ["logo", "draft", "v2"]
-        status:
-          type: string
-          enum: [active, expired, deleted]
-          description: |
-            Статус файла:
-            - `active` — доступен для операций
-            - `expired` — TTL истёк (ожидает очистки GC)
-            - `deleted` — помечен на удаление (ожидает очистки GC)
-          example: active
         retention_policy:
           type: string
           enum: [temporary, permanent]

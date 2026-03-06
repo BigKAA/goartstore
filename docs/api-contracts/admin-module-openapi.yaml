@@ -889,12 +889,6 @@ paths:
       parameters:
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
-        - name: status
-          in: query
-          description: Фильтр по статусу
-          schema:
-            type: string
-            enum: [active, expired, deleted]
         - name: retention_policy
           in: query
           description: Фильтр по политике хранения
@@ -997,10 +991,10 @@ paths:
 
     delete:
       tags: [files]
-      summary: Soft delete файла
+      summary: Удаление файла из реестра
       description: |
-        Помечает файл как удалённый (status → `deleted`).
-        Физическое удаление на SE выполняется GC на SE.
+        Удаляет запись файла из реестра (hard delete из PostgreSQL).
+        Вызывающий отвечает за физическое удаление файла с SE.
 
         Доступно: SA с scope `files:write`, роль `admin`.
       operationId: deleteFile
@@ -1010,7 +1004,7 @@ paths:
         - $ref: "#/components/parameters/FileId"
       responses:
         "204":
-          description: Файл помечен как удалённый
+          description: Запись файла удалена из реестра
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -1804,7 +1798,7 @@ components:
             - files_on_se
             - files_added
             - files_updated
-            - files_marked_deleted
+            - files_removed
             - started_at
             - completed_at
           properties:
@@ -1817,7 +1811,7 @@ components:
             files_updated:
               type: integer
               example: 12
-            files_marked_deleted:
+            files_removed:
               type: integer
               example: 3
             started_at:
@@ -1865,7 +1859,6 @@ components:
         - storage_element_id
         - uploaded_by
         - uploaded_at
-        - status
         - retention_policy
       properties:
         file_id:
@@ -1902,10 +1895,6 @@ components:
           items:
             type: string
           example: ["logo", "draft"]
-        status:
-          type: string
-          enum: [active, expired, deleted]
-          example: active
         retention_policy:
           type: string
           enum: [temporary, permanent]
@@ -1977,9 +1966,6 @@ components:
           type: array
           items:
             type: string
-        status:
-          type: string
-          enum: [active, expired, deleted]
       minProperties: 1
 
     FileRecordListResponse:
