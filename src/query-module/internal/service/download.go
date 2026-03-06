@@ -23,8 +23,6 @@ import (
 
 // Ошибки download service.
 var (
-	// ErrFileDeleted — файл помечен как удалённый (lazy cleanup).
-	ErrFileDeleted = fmt.Errorf("файл удалён из Storage Element")
 	// ErrFileArchived — файл находится в архивном SE (mode=ar), скачивание невозможно.
 	ErrFileArchived = fmt.Errorf("файл находится в архивном хранилище и недоступен для скачивания")
 )
@@ -54,7 +52,7 @@ var (
 
 	lazyCleanupTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "qm_lazy_cleanup_total",
-		Help: "Количество операций lazy cleanup (файл не найден на SE).",
+		Help: "Количество операций lazy cleanup (файл не найден на SE → hard delete).",
 	})
 )
 
@@ -90,11 +88,11 @@ func NewDownloadService(
 //  1. Получить FileRecord (из кэша или БД)
 //  2. Получить SE URL из Admin Module (по storage_element_id)
 //  3. Запросить файл у SE (пробросить Range header)
-//  4. Если SE вернул 404 → lazy cleanup (mark deleted + invalidate cache)
+//  4. Если SE вернул 404 → lazy cleanup (hard delete из AM + QM DB + инвалидация кэша)
 //  5. Streaming copy в ResponseWriter с пробросом заголовков
 //
 // Возвращает ошибку только при невосстановимых проблемах. При 404 от SE
-// записывает ответ клиенту напрямую и возвращает ErrFileDeleted.
+// выполняет hard delete и возвращает ErrNotFound.
 func (ds *DownloadService) Download(ctx context.Context, w http.ResponseWriter, fileID, rangeHeader string) error {
 	start := time.Now()
 	activeDownloads.Inc()
@@ -105,12 +103,6 @@ func (ds *DownloadService) Download(ctx context.Context, w http.ResponseWriter, 
 	if err != nil {
 		downloadsTotal.WithLabelValues("error").Inc()
 		return err
-	}
-
-	// Проверяем статус файла
-	if record.Status == "deleted" {
-		downloadsTotal.WithLabelValues("not_found").Inc()
-		return ErrNotFound
 	}
 
 	// 2. Получить SE URL из Admin Module
@@ -146,16 +138,16 @@ func (ds *DownloadService) Download(ctx context.Context, w http.ResponseWriter, 
 	}
 	defer resp.Body.Close()
 
-	// 4. SE вернул 404 → lazy cleanup
+	// 4. SE вернул 404 → lazy cleanup (hard delete)
 	if resp.StatusCode == http.StatusNotFound {
-		ds.logger.Warn("Файл не найден на SE, выполняется lazy cleanup",
+		ds.logger.Warn("Файл не найден на SE, выполняется lazy cleanup (hard delete)",
 			slog.String("file_id", fileID),
 			slog.String("se_id", record.StorageElementID),
 			slog.String("se_url", seInfo.URL),
 		)
 		ds.lazyCleanup(ctx, fileID)
 		downloadsTotal.WithLabelValues("lazy_cleanup").Inc()
-		return ErrFileDeleted
+		return ErrNotFound
 	}
 
 	// Проверяем допустимые статусы: 200 (полный файл) или 206 (частичный контент)
@@ -218,24 +210,32 @@ func (ds *DownloadService) getFileRecord(ctx context.Context, fileID string) (*m
 	return record, nil
 }
 
-// lazyCleanup помечает файл как удалённый в БД и инвалидирует кэш.
+// lazyCleanup выполняет hard delete файла: удаляет из AM, из локальной БД и инвалидирует кэш.
 // Выполняется при 404 от SE — файл физически отсутствует на SE.
 func (ds *DownloadService) lazyCleanup(ctx context.Context, fileID string) {
 	lazyCleanupTotal.Inc()
 
-	// Помечаем как удалённый в БД
-	if err := ds.fileRepo.MarkDeleted(ctx, fileID); err != nil {
-		ds.logger.Error("Ошибка lazy cleanup: не удалось пометить файл как удалённый",
+	// 1. Удаляем файл через Admin Module API (hard delete)
+	if err := ds.adminClient.DeleteFile(ctx, fileID); err != nil {
+		ds.logger.Error("Lazy cleanup: ошибка удаления файла через AM",
 			slog.String("file_id", fileID),
 			slog.String("error", err.Error()),
 		)
-		return
+		// Продолжаем — AM sync подхватит при следующей синхронизации
 	}
 
-	// Инвалидируем кэш
+	// 2. Удаляем запись из локальной БД
+	if err := ds.fileRepo.Delete(ctx, fileID); err != nil {
+		ds.logger.Error("Lazy cleanup: ошибка удаления записи из БД",
+			slog.String("file_id", fileID),
+			slog.String("error", err.Error()),
+		)
+	}
+
+	// 3. Инвалидируем кэш
 	ds.cache.Delete(fileID)
 
-	ds.logger.Info("Lazy cleanup завершён: файл помечен как удалённый",
+	ds.logger.Info("Lazy cleanup завершён: файл удалён (hard delete)",
 		slog.String("file_id", fileID),
 	)
 }

@@ -20,23 +20,6 @@ func TestBuildSearchWhere_Empty(t *testing.T) {
 	}
 }
 
-// TestBuildSearchWhere_StatusOnly проверяет фильтрацию по статусу.
-func TestBuildSearchWhere_StatusOnly(t *testing.T) {
-	status := "active"
-	params := SearchParams{Status: &status}
-	where, args := buildSearchWhere(params, 1)
-
-	if !strings.Contains(where, "fr.status = $1") {
-		t.Errorf("where = %q, ожидалось содержание 'fr.status = $1'", where)
-	}
-	if len(args) != 1 {
-		t.Errorf("args count = %d, ожидался 1", len(args))
-	}
-	if args[0] != "active" {
-		t.Errorf("args[0] = %v, ожидался 'active'", args[0])
-	}
-}
-
 // TestBuildSearchWhere_QueryPartial проверяет частичный поиск по имени файла.
 func TestBuildSearchWhere_QueryPartial(t *testing.T) {
 	query := "test"
@@ -67,8 +50,8 @@ func TestBuildSearchWhere_QueryExact(t *testing.T) {
 	}
 	where, args := buildSearchWhere(params, 1)
 
-	if !strings.Contains(where, "LOWER(fr.original_filename) = LOWER($1)") {
-		t.Errorf("where = %q, ожидался LOWER exact match", where)
+	if !strings.Contains(where, "LOWER(normalize(fr.original_filename, NFC)) = LOWER(normalize($1, NFC))") {
+		t.Errorf("where = %q, ожидался LOWER normalize exact match", where)
 	}
 	if args[0] != "exact-file.txt" {
 		t.Errorf("args[0] = %v, ожидался 'exact-file.txt'", args[0])
@@ -127,38 +110,53 @@ func TestBuildSearchWhere_SizeRange(t *testing.T) {
 // TestBuildSearchWhere_MultipleFilters проверяет комбинацию фильтров.
 func TestBuildSearchWhere_MultipleFilters(t *testing.T) {
 	query := "report"
-	status := "active"
 	uploadedBy := "admin"
 	params := SearchParams{
 		Query:      &query,
-		Status:     &status,
 		UploadedBy: &uploadedBy,
 		Mode:       "partial",
 	}
 	where, args := buildSearchWhere(params, 1)
 
-	// Должно быть 3 условия, объединённых AND
-	if strings.Count(where, "AND") != 2 {
-		t.Errorf("where = %q, ожидалось 2 AND", where)
+	// Должно быть 2 условия, объединённых AND
+	if strings.Count(where, "AND") != 1 {
+		t.Errorf("where = %q, ожидался 1 AND", where)
 	}
-	if len(args) != 3 {
-		t.Errorf("args count = %d, ожидался 3", len(args))
+	if len(args) != 2 {
+		t.Errorf("args count = %d, ожидался 2", len(args))
 	}
 }
 
 // TestBuildSearchWhere_StartArgOffset проверяет корректную нумерацию аргументов.
 func TestBuildSearchWhere_StartArgOffset(t *testing.T) {
-	status := "active"
-	params := SearchParams{Status: &status}
+	uploadedBy := "admin"
+	params := SearchParams{UploadedBy: &uploadedBy}
 
 	// Начинаем с $5 (как если WHERE добавляется после других параметров)
 	where, args := buildSearchWhere(params, 5)
 
-	if !strings.Contains(where, "fr.status = $5") {
-		t.Errorf("where = %q, ожидался fr.status = $5", where)
+	if !strings.Contains(where, "fr.uploaded_by = $5") {
+		t.Errorf("where = %q, ожидался fr.uploaded_by = $5", where)
 	}
 	if len(args) != 1 {
 		t.Errorf("args count = %d, ожидался 1", len(args))
+	}
+}
+
+// TestBuildSearchWhere_RetentionPolicy проверяет фильтрацию по retention_policy.
+func TestBuildSearchWhere_RetentionPolicy(t *testing.T) {
+	policy := "temporary"
+	params := SearchParams{RetentionPolicy: &policy}
+	where, args := buildSearchWhere(params, 1)
+
+	if !strings.Contains(where, "fr.retention_policy = $1") {
+		t.Errorf("where = %q, ожидался fr.retention_policy = $1", where)
+	}
+	if len(args) != 1 {
+		t.Errorf("args count = %d, ожидался 1", len(args))
+	}
+	if args[0] != "temporary" {
+		t.Errorf("args[0] = %v, ожидался 'temporary'", args[0])
 	}
 }
 

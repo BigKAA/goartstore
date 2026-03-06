@@ -16,7 +16,6 @@ func TestCacheService_GetSet(t *testing.T) {
 		OriginalFilename: "test.txt",
 		ContentType:      "text/plain",
 		Size:             1024,
-		Status:           "active",
 	}
 
 	// Cache miss
@@ -45,7 +44,6 @@ func TestCacheService_Delete(t *testing.T) {
 
 	record := &model.FileRecord{
 		FileID: "delete-me",
-		Status: "active",
 	}
 
 	cache.Set("delete-me", record)
@@ -73,7 +71,6 @@ func TestCacheService_TTLExpiration(t *testing.T) {
 
 	record := &model.FileRecord{
 		FileID: "ttl-test",
-		Status: "active",
 	}
 
 	cache.Set("ttl-test", record)
@@ -99,9 +96,9 @@ func TestCacheService_Eviction(t *testing.T) {
 	// Кэш на 2 записи
 	cache := NewCacheService(2, 5*time.Minute)
 
-	r1 := &model.FileRecord{FileID: "r1", Status: "active"}
-	r2 := &model.FileRecord{FileID: "r2", Status: "active"}
-	r3 := &model.FileRecord{FileID: "r3", Status: "active"}
+	r1 := &model.FileRecord{FileID: "r1"}
+	r2 := &model.FileRecord{FileID: "r2"}
+	r3 := &model.FileRecord{FileID: "r3"}
 
 	cache.Set("r1", r1)
 	cache.Set("r2", r2)
@@ -130,12 +127,10 @@ func TestCacheService_Update(t *testing.T) {
 	record1 := &model.FileRecord{
 		FileID:           "update-test",
 		OriginalFilename: "old.txt",
-		Status:           "active",
 	}
 	record2 := &model.FileRecord{
 		FileID:           "update-test",
 		OriginalFilename: "new.txt",
-		Status:           "active",
 	}
 
 	cache.Set("update-test", record1)

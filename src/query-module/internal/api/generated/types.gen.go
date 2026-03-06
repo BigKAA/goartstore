@@ -27,13 +27,6 @@ const (
 	FileMetadataSeModeRw   FileMetadataSeMode = "rw"
 )
 
-// Defines values for FileMetadataStatus.
-const (
-	FileMetadataStatusActive  FileMetadataStatus = "active"
-	FileMetadataStatusDeleted FileMetadataStatus = "deleted"
-	FileMetadataStatusExpired FileMetadataStatus = "expired"
-)
-
 // Defines values for HealthCheckStatus.
 const (
 	HealthCheckStatusDegraded HealthCheckStatus = "degraded"
@@ -78,13 +71,6 @@ const (
 	Desc SearchRequestSortOrder = "desc"
 )
 
-// Defines values for SearchRequestStatus.
-const (
-	SearchRequestStatusActive  SearchRequestStatus = "active"
-	SearchRequestStatusDeleted SearchRequestStatus = "deleted"
-	SearchRequestStatusExpired SearchRequestStatus = "expired"
-)
-
 // Defines values for SearchResultItemRetentionPolicy.
 const (
 	Permanent SearchResultItemRetentionPolicy = "permanent"
@@ -97,13 +83,6 @@ const (
 	SearchResultItemSeModeEdit SearchResultItemSeMode = "edit"
 	SearchResultItemSeModeRo   SearchResultItemSeMode = "ro"
 	SearchResultItemSeModeRw   SearchResultItemSeMode = "rw"
-)
-
-// Defines values for SearchResultItemStatus.
-const (
-	Active  SearchResultItemStatus = "active"
-	Deleted SearchResultItemStatus = "deleted"
-	Expired SearchResultItemStatus = "expired"
 )
 
 // ErrorResponse Стандартный формат ошибки (единый для всей системы Artstore)
@@ -143,8 +122,7 @@ type FileMetadata struct {
 	SeMode *FileMetadataSeMode `json:"se_mode,omitempty"`
 
 	// Size Размер файла в байтах
-	Size   int64              `json:"size"`
-	Status FileMetadataStatus `json:"status"`
+	Size int64 `json:"size"`
 
 	// StorageElementId UUID Storage Element, на котором хранится файл
 	StorageElementId *openapi_types.UUID `json:"storage_element_id,omitempty"`
@@ -166,9 +144,6 @@ type FileMetadataRetentionPolicy string
 // FileMetadataSeMode Режим Storage Element, на котором хранится файл.
 // Если `ar` (архив) — binary файлов нет, скачивание невозможно (410 Gone).
 type FileMetadataSeMode string
-
-// FileMetadataStatus defines model for FileMetadata.Status.
-type FileMetadataStatus string
 
 // HealthCheck defines model for HealthCheck.
 type HealthCheck struct {
@@ -215,7 +190,7 @@ type HealthReadyResponseStatus string
 
 // SearchRequest Запрос на поиск файлов. Все поля опциональны.
 // Если не указан ни один фильтр, возвращаются все файлы
-// со статусом `active`.
+// (с пагинацией).
 type SearchRequest struct {
 	// FileExtension Фильтр по расширению файла (без точки)
 	FileExtension *string `json:"file_extension,omitempty"`
@@ -257,10 +232,6 @@ type SearchRequest struct {
 	// SortOrder Направление сортировки
 	SortOrder *SearchRequestSortOrder `json:"sort_order,omitempty"`
 
-	// Status Фильтр по статусу файла. По умолчанию `active` —
-	// возвращаются только активные файлы.
-	Status *SearchRequestStatus `json:"status,omitempty"`
-
 	// Tags Фильтр по тегам (файл должен содержать все указанные теги)
 	Tags *[]string `json:"tags,omitempty"`
 
@@ -290,10 +261,6 @@ type SearchRequestSortBy string
 
 // SearchRequestSortOrder Направление сортировки
 type SearchRequestSortOrder string
-
-// SearchRequestStatus Фильтр по статусу файла. По умолчанию `active` —
-// возвращаются только активные файлы.
-type SearchRequestStatus string
 
 // SearchResponse Результаты поиска с пагинацией
 type SearchResponse struct {
@@ -332,8 +299,7 @@ type SearchResultItem struct {
 	SeMode *SearchResultItemSeMode `json:"se_mode,omitempty"`
 
 	// Size Размер файла в байтах
-	Size   int64                  `json:"size"`
-	Status SearchResultItemStatus `json:"status"`
+	Size int64 `json:"size"`
 
 	// StorageElementId UUID Storage Element, на котором хранится файл
 	StorageElementId *openapi_types.UUID `json:"storage_element_id,omitempty"`
@@ -354,9 +320,6 @@ type SearchResultItemRetentionPolicy string
 // - `ro` — только чтение (файлы доступны, запись запрещена)
 // - `ar` — архив (только метаданные, binary файлов отсутствуют)
 type SearchResultItemSeMode string
-
-// SearchResultItemStatus defines model for SearchResultItem.Status.
-type SearchResultItemStatus string
 
 // FileId defines model for FileId.
 type FileId = openapi_types.UUID

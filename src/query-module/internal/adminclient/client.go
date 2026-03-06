@@ -157,6 +157,44 @@ func (c *Client) GetStorageElement(ctx context.Context, seID string) (*SEInfo, e
 	return &info, nil
 }
 
+// DeleteFile удаляет файл через Admin Module API (hard delete).
+// DELETE /api/v1/files/{file_id}
+// Используется при lazy cleanup в QM — когда SE возвращает 404.
+func (c *Client) DeleteFile(ctx context.Context, fileID string) error {
+	reqURL := fmt.Sprintf("%s/api/v1/files/%s", c.adminURL, fileID)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, reqURL, http.NoBody)
+	if err != nil {
+		return fmt.Errorf("создание запроса DeleteFile: %w", err)
+	}
+
+	// SA-токен для авторизации
+	token, err := c.GetToken(ctx)
+	if err != nil {
+		return fmt.Errorf("получение токена для AM: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := c.httpClient.Do(req) //nolint:gosec // G704: URL из конфигурации
+	if err != nil {
+		return fmt.Errorf("запрос DeleteFile к %s: %w", c.adminURL, err)
+	}
+	defer resp.Body.Close()
+
+	// 204 No Content — успешное удаление
+	// 404 — файл уже удалён (не ошибка, идемпотентно)
+	if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusNotFound {
+		c.logger.Debug("Файл удалён через AM",
+			slog.String("file_id", fileID),
+			slog.Int("status", resp.StatusCode),
+		)
+		return nil
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	return fmt.Errorf("AM вернул статус %d для DeleteFile %s: %s", resp.StatusCode, fileID, string(body))
+}
+
 // seListResponse — обёртка ответа GET /api/v1/storage-elements.
 type seListResponse struct {
 	Items []SEInfo `json:"items"`

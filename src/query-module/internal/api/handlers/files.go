@@ -30,7 +30,7 @@ func (h *APIHandler) handleGetFileMetadata(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Конвертация domain модели в API-тип FileMetadata
+	// Конвертация domain модели в API-тип FileMetadata (без status)
 	resp := generated.FileMetadata{
 		FileId:           parseUUID(record.FileID),
 		OriginalFilename: record.OriginalFilename,
@@ -41,7 +41,6 @@ func (h *APIHandler) handleGetFileMetadata(w http.ResponseWriter, r *http.Reques
 		UploadedAt:       record.UploadedAt,
 		Description:      record.Description,
 		Tags:             tagsToPtr(record.Tags),
-		Status:           generated.FileMetadataStatus(record.Status),
 		RetentionPolicy:  generated.FileMetadataRetentionPolicy(record.RetentionPolicy),
 		TtlDays:          record.TTLDays,
 		ExpiresAt:        record.ExpiresAt,
@@ -74,8 +73,6 @@ func (h *APIHandler) handleDownloadFile(w http.ResponseWriter, r *http.Request, 
 		switch {
 		case errors.Is(err, service.ErrNotFound):
 			apierrors.NotFound(w, "Файл не найден")
-		case errors.Is(err, service.ErrFileDeleted):
-			apierrors.NotFound(w, "Файл не найден на Storage Element (удалён)")
 		case errors.Is(err, service.ErrFileArchived):
 			apierrors.FileArchived(w, "Файл находится в архивном хранилище и недоступен для скачивания")
 		default:

@@ -16,7 +16,7 @@ import (
 // Используется в запросах, где нужен режим Storage Element.
 const fileColumnsWithSEMode = `fr.file_id, fr.original_filename, fr.content_type, fr.size, fr.checksum,
 	fr.storage_element_id, fr.uploaded_by, fr.uploaded_at, fr.description, fr.tags,
-	fr.status, fr.retention_policy, fr.ttl_days, fr.expires_at, fr.created_at, fr.updated_at,
+	fr.retention_policy, fr.ttl_days, fr.expires_at, fr.created_at, fr.updated_at,
 	COALESCE(se.mode, '') AS se_mode`
 
 // SearchParams — параметры поиска файлов.
@@ -34,8 +34,6 @@ type SearchParams struct {
 	UploadedBy *string
 	// RetentionPolicy — фильтр по политике хранения (permanent/temporary)
 	RetentionPolicy *string
-	// Status — фильтр по статусу (active/deleted/expired)
-	Status *string
 	// MinSize — минимальный размер файла (байт)
 	MinSize *int64
 	// MaxSize — максимальный размер файла (байт)
@@ -57,15 +55,15 @@ type SearchParams struct {
 }
 
 // FileRepository — интерфейс доступа к файлам в file_registry.
-// QM использует read-only операции + MarkDeleted для lazy cleanup.
+// QM использует read-only операции + Delete для lazy cleanup (hard delete).
 type FileRepository interface {
 	// GetByID возвращает файл по UUID.
 	GetByID(ctx context.Context, fileID string) (*model.FileRecord, error)
 	// Search выполняет поиск файлов по фильтрам.
 	// Возвращает: список файлов, общее количество, ошибка.
 	Search(ctx context.Context, params SearchParams) ([]*model.FileRecord, int, error)
-	// MarkDeleted обновляет статус файла на 'deleted' (lazy cleanup при 404 от SE).
-	MarkDeleted(ctx context.Context, fileID string) error
+	// Delete физически удаляет запись файла из БД (lazy cleanup при 404 от SE).
+	Delete(ctx context.Context, fileID string) error
 }
 
 // fileRepo — реализация FileRepository через pgx.
@@ -90,7 +88,7 @@ func (r *fileRepo) GetByID(ctx context.Context, fileID string) (*model.FileRecor
 	err := r.db.QueryRow(ctx, query, fileID).Scan(
 		&f.FileID, &f.OriginalFilename, &f.ContentType, &f.Size, &f.Checksum,
 		&f.StorageElementID, &f.UploadedBy, &f.UploadedAt, &f.Description, &f.Tags,
-		&f.Status, &f.RetentionPolicy, &f.TTLDays, &f.ExpiresAt, &f.CreatedAt, &f.UpdatedAt,
+		&f.RetentionPolicy, &f.TTLDays, &f.ExpiresAt, &f.CreatedAt, &f.UpdatedAt,
 		&f.SEMode,
 	)
 	if err != nil {
@@ -134,7 +132,7 @@ func (r *fileRepo) Search(ctx context.Context, params SearchParams) ([]*model.Fi
 		if err := rows.Scan(
 			&f.FileID, &f.OriginalFilename, &f.ContentType, &f.Size, &f.Checksum,
 			&f.StorageElementID, &f.UploadedBy, &f.UploadedAt, &f.Description, &f.Tags,
-			&f.Status, &f.RetentionPolicy, &f.TTLDays, &f.ExpiresAt, &f.CreatedAt, &f.UpdatedAt,
+			&f.RetentionPolicy, &f.TTLDays, &f.ExpiresAt, &f.CreatedAt, &f.UpdatedAt,
 			&f.SEMode,
 		); err != nil {
 			return nil, 0, fmt.Errorf("ошибка сканирования файла: %w", err)
@@ -158,17 +156,14 @@ func (r *fileRepo) Search(ctx context.Context, params SearchParams) ([]*model.Fi
 	return result, total, nil
 }
 
-// MarkDeleted обновляет статус файла на 'deleted' (lazy cleanup).
-// Используется когда SE возвращает 404 — файл удалён GC.
-func (r *fileRepo) MarkDeleted(ctx context.Context, fileID string) error {
-	query := `
-		UPDATE file_registry
-		SET status = 'deleted'
-		WHERE file_id = $1 AND status != 'deleted'`
+// Delete физически удаляет запись файла из БД (hard delete).
+// Используется при lazy cleanup когда SE возвращает 404 — файл физически отсутствует.
+func (r *fileRepo) Delete(ctx context.Context, fileID string) error {
+	query := `DELETE FROM file_registry WHERE file_id = $1`
 
 	tag, err := r.db.Exec(ctx, query, fileID)
 	if err != nil {
-		return fmt.Errorf("ошибка пометки файла как удалённого: %w", err)
+		return fmt.Errorf("ошибка удаления файла: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
 		return ErrNotFound
@@ -238,13 +233,6 @@ func buildSearchWhere(params SearchParams, startArg int) (whereClause string, ar
 	if params.RetentionPolicy != nil && *params.RetentionPolicy != "" {
 		conditions = append(conditions, fmt.Sprintf("fr.retention_policy = $%d", argNum))
 		args = append(args, *params.RetentionPolicy)
-		argNum++
-	}
-
-	// Фильтр по статусу
-	if params.Status != nil && *params.Status != "" {
-		conditions = append(conditions, fmt.Sprintf("fr.status = $%d", argNum))
-		args = append(args, *params.Status)
 		argNum++
 	}
 

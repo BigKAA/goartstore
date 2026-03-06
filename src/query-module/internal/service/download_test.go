@@ -40,6 +40,9 @@ func newMockAMServer(seURL string) *httptest.Server {
 			// GetStorageElement — возвращаем информацию о SE
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"id":"se-1","name":"test-se","url":"` + seURL + `","mode":"rw","status":"online"}`))
+		case strings.HasPrefix(r.URL.Path, "/api/v1/files/") && r.Method == http.MethodDelete:
+			// DeleteFile — hard delete (204 No Content)
+			w.WriteHeader(http.StatusNoContent)
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -113,7 +116,6 @@ func TestDownloadService_Success(t *testing.T) {
 			return &model.FileRecord{
 				FileID:           "file-1",
 				StorageElementID: "se-1",
-				Status:           "active",
 			}, nil
 		},
 	}
@@ -174,7 +176,6 @@ func TestDownloadService_RangeRequest(t *testing.T) {
 			return &model.FileRecord{
 				FileID:           "file-1",
 				StorageElementID: "se-1",
-				Status:           "active",
 			}, nil
 		},
 	}
@@ -199,9 +200,9 @@ func TestDownloadService_RangeRequest(t *testing.T) {
 	}
 }
 
-// TestDownloadService_LazyCleanup проверяет lazy cleanup при 404 от SE.
+// TestDownloadService_LazyCleanup проверяет lazy cleanup (hard delete) при 404 от SE.
 func TestDownloadService_LazyCleanup(t *testing.T) {
-	markDeletedCalled := false
+	deleteCalled := false
 
 	// Mock SE — возвращает 404
 	seSrv := newMockSEServer(func(w http.ResponseWriter, _ *http.Request) {
@@ -217,13 +218,12 @@ func TestDownloadService_LazyCleanup(t *testing.T) {
 			return &model.FileRecord{
 				FileID:           "file-1",
 				StorageElementID: "se-1",
-				Status:           "active",
 			}, nil
 		},
-		markDeletedFn: func(_ context.Context, fileID string) error {
-			markDeletedCalled = true
+		deleteFn: func(_ context.Context, fileID string) error {
+			deleteCalled = true
 			if fileID != "file-1" {
-				t.Errorf("MarkDeleted fileID = %q, ожидался file-1", fileID)
+				t.Errorf("Delete fileID = %q, ожидался file-1", fileID)
 			}
 			return nil
 		},
@@ -234,14 +234,14 @@ func TestDownloadService_LazyCleanup(t *testing.T) {
 	rec := httptest.NewRecorder()
 	err := svc.Download(context.Background(), rec, "file-1", "")
 	if err == nil {
-		t.Fatal("ожидалась ошибка ErrFileDeleted")
+		t.Fatal("ожидалась ошибка ErrNotFound")
 	}
-	if !errors.Is(err, ErrFileDeleted) {
-		t.Errorf("ошибка = %v, ожидалась ErrFileDeleted", err)
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("ошибка = %v, ожидалась ErrNotFound", err)
 	}
 
-	if !markDeletedCalled {
-		t.Error("MarkDeleted не был вызван (lazy cleanup)")
+	if !deleteCalled {
+		t.Error("Delete не был вызван (lazy cleanup)")
 	}
 }
 
@@ -266,38 +266,6 @@ func TestDownloadService_FileNotFound(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	err := svc.Download(context.Background(), rec, "non-existent", "")
-	if err == nil {
-		t.Fatal("ожидалась ошибка ErrNotFound")
-	}
-	if !errors.Is(err, ErrNotFound) {
-		t.Errorf("ошибка = %v, ожидалась ErrNotFound", err)
-	}
-}
-
-// TestDownloadService_DeletedFile проверяет ErrNotFound для файла со статусом deleted.
-func TestDownloadService_DeletedFile(t *testing.T) {
-	seSrv := newMockSEServer(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
-	defer seSrv.Close()
-
-	amSrv := newMockAMServer(seSrv.URL)
-	defer amSrv.Close()
-
-	repo := &mockFileRepo{
-		getByIDFn: func(_ context.Context, _ string) (*model.FileRecord, error) {
-			return &model.FileRecord{
-				FileID:           "deleted-file",
-				StorageElementID: "se-1",
-				Status:           "deleted",
-			}, nil
-		},
-	}
-
-	svc := newTestDownloadService(t, repo, amSrv, seSrv)
-
-	rec := httptest.NewRecorder()
-	err := svc.Download(context.Background(), rec, "deleted-file", "")
 	if err == nil {
 		t.Fatal("ожидалась ошибка ErrNotFound")
 	}
@@ -336,7 +304,6 @@ func TestDownloadService_ArchivedFile(t *testing.T) {
 			return &model.FileRecord{
 				FileID:           "file-ar",
 				StorageElementID: "se-ar",
-				Status:           "active",
 			}, nil
 		},
 	}
@@ -374,7 +341,6 @@ func TestDownloadService_SEError(t *testing.T) {
 			return &model.FileRecord{
 				FileID:           "file-1",
 				StorageElementID: "se-1",
-				Status:           "active",
 			}, nil
 		},
 	}
@@ -421,10 +387,9 @@ func TestDownloadService_CacheInvalidation(t *testing.T) {
 			return &model.FileRecord{
 				FileID:           "file-1",
 				StorageElementID: "se-1",
-				Status:           "active",
 			}, nil
 		},
-		markDeletedFn: func(_ context.Context, _ string) error {
+		deleteFn: func(_ context.Context, _ string) error {
 			return nil
 		},
 	}
@@ -473,7 +438,6 @@ func TestDownloadService_AuthorizationHeader(t *testing.T) {
 			return &model.FileRecord{
 				FileID:           "file-1",
 				StorageElementID: "se-1",
-				Status:           "active",
 			}, nil
 		},
 	}

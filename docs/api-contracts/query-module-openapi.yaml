@@ -30,10 +30,10 @@ info:
     ## Ленивая очистка реестра
 
     Если при проксировании скачивания SE возвращает 404 (файл удалён GC
-    или отсутствует на диске), Query Module обновляет статус файла в реестре
-    PostgreSQL (`deleted`) и возвращает 404 клиенту. Это обеспечивает
-    автоматическую согласованность реестра с источником истины (attr.json на SE)
-    без ожидания полной периодической синхронизации.
+    или отсутствует на диске), Query Module удаляет запись файла из реестра
+    через Admin Module (DELETE /api/v1/files/{id}) и возвращает 404 клиенту.
+    Это обеспечивает автоматическую согласованность реестра с источником истины
+    (attr.json на SE) без ожидания полной периодической синхронизации.
 
     ## Источник данных
 
@@ -97,10 +97,7 @@ paths:
           где значение поля содержит указанную подстроку (ILIKE).
 
         Все фильтры опциональны. Если не указан ни один фильтр,
-        возвращаются все файлы со статусом `active` (с пагинацией).
-
-        По умолчанию в результат попадают только файлы со статусом `active`.
-        Для поиска по другим статусам используйте фильтр `status`.
+        возвращаются все файлы (с пагинацией).
       operationId: searchFiles
       security:
         - bearerAuth: [files:read]
@@ -190,9 +187,8 @@ paths:
         Клиент не знает прямые URL Storage Elements.
 
         **Ленивая очистка реестра:** если SE вернул 404 (файл удалён GC
-        или отсутствует), Query Module обновляет статус файла в реестре
-        (`deleted`) и возвращает 404 клиенту. Это один из 4 механизмов
-        синхронизации файлового реестра с источником истины (attr.json на SE).
+        или отсутствует), Query Module удаляет запись файла из реестра через
+        Admin Module и возвращает 404 клиенту.
 
         Поддерживает HTTP Range requests для возобновляемого скачивания.
         Заголовок `Range: bytes=start-end`.
@@ -474,7 +470,7 @@ components:
       description: |
         Запрос на поиск файлов. Все поля опциональны.
         Если не указан ни один фильтр, возвращаются все файлы
-        со статусом `active`.
+        (с пагинацией).
       properties:
         query:
           type: string
@@ -509,13 +505,6 @@ components:
           type: string
           enum: [temporary, permanent]
           description: Фильтр по политике хранения
-        status:
-          type: string
-          enum: [active, expired, deleted]
-          default: active
-          description: |
-            Фильтр по статусу файла. По умолчанию `active` —
-            возвращаются только активные файлы.
         min_size:
           type: integer
           format: int64
@@ -614,7 +603,6 @@ components:
         - checksum
         - uploaded_by
         - uploaded_at
-        - status
         - retention_policy
       properties:
         file_id:
@@ -652,10 +640,6 @@ components:
           items:
             type: string
           example: ["logo", "draft", "v2"]
-        status:
-          type: string
-          enum: [active, expired, deleted]
-          example: active
         retention_policy:
           type: string
           enum: [temporary, permanent]
@@ -701,7 +685,6 @@ components:
         - checksum
         - uploaded_by
         - uploaded_at
-        - status
         - retention_policy
       properties:
         file_id:
@@ -741,10 +724,6 @@ components:
           items:
             type: string
           example: ["logo", "draft", "v2"]
-        status:
-          type: string
-          enum: [active, expired, deleted]
-          example: active
         retention_policy:
           type: string
           enum: [temporary, permanent]

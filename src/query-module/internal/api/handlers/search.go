@@ -49,16 +49,6 @@ func (h *APIHandler) handleSearchFiles(w http.ResponseWriter, r *http.Request) {
 		sortOrder = string(*req.SortOrder)
 	}
 
-	// По умолчанию — только active файлы
-	var status *string
-	if req.Status != nil {
-		s := string(*req.Status)
-		status = &s
-	} else {
-		s := "active"
-		status = &s
-	}
-
 	// Конвертация retention_policy из typed enum в string
 	var retentionPolicy *string
 	if req.RetentionPolicy != nil {
@@ -66,7 +56,7 @@ func (h *APIHandler) handleSearchFiles(w http.ResponseWriter, r *http.Request) {
 		retentionPolicy = &s
 	}
 
-	// Построение SearchParams из запроса
+	// Построение SearchParams из запроса (без фильтра по статусу — статусов больше нет)
 	params := repository.SearchParams{
 		Query:           req.Query,
 		Filename:        req.Filename,
@@ -74,7 +64,6 @@ func (h *APIHandler) handleSearchFiles(w http.ResponseWriter, r *http.Request) {
 		Tags:            req.Tags,
 		UploadedBy:      req.UploadedBy,
 		RetentionPolicy: retentionPolicy,
-		Status:          status,
 		MinSize:         req.MinSize,
 		MaxSize:         req.MaxSize,
 		UploadedAfter:   req.UploadedAfter,
@@ -156,7 +145,6 @@ func fileRecordToSearchItem(r *model.FileRecord) generated.SearchResultItem {
 		UploadedAt:       r.UploadedAt,
 		Description:      r.Description,
 		Tags:             tagsToPtr(r.Tags),
-		Status:           generated.SearchResultItemStatus(r.Status),
 		RetentionPolicy:  generated.SearchResultItemRetentionPolicy(r.RetentionPolicy),
 		TtlDays:          r.TTLDays,
 		ExpiresAt:        r.ExpiresAt,

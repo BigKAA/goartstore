@@ -15,9 +15,9 @@ import (
 
 // mockFileRepo — мок FileRepository для unit-тестов.
 type mockFileRepo struct {
-	getByIDFn     func(ctx context.Context, fileID string) (*model.FileRecord, error)
-	searchFn      func(ctx context.Context, params repository.SearchParams) ([]*model.FileRecord, int, error)
-	markDeletedFn func(ctx context.Context, fileID string) error
+	getByIDFn func(ctx context.Context, fileID string) (*model.FileRecord, error)
+	searchFn  func(ctx context.Context, params repository.SearchParams) ([]*model.FileRecord, int, error)
+	deleteFn  func(ctx context.Context, fileID string) error
 }
 
 func (m *mockFileRepo) GetByID(ctx context.Context, fileID string) (*model.FileRecord, error) {
@@ -34,9 +34,9 @@ func (m *mockFileRepo) Search(ctx context.Context, params repository.SearchParam
 	return nil, 0, nil
 }
 
-func (m *mockFileRepo) MarkDeleted(ctx context.Context, fileID string) error {
-	if m.markDeletedFn != nil {
-		return m.markDeletedFn(ctx, fileID)
+func (m *mockFileRepo) Delete(ctx context.Context, fileID string) error {
+	if m.deleteFn != nil {
+		return m.deleteFn(ctx, fileID)
 	}
 	return nil
 }
@@ -46,8 +46,8 @@ func (m *mockFileRepo) MarkDeleted(ctx context.Context, fileID string) error {
 // TestSearchService_Search проверяет выполнение поиска через repository.
 func TestSearchService_Search(t *testing.T) {
 	files := []*model.FileRecord{
-		{FileID: "file-1", OriginalFilename: "test1.txt", Status: "active"},
-		{FileID: "file-2", OriginalFilename: "test2.txt", Status: "active"},
+		{FileID: "file-1", OriginalFilename: "test1.txt"},
+		{FileID: "file-2", OriginalFilename: "test2.txt"},
 	}
 
 	repo := &mockFileRepo{
@@ -85,7 +85,7 @@ func TestSearchService_Search(t *testing.T) {
 // TestSearchService_Search_HasMore проверяет флаг HasMore при пагинации.
 func TestSearchService_Search_HasMore(t *testing.T) {
 	files := []*model.FileRecord{
-		{FileID: "file-1", Status: "active"},
+		{FileID: "file-1"},
 	}
 
 	repo := &mockFileRepo{
@@ -116,7 +116,7 @@ func TestSearchService_GetFileMetadata_CacheHit(t *testing.T) {
 	repo := &mockFileRepo{
 		getByIDFn: func(_ context.Context, _ string) (*model.FileRecord, error) {
 			callCount++
-			return &model.FileRecord{FileID: "cached-file", Status: "active"}, nil
+			return &model.FileRecord{FileID: "cached-file"}, nil
 		},
 	}
 
