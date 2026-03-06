@@ -10,8 +10,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bigkaa/goartstore/storage-element/internal/api/generated"
 	"github.com/bigkaa/goartstore/storage-element/internal/backend"
 )
+
+// boolPtr возвращает указатель на bool.
+func boolPtr(v bool) *bool { return &v }
 
 // mockLockStore — мок для backend.LockStore.
 type mockLockStore struct {
@@ -228,7 +232,7 @@ func TestCleanupLocks_ExpiredOnly(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/locks/cleanup", nil)
 	rec := httptest.NewRecorder()
 
-	h.CleanupLocks(rec, req)
+	h.CleanupLocks(rec, req, generated.CleanupLocksParams{})
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("ожидался статус 200, получен %d", rec.Code)
@@ -277,7 +281,7 @@ func TestCleanupLocks_ForceTrue(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/locks/cleanup?force=true", nil)
 	rec := httptest.NewRecorder()
 
-	h.CleanupLocks(rec, req)
+	h.CleanupLocks(rec, req, generated.CleanupLocksParams{Force: boolPtr(true)})
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("ожидался статус 200, получен %d", rec.Code)
@@ -310,7 +314,7 @@ func TestCleanupLocks_Error(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/locks/cleanup", nil)
 	rec := httptest.NewRecorder()
 
-	h.CleanupLocks(rec, req)
+	h.CleanupLocks(rec, req, generated.CleanupLocksParams{})
 
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("ожидался статус 500, получен %d", rec.Code)
@@ -332,7 +336,7 @@ func TestCleanupLocks_EmptyResult(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/locks/cleanup", nil)
 	rec := httptest.NewRecorder()
 
-	h.CleanupLocks(rec, req)
+	h.CleanupLocks(rec, req, generated.CleanupLocksParams{})
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("ожидался статус 200, получен %d", rec.Code)

@@ -233,7 +233,7 @@ func main() {
 	}
 
 	// 11. Создание и запуск HTTP-сервера
-	srv := server.New(cfg, logger, apiHandler, apiHandler, jwtAuth)
+	srv := server.New(cfg, logger, apiHandler, jwtAuth)
 
 	if err := srv.Run(); err != nil {
 		logger.Error("Ошибка сервера", slog.String("error", err.Error()))
@@ -256,9 +256,7 @@ func main() {
 
 // updateFileMetrics обновляет Prometheus метрики файлов из индекса.
 func updateFileMetrics(idx *index.Index) {
-	middleware.FilesTotal.WithLabelValues("active").Set(float64(idx.CountByStatus("active")))
-	middleware.FilesTotal.WithLabelValues("deleted").Set(float64(idx.CountByStatus("deleted")))
-	middleware.FilesTotal.WithLabelValues("expired").Set(float64(idx.CountByStatus("expired")))
+	middleware.FilesTotal.Set(float64(idx.Count()))
 }
 
 // --- Адаптеры для интерфейсов handlers ---

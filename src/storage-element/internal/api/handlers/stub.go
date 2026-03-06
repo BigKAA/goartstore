@@ -89,5 +89,15 @@ func (s *StubHandler) GetMetrics(w http.ResponseWriter, _ *http.Request) {
 	notImplemented(w)
 }
 
+// --- Locks ---
+
+func (s *StubHandler) ListLocks(w http.ResponseWriter, _ *http.Request) {
+	notImplemented(w)
+}
+
+func (s *StubHandler) CleanupLocks(w http.ResponseWriter, _ *http.Request, _ generated.CleanupLocksParams) {
+	notImplemented(w)
+}
+
 // Проверка соответствия интерфейсу на этапе компиляции.
 var _ generated.ServerInterface = (*StubHandler)(nil)

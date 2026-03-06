@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/bigkaa/goartstore/storage-element/internal/api/errors"
+	"github.com/bigkaa/goartstore/storage-element/internal/api/generated"
 	"github.com/bigkaa/goartstore/storage-element/internal/backend"
 )
 
@@ -112,9 +113,9 @@ func (h *LocksHandler) ListLocks(w http.ResponseWriter, r *http.Request) {
 // CleanupLocks обрабатывает POST /api/v1/locks/cleanup.
 // Без параметров — удаляет только expired lock-и.
 // С query-параметром force=true — удаляет все lock-и (аварийная очистка).
-func (h *LocksHandler) CleanupLocks(w http.ResponseWriter, r *http.Request) {
+func (h *LocksHandler) CleanupLocks(w http.ResponseWriter, r *http.Request, params generated.CleanupLocksParams) {
 	ctx := r.Context()
-	force := r.URL.Query().Get("force") == "true"
+	force := params.Force != nil && *params.Force
 
 	result, err := h.locks.Cleanup(ctx, force)
 	if err != nil {

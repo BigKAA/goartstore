@@ -94,8 +94,8 @@ func (h *APIHandler) ListLocks(w http.ResponseWriter, r *http.Request) {
 }
 
 // CleanupLocks делегирует POST /api/v1/locks/cleanup.
-func (h *APIHandler) CleanupLocks(w http.ResponseWriter, r *http.Request) {
-	h.locks.CleanupLocks(w, r)
+func (h *APIHandler) CleanupLocks(w http.ResponseWriter, r *http.Request, params generated.CleanupLocksParams) {
+	h.locks.CleanupLocks(w, r, params)
 }
 
 // --- Health ---

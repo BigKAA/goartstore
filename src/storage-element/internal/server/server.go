@@ -35,18 +35,10 @@ type JWTAuthProvider interface {
 	Middleware() func(http.Handler) http.Handler
 }
 
-// LockAPIHandler — интерфейс для Lock API endpoints.
-// Lock API не входит в generated ServerInterface, поэтому передаётся отдельно.
-type LockAPIHandler interface {
-	ListLocks(w http.ResponseWriter, r *http.Request)
-	CleanupLocks(w http.ResponseWriter, r *http.Request)
-}
-
 // New создаёт новый HTTP-сервер с настроенными routes и middleware.
 // handler — реализация generated.ServerInterface с реальными handlers.
-// lockAPI — обработчик Lock API endpoints (не входит в generated interface).
 // jwtAuth — JWT middleware (nil для режима без аутентификации).
-func New(cfg *config.Config, logger *slog.Logger, handler generated.ServerInterface, lockAPI LockAPIHandler, jwtAuth JWTAuthProvider) *Server {
+func New(cfg *config.Config, logger *slog.Logger, handler generated.ServerInterface, jwtAuth JWTAuthProvider) *Server {
 	router := chi.NewRouter()
 
 	// Глобальные middleware
@@ -104,17 +96,20 @@ func New(cfg *config.Config, logger *slog.Logger, handler generated.ServerInterf
 				rr.Use(middleware.RequireScope("storage:write"))
 				rr.Post("/api/v1/mode/transition", handler.TransitionMode)
 				rr.Post("/api/v1/maintenance/reconcile", handler.Reconcile)
-				// Lock API — диагностика и очистка lock-файлов
-				rr.Get("/api/v1/locks", lockAPI.ListLocks)
-				rr.Post("/api/v1/locks/cleanup", lockAPI.CleanupLocks)
+				// Lock API — диагностика и очистка lock-файлов (через generated wrapper для парсинга параметров)
+				rr.Get("/api/v1/locks", func(w http.ResponseWriter, r *http.Request) {
+					siw := &generated.ServerInterfaceWrapper{Handler: handler, ErrorHandlerFunc: defaultErrorHandler}
+					siw.ListLocks(w, r)
+				})
+				rr.Post("/api/v1/locks/cleanup", func(w http.ResponseWriter, r *http.Request) {
+					siw := &generated.ServerInterfaceWrapper{Handler: handler, ErrorHandlerFunc: defaultErrorHandler}
+					siw.CleanupLocks(w, r)
+				})
 			})
 		})
 	} else {
 		// Без JWT — все маршруты открыты (для разработки/тестирования)
 		generated.HandlerFromMux(handler, router)
-		// Lock API не входит в generated — регистрируем отдельно
-		router.Get("/api/v1/locks", lockAPI.ListLocks)
-		router.Post("/api/v1/locks/cleanup", lockAPI.CleanupLocks)
 	}
 
 	srv := &http.Server{

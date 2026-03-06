@@ -7,18 +7,6 @@ import (
 	"time"
 )
 
-// FileStatus — статус файла в хранилище.
-type FileStatus string
-
-const (
-	// StatusActive — файл доступен для операций
-	StatusActive FileStatus = "active"
-	// StatusDeleted — помечен на удаление (ожидает очистки GC)
-	StatusDeleted FileStatus = "deleted"
-	// StatusExpired — TTL истёк (ожидает очистки GC)
-	StatusExpired FileStatus = "expired"
-)
-
 // RetentionPolicy — политика хранения файла.
 type RetentionPolicy string
 
@@ -59,9 +47,6 @@ type FileMetadata struct {
 	// UploadedAt — дата и время загрузки (UTC)
 	UploadedAt time.Time `json:"uploaded_at"`
 
-	// Status — текущий статус файла
-	Status FileStatus `json:"status"`
-
 	// RetentionPolicy — политика хранения
 	RetentionPolicy RetentionPolicy `json:"retention_policy"`
 
@@ -81,6 +66,7 @@ type FileMetadata struct {
 }
 
 // IsExpired проверяет, истёк ли срок хранения файла.
+// Возвращает true для temporary файлов с истёкшим TTL.
 func (m *FileMetadata) IsExpired(now time.Time) bool {
 	if m.RetentionPolicy != RetentionTemporary {
 		return false
@@ -89,9 +75,4 @@ func (m *FileMetadata) IsExpired(now time.Time) bool {
 		return false
 	}
 	return now.After(*m.ExpiresAt)
-}
-
-// IsActive проверяет, что файл в активном состоянии.
-func (m *FileMetadata) IsActive() bool {
-	return m.Status == StatusActive
 }

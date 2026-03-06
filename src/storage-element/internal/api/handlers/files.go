@@ -115,12 +115,12 @@ func (h *FilesHandler) DownloadFile(w http.ResponseWriter, r *http.Request, file
 }
 
 // ListFiles обрабатывает GET /api/v1/files.
-// Пагинация: limit, offset. Фильтр: status.
+// Пагинация: limit, offset. Фильтр: retention_policy.
 func (h *FilesHandler) ListFiles(w http.ResponseWriter, _ *http.Request, params generated.ListFilesParams) {
 	// Значения по умолчанию
 	limit := 50
 	offset := 0
-	var statusFilter model.FileStatus
+	var retentionFilter model.RetentionPolicy
 
 	if params.Limit != nil {
 		limit = *params.Limit
@@ -138,20 +138,20 @@ func (h *FilesHandler) ListFiles(w http.ResponseWriter, _ *http.Request, params 
 		}
 	}
 
-	if params.Status != nil {
-		statusFilter = model.FileStatus(string(*params.Status))
-		// Валидация статуса
-		switch statusFilter {
-		case model.StatusActive, model.StatusDeleted, model.StatusExpired:
+	if params.RetentionPolicy != nil {
+		retentionFilter = model.RetentionPolicy(string(*params.RetentionPolicy))
+		// Валидация retention_policy
+		switch retentionFilter {
+		case model.RetentionPermanent, model.RetentionTemporary:
 			// ok
 		default:
-			errors.ValidationError(w, fmt.Sprintf("Недопустимый статус: %s", statusFilter))
+			errors.ValidationError(w, fmt.Sprintf("Недопустимая политика хранения: %s", retentionFilter))
 			return
 		}
 	}
 
 	// Получаем данные из индекса
-	items, total := h.idx.List(limit, offset, statusFilter)
+	items, total := h.idx.List(limit, offset, retentionFilter)
 
 	// Преобразуем в API-формат
 	apiItems := make([]generated.FileMetadata, 0, len(items))
@@ -220,12 +220,6 @@ func (h *FilesHandler) UpdateFileMetadata(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Проверяем статус
-	if meta.Status != model.StatusActive {
-		errors.ModeNotAllowed(w, fmt.Sprintf("Файл %s имеет статус %s, обновление недоступно", fileId.String(), meta.Status))
-		return
-	}
-
 	// Обновляем поля
 	if req.Description != nil {
 		meta.Description = *req.Description
@@ -254,7 +248,7 @@ func (h *FilesHandler) UpdateFileMetadata(w http.ResponseWriter, r *http.Request
 }
 
 // DeleteFile обрабатывает DELETE /api/v1/files/{file_id}.
-// Soft delete: помечает файл как deleted (физическое удаление — GC).
+// Hard delete: физически удаляет файл, attr.json и запись из индекса.
 // Доступно только в режиме edit.
 //
 // Если файл в данный момент загружается (lock активен) — возвращает 409 Conflict
@@ -275,12 +269,6 @@ func (h *FilesHandler) DeleteFile(w http.ResponseWriter, r *http.Request, fileId
 		return
 	}
 
-	// Проверяем статус
-	if meta.Status == model.StatusDeleted {
-		errors.ModeNotAllowed(w, fmt.Sprintf("Файл %s уже помечен на удаление", fileId.String()))
-		return
-	}
-
 	// Проверяем lock: если файл загружается — 409 Conflict
 	if locked, lockInfo, _ := h.locks.IsLocked(ctx, meta.FileID); locked {
 		errors.WriteError(w, http.StatusConflict,
@@ -291,22 +279,23 @@ func (h *FilesHandler) DeleteFile(w http.ResponseWriter, r *http.Request, fileId
 		return
 	}
 
-	// Помечаем как deleted (soft delete)
-	meta.Status = model.StatusDeleted
-
-	// Записываем обновлённый attr.json через AttrStore
-	if err := h.attrs.Write(ctx, meta.StoragePath, meta); err != nil {
-		errors.InternalError(w, "Ошибка обновления метаданных на диске")
+	// Физическое удаление файла данных
+	if err := h.files.DeleteFile(ctx, meta.StoragePath); err != nil {
+		errors.InternalError(w, "Ошибка удаления файла с диска")
 		return
 	}
 
-	// Обновляем индекс
-	_ = h.idx.Update(meta)
+	// Удаляем attr.json
+	if err := h.attrs.Delete(ctx, meta.StoragePath); err != nil {
+		// Файл уже удалён, attr.json — не критично
+	}
+
+	// Удаляем из индекса
+	h.idx.Remove(meta.FileID)
 
 	// Метрики
 	middleware.OperationsTotal.WithLabelValues("delete", "success").Inc()
-	middleware.FilesTotal.WithLabelValues(string(model.StatusActive)).Dec()
-	middleware.FilesTotal.WithLabelValues(string(model.StatusDeleted)).Inc()
+	middleware.FilesTotal.Set(float64(h.idx.Count()))
 
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -325,7 +314,6 @@ func domainToAPIMetadata(m *model.FileMetadata) generated.FileMetadata {
 		Checksum:         m.Checksum,
 		UploadedBy:       m.UploadedBy,
 		UploadedAt:       m.UploadedAt,
-		Status:           generated.FileMetadataStatus(m.Status),
 		RetentionPolicy:  generated.FileMetadataRetentionPolicy(m.RetentionPolicy),
 		TtlDays:          m.TTLDays,
 		ExpiresAt:        m.ExpiresAt,

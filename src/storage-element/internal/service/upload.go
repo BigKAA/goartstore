@@ -221,7 +221,6 @@ func (s *UploadService) Upload(params UploadParams) (*UploadResult, *UploadError
 		Checksum:         savedResult.Checksum,
 		UploadedBy:       params.UploadedBy,
 		UploadedAt:       now,
-		Status:           model.StatusActive,
 		RetentionPolicy:  retentionPolicy,
 		TTLDays:          ttlDays,
 		ExpiresAt:        expiresAt,
@@ -248,7 +247,7 @@ func (s *UploadService) Upload(params UploadParams) (*UploadResult, *UploadError
 
 	// 10. Обновляем метрики
 	middleware.OperationsTotal.WithLabelValues("upload", "success").Inc()
-	middleware.FilesTotal.WithLabelValues(string(model.StatusActive)).Inc()
+	middleware.FilesTotal.Inc()
 
 	s.logger.Info("Файл загружен",
 		slog.String("file_id", fileID),

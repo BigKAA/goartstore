@@ -23,11 +23,11 @@ import (
 // Использует sync.RWMutex для конкурентного чтения и
 // эксклюзивной записи.
 type Index struct {
-	mu              sync.RWMutex
-	files           map[string]*model.FileMetadata // file_id → metadata
-	totalActiveSize int64                          // кумулятивный размер active файлов (байты)
-	ready           bool                           // индекс построен и готов
-	logger          *slog.Logger
+	mu        sync.RWMutex
+	files     map[string]*model.FileMetadata // file_id → metadata
+	totalSize int64                          // кумулятивный размер всех файлов (байты)
+	ready     bool                           // индекс построен и готов
+	logger    *slog.Logger
 }
 
 // New создаёт пустой индекс. Для заполнения вызовите BuildFromDir.
@@ -46,20 +46,18 @@ func (idx *Index) RebuildFromMetadata(metadatas []*model.FileMetadata) {
 	defer idx.mu.Unlock()
 
 	idx.files = make(map[string]*model.FileMetadata, len(metadatas))
-	idx.totalActiveSize = 0
+	idx.totalSize = 0
 	for _, meta := range metadatas {
 		copied := *meta
 		idx.files[meta.FileID] = &copied
-		if meta.Status == model.StatusActive {
-			idx.totalActiveSize += meta.Size
-		}
+		idx.totalSize += meta.Size
 	}
 
 	idx.ready = true
 
 	idx.logger.Info("Индекс метаданных пересобран",
 		slog.Int("files", len(idx.files)),
-		slog.Int64("total_active_size", idx.totalActiveSize),
+		slog.Int64("total_size", idx.totalSize),
 	)
 }
 
@@ -94,22 +92,18 @@ func (idx *Index) IsReady() bool {
 
 // Add добавляет метаданные файла в индекс.
 // Если файл с таким ID уже существует, он будет перезаписан.
-// Корректно обновляет кумулятивный счётчик totalActiveSize.
+// Корректно обновляет кумулятивный счётчик totalSize.
 func (idx *Index) Add(meta *model.FileMetadata) {
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
 
-	// Если существующий файл был active — вычитаем его размер
+	// Если существующий файл — вычитаем его размер
 	if existing, ok := idx.files[meta.FileID]; ok {
-		if existing.Status == model.StatusActive {
-			idx.totalActiveSize -= existing.Size
-		}
+		idx.totalSize -= existing.Size
 	}
 
-	// Если новый файл active — прибавляем его размер
-	if meta.Status == model.StatusActive {
-		idx.totalActiveSize += meta.Size
-	}
+	// Прибавляем размер нового файла
+	idx.totalSize += meta.Size
 
 	// Создаём копию, чтобы избежать data race при внешних изменениях
 	copied := *meta
@@ -118,7 +112,7 @@ func (idx *Index) Add(meta *model.FileMetadata) {
 
 // Update обновляет метаданные файла в индексе.
 // Возвращает ошибку, если файл не найден.
-// Корректно обновляет кумулятивный счётчик totalActiveSize.
+// Корректно обновляет кумулятивный счётчик totalSize.
 func (idx *Index) Update(meta *model.FileMetadata) error {
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
@@ -128,15 +122,9 @@ func (idx *Index) Update(meta *model.FileMetadata) error {
 		return fmt.Errorf("файл %s не найден в индексе", meta.FileID)
 	}
 
-	// Вычитаем старый размер, если файл был active
-	if existing.Status == model.StatusActive {
-		idx.totalActiveSize -= existing.Size
-	}
-
-	// Прибавляем новый размер, если файл становится active
-	if meta.Status == model.StatusActive {
-		idx.totalActiveSize += meta.Size
-	}
+	// Корректируем totalSize при изменении размера
+	idx.totalSize -= existing.Size
+	idx.totalSize += meta.Size
 
 	copied := *meta
 	idx.files[meta.FileID] = &copied
@@ -145,7 +133,6 @@ func (idx *Index) Update(meta *model.FileMetadata) error {
 
 // Remove удаляет файл из индекса по file_id.
 // Возвращает true, если файл был найден и удалён.
-// Если файл был active — уменьшает totalActiveSize.
 func (idx *Index) Remove(fileID string) bool {
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
@@ -155,10 +142,8 @@ func (idx *Index) Remove(fileID string) bool {
 		return false
 	}
 
-	// Если удаляемый файл был active — вычитаем его размер
-	if existing.Status == model.StatusActive {
-		idx.totalActiveSize -= existing.Size
-	}
+	// Вычитаем размер удаляемого файла
+	idx.totalSize -= existing.Size
 
 	delete(idx.files, fileID)
 	return true
@@ -180,22 +165,23 @@ func (idx *Index) Get(fileID string) *model.FileMetadata {
 	return &copied
 }
 
-// List возвращает пагинированный список метаданных с опциональной фильтрацией по статусу.
+// List возвращает пагинированный список метаданных с опциональной фильтрацией
+// по политике хранения.
 // Параметры:
 //   - limit: максимальное количество элементов (0 = все)
 //   - offset: смещение от начала списка
-//   - statusFilter: фильтр по статусу ("" = без фильтра)
+//   - retentionFilter: фильтр по retention_policy ("" = без фильтра)
 //
 // Возвращает срез метаданных и общее количество файлов (с учётом фильтра).
 // Файлы отсортированы по дате загрузки (новые первые).
-func (idx *Index) List(limit, offset int, statusFilter model.FileStatus) (items []*model.FileMetadata, total int) {
+func (idx *Index) List(limit, offset int, retentionFilter model.RetentionPolicy) (items []*model.FileMetadata, total int) {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
 
 	// Собираем все файлы с учётом фильтра
 	var filtered []*model.FileMetadata
 	for _, meta := range idx.files {
-		if statusFilter != "" && meta.Status != statusFilter {
+		if retentionFilter != "" && meta.RetentionPolicy != retentionFilter {
 			continue
 		}
 		copied := *meta
@@ -222,6 +208,29 @@ func (idx *Index) List(limit, offset int, statusFilter model.FileStatus) (items 
 	return filtered[offset:end], total
 }
 
+// ListExpired возвращает все temporary файлы с истёкшим TTL.
+// Используется GC для определения файлов к удалению.
+func (idx *Index) ListExpired(now func() *model.FileMetadata) []*model.FileMetadata {
+	// Этот метод не нужен — GC использует ListTemporary + IsExpired
+	return nil
+}
+
+// ListTemporary возвращает все temporary файлы из индекса.
+// Используется GC для проверки TTL.
+func (idx *Index) ListTemporary() []*model.FileMetadata {
+	idx.mu.RLock()
+	defer idx.mu.RUnlock()
+
+	var result []*model.FileMetadata
+	for _, meta := range idx.files {
+		if meta.RetentionPolicy == model.RetentionTemporary {
+			copied := *meta
+			result = append(result, &copied)
+		}
+	}
+	return result
+}
+
 // Count возвращает общее количество файлов в индексе.
 func (idx *Index) Count() int {
 	idx.mu.RLock()
@@ -229,24 +238,16 @@ func (idx *Index) Count() int {
 	return len(idx.files)
 }
 
-// CountByStatus возвращает количество файлов с указанным статусом.
-func (idx *Index) CountByStatus(status model.FileStatus) int {
+// TotalSize возвращает суммарный размер всех файлов в байтах.
+// Значение поддерживается кумулятивно при Add/Update/Remove/BuildFromDir.
+func (idx *Index) TotalSize() int64 {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
-
-	count := 0
-	for _, meta := range idx.files {
-		if meta.Status == status {
-			count++
-		}
-	}
-	return count
+	return idx.totalSize
 }
 
-// TotalActiveSize возвращает суммарный размер всех active файлов в байтах.
-// Значение поддерживается кумулятивно при Add/Update/Remove/BuildFromDir.
+// TotalActiveSize возвращает суммарный размер всех файлов в байтах.
+// Deprecated: используйте TotalSize(). Все файлы в индексе — существующие.
 func (idx *Index) TotalActiveSize() int64 {
-	idx.mu.RLock()
-	defer idx.mu.RUnlock()
-	return idx.totalActiveSize
+	return idx.TotalSize()
 }

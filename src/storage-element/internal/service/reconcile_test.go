@@ -58,7 +58,6 @@ func TestReconcileRunOnce_NoIssues(t *testing.T) {
 		Checksum:         "", // Будет вычислен ниже
 		UploadedBy:       "test",
 		UploadedAt:       time.Now().UTC(),
-		Status:           model.StatusActive,
 		RetentionPolicy:  model.RetentionPermanent,
 	}
 
@@ -202,7 +201,6 @@ func TestReconcileRunOnce_MissingFile(t *testing.T) {
 		Checksum:         "abc123",
 		UploadedBy:       "test",
 		UploadedAt:       time.Now().UTC(),
-		Status:           model.StatusActive,
 		RetentionPolicy:  model.RetentionPermanent,
 	}
 
@@ -270,7 +268,6 @@ func TestReconcileRunOnce_SizeMismatch(t *testing.T) {
 		Checksum:         "abc",
 		UploadedBy:       "test",
 		UploadedAt:       time.Now().UTC(),
-		Status:           model.StatusActive,
 		RetentionPolicy:  model.RetentionPermanent,
 	}
 
@@ -329,7 +326,6 @@ func TestReconcileRunOnce_ChecksumMismatch(t *testing.T) {
 		Checksum:         "deadbeef",          // Неправильный checksum
 		UploadedBy:       "test",
 		UploadedAt:       time.Now().UTC(),
-		Status:           model.StatusActive,
 		RetentionPolicy:  model.RetentionPermanent,
 	}
 
@@ -452,7 +448,6 @@ func TestReconcileRunOnce_RebuildIndex(t *testing.T) {
 		Checksum:         "abc",
 		UploadedBy:       "test",
 		UploadedAt:       time.Now().UTC(),
-		Status:           model.StatusActive,
 		RetentionPolicy:  model.RetentionPermanent,
 	})
 

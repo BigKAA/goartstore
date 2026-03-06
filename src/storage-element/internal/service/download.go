@@ -11,7 +11,6 @@ import (
 	"github.com/bigkaa/goartstore/storage-element/internal/api/middleware"
 	"github.com/bigkaa/goartstore/storage-element/internal/backend"
 	"github.com/bigkaa/goartstore/storage-element/internal/domain/mode"
-	"github.com/bigkaa/goartstore/storage-element/internal/domain/model"
 	"github.com/bigkaa/goartstore/storage-element/internal/storage/index"
 )
 
@@ -79,16 +78,7 @@ func (s *DownloadService) Serve(w http.ResponseWriter, r *http.Request, fileID s
 		}
 	}
 
-	// 3. Проверяем статус
-	if meta.Status != model.StatusActive {
-		return &DownloadError{
-			StatusCode: 409,
-			Code:       apierrors.CodeModeNotAllowed,
-			Message:    fmt.Sprintf("Файл %s имеет статус %s, скачивание недоступно", fileID, meta.Status),
-		}
-	}
-
-	// 4. Открываем файл
+	// 3. Открываем файл
 	rc, err := s.files.ReadFile(ctx, meta.StoragePath)
 	if err != nil {
 		s.logger.Error("Файл не найден на диске",

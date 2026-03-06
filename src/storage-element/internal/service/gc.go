@@ -1,8 +1,8 @@
 // gc.go — сервис фоновой очистки (Garbage Collection) файлов.
 //
-// GC выполняет две задачи:
-//  1. Помечает active файлы с истёкшим TTL как expired (обновляет attr.json + индекс)
-//  2. Физически удаляет файлы со статусом deleted (файл + attr.json + запись в индексе)
+// GC удаляет temporary файлы с истёкшим TTL:
+// сканирует индекс, находит temporary файлы с expires_at < now,
+// физически удаляет файл + attr.json + запись в индексе.
 //
 // GC идемпотентен: каждый pod запускает свой GC без singleton-координации.
 // Перед удалением проверяется lock-файл (per-file lock с TTL),
@@ -20,7 +20,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/bigkaa/goartstore/storage-element/internal/backend"
-	"github.com/bigkaa/goartstore/storage-element/internal/domain/model"
 	"github.com/bigkaa/goartstore/storage-element/internal/storage/index"
 )
 
@@ -32,16 +31,10 @@ var (
 		Help: "Общее количество запусков GC",
 	})
 
-	// gcFilesDeletedTotal — количество физически удалённых файлов.
-	gcFilesDeletedTotal = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "se_gc_files_deleted_total",
-		Help: "Общее количество файлов, удалённых GC",
-	})
-
-	// gcFilesExpiredTotal — количество файлов, помеченных как expired.
-	gcFilesExpiredTotal = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "se_gc_files_expired_total",
-		Help: "Общее количество файлов, помеченных как expired",
+	// gcFilesRemovedTotal — количество физически удалённых файлов.
+	gcFilesRemovedTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "se_gc_files_removed_total",
+		Help: "Общее количество файлов, удалённых GC (по истечении TTL)",
 	})
 
 	// gcDurationSeconds — длительность выполнения GC.
@@ -54,9 +47,7 @@ var (
 
 // GCResult — результат одного запуска GC.
 type GCResult struct {
-	// ExpiredCount — количество файлов, помеченных как expired
-	ExpiredCount int
-	// DeletedCount — количество физически удалённых файлов
+	// DeletedCount — количество физически удалённых файлов (TTL истёк)
 	DeletedCount int
 	// SkippedLocked — количество пропущенных файлов (активный lock)
 	SkippedLocked int
@@ -145,9 +136,7 @@ func (gc *GCService) run(ctx context.Context) {
 // os.Remove() на уже удалённый файл не вызывает ошибку.
 // Перед удалением проверяется lock-файл — locked файлы пропускаются.
 //
-// Порядок обработки:
-//  1. Сканирование индекса: пометка expired (active + TTL истёк)
-//  2. Физическое удаление deleted файлов (файл + attr.json + индекс)
+// Находит temporary файлы с истёкшим TTL и физически удаляет их.
 func (gc *GCService) RunOnce() *GCResult {
 	start := time.Now()
 	result := &GCResult{}
@@ -156,12 +145,8 @@ func (gc *GCService) RunOnce() *GCResult {
 
 	now := time.Now().UTC()
 
-	// Фаза 1: пометка expired файлов
-	expired := gc.markExpired(now)
-	result.ExpiredCount = expired
-
-	// Фаза 2: удаление deleted файлов (lock-aware)
-	deleted, skipped, errors := gc.deleteFiles()
+	// Находим и удаляем файлы с истёкшим TTL
+	deleted, skipped, errors := gc.deleteExpiredFiles(now)
 	result.DeletedCount = deleted
 	result.SkippedLocked = skipped
 	result.Errors = errors
@@ -170,12 +155,10 @@ func (gc *GCService) RunOnce() *GCResult {
 
 	// Обновляем Prometheus метрики
 	gcRunsTotal.Inc()
-	gcFilesDeletedTotal.Add(float64(deleted))
-	gcFilesExpiredTotal.Add(float64(expired))
+	gcFilesRemovedTotal.Add(float64(deleted))
 	gcDurationSeconds.Observe(result.Duration.Seconds())
 
 	gc.logger.Info("GC завершён",
-		slog.Int("expired", result.ExpiredCount),
 		slog.Int("deleted", result.DeletedCount),
 		slog.Int("skipped_locked", result.SkippedLocked),
 		slog.Int("errors", result.Errors),
@@ -185,61 +168,21 @@ func (gc *GCService) RunOnce() *GCResult {
 	return result
 }
 
-// markExpired находит active файлы с истёкшим TTL и помечает их как expired.
-// Обновляет и attr.json, и индекс.
-func (gc *GCService) markExpired(now time.Time) int {
+// deleteExpiredFiles находит temporary файлы с истёкшим TTL и физически удаляет их.
+// Удаляет: файл данных, attr.json, запись в индексе.
+// Перед удалением проверяет lock-файл: если файл locked (TTL не истёк) — пропускает.
+func (gc *GCService) deleteExpiredFiles(now time.Time) (deleted, skipped, errors int) {
 	ctx := context.Background()
 
-	// Получаем все active файлы из индекса
-	files, _ := gc.idx.List(0, 0, model.StatusActive)
+	// Получаем все temporary файлы из индекса
+	files := gc.idx.ListTemporary()
 
-	count := 0
 	for _, meta := range files {
+		// Проверяем, истёк ли TTL
 		if !meta.IsExpired(now) {
 			continue
 		}
 
-		// Обновляем статус на expired
-		meta.Status = model.StatusExpired
-
-		// Обновляем attr.json через AttrStore
-		if err := gc.attrs.Write(ctx, meta.StoragePath, meta); err != nil {
-			gc.logger.Error("GC: ошибка обновления attr.json",
-				slog.String("file_id", meta.FileID),
-				slog.String("error", err.Error()),
-			)
-			continue
-		}
-
-		// Обновляем индекс
-		if err := gc.idx.Update(meta); err != nil {
-			gc.logger.Error("GC: ошибка обновления индекса",
-				slog.String("file_id", meta.FileID),
-				slog.String("error", err.Error()),
-			)
-			continue
-		}
-
-		gc.logger.Debug("GC: файл помечен как expired",
-			slog.String("file_id", meta.FileID),
-			slog.String("filename", meta.OriginalFilename),
-		)
-		count++
-	}
-
-	return count
-}
-
-// deleteFiles физически удаляет файлы со статусом deleted.
-// Перед удалением проверяет lock-файл: если файл locked (TTL не истёк) — пропускает.
-// Удаляет: файл данных, attr.json, запись в индексе.
-func (gc *GCService) deleteFiles() (deleted, skipped, errors int) {
-	ctx := context.Background()
-
-	// Получаем все deleted файлы из индекса
-	files, _ := gc.idx.List(0, 0, model.StatusDeleted)
-
-	for _, meta := range files {
 		// Проверяем lock перед удалением: если файл ещё загружается — пропускаем
 		locked, lockInfo, lockErr := gc.locks.IsLocked(ctx, meta.FileID)
 		if lockErr != nil {
@@ -282,7 +225,7 @@ func (gc *GCService) deleteFiles() (deleted, skipped, errors int) {
 		// Удаляем из индекса
 		gc.idx.Remove(meta.FileID)
 
-		gc.logger.Debug("GC: файл удалён",
+		gc.logger.Debug("GC: файл удалён (TTL истёк)",
 			slog.String("file_id", meta.FileID),
 			slog.String("filename", meta.OriginalFilename),
 		)

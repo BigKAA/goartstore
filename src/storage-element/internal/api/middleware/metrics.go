@@ -38,12 +38,11 @@ var (
 // Бизнес-метрики (экспортируются для обновления из сервисного слоя)
 var (
 	// FilesTotal — текущее количество файлов в хранилище (gauge).
-	FilesTotal = promauto.NewGaugeVec(
+	FilesTotal = promauto.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "se_files_total",
 			Help: "Текущее количество файлов в хранилище",
 		},
-		[]string{"status"},
 	)
 
 	// StorageBytes — объём занятого дискового пространства (gauge).

@@ -84,7 +84,6 @@ func TestIndexSyncService_SyncOnce_DetectsNewFiles(t *testing.T) {
 		Checksum:         "abc",
 		UploadedBy:       "other-pod",
 		UploadedAt:       time.Now().UTC(),
-		Status:           model.StatusActive,
 		RetentionPolicy:  model.RetentionPermanent,
 	}
 	meta2 := &model.FileMetadata{
@@ -96,7 +95,6 @@ func TestIndexSyncService_SyncOnce_DetectsNewFiles(t *testing.T) {
 		Checksum:         "def",
 		UploadedBy:       "other-pod",
 		UploadedAt:       time.Now().UTC(),
-		Status:           model.StatusActive,
 		RetentionPolicy:  model.RetentionPermanent,
 	}
 
@@ -140,7 +138,6 @@ func TestIndexSyncService_SyncOnce_DetectsDeletedFiles(t *testing.T) {
 		Checksum:         "abc",
 		UploadedBy:       "this-pod",
 		UploadedAt:       time.Now().UTC(),
-		Status:           model.StatusActive,
 		RetentionPolicy:  model.RetentionPermanent,
 	}
 	createTestAttrFile(t, dir, meta)
@@ -178,7 +175,6 @@ func TestIndexSyncService_SyncOnce_PreservesExistingFiles(t *testing.T) {
 		Checksum:         "abc",
 		UploadedBy:       "this-pod",
 		UploadedAt:       time.Now().UTC(),
-		Status:           model.StatusActive,
 		RetentionPolicy:  model.RetentionPermanent,
 	}
 	createTestAttrFile(t, dir, meta)
@@ -236,7 +232,6 @@ func TestIndexSyncService_DetectsNewFiles_Background(t *testing.T) {
 		Checksum:         "abc",
 		UploadedBy:       "other-pod",
 		UploadedAt:       time.Now().UTC(),
-		Status:           model.StatusActive,
 		RetentionPolicy:  model.RetentionPermanent,
 	}
 	createTestAttrFile(t, dir, meta)

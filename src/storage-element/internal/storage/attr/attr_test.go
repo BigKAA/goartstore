@@ -23,7 +23,6 @@ func testMetadata() *model.FileMetadata {
 		Checksum:         "abc123def456",
 		UploadedBy:       "admin",
 		UploadedAt:       time.Now().UTC().Truncate(time.Second),
-		Status:           model.StatusActive,
 		RetentionPolicy:  model.RetentionTemporary,
 		TTLDays:          &ttl,
 		ExpiresAt:        &expiresAt,
@@ -72,9 +71,6 @@ func TestWriteAndRead(t *testing.T) {
 	}
 	if readMeta.Checksum != meta.Checksum {
 		t.Errorf("Checksum: ожидалось %q, получено %q", meta.Checksum, readMeta.Checksum)
-	}
-	if readMeta.Status != meta.Status {
-		t.Errorf("Status: ожидалось %q, получено %q", meta.Status, readMeta.Status)
 	}
 	if readMeta.RetentionPolicy != meta.RetentionPolicy {
 		t.Errorf("RetentionPolicy: ожидалось %q, получено %q", meta.RetentionPolicy, readMeta.RetentionPolicy)
@@ -153,7 +149,6 @@ func TestWrite_PermanentRetention(t *testing.T) {
 		Checksum:         "sha256hash",
 		UploadedBy:       "user1",
 		UploadedAt:       time.Now().UTC(),
-		Status:           model.StatusActive,
 		RetentionPolicy:  model.RetentionPermanent,
 	}
 

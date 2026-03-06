@@ -15,15 +15,8 @@ const (
 
 // Defines values for FileMetadataRetentionPolicy.
 const (
-	Permanent FileMetadataRetentionPolicy = "permanent"
-	Temporary FileMetadataRetentionPolicy = "temporary"
-)
-
-// Defines values for FileMetadataStatus.
-const (
-	FileMetadataStatusActive  FileMetadataStatus = "active"
-	FileMetadataStatusDeleted FileMetadataStatus = "deleted"
-	FileMetadataStatusExpired FileMetadataStatus = "expired"
+	FileMetadataRetentionPolicyPermanent FileMetadataRetentionPolicy = "permanent"
+	FileMetadataRetentionPolicyTemporary FileMetadataRetentionPolicy = "temporary"
 )
 
 // Defines values for HealthCheckStatus.
@@ -94,19 +87,6 @@ const (
 	StorageInfoModeRw   StorageInfoMode = "rw"
 )
 
-// Defines values for StorageInfoReplicaMode.
-const (
-	StorageInfoReplicaModeReplicated StorageInfoReplicaMode = "replicated"
-	StorageInfoReplicaModeStandalone StorageInfoReplicaMode = "standalone"
-)
-
-// Defines values for StorageInfoRole.
-const (
-	StorageInfoRoleFollower   StorageInfoRole = "follower"
-	StorageInfoRoleLeader     StorageInfoRole = "leader"
-	StorageInfoRoleStandalone StorageInfoRole = "standalone"
-)
-
 // Defines values for StorageInfoStatus.
 const (
 	StorageInfoStatusDegraded    StorageInfoStatus = "degraded"
@@ -115,22 +95,26 @@ const (
 	StorageInfoStatusOnline      StorageInfoStatus = "online"
 )
 
-// Defines values for ListFilesParamsStatus.
+// Defines values for ListFilesParamsRetentionPolicy.
 const (
-	ListFilesParamsStatusActive  ListFilesParamsStatus = "active"
-	ListFilesParamsStatusDeleted ListFilesParamsStatus = "deleted"
-	ListFilesParamsStatusExpired ListFilesParamsStatus = "expired"
+	ListFilesParamsRetentionPolicyPermanent ListFilesParamsRetentionPolicy = "permanent"
+	ListFilesParamsRetentionPolicyTemporary ListFilesParamsRetentionPolicy = "temporary"
 )
 
-// CapacityInfo Информация об ёмкости хранилища
+// CapacityInfo Информация об ёмкости хранилища.
+// Значения вычисляются из сконфигурированного лимита SE (SE_MAX_CAPACITY)
+// и суммарного размера active-файлов в индексе.
 type CapacityInfo struct {
-	// AvailableBytes Доступный объём в байтах
+	// AvailableBytes Оставшееся место в пределах лимита: total_bytes - used_bytes.
+	// Минимум 0 (не может быть отрицательным).
 	AvailableBytes int64 `json:"available_bytes"`
 
-	// TotalBytes Общий объём хранилища в байтах
+	// TotalBytes Сконфигурированный лимит ёмкости SE в байтах (SE_MAX_CAPACITY).
+	// Не отражает физический размер диска — только лимит, заданный при деплое.
 	TotalBytes int64 `json:"total_bytes"`
 
-	// UsedBytes Занятый объём в байтах
+	// UsedBytes Суммарный размер active-файлов в байтах.
+	// Вычисляется из in-memory индекса (O(1), кумулятивный счётчик).
 	UsedBytes int64 `json:"used_bytes"`
 }
 
@@ -148,6 +132,7 @@ type ErrorResponse struct {
 		// - `INVALID_RANGE` — некорректный Range header
 		// - `FILE_TOO_LARGE` — файл превышает лимит
 		// - `STORAGE_FULL` — нет свободного места
+		// - `FILE_UPLOAD_IN_PROGRESS` — файл загружается (lock активен)
 		// - `RECONCILE_IN_PROGRESS` — сверка уже выполняется
 		// - `INTERNAL_ERROR` — внутренняя ошибка
 		Code string `json:"code"`
@@ -203,12 +188,6 @@ type FileMetadata struct {
 	// Size Размер файла в байтах
 	Size int64 `json:"size"`
 
-	// Status Статус файла:
-	// - `active` — доступен для операций
-	// - `expired` — TTL истёк (ожидает очистки GC)
-	// - `deleted` — помечен на удаление (ожидает очистки GC)
-	Status FileMetadataStatus `json:"status"`
-
 	// Tags Теги файла (опционально)
 	Tags *[]string `json:"tags,omitempty"`
 
@@ -228,12 +207,6 @@ type FileMetadata struct {
 // - `temporary` — с TTL, автоматически удаляется
 // - `permanent` — без срока хранения
 type FileMetadataRetentionPolicy string
-
-// FileMetadataStatus Статус файла:
-// - `active` — доступен для операций
-// - `expired` — TTL истёк (ожидает очистки GC)
-// - `deleted` — помечен на удаление (ожидает очистки GC)
-type FileMetadataStatus string
 
 // FileMetadataUpdate Поля для обновления метаданных файла. Все поля опциональные —
 // обновляются только переданные поля.
@@ -273,8 +246,8 @@ type HealthReadyResponse struct {
 		// Filesystem Результат отдельной проверки здоровья
 		Filesystem HealthCheck `json:"filesystem"`
 
-		// Wal Результат отдельной проверки здоровья
-		Wal HealthCheck `json:"wal"`
+		// Index Результат отдельной проверки здоровья
+		Index HealthCheck `json:"index"`
 	} `json:"checks"`
 	Service string `json:"service"`
 
@@ -290,6 +263,73 @@ type HealthReadyResponse struct {
 // - `degraded` (200) — работает с ограничениями
 // - `fail` (503) — не готов
 type HealthReadyResponseStatus string
+
+// LockCleanupResponse Результат очистки lock-ов
+type LockCleanupResponse struct {
+	// Active Информация об оставшихся активных lock-ах
+	Active []struct {
+		// ExpiresAt Время истечения lock-а
+		ExpiresAt time.Time `json:"expires_at"`
+
+		// FileId ID файла
+		FileId openapi_types.UUID `json:"file_id"`
+
+		// Holder Pod, захвативший lock
+		Holder string `json:"holder"`
+	} `json:"active"`
+
+	// Cleaned Количество удалённых lock-ов
+	Cleaned int `json:"cleaned"`
+
+	// Remaining Количество оставшихся активных lock-ов
+	Remaining int `json:"remaining"`
+
+	// Removed Информация об удалённых lock-ах
+	Removed []struct {
+		// ExpiredAt Время истечения lock-а
+		ExpiredAt time.Time `json:"expired_at"`
+
+		// FileId ID файла
+		FileId openapi_types.UUID `json:"file_id"`
+
+		// Holder Pod, захвативший lock
+		Holder string `json:"holder"`
+	} `json:"removed"`
+}
+
+// LockInfo Информация о per-file lock-е
+type LockInfo struct {
+	// AcquiredAt Время захвата lock-а (ISO 8601, UTC)
+	AcquiredAt time.Time `json:"acquired_at"`
+
+	// Expired Истёк ли TTL lock-а
+	Expired bool `json:"expired"`
+
+	// ExpiresAt Время истечения lock-а (ISO 8601, UTC)
+	ExpiresAt time.Time `json:"expires_at"`
+
+	// FileId ID файла, защищённого lock-ом
+	FileId openapi_types.UUID `json:"file_id"`
+
+	// Holder Идентификатор pod-а/экземпляра, захватившего lock
+	Holder string `json:"holder"`
+
+	// TtlSeconds Время жизни lock-а в секундах
+	TtlSeconds int `json:"ttl_seconds"`
+}
+
+// LockListResponse Ответ со списком lock-ов
+type LockListResponse struct {
+	// Active Количество активных (не expired) lock-ов
+	Active int `json:"active"`
+
+	// Expired Количество expired lock-ов
+	Expired int        `json:"expired"`
+	Locks   []LockInfo `json:"locks"`
+
+	// Total Общее количество lock-ов
+	Total int `json:"total"`
+}
 
 // ModeTransitionRequest Запрос на смену режима работы
 type ModeTransitionRequest struct {
@@ -341,7 +381,7 @@ type ReconcileIssue struct {
 	// FileId ID файла (если известен)
 	FileId *openapi_types.UUID `json:"file_id"`
 
-	// Path Путь к файлу на диске (относительный)
+	// Path Путь к файлу на диске (относительный, формат YYYY/MM/DD/filename)
 	Path *string `json:"path,omitempty"`
 
 	// Type Тип проблемы:
@@ -402,20 +442,13 @@ type StorageInfo struct {
 	// AllowedOperations Список операций, доступных в текущем режиме и роли
 	AllowedOperations []StorageInfoAllowedOperations `json:"allowed_operations"`
 
-	// Capacity Информация об ёмкости хранилища
+	// Capacity Информация об ёмкости хранилища.
+	// Значения вычисляются из сконфигурированного лимита SE (SE_MAX_CAPACITY)
+	// и суммарного размера active-файлов в индексе.
 	Capacity CapacityInfo `json:"capacity"`
 
 	// Mode Текущий режим работы
 	Mode StorageInfoMode `json:"mode"`
-
-	// ReplicaMode Режим развёртывания
-	ReplicaMode *StorageInfoReplicaMode `json:"replica_mode,omitempty"`
-
-	// Role Роль экземпляра:
-	// - `standalone` — единственный экземпляр (replica_mode=standalone)
-	// - `leader` — лидер в replicated-режиме (обрабатывает запись)
-	// - `follower` — follower в replicated-режиме (только чтение)
-	Role *StorageInfoRole `json:"role,omitempty"`
 
 	// Status Текущий статус (унифицирован с Admin Module):
 	// - `online` — полностью работоспособен
@@ -437,15 +470,6 @@ type StorageInfoAllowedOperations string
 
 // StorageInfoMode Текущий режим работы
 type StorageInfoMode string
-
-// StorageInfoReplicaMode Режим развёртывания
-type StorageInfoReplicaMode string
-
-// StorageInfoRole Роль экземпляра:
-// - `standalone` — единственный экземпляр (replica_mode=standalone)
-// - `leader` — лидер в replicated-режиме (обрабатывает запись)
-// - `follower` — follower в replicated-режиме (только чтение)
-type StorageInfoRole string
 
 // StorageInfoStatus Текущий статус (унифицирован с Admin Module):
 // - `online` — полностью работоспособен
@@ -477,12 +501,12 @@ type ListFilesParams struct {
 	// Offset Смещение от начала списка
 	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
 
-	// Status Фильтр по статусу файла
-	Status *ListFilesParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+	// RetentionPolicy Фильтр по политике хранения
+	RetentionPolicy *ListFilesParamsRetentionPolicy `form:"retention_policy,omitempty" json:"retention_policy,omitempty"`
 }
 
-// ListFilesParamsStatus defines parameters for ListFiles.
-type ListFilesParamsStatus string
+// ListFilesParamsRetentionPolicy defines parameters for ListFiles.
+type ListFilesParamsRetentionPolicy string
 
 // UploadFileMultipartBody defines parameters for UploadFile.
 type UploadFileMultipartBody struct {
@@ -501,6 +525,13 @@ type DownloadFileParams struct {
 	// Range HTTP Range header для частичного скачивания.
 	// Формат: `bytes=start-end`
 	Range *string `json:"Range,omitempty"`
+}
+
+// CleanupLocksParams defines parameters for CleanupLocks.
+type CleanupLocksParams struct {
+	// Force Принудительная очистка всех lock-ов (включая активные).
+	// Внимание: может прервать текущие upload-ы.
+	Force *bool `form:"force,omitempty" json:"force,omitempty"`
 }
 
 // UploadFileMultipartRequestBody defines body for UploadFile for multipart/form-data ContentType.
