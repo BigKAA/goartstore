@@ -3,7 +3,7 @@
 # test-am-files.sh — Тесты Files Registry (тесты 21-24)
 #
 # Проверяет операции с файловым реестром: register, list, update metadata,
-# soft delete. Использует SE, зарегистрированный в test-am-storage-elements.sh.
+# hard delete. Использует SE, зарегистрированный в test-am-storage-elements.sh.
 #
 # Переменные окружения (из Makefile):
 #   AM_URL, KC_TOKEN_URL, KC_TEST_USER_CLIENT_ID,
@@ -69,13 +69,12 @@ BODY=$(get_response_body "$RESPONSE")
 
 if [[ "$CODE" == "201" ]]; then
     REGISTERED_ID=$(echo "$BODY" | jq -r '.file_id')
-    STATUS=$(echo "$BODY" | jq -r '.status')
     FILENAME=$(echo "$BODY" | jq -r '.original_filename')
     UPLOADED_BY=$(echo "$BODY" | jq -r '.uploaded_by')
-    if [[ "$REGISTERED_ID" == "$FILE_ID" && "$STATUS" == "active" && "$FILENAME" == "test-photo.jpg" ]]; then
-        test_pass "Тест 21: файл зарегистрирован, file_id=${FILE_ID}, status=active, uploaded_by=${UPLOADED_BY}"
+    if [[ "$REGISTERED_ID" == "$FILE_ID" && "$FILENAME" == "test-photo.jpg" ]]; then
+        test_pass "Тест 21: файл зарегистрирован, file_id=${FILE_ID}, uploaded_by=${UPLOADED_BY}"
     else
-        test_fail "Тест 21: файл зарегистрирован, но данные некорректны: id=${REGISTERED_ID}, status=${STATUS}"
+        test_fail "Тест 21: файл зарегистрирован, но данные некорректны: id=${REGISTERED_ID}, filename=${FILENAME}"
     fi
 else
     test_fail "Тест 21: register file → HTTP ${CODE} (ожидался 201)"
@@ -122,28 +121,19 @@ else
     test_fail "Тест 23: file update → HTTP ${CODE} (ожидался 200)"
 fi
 
-# ---------- Тест 24: DELETE /api/v1/files/{file_id} — soft delete ----------
-log_info "Тест 24: DELETE /api/v1/files/${FILE_ID} (soft delete)"
+# ---------- Тест 24: DELETE /api/v1/files/{file_id} — hard delete ----------
+log_info "Тест 24: DELETE /api/v1/files/${FILE_ID} (hard delete)"
 RESPONSE=$(http_delete "$AM_URL" "$ADMIN_TOKEN" "/api/v1/files/${FILE_ID}")
 CODE=$(get_response_code "$RESPONSE")
 
 if [[ "$CODE" == "204" ]]; then
-    # Проверяем, что статус стал deleted
+    # Проверяем, что файл физически удалён из БД (GET → 404)
     RESPONSE2=$(http_get "$AM_URL" "$ADMIN_TOKEN" "/api/v1/files/${FILE_ID}")
     CODE2=$(get_response_code "$RESPONSE2")
-    BODY2=$(get_response_body "$RESPONSE2")
-    if [[ "$CODE2" == "200" ]]; then
-        FILE_STATUS=$(echo "$BODY2" | jq -r '.status')
-        if [[ "$FILE_STATUS" == "deleted" ]]; then
-            test_pass "Тест 24: файл soft deleted, status=deleted"
-        else
-            test_fail "Тест 24: файл после delete → status=${FILE_STATUS} (ожидался deleted)"
-        fi
-    elif [[ "$CODE2" == "404" ]]; then
-        # Некоторые реализации скрывают удалённые файлы
-        test_pass "Тест 24: файл soft deleted (GET → 404)"
+    if [[ "$CODE2" == "404" ]]; then
+        test_pass "Тест 24: файл hard deleted (GET → 404)"
     else
-        test_fail "Тест 24: после delete GET → HTTP ${CODE2}"
+        test_fail "Тест 24: после hard delete GET → HTTP ${CODE2} (ожидался 404)"
     fi
 else
     test_fail "Тест 24: delete file → HTTP ${CODE} (ожидался 204)"

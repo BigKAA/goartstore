@@ -78,25 +78,25 @@ else
 fi
 
 # --------------------------------------------------------------------------
-# Тест 9: POST /api/v1/search — поиск по status=active
+# Тест 9: POST /api/v1/search — поиск по content_type
 # --------------------------------------------------------------------------
-log_info "Тест 9: POST /api/v1/search — фильтр status=active"
+log_info "Тест 9: POST /api/v1/search — фильтр content_type"
 response=$(http_post "$QM_URL" "$admin_token" "/api/v1/search" \
-    '{"limit":100,"offset":0,"status":"active"}')
+    '{"limit":100,"offset":0,"content_type":"application/octet-stream"}')
 code=$(get_response_code "$response")
 body=$(get_response_body "$response")
 
 if [[ "$code" == "200" ]]; then
     total=$(echo "$body" | jq -r '.total // 0')
-    # Проверяем, что все возвращённые файлы имеют status=active
-    non_active=$(echo "$body" | jq -r '[(.items // [])[] | select(.status != "active")] | length')
-    if [[ "$non_active" == "0" ]]; then
-        test_pass "Тест 9: status=active → total=${total}, все файлы active"
+    # Проверяем, что все возвращённые файлы имеют запрошенный content_type
+    wrong_type=$(echo "$body" | jq -r '[(.items // [])[] | select(.content_type != "application/octet-stream")] | length')
+    if [[ "$wrong_type" == "0" ]]; then
+        test_pass "Тест 9: content_type=application/octet-stream → total=${total}, все файлы корректны"
     else
-        test_fail "Тест 9: status=active → ${non_active} файлов с иным статусом"
+        test_fail "Тест 9: content_type filter → ${wrong_type} файлов с иным типом"
     fi
 else
-    test_fail "Тест 9: status=active → ожидался 200, получен ${code}"
+    test_fail "Тест 9: content_type filter → ожидался 200, получен ${code}"
 fi
 
 # --------------------------------------------------------------------------

@@ -36,15 +36,15 @@ if [[ -z "$admin_token" || "$admin_token" == "null" ]]; then
     exit 1
 fi
 
-# Находим первый активный файл через search
+# Находим первый файл через search
 search_response=$(http_post "$QM_URL" "$admin_token" "/api/v1/search" \
-    '{"limit":1,"offset":0,"status":"active"}')
+    '{"limit":1,"offset":0}')
 search_body=$(get_response_body "$search_response")
 file_id=$(echo "$search_body" | jq -r '.items[0].file_id // empty')
 filename=$(echo "$search_body" | jq -r '.items[0].original_filename // empty')
 
 if [[ -z "$file_id" ]]; then
-    log_warn "Нет активных файлов в БД. Пропускаю тесты download."
+    log_warn "Нет файлов в БД. Пропускаю тесты download."
     log_warn "Убедитесь, что init-data загрузил тестовые файлы."
     test_pass "Тест 13: (пропущен — нет файлов)"
     test_pass "Тест 14: (пропущен — нет файлов)"
@@ -143,7 +143,7 @@ log_info "Тест 17: GET /api/v1/files/{archived}/download → 410 Gone"
 
 # Ищем файл в архивном SE (se_mode=ar) через обычный поиск
 archived_response=$(http_post "$QM_URL" "$admin_token" "/api/v1/search" \
-    '{"limit":100,"offset":0,"status":"active"}')
+    '{"limit":100,"offset":0}')
 archived_body=$(get_response_body "$archived_response")
 # Находим первый файл с se_mode=ar через jq-фильтр
 archived_file_id=$(echo "$archived_body" | jq -r '[.items[] | select(.se_mode == "ar")][0].file_id // empty')

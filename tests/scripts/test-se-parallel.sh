@@ -238,8 +238,7 @@ if [[ -n "${FILE_ID_1:-}" ]]; then
 
     if [[ "$del_code" == "200" || "$del_code" == "204" ]]; then
         # Ждём index sync на pod-2
-        # SE делает soft delete (status: deleted), файл может быть виден с deleted=true
-        # или не виден (404) после index rebuild
+        # SE делает hard delete — файл физически удалён, после index rebuild → 404
         max_wait=45
         interval=5
         elapsed=0
@@ -253,21 +252,14 @@ if [[ -n "${FILE_ID_1:-}" ]]; then
                 gone=true
                 break
             fi
-            meta_body=$(get_response_body "$meta_response")
-            # SE soft delete: status=deleted или deleted_at заполнен
-            status=$(echo "$meta_body" | jq -r '.status // empty')
-            if [[ "$status" == "deleted" ]]; then
-                gone=true
-                break
-            fi
             sleep $interval
             elapsed=$((elapsed + interval))
         done
 
         if $gone; then
-            test_pass "Delete sync: файл удалён/marked deleted на pod-2 за ${elapsed}s"
+            test_pass "Delete sync: файл физически удалён на pod-2 за ${elapsed}s"
         else
-            test_fail "Delete sync: файл всё ещё active на pod-2 через ${max_wait}s"
+            test_fail "Delete sync: файл всё ещё виден на pod-2 через ${max_wait}s"
         fi
     else
         test_fail "Delete pod-1: ожидался 200/204, получен ${del_code}"

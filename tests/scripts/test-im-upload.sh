@@ -105,7 +105,6 @@ if [[ "$code" == "201" ]]; then
     checksum=$(echo "$body" | jq -r '.checksum // empty')
     se_id=$(echo "$body" | jq -r '.storage_element_id // empty')
     uploaded_by=$(echo "$body" | jq -r '.uploaded_by // empty')
-    status=$(echo "$body" | jq -r '.status // empty')
 
     if [[ -n "$file_id" && -n "$checksum" && -n "$se_id" && -n "$uploaded_by" ]]; then
         test_pass "Тест 7: Upload temporary → 201, file_id=${file_id}"
@@ -305,6 +304,47 @@ if [[ "$SKIP_CROSS_MODULE" == "false" ]]; then
 else
     echo ""
     echo "  >>> Cross-module тест (16) пропущен (--skip-cross-module)"
+fi
+
+# --------------------------------------------------------------------------
+# Тест 17: Hard delete через IM → файл удалён из SE и AM
+# --------------------------------------------------------------------------
+log_info "Тест 17: Hard delete через IM (SE + AM)"
+
+# Загружаем новый файл для удаления
+del_response=$(im_upload "$admin_token" "test-delete.bin" "temporary" "7")
+del_code=$(get_response_code "$del_response")
+del_body=$(get_response_body "$del_response")
+del_file_id=$(echo "$del_body" | jq -r '.file_id // empty')
+del_se_id=$(echo "$del_body" | jq -r '.storage_element_id // empty')
+
+if [[ "$del_code" == "201" && -n "$del_file_id" && -n "$del_se_id" ]]; then
+    # Удаляем через IM
+    im_del_response=$(http_delete "$IM_URL" "$admin_token" "/api/v1/files/${del_file_id}?storage_element_id=${del_se_id}")
+    im_del_code=$(get_response_code "$im_del_response")
+
+    if [[ "$im_del_code" == "204" || "$im_del_code" == "200" ]]; then
+        # Проверяем, что файл удалён из AM (GET → 404)
+        am_check=true
+        if [[ -n "$sa_token" && "$sa_token" != "null" ]]; then
+            am_resp=$(http_get "$AM_URL" "$sa_token" "/api/v1/files/${del_file_id}")
+            am_code=$(get_response_code "$am_resp")
+            if [[ "$am_code" != "404" ]]; then
+                am_check=false
+                log_fail "  AM: GET /api/v1/files/${del_file_id} → ${am_code} (ожидался 404)"
+            fi
+        fi
+
+        if $am_check; then
+            test_pass "Тест 17: Hard delete через IM → ${im_del_code}, файл удалён из AM (404)"
+        else
+            test_fail "Тест 17: Hard delete через IM → ${im_del_code}, но файл всё ещё в AM"
+        fi
+    else
+        test_fail "Тест 17: IM DELETE → ожидался 204/200, получен ${im_del_code}"
+    fi
+else
+    test_fail "Тест 17: не удалось загрузить тестовый файл для удаления (code=${del_code})"
 fi
 
 # --------------------------------------------------------------------------

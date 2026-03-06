@@ -524,7 +524,7 @@
 
 ### Подпункты
 
-- [ ] **7.1 Обновление интеграционных тестов**
+- [x] **7.1 Обновление интеграционных тестов**
   - **Dependencies**: None
   - **Description**:
     - Обновить bash-скрипты тестов AM: убрать тесты на `status` фильтрацию, soft delete
@@ -534,6 +534,13 @@
     - Добавить тесты: удаление через IM → проверить что файл удалён и на SE, и в AM
   - **Modifies**:
     - `tests/scripts/` (тестовые скрипты)
+  - **Edited**:
+    - `tests/scripts/test-am-files.sh` — тест 21: убрано `status=active`; тест 24: soft→hard delete (GET→404)
+    - `tests/scripts/test-qm-search.sh` — тест 9: `status=active` → `content_type` фильтр
+    - `tests/scripts/test-qm-download.sh` — убрано `"status":"active"` из search запросов
+    - `tests/scripts/test-se-parallel.sh` — тест 5: убрана проверка `status=deleted`, только 404
+    - `tests/scripts/test-im-upload.sh` — тест 7: убрано извлечение `status`; тест 17: добавлен hard delete через IM
+    - `tests/scripts/test-im-all.sh` — расширен диапазон тестов 7-16→7-17
 
 - [ ] **7.2 Сборка Docker-образов**
   - **Dependencies**: 7.1

@@ -5,7 +5,7 @@
 # Запускает все группы тестов IM последовательно:
 #   1-3:   Health & Metrics
 #   4-6:   Auth
-#   7-16:  Upload
+#   7-17:  Upload & Delete
 #
 # Аргументы:
 #   --skip-cross-module  Пропустить cross-module тест (16)
@@ -84,9 +84,9 @@ run_test_group "Health & Metrics (1-3)" "test-im-health.sh"
 run_test_group "Auth (4-6)" "test-im-auth.sh"
 
 if [[ -n "$UPLOAD_ARGS" ]]; then
-    run_test_group "Upload (7-16)" "test-im-upload.sh" "$UPLOAD_ARGS"
+    run_test_group "Upload & Delete (7-17)" "test-im-upload.sh" "$UPLOAD_ARGS"
 else
-    run_test_group "Upload (7-16)" "test-im-upload.sh"
+    run_test_group "Upload & Delete (7-17)" "test-im-upload.sh"
 fi
 
 # --- Итоговый отчёт ---
