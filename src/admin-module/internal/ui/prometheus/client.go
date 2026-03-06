@@ -86,8 +86,9 @@ func (c *Client) IsAvailable(ctx context.Context) bool {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	// Проверяем /api/v1/status/build
-	reqURL := baseURL + "/api/v1/status/build"
+	// Проверяем доступность через простой запрос /api/v1/query?query=1
+	// Совместимо с Prometheus и VictoriaMetrics (в отличие от /api/v1/status/build)
+	reqURL := baseURL + "/api/v1/query?query=1"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, http.NoBody)
 	if err != nil {
 		c.logger.Debug("Ошибка создания запроса к Prometheus", slog.String("error", err.Error()))
@@ -123,7 +124,7 @@ func (c *Client) QueryLatency(ctx context.Context, target string, period time.Du
 	step := c.calculateStep(period)
 
 	//nolint:gocritic // PromQL-запрос: кавычки должны быть двойные без экранирования
-	query := fmt.Sprintf(`rate(app_dependency_latency_seconds_sum{target="%s"}[5m]) / rate(app_dependency_latency_seconds_count{target="%s"}[5m])`, target, target)
+	query := fmt.Sprintf(`rate(app_dependency_latency_seconds_sum{dependency="%s"}[5m]) / rate(app_dependency_latency_seconds_count{dependency="%s"}[5m])`, target, target)
 
 	results, err := c.queryRange(ctx, query, period, step)
 	if err != nil {
@@ -147,7 +148,8 @@ func (c *Client) QueryAllLatencies(ctx context.Context, period time.Duration) ([
 
 	step := c.calculateStep(period)
 
-	query := `rate(app_dependency_latency_seconds_sum[5m]) / rate(app_dependency_latency_seconds_count[5m])`
+	// Фильтруем по name=admin-module, чтобы показывать только зависимости AM
+	query := `rate(app_dependency_latency_seconds_sum{name="admin-module"}[5m]) / rate(app_dependency_latency_seconds_count{name="admin-module"}[5m])`
 
 	results, err := c.queryRange(ctx, query, period, step)
 	if err != nil {
@@ -156,7 +158,7 @@ func (c *Client) QueryAllLatencies(ctx context.Context, period time.Duration) ([
 
 	var latencies []LatencyResult
 	for _, r := range results {
-		target := r.Metric["target"]
+		target := r.Metric["dependency"]
 		if target == "" {
 			continue
 		}
