@@ -37,11 +37,6 @@ const (
 	UploadResponseRetentionPolicyTemporary UploadResponseRetentionPolicy = "temporary"
 )
 
-// Defines values for UploadResponseStatus.
-const (
-	Active UploadResponseStatus = "active"
-)
-
 // Defines values for UploadFileMultipartBodyRetentionPolicy.
 const (
 	UploadFileMultipartBodyRetentionPolicyPermanent UploadFileMultipartBodyRetentionPolicy = "permanent"
@@ -153,9 +148,6 @@ type UploadResponse struct {
 	// Size Размер файла в байтах
 	Size int64 `json:"size"`
 
-	// Status Статус файла (всегда `active` при загрузке)
-	Status UploadResponseStatus `json:"status"`
-
 	// StorageElementId Идентификатор Storage Element, в который загружен файл
 	StorageElementId *openapi_types.UUID `json:"storage_element_id,omitempty"`
 
@@ -174,9 +166,6 @@ type UploadResponse struct {
 
 // UploadResponseRetentionPolicy Политика хранения
 type UploadResponseRetentionPolicy string
-
-// UploadResponseStatus Статус файла (всегда `active` при загрузке)
-type UploadResponseStatus string
 
 // FileId defines model for FileId.
 type FileId = openapi_types.UUID

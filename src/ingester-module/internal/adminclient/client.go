@@ -74,9 +74,8 @@ type FileRecord struct {
 	UploadedBy       string     `json:"uploaded_by"`
 	UploadedAt       time.Time  `json:"uploaded_at"`
 	Description      *string    `json:"description"`
-	Tags             []string   `json:"tags"`
-	Status           string     `json:"status"`
-	RetentionPolicy  string     `json:"retention_policy"`
+	Tags            []string   `json:"tags"`
+	RetentionPolicy string     `json:"retention_policy"`
 	TTLDays          *int       `json:"ttl_days"`
 	ExpiresAt        *time.Time `json:"expires_at"`
 }
@@ -228,7 +227,7 @@ func (c *Client) GetStorageElements(ctx context.Context, mode, status string) ([
 
 // RegisterFile регистрирует файл в реестре Admin Module.
 // POST /api/v1/files с телом FileRegisterRequest.
-// Возвращает FileRecord из AM (включая uploaded_at, status, expires_at).
+// Возвращает FileRecord из AM (включая uploaded_at, expires_at).
 func (c *Client) RegisterFile(ctx context.Context, fileReq FileRegisterRequest) (*FileRecord, error) {
 	reqURL := c.adminURL + "/api/v1/files"
 

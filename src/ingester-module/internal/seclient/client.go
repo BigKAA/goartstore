@@ -62,8 +62,6 @@ type UploadResult struct {
 	Description *string `json:"description"`
 	// Tags — теги файла (если переданы)
 	Tags []string `json:"tags"`
-	// Status — статус файла ("active")
-	Status string `json:"status"`
 }
 
 // Client — HTTP-клиент для загрузки файлов в Storage Elements.

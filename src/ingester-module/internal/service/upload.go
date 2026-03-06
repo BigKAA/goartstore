@@ -116,9 +116,8 @@ type UploadResponse struct {
 	UploadedBy       string
 	UploadedAt       time.Time
 	Description      *string
-	Tags             []string
-	Status           string
-	RetentionPolicy  string
+	Tags            []string
+	RetentionPolicy string
 	TTLDays          *int
 	ExpiresAt        *time.Time
 	StorageElementID string
@@ -413,9 +412,8 @@ func buildUploadResponse(
 		UploadedBy:       fileRecord.UploadedBy,
 		UploadedAt:       fileRecord.UploadedAt,
 		Description:      fileRecord.Description,
-		Tags:             fileRecord.Tags,
-		Status:           fileRecord.Status,
-		RetentionPolicy:  fileRecord.RetentionPolicy,
+		Tags:            fileRecord.Tags,
+		RetentionPolicy: fileRecord.RetentionPolicy,
 		TTLDays:          fileRecord.TTLDays,
 		ExpiresAt:        fileRecord.ExpiresAt,
 		StorageElementID: selectedSE.ID,

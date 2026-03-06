@@ -17,10 +17,10 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 5
-- **Активный подпункт**: 5.1
+- **Активная фаза**: Phase 6
+- **Активный подпункт**: 6.1
 - **Последнее обновление**: 2026-03-06
-- **Примечание**: Phases 1-4 завершены
+- **Примечание**: Phases 1-5 завершены
 
 ---
 
@@ -41,7 +41,7 @@
 - [x] [Phase 2: Storage Element](#phase-2-storage-element)
 - [x] [Phase 3: Admin Module](#phase-3-admin-module)
 - [x] [Phase 4: Query Module](#phase-4-query-module)
-- [ ] [Phase 5: Ingester Module](#phase-5-ingester-module)
+- [x] [Phase 5: Ingester Module](#phase-5-ingester-module)
 - [ ] [Phase 6: Demo Client](#phase-6-demo-client)
 - [ ] [Phase 7: Интеграционные тесты и сборка](#phase-7-интеграционные-тесты-и-сборка)
 
@@ -386,7 +386,7 @@
 ## Phase 5: Ingester Module
 
 **Dependencies**: Phase 1, Phase 3
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -394,7 +394,7 @@
 
 ### Подпункты
 
-- [ ] **5.1 Кодогенерация**
+- [x] **5.1 Кодогенерация**
   - **Dependencies**: None
   - **Description**:
     - Перегенерировать типы из обновлённого OpenAPI
@@ -402,7 +402,7 @@
     - `src/ingester-module/internal/api/generated/types.gen.go`
     - `src/ingester-module/internal/api/generated/server.gen.go`
 
-- [ ] **5.2 Сервис upload**
+- [x] **5.2 Сервис upload**
   - **Dependencies**: 5.1
   - **Description**:
     - Убрать `Status` из ответа upload (поле больше не существует)
@@ -411,7 +411,7 @@
     - `src/ingester-module/internal/service/upload.go`
     - `src/ingester-module/internal/api/handlers/upload.go`
 
-- [ ] **5.3 Delete flow**
+- [x] **5.3 Delete flow**
   - **Dependencies**: 5.1
   - **Description**:
     - При удалении файла: вызвать DELETE на SE (физическое удаление) + DELETE на AM (удаление записи)
@@ -421,14 +421,14 @@
     - `src/ingester-module/internal/service/` (delete-логика)
     - `src/ingester-module/internal/api/handlers/` (delete handler)
 
-- [ ] **5.4 Admin Client**
+- [x] **5.4 Admin Client**
   - **Dependencies**: 5.1
   - **Description**:
     - Убрать `Status` из `FileRecord` struct в adminclient
   - **Modifies**:
     - `src/ingester-module/internal/adminclient/client.go`
 
-- [ ] **5.5 Unit-тесты IM**
+- [x] **5.5 Unit-тесты IM**
   - **Dependencies**: 5.1–5.4
   - **Description**:
     - Обновить тесты upload: без status в ответе
@@ -438,10 +438,10 @@
 
 ### Критерии завершения Phase 5
 
-- [ ] Все подпункты завершены (5.1–5.5)
-- [ ] `go build ./...` и `go test ./...` проходят без ошибок
-- [ ] Upload ответ без `status`
-- [ ] Delete — hard delete (SE + AM)
+- [x] Все подпункты завершены (5.1–5.5)
+- [x] `go build ./...` и `go test ./...` проходят без ошибок
+- [x] Upload ответ без `status`
+- [x] Delete — hard delete (SE + AM)
 
 ---
 
