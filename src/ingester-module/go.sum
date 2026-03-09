@@ -1,5 +1,5 @@
-github.com/BigKAA/topologymetrics/sdk-go v0.8.0 h1:nKm1ycZpgr02t9E/9r2Lt9ADPBlJARAAbiuNhBJ6jnA=
-github.com/BigKAA/topologymetrics/sdk-go v0.8.0/go.mod h1:1N4zftfxofA7y2b+cGSofObEjTnyCSXFUZJvkMUrBRE=
+github.com/BigKAA/topologymetrics/sdk-go v0.8.1 h1:BM3iD0KCv11SIFfQWaaxPviHGXhgOQZ0yZYp+BaCTAU=
+github.com/BigKAA/topologymetrics/sdk-go v0.8.1/go.mod h1:1N4zftfxofA7y2b+cGSofObEjTnyCSXFUZJvkMUrBRE=
 github.com/MicahParks/jwkset v0.11.0 h1:yc0zG+jCvZpWgFDFmvs8/8jqqVBG9oyIbmBtmjOhoyQ=
 github.com/MicahParks/jwkset v0.11.0/go.mod h1:U2oRhRaLgDCLjtpGL2GseNKGmZtLs/3O7p+OZaL5vo0=
 github.com/MicahParks/keyfunc/v3 v3.8.0 h1:Hx2dgIjAXGk9slakM6rV9BOeaWDPEXXZ4Us8guNBfds=

@@ -1,7 +1,7 @@
 github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 h1:L/gRVlceqvL25UVaW/CKtUDjefjrs0SPonmDGUVOYP0=
 github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161/go.mod h1:xomTg63KZ2rFqZQzSB4Vz2SUXa1BpHTVz9L5PTmPC4E=
-github.com/BigKAA/topologymetrics/sdk-go v0.8.0 h1:nKm1ycZpgr02t9E/9r2Lt9ADPBlJARAAbiuNhBJ6jnA=
-github.com/BigKAA/topologymetrics/sdk-go v0.8.0/go.mod h1:1N4zftfxofA7y2b+cGSofObEjTnyCSXFUZJvkMUrBRE=
+github.com/BigKAA/topologymetrics/sdk-go v0.8.1 h1:BM3iD0KCv11SIFfQWaaxPviHGXhgOQZ0yZYp+BaCTAU=
+github.com/BigKAA/topologymetrics/sdk-go v0.8.1/go.mod h1:1N4zftfxofA7y2b+cGSofObEjTnyCSXFUZJvkMUrBRE=
 github.com/DATA-DOG/go-sqlmock v1.5.2 h1:OcvFkGmslmlZibjAjaHm3L//6LiuBgolP7OputlJIzU=
 github.com/DATA-DOG/go-sqlmock v1.5.2/go.mod h1:88MAG/4G7SMwSE3CeA0ZKzrT5CiOU3OJ+JlNzwDqpNU=
 github.com/MicahParks/jwkset v0.11.0 h1:yc0zG+jCvZpWgFDFmvs8/8jqqVBG9oyIbmBtmjOhoyQ=
