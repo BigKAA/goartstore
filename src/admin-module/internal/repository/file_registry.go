@@ -203,37 +203,50 @@ func (r *fileRegistryRepo) Delete(ctx context.Context, fileID string) error {
 	return nil
 }
 
-// BatchUpsert вставляет или обновляет файлы (INSERT ON CONFLICT UPDATE).
+// BatchUpsert вставляет или обновляет файлы (INSERT ON CONFLICT UPDATE) через pgx.Batch.
 // Используется при синхронизации файлового реестра с SE.
+// Все запросы отправляются одним round-trip к БД, что значительно быстрее
+// поштучного выполнения (O(1) round-trip вместо O(N)).
 // Возвращает количество добавленных и обновлённых записей.
 func (r *fileRegistryRepo) BatchUpsert(ctx context.Context, files []*model.FileRecord) (added, updated int, err error) {
 	if len(files) == 0 {
 		return 0, 0, nil
 	}
 
-	for _, f := range files {
-		query := `
-			INSERT INTO file_registry (file_id, original_filename, content_type, size, checksum,
-				storage_element_id, uploaded_by, uploaded_at, description, tags,
-				retention_policy, ttl_days, expires_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-			ON CONFLICT (file_id) DO UPDATE SET
-				original_filename = EXCLUDED.original_filename,
-				content_type = EXCLUDED.content_type,
-				size = EXCLUDED.size,
-				checksum = EXCLUDED.checksum,
-				description = EXCLUDED.description,
-				tags = EXCLUDED.tags
-			RETURNING (xmax = 0) AS is_insert`
+	query := `
+		INSERT INTO file_registry (file_id, original_filename, content_type, size, checksum,
+			storage_element_id, uploaded_by, uploaded_at, description, tags,
+			retention_policy, ttl_days, expires_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		ON CONFLICT (file_id) DO UPDATE SET
+			original_filename = EXCLUDED.original_filename,
+			content_type = EXCLUDED.content_type,
+			size = EXCLUDED.size,
+			checksum = EXCLUDED.checksum,
+			description = EXCLUDED.description,
+			tags = EXCLUDED.tags
+		RETURNING (xmax = 0) AS is_insert`
 
-		var isInsert bool
-		err := r.db.QueryRow(ctx, query,
+	batch := &pgx.Batch{}
+	for _, f := range files {
+		batch.Queue(query,
 			f.FileID, f.OriginalFilename, f.ContentType, f.Size, f.Checksum,
 			f.StorageElementID, f.UploadedBy, f.UploadedAt, f.Description, f.Tags,
 			f.RetentionPolicy, f.TTLDays, f.ExpiresAt,
-		).Scan(&isInsert)
-		if err != nil {
-			return added, updated, fmt.Errorf("ошибка upsert файла %s: %w", f.FileID, err)
+		)
+	}
+
+	br := r.db.SendBatch(ctx, batch)
+	defer func() {
+		if closeErr := br.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("ошибка закрытия batch: %w", closeErr)
+		}
+	}()
+
+	for i, f := range files {
+		var isInsert bool
+		if err := br.QueryRow().Scan(&isInsert); err != nil {
+			return added, updated, fmt.Errorf("ошибка upsert файла %s (индекс %d): %w", f.FileID, i, err)
 		}
 		if isInsert {
 			added++

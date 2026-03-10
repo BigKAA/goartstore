@@ -40,6 +40,14 @@ type Config struct {
 	DBPassword string
 	// Режим SSL: disable, require, verify-ca, verify-full
 	DBSSLMode string
+	// Максимальное количество соединений в пуле (0 = pgxpool default, обычно runtime.NumCPU()*4)
+	DBMaxConns int
+	// Минимальное количество соединений в пуле (0 = pgxpool default)
+	DBMinConns int
+	// Максимальное время жизни соединения (0 = без ограничений)
+	DBMaxConnLifetime time.Duration
+	// Максимальное время простоя соединения (0 = без ограничений)
+	DBMaxConnIdleTime time.Duration
 
 	// --- TLS ---
 
@@ -299,6 +307,36 @@ func Load() (*Config, error) {
 	}
 	if !validSSLModes[cfg.DBSSLMode] {
 		return nil, fmt.Errorf("AM_DB_SSL_MODE: недопустимое значение %q, допустимые: disable, require, verify-ca, verify-full", cfg.DBSSLMode)
+	}
+
+	// AM_DB_MAX_CONNS — максимальное количество соединений в пуле (0 = pgxpool default)
+	cfg.DBMaxConns, err = getEnvInt("AM_DB_MAX_CONNS", 0)
+	if err != nil {
+		return nil, fmt.Errorf("AM_DB_MAX_CONNS: %w", err)
+	}
+	if cfg.DBMaxConns < 0 {
+		return nil, fmt.Errorf("AM_DB_MAX_CONNS: значение должно быть >= 0")
+	}
+
+	// AM_DB_MIN_CONNS — минимальное количество соединений в пуле (0 = pgxpool default)
+	cfg.DBMinConns, err = getEnvInt("AM_DB_MIN_CONNS", 0)
+	if err != nil {
+		return nil, fmt.Errorf("AM_DB_MIN_CONNS: %w", err)
+	}
+	if cfg.DBMinConns < 0 {
+		return nil, fmt.Errorf("AM_DB_MIN_CONNS: значение должно быть >= 0")
+	}
+
+	// AM_DB_MAX_CONN_LIFETIME — максимальное время жизни соединения (по умолчанию 0 = без ограничений)
+	cfg.DBMaxConnLifetime, err = getEnvDuration("AM_DB_MAX_CONN_LIFETIME", 0)
+	if err != nil {
+		return nil, fmt.Errorf("AM_DB_MAX_CONN_LIFETIME: %w", err)
+	}
+
+	// AM_DB_MAX_CONN_IDLE_TIME — максимальное время простоя соединения (по умолчанию 0 = без ограничений)
+	cfg.DBMaxConnIdleTime, err = getEnvDuration("AM_DB_MAX_CONN_IDLE_TIME", 0)
+	if err != nil {
+		return nil, fmt.Errorf("AM_DB_MAX_CONN_IDLE_TIME: %w", err)
 	}
 
 	// --- Keycloak ---

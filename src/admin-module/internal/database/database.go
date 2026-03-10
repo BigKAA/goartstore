@@ -31,6 +31,20 @@ func Connect(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*pgx
 		return nil, fmt.Errorf("ошибка парсинга DSN: %w", err)
 	}
 
+	// Применяем настройки пула из конфигурации
+	if cfg.DBMaxConns > 0 {
+		poolCfg.MaxConns = int32(cfg.DBMaxConns)
+	}
+	if cfg.DBMinConns > 0 {
+		poolCfg.MinConns = int32(cfg.DBMinConns)
+	}
+	if cfg.DBMaxConnLifetime > 0 {
+		poolCfg.MaxConnLifetime = cfg.DBMaxConnLifetime
+	}
+	if cfg.DBMaxConnIdleTime > 0 {
+		poolCfg.MaxConnIdleTime = cfg.DBMaxConnIdleTime
+	}
+
 	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка создания пула подключений: %w", err)
