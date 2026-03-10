@@ -278,15 +278,6 @@ func TestRoleOverrideCRUD(t *testing.T) {
 		t.Errorf("После Upsert: AdditionalRole = %q, хотели %q", got2.AdditionalRole, "readonly")
 	}
 
-	// List
-	list, err := repo.List(ctx, 10, 0)
-	if err != nil {
-		t.Fatalf("List() ошибка: %v", err)
-	}
-	if len(list) != 1 {
-		t.Errorf("List() вернул %d записей, хотели 1", len(list))
-	}
-
 	// Delete
 	if err := repo.Delete(ctx, "kc-user-001"); err != nil {
 		t.Fatalf("Delete() ошибка: %v", err)

@@ -5,7 +5,6 @@ package static
 
 import (
 	"embed"
-	"io/fs"
 	"net/http"
 )
 
@@ -21,7 +20,3 @@ func FileSystem() http.FileSystem {
 	return http.FS(content)
 }
 
-// FS возвращает fs.FS для прямого доступа к встроенным файлам.
-func FS() fs.FS {
-	return content
-}

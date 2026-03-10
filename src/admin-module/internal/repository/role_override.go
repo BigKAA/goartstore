@@ -18,10 +18,6 @@ type RoleOverrideRepository interface {
 	GetByKeycloakUserID(ctx context.Context, keycloakUserID string) (*model.RoleOverride, error)
 	// Delete удаляет override по Keycloak user ID.
 	Delete(ctx context.Context, keycloakUserID string) error
-	// List возвращает все overrides (с пагинацией).
-	List(ctx context.Context, limit, offset int) ([]*model.RoleOverride, error)
-	// Count возвращает количество overrides.
-	Count(ctx context.Context) (int, error)
 }
 
 // roleOverrideRepo — реализация RoleOverrideRepository.
@@ -83,38 +79,3 @@ func (r *roleOverrideRepo) Delete(ctx context.Context, keycloakUserID string) er
 	return nil
 }
 
-func (r *roleOverrideRepo) List(ctx context.Context, limit, offset int) ([]*model.RoleOverride, error) {
-	query := fmt.Sprintf(`
-		SELECT %s
-		FROM role_overrides
-		ORDER BY created_at DESC
-		LIMIT $1 OFFSET $2`, roColumns)
-
-	rows, err := r.db.Query(ctx, query, limit, offset)
-	if err != nil {
-		return nil, fmt.Errorf("ошибка получения списка role overrides: %w", err)
-	}
-	defer rows.Close()
-
-	var result []*model.RoleOverride
-	for rows.Next() {
-		ro := &model.RoleOverride{}
-		if err := rows.Scan(
-			&ro.ID, &ro.KeycloakUserID, &ro.Username, &ro.AdditionalRole,
-			&ro.CreatedBy, &ro.CreatedAt, &ro.UpdatedAt,
-		); err != nil {
-			return nil, fmt.Errorf("ошибка сканирования role override: %w", err)
-		}
-		result = append(result, ro)
-	}
-	return result, rows.Err()
-}
-
-func (r *roleOverrideRepo) Count(ctx context.Context) (int, error) {
-	var count int
-	err := r.db.QueryRow(ctx, `SELECT COUNT(*) FROM role_overrides`).Scan(&count)
-	if err != nil {
-		return 0, fmt.Errorf("ошибка подсчёта role overrides: %w", err)
-	}
-	return count, nil
-}
