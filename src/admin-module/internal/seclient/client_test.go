@@ -190,7 +190,6 @@ func TestClient_ListFiles(t *testing.T) {
 					Checksum:         "sha256:abc123",
 					UploadedBy:       "user-1",
 					UploadedAt:       "2024-01-15T10:30:00Z",
-					Status:           "active",
 					RetentionPolicy:  "permanent",
 				},
 				{
@@ -201,7 +200,6 @@ func TestClient_ListFiles(t *testing.T) {
 					Checksum:         "sha256:def456",
 					UploadedBy:       "user-2",
 					UploadedAt:       "2024-01-16T14:00:00Z",
-					Status:           "active",
 					RetentionPolicy:  "temporary",
 					TTLDays:          intPtr(30),
 				},
